@@ -1,0 +1,34 @@
+{
+  "name": "signalsalesautomation",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "cross-env HEADLESS=false playwright test",
+    "test:smoke": "playwright test tests/e2e/smoke.spec.js --project=chrome",
+    "test:debug": "playwright test --debug",
+    "report": "playwright show-report",
+    "test:ui": "playwright test --ui",
+    "test:chromium": "playwright test --project=chrome",
+    "test:chrome": "playwright test --project=chrome",
+    "test:company": "playwright test tests/e2e/company-module.spec.js --project=chrome",
+    "test:company:headed": "cross-env HEADLESS=false playwright test tests/e2e/company-module.spec.js --project=chrome",
+    "test:deal": "playwright test tests/e2e/deal-module.spec.js --project=chrome",
+    "test:deal:headed": "cross-env HEADLESS=false playwright test tests/e2e/deal-module.spec.js --project=chrome",
+    "test:contact": "playwright test tests/e2e/contact-module.spec.js --project=chrome",
+    "test:contact:headed": "cross-env HEADLESS=false playwright test tests/e2e/contact-module.spec.js --project=chrome",
+    "test:login": "playwright test tests/e2e/login-module.spec.js --project=chrome",
+    "test:login:headed": "cross-env HEADLESS=false playwright test tests/e2e/login-module.spec.js --project=chrome",
+    "test:setup": "playwright test tests/setup/login.setup.js --project=chrome"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "cross-env": "^10.1.0",
+    "dotenv": "^17.3.1"
+  }
+}

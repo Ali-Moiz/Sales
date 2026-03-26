@@ -1,0 +1,13 @@
+node_modules/
+.env
+playwright-report/
+test-results/
+artifacts/
+reports/
+dist/
+.DS_Store
+playwright/.auth/
+.claude/
+.playwright-mcp/
+.tmp/
+tmp-*.png

@@ -1,0 +1,44 @@
+{
+  "siteName": "Playwright",
+
+  "contract": {
+    "_comment": "All date fields use offset-in-days from TODAY — no hardcoded date strings",
+
+    "e2eDealName": "Regression Phase 2",
+
+    "proposal": {
+      "startDateOffsetDays":   1,
+      "renewalDateOffsetDays": 7
+    },
+
+    "service": {
+      "serviceName":  "Automation Service 1",
+      "officerCount": "1",
+      "hourlyRate":   "15",
+      "jobDays":      ["Mon"],
+      "startTime":    { "hours": "08", "minutes": "00", "meridiem": "AM" },
+      "endTime":      { "hours": "05", "minutes": "00", "meridiem": "PM" }
+    },
+
+    "payment": {
+      "annualRateIncrease": "3",
+      "billingType":        "Pre Bill",
+      "contractType":       "Ongoing",
+      "billingFrequency":   "Weekly",
+      "paymentTerms":       "Net 30",
+      "paymentMethod":      "Bank Transfer",
+      "cycleRefDay":        "25",
+      "billingContact": {
+        "firstName": "Test",
+        "lastName":  "Automation",
+        "email":     "test.automation@example.com",
+        "phone":     "+15551234567"
+      }
+    },
+
+    "publish": {
+      "closeStatus":  "Closed Won",
+      "hubspotStage": "Closed Won (Sales Pipeline)"
+    }
+  }
+}
