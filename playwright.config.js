@@ -3,11 +3,11 @@ const dotenv = require('dotenv');
 
 dotenv.config({ quiet: true });
 
-const baseURL = process.env.BASE_URL || 'https://playwright.dev';
+const baseURL = process.env.BASE_URL || 'https://proud-desert-02abf6a10.1.azurestaticapps.net';
 const headless = (process.env.HEADLESS || 'true').toLowerCase() === 'true';
 
 module.exports = defineConfig({
-  testDir: './tests/e2e',
+  testDir: './tests',
   testMatch: '**/*.spec.js',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,

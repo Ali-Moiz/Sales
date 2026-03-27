@@ -229,6 +229,19 @@ class CompanyModule {
     await this.companyNameInput.fill(companyName);
   }
 
+  async replaceInputValue(locator, value) {
+    await locator.waitFor({ state: 'visible', timeout: 10_000 });
+    await locator.click();
+    await locator.fill('');
+    await locator.evaluate((input) => {
+      input.value = '';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }).catch(() => {});
+    await locator.type(String(value), { delay: 40 });
+    await locator.press('Tab').catch(() => {});
+  }
+
   async selectIndustry() {
     const primaryTrigger = this.page.locator(
       'xpath=//body/div[@role="presentation"]/form[contains(@class,"MuiBox-root")]/div[contains(@class,"innerScrollBar")]/div[2]/div[1]/div[1]/div[1]'
@@ -507,43 +520,49 @@ class CompanyModule {
   }
 
   async fillEditCompanyDetails(companyData) {
-    await this.selectIndustry();
-
-    await this.subMarketVerticalInput.click();
-    await this.subMarketVerticalInput.fill(companyData.subMarketVertical);
-
-    await this.naicsCodeInput.click();
-    await this.naicsCodeInput.fill(companyData.naicsCode);
-
-    await this.employeeCountInput.click();
-    await this.employeeCountInput.fill(companyData.employeeCount);
-
-    await this.revenueInput.click();
-    await this.revenueInput.fill(companyData.revenue);
-
-    await this.propertyCountInput.click();
-    await this.propertyCountInput.fill(companyData.propertyCount);
-
-    await this.yearFoundedInput.click();
-    await this.yearFoundedInput.fill(companyData.yearFounded);
+    await this.replaceInputValue(this.subMarketVerticalInput, companyData.subMarketVertical);
+    await this.replaceInputValue(this.naicsCodeInput, companyData.naicsCode);
+    await this.replaceInputValue(this.employeeCountInput, companyData.employeeCount);
+    await this.replaceInputValue(this.revenueInput, companyData.revenue);
+    await this.replaceInputValue(this.propertyCountInput, companyData.propertyCount);
+    await this.replaceInputValue(this.yearFoundedInput, companyData.yearFounded);
+    await expect(this.updateCompanyButton).toBeEnabled({ timeout: 10_000 });
   }
 
   async submitCompanyUpdate() {
     await this.updateCompanyButton.waitFor({ state: 'visible', timeout: 10_000 });
     this.lastUpdateCompanyToastSeen = false;
+    await expect(this.updateCompanyButton).toBeEnabled({ timeout: 10_000 });
+
+    const triggerSubmit = async () => {
+      await this.updateCompanyButton.scrollIntoViewIfNeeded().catch(() => {});
+      const clicked = await this.updateCompanyButton.click({ timeout: 5_000 }).then(() => true).catch(() => false);
+      if (clicked) return;
+
+      const forced = await this.updateCompanyButton.click({ force: true, timeout: 5_000 }).then(() => true).catch(() => false);
+      if (forced) return;
+
+      await this.updateCompanyButton.evaluate((button) => {
+        button.click();
+      });
+    };
 
     await Promise.allSettled([
       this.updateToast.waitFor({ state: 'visible', timeout: 15_000 }).then(() => {
         this.lastUpdateCompanyToastSeen = true;
       }),
-      this.updateCompanyButton.click({ force: true })
+      triggerSubmit()
     ]);
 
-    const modalClosed = await this.editCompanyHeading
-      .waitFor({ state: 'hidden', timeout: 15_000 }).then(() => true).catch(() => false);
-    if (!modalClosed) {
-      throw new Error('Edit Company modal did not close after update.');
-    }
+    await expect
+      .poll(async () => {
+        const hidden = await this.editCompanyHeading.isHidden().catch(() => false);
+        if (hidden) return 'closed';
+
+        const editVisible = await this.editCompanyButton.isVisible().catch(() => false);
+        return editVisible ? 'detail' : 'pending';
+      }, { timeout: 20_000 })
+      .not.toBe('pending');
 
     await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
   }

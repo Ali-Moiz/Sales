@@ -11,127 +11,151 @@ Requirements:
 - `data/credentials.js` mein valid `baseUrl`, `email`, aur `password`
 
 Commands:
-- Run company suite: `npm run test:company`
+- Run complete company suite: `npm run test:company`
 - Run company suite in headed mode: `npm run test:company:headed`
-- Run only page-open case: `npx playwright test tests/e2e/company-module.spec.js --project=chrome --grep "TC-COMP-001"`
-- Run only search-company case: `npx playwright test tests/e2e/company-module.spec.js --project=chrome --grep "TC-COMP-002"`
-- Run only activities case: `npx playwright test tests/e2e/company-module.spec.js --project=chrome --grep "TC-COMP-003"`
-- Run only edit-company case: `npx playwright test tests/e2e/company-module.spec.js --project=chrome --grep "TC-COMP-004"`
+- Run a single case: `npx playwright test tests/e2e/company-module.spec.js --project=chrome --grep "TC-COMP-00X"`
 - Show report: `npm run report`
+
+Latest verified result:
+- `npm run test:company`
+- Result: `15 passed`
 
 ## Overall flow
 
-Company suite shared login helper aur single session use karti hai:
-1. `beforeAll` mein browser context aur page banti hai.
-2. `performLogin(page)` sirf ek baar run hota hai.
-3. `CompanyModule` initialize hota hai.
-4. `TC-COMP-001` Companies module open karti hai.
-5. `TC-COMP-002` fixed company `A-C 6548` ko search karke detail page open karti hai.
-6. `TC-COMP-003` aur `TC-COMP-004` isi same company context par execute hoti hain; new company create nahi hoti.
+Company suite `serial` mode mein single session ke saath run hoti hai:
+1. `beforeAll` browser context aur page create karta hai.
+2. `performLogin(page)` sirf ek dafa execute hota hai.
+3. `CompanyModule` page object initialize hota hai.
+4. `targetCompanyName = "A-C 6548"` ko detail and edit scenarios mein reuse kiya jata hai.
+5. Existing 4 legacy cases ke baad 11 smoke cases same logged-in flow mein run hote hain.
 
-## Page object review
+## Current coverage
 
-`pages/company-module.js` ye locators aur helper methods provide karta hai:
-- `companiesMenuLink`: left-side `Companies` menu link
-- `createCompanyButton`: create company buttons
-- `createCompanyHeading`: modal heading
-- `companyNameInput`: `Add Company Name` textbox
-- `industryOption`: `Manufacturing` option
-- `addressInput`: `Type Address` field
-- `addressOption`: selected address suggestion
-- `companySearchInput`: companies list search field
-- `activitiesTab`: company detail activities tab
-- `successToast`: `Company Created Successfully` toast
+### Legacy cases
 
-Main methods:
-- `gotoCompaniesFromMenu()`: Companies page open karti hai
-- `assertCompaniesPageOpened()`: URL aur Create Company button verify karti hai
-- `openCreateCompanyModal()`: modal kholti hai
-- `fillCompanyName(companyName)`: company name fill karti hai
-- `selectIndustry()`: market vertical select karti hai
-- `fillAddress(address)`: address type aur suggestion select karti hai
-- `submitCreateCompany()`: modal ka create button click karti hai
-- `createCompany(...)`: full create-company flow run karti hai
-- `assertCompanyCreated()`: success condition verify karti hai
-- `openCompanyDetail(companyName)`: created company detail open karti hai
-- `assertCompanyDetailOpened(companyName)`: selected company detail page verify karti hai
-- `gotoActivitiesTab()`: Activities tab open karti hai
-- `assertCompanyCreationActivity(companyName)`: company creation activity verify karti hai
-- `generateRandomCompanyEditData()`: edit fields ke liye random numeric values banati hai
-- `updateCompanyDetails(companyData)`: company edit form fill aur submit karti hai
-- `openAboutCompanySection()`: about-company panel open karti hai
-- `assertAboutCompanyDetails(companyData)`: updated values verify karti hai
-
-## Test cases
-
-### TC-COMP-001 | Companies module opens successfully
+#### TC-COMP-001 | Companies module opens successfully
 Steps:
-1. `performLogin(page)` se login hota hai.
-2. `companyModule.gotoCompaniesFromMenu()` call hota hai.
-3. Companies URL verify hoti hai.
-4. `Create Company` button visible assert hota hai.
+1. Companies module open hoti hai.
+2. URL aur `Create Company` button verify hota hai.
 
 Expected:
-- User successfully Companies module par land kare.
-- Companies page ke core controls visible hon.
+- User Companies list page par successfully land kare.
 
-### TC-COMP-002 | User can search and open an existing company successfully
+#### TC-COMP-002 | User can search and open an existing company successfully
 Steps:
 1. Companies page open hoti hai.
-2. `Search by Company` field mein `A-C 6548` fill hota hai.
-3. Matching company row click karke detail page open hoti hai.
-4. Company heading `A-C 6548` visible assert hoti hai.
+2. `Search by Company` mein `A-C 6548` search hota hai.
+3. Matching company row open ki jati hai.
 
 Expected:
-- Existing company successfully search ho aur detail page open ho.
-- Baki company cases isi company ke against execute ho saken.
+- Target company detail page open ho.
 
-### TC-COMP-003 | Activities tab shows company creation activity for the searched company
+#### TC-COMP-003 | Activities tab shows company creation activity for the searched company
 Steps:
-1. `TC-COMP-002` se opened company detail context reuse hota hai.
-2. `Activities` tab open hoti hai.
-3. Activity stream mein `Company created by HubSpot ... A-C 6548 company` pattern match assert hota hai.
+1. Opened company detail par `Activities` tab kholi jati hai.
+2. Company creation activity text verify hota hai.
 
 Expected:
-- Searched company ke against creation activity visible ho.
-- Agar koi activity visible na ho to test fail ho.
+- Activity stream mein HubSpot creation activity visible ho.
 
-### TC-COMP-004 | User can edit the searched company and verify updated values in About this Company
+#### TC-COMP-004 | User can edit the searched company and verify updated values in About this Company
 Steps:
-1. `TC-COMP-002` se opened company detail context reuse hota hai.
-3. Random numeric values generate hoti hain for:
-   - `Sub Market Vertical`
-   - `NAICS Codes`
-   - `No. of Employees`
-   - `Revenue`
-   - `No Of Properties`
-   - `Year Founded`
-4. `Edit` button click hota hai.
-5. Saari fields random values ke saath update hoti hain.
-6. `Update Company` button click hota hai.
-7. `About this Company` section open hoti hai.
-8. About section mein har updated field same runtime value ke against verify hoti hai.
+1. `Edit` drawer open hota hai.
+2. Runtime-generated values `Sub Market Vertical`, `NAICS Codes`, `No. of Employees`, `Revenue`, `No Of Properties`, aur `Year Founded` mein overwrite ki jati hain.
+3. `Update Company` submit hota hai.
+4. `About this Company` section mein updated values verify hoti hain.
 
 Expected:
-- New company create kiye baghair wahi searched company update ho.
-- About section mein sari updated values exact runtime values se match karen.
-- Agar koi bhi value mismatch kare ya visible na ho to test fail ho.
+- Company update save ho aur displayed values newly entered values se match karein.
 
-## Stored runtime data
+### Smoke cases
 
-`tests/e2e/company-module.spec.js` mein:
-- fixed target company `A-C 6548` use hoti hai
-- whole module isi searched company ke against execute hota hai
-- edit case ke liye random updated values runtime object mein store hoti hain aur verification unhi values ke against hoti hai
+#### TC-COMP-005 | Companies table displays all expected column headers
+Expected columns:
+- `Company Name`
+- `Parent Company`
+- `Company Owner`
+- `Market Vertical`
+- `Sub Market Vertical`
+- `Revenue`
+- `Created Date`
+- `Last Modified Date`
 
-## Review notes
+#### TC-COMP-006 | Create Company modal opens with all required fields visible
+Expected:
+- `Create a New Company` heading visible ho.
+- `Add Company Name`, `Select Industry`, aur `Type Address` fields visible hon.
+- `Cancel` button visible ho.
 
-Observed behavior:
-- Whole company module suite single login session mein chalti hai.
-- Page-open aur search-company cases same session mein stable chalti hain.
-- Edit-company case random numeric values use karti hai aur revenue assertion `$` formatting handle karti hai.
+#### TC-COMP-007 | Create Company submit button is disabled without required fields
+Expected:
+- Empty modal state mein `Create Company` submit button disabled ho.
 
-Risks / fragile points:
-- Industry dropdown ka DOM brittle hai; current implementation fallback click/injection use karti hai.
-- Success state ab strict toast visibility par depend karti hai.
-- Address suggestion exact visible text par depend karti hai. Agar suggestion wording change hui to locator update karna padega.
+#### TC-COMP-008 | Cancel on Create Company modal closes it without creating a record
+Expected:
+- User temporary text type kare aur `Cancel` press kare to modal close ho jaye.
+
+#### TC-COMP-009 | Searching with a non-existent company name returns no results
+Expected:
+- Random unmatched search ke baad result set empty state / no visible match show kare.
+
+#### TC-COMP-010 | Market Vertical filter dropdown shows all correct options
+Expected options:
+- `Commercial`
+- `Distribution`
+- `Industrial`
+- `Manufacturing`
+- `Residential`
+
+#### TC-COMP-011 | Company detail page shows all sidebar sections
+Expected sections:
+- `About this Company`
+- `Properties`
+- `Deals`
+- `Contacts`
+- `Attachments`
+
+#### TC-COMP-012 | Notes tab is visible and Create New Note drawer opens with correct fields
+Expected:
+- `Notes` tab visible ho.
+- `Create New Note` button visible ho.
+- Drawer mein `Add Notes`, subject input, `rdw-editor`, char counter, `Save`, aur `Cancel` visible hon.
+
+#### TC-COMP-013 | Tasks tab shows correct columns, New Task button, and empty state
+Expected:
+- Tasks table columns visible hon: `Task Title`, `Task Description`, `Created By`, `Due Date`, `Priority`, `Type`
+- `New Task` button visible ho.
+- Empty state `No tasks Added.` visible ho.
+
+#### TC-COMP-014 | Create New Task drawer opens with all required fields
+Expected:
+- `Create New Task` drawer open ho.
+- `Task Title`, `rdw-editor`, `Select Type`, `Select Priority`, `Save`, aur `Cancel` visible hon.
+
+#### TC-COMP-015 | Edit Company form opens with pre-filled data and Update button is disabled without changes
+Expected:
+- `Edit Company` drawer open ho.
+- Existing values pre-filled hon.
+- Kisi change ke baghair `Update Company` disabled ho.
+
+## Page object notes
+
+Important helpers in `pages/company-module.js`:
+- `gotoCompaniesFromMenu()` Companies page open karti hai.
+- `openCompanyDetail(companyName)` search karke target company detail open karti hai.
+- `updateCompanyDetails(companyData)` edit drawer open, overwrite, aur submit flow run karti hai.
+- `assertAboutCompanyDetails(companyData)` saved values ko About section mein verify karti hai.
+- `openCreateCompanyModal()`, `assertCreateCompanyModalOpen()`, `assertCreateCompanySubmitDisabled()`, `cancelCreateCompanyModal()` create modal smoke coverage handle karte hain.
+- `gotoNotesTab()` / `openCreateNoteDrawer()` notes flow verify karte hain.
+- `gotoTasksTab()` / `openCreateTaskDrawer()` tasks flow verify karte hain.
+
+## Stability notes
+
+Observed stable behavior:
+- Full company suite 2026-03-26 ko successful run hui.
+- Edit Company numeric fields ko overwrite karne ke liye direct clear + type + blur strategy reliable rahi.
+- Update submit ke baad UI return-state par poll karna strict modal-hidden check se zyada stable raha.
+
+Known fragile areas:
+- `Select Industry` dropdown custom component hai; DOM changes par locator updates ki zarurat par sakti hai.
+- Address field Google suggestion based hai; suggestion text ya provider behavior change ho to locator refresh karna padega.

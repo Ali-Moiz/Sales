@@ -166,40 +166,93 @@ class DealModule {
     expect(infoText).toMatch(/\d+–\d+ of \d+/);
   }
 
-  async searchDeal(term) {
-    await this.dealSearchInput.waitFor({ state: 'visible', timeout: 10_000 });
-    await this.dealSearchInput.fill(term);
-    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
-    await this.page.waitForTimeout(1_000);
+  normalizeText(value) {
+    return (value || '').replace(/\s+/g, ' ').trim();
   }
 
-  async assertSearchShowsNoResults(searchTerm = '') {
+  async getDealSearchState(searchTerm = this.lastSearchTerm) {
     const emptyStateHeading = this.page.getByRole('heading', { name: 'No Record Found', level: 2 });
+    const tableBody = this.page.locator('table tbody');
+
     const emptyStateVisible = await emptyStateHeading.isVisible().catch(() => false);
     if (emptyStateVisible) {
-      await expect(emptyStateHeading).toBeVisible({ timeout: 10_000 });
-      return;
+      return { type: 'empty', paginationText: '' };
     }
 
-    const text = await this.paginationInfo.textContent().catch(() => '');
-    if (/0–0 of 0/.test(text)) {
-      return;
+    const paginationText = this.normalizeText(
+      await this.paginationInfo.textContent().catch(() => '')
+    );
+    if (/0–0 of 0/.test(paginationText)) {
+      return { type: 'zero-results', paginationText };
     }
 
     if (searchTerm) {
-      await expect(
-        this.page.locator('table tbody').getByText(searchTerm, { exact: false })
-      ).toHaveCount(0, { timeout: 10_000 });
-      return;
+      const remainingMatches = await tableBody
+        .getByText(searchTerm, { exact: false })
+        .count()
+        .catch(() => 0);
+      if (remainingMatches === 0) {
+        return { type: 'no-match', paginationText };
+      }
     }
 
-    throw new Error(`Expected no-results state, but pagination was "${text}"`);
+    return { type: 'pending', paginationText };
+  }
+
+  async waitForDealSearchToApply(term, previousPaginationText = '') {
+    const emptyStateHeading = this.page.getByRole('heading', { name: 'No Record Found', level: 2 });
+    const tableBody = this.page.locator('table tbody');
+
+    await expect
+      .poll(async () => {
+        const emptyStateVisible = await emptyStateHeading.isVisible().catch(() => false);
+        if (emptyStateVisible) return 'empty';
+
+        const paginationText = this.normalizeText(
+          await this.paginationInfo.textContent().catch(() => '')
+        );
+        if (/0–0 of 0/.test(paginationText)) return 'zero-results';
+        if (paginationText && paginationText !== previousPaginationText) return 'pagination-changed';
+
+        if (term) {
+          const visibleMatches = await tableBody
+            .getByText(term, { exact: false })
+            .count()
+            .catch(() => 0);
+          if (visibleMatches > 0) return 'match-visible';
+        }
+
+        return 'pending';
+      }, { timeout: 15_000 })
+      .not.toBe('pending');
+  }
+
+  async searchDeal(term) {
+    this.lastSearchTerm = term;
+    await this.dealSearchInput.waitFor({ state: 'visible', timeout: 10_000 });
+    const previousPaginationText = this.normalizeText(
+      await this.paginationInfo.textContent().catch(() => '')
+    );
+    await this.dealSearchInput.fill(term);
+    await this.dealSearchInput.press('Enter').catch(() => {});
+    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+    await this.waitForDealSearchToApply(term, previousPaginationText);
+  }
+
+  async assertSearchShowsNoResults(searchTerm = this.lastSearchTerm) {
+    await expect
+      .poll(async () => (await this.getDealSearchState(searchTerm)).type, { timeout: 15_000 })
+      .toMatch(/^(empty|zero-results|no-match)$/);
   }
 
   async clearDealSearch() {
+    const previousPaginationText = this.normalizeText(
+      await this.paginationInfo.textContent().catch(() => '')
+    );
     await this.dealSearchInput.clear();
+    await this.dealSearchInput.press('Enter').catch(() => {});
     await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
-    await this.page.waitForTimeout(500);
+    await this.waitForDealSearchToApply('', previousPaginationText);
   }
 
   // ── Create Deal ───────────────────────────────────────────────────────
@@ -296,9 +349,13 @@ class DealModule {
 
   async openDealDetail(dealName) {
     await this.dealSearchInput.waitFor({ state: 'visible', timeout: 10_000 });
+    const previousPaginationText = this.normalizeText(
+      await this.paginationInfo.textContent().catch(() => '')
+    );
     await this.dealSearchInput.fill(dealName);
+    await this.dealSearchInput.press('Enter').catch(() => {});
     await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
-    await this.page.waitForTimeout(1_500);
+    await this.waitForDealSearchToApply(dealName, previousPaginationText);
     const dealRow = this.page.getByText(dealName, { exact: true }).first();
     await dealRow.waitFor({ state: 'visible', timeout: 10_000 });
     await dealRow.click({ force: true });
