@@ -77,12 +77,20 @@ test.describe('Tasks Module – Smoke Tests', () => {
   test('TC-TASK-003: Empty state shown when no tasks exist', async () => {
     await taskPage.navigateToTasks();
 
+<<<<<<< ours
     // Global tasks page shows empty for this user (API returns 0 tasks)
+=======
+>>>>>>> theirs
     const paginationText = await taskPage.getPaginationText();
     if (paginationText?.includes('0–0 of 0')) {
       await expect(taskPage.emptyStateHeading).toBeVisible();
     } else {
+<<<<<<< ours
       test.skip(); // skip if tasks already exist
+=======
+      const visibleRows = await taskPage.tableBody.locator('tr').count();
+      expect(visibleRows).toBeGreaterThan(0);
+>>>>>>> theirs
     }
   });
 

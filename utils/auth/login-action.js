@@ -4,11 +4,40 @@ const {
   disableSliderImageBlocking
 } = require('./slider-image-blocker');
 
+async function gotoBaseUrl(page) {
+  const homeUrl = `${credentials.baseUrl}/`;
+
+  const domLoaded = await page
+    .goto(homeUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 })
+    .then(() => true)
+    .catch(() => false);
+
+  if (domLoaded) {
+    return;
+  }
+
+  const committed = await page
+    .goto(homeUrl, { waitUntil: 'commit', timeout: 60_000 })
+    .then(() => true)
+    .catch(() => false);
+
+  if (committed) {
+    await page.waitForLoadState('domcontentloaded', { timeout: 20_000 }).catch(() => {});
+    return;
+  }
+
+  await page.goto(`${credentials.baseUrl}/login`, {
+    waitUntil: 'commit',
+    timeout: 60_000,
+  });
+  await page.waitForLoadState('domcontentloaded', { timeout: 20_000 }).catch(() => {});
+}
+
 async function performLoginAttempt(page) {
   await enableSliderImageBlocking(page);
 
   try {
-    await page.goto(`${credentials.baseUrl}/`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+    await gotoBaseUrl(page);
 
     const loginCandidates = [
       page.getByRole('button', { name: /^Login$/i }).first(),
@@ -109,7 +138,7 @@ async function performLogin(page, { attempts = 2 } = {}) {
       lastError = error;
       if (attempt === attempts) break;
 
-      await page.goto(`${credentials.baseUrl}/`, { waitUntil: 'domcontentloaded', timeout: 60_000 }).catch(() => {});
+      await gotoBaseUrl(page).catch(() => {});
       await page.waitForTimeout(2_000);
     }
   }

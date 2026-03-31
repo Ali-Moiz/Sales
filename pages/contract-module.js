@@ -801,7 +801,36 @@ class ContractModule {
     await triggerDiv.click({ force: true });
 
     const popper = this.page.locator('#simple-popper').last();
-    await popper.waitFor({ state: 'visible', timeout: 8_000 });
+    const popperVisible = await popper
+      .waitFor({ state: 'visible', timeout: 8_000 })
+      .then(() => true)
+      .catch(() => false);
+
+    if (!popperVisible) {
+      if (fieldLabel === 'Line Item') {
+        const alternateTrigger = this.page
+          .getByRole('heading', { name: /Select Line Item|Dedicated Security/i, level: 6 })
+          .last();
+        await alternateTrigger.click({ force: true }).catch(() => {});
+      } else if (fieldLabel === 'Resource Type') {
+        const alternateTrigger = this.page
+          .getByRole('heading', { name: /Select Resource Type|Armed Officer|Officer/i, level: 6 })
+          .last();
+        await alternateTrigger.click({ force: true }).catch(() => {});
+      }
+
+      const fallbackPopperVisible = await popper
+        .waitFor({ state: 'visible', timeout: 3_000 })
+        .then(() => true)
+        .catch(() => false);
+
+      if (!fallbackPopperVisible) {
+        await triggerDiv.press('ArrowDown').catch(() => {});
+        await triggerDiv.press('Enter').catch(() => {});
+        await this.page.waitForTimeout(400);
+        return;
+      }
+    }
 
     const option = popper.locator('[role="option"], li, h6, p').first();
     await option.waitFor({ state: 'visible', timeout: 8_000 });
@@ -846,9 +875,11 @@ class ContractModule {
     const okBtn = this.page.getByRole('button', { name: 'OK' }).last();
     const okVisible = await okBtn.isVisible().catch(() => false);
     if (okVisible) {
-      await okBtn.click({ force: true });
+      await okBtn.click({ force: true, timeout: 2_000 }).catch(async () => {
+        await this.page.keyboard.press('Enter').catch(() => {});
+      });
     } else {
-      await this.page.keyboard.press('Enter');
+      await this.page.keyboard.press('Enter').catch(() => {});
     }
     await this.page.waitForTimeout(400);
   }

@@ -17,30 +17,136 @@
 
 const { test, expect } = require('@playwright/test');
 const { DealModule }   = require('../../pages/deal-module');
+const { PropertyModule } = require('../../pages/property-module');
 const { performLogin } = require('../../utils/auth/login-action');
-const { writeCreatedDealName } = require('../../utils/shared-run-state');
+const {
+  readCreatedCompanyName,
+  readCreatedPropertyCompanyName,
+  readCreatedPropertyName,
+  writeCreatedPropertyCompanyName,
+  writeCreatedPropertyName,
+  writeCreatedDealName,
+} = require('../../utils/shared-run-state');
+const { registerNotesTasksSuite } = require('../helpers/register-notes-tasks-suite');
 
 test.describe.serial('Deal Module', () => {
+  const sharedPropertyName =
+    process.env.DEAL_TEST_PROPERTY ||
+    process.env.CREATED_PROPERTY_NAME ||
+    readCreatedPropertyName() ||
+    '';
+  const sharedPropertyCompanyName =
+    process.env.CREATED_PROPERTY_COMPANY_NAME ||
+    readCreatedPropertyCompanyName() ||
+    (sharedPropertyName ? 'Regression Phase' : '');
+
   // Dynamic — populated by preceding suites via env vars, or fallback for standalone run
   const targetCompanyName =
     process.env.DEAL_TEST_COMPANY ||
+    sharedPropertyCompanyName ||
     process.env.CREATED_COMPANY_NAME ||
+    readCreatedCompanyName() ||
     'Regression Phase 2';
   const targetPropertyName =
-    process.env.DEAL_TEST_PROPERTY ||
-    process.env.CREATED_PROPERTY_NAME ||
+    sharedPropertyName ||
     'Regression Location Phase 2';
 
   let context;
   let page;
   let dealModule;
+  let propertyModule;
   let createdDealName;
+  let resolvedTargetCompanyName = targetCompanyName;
+  let resolvedTargetPropertyName = targetPropertyName;
+
+  async function ensureValidDealDependencies() {
+    if (resolvedTargetPropertyName && resolvedTargetCompanyName) {
+      await dealModule.openCreateDealModal();
+      await dealModule.assertCreateDealDrawerOpen();
+
+      const companyVisible = await dealModule
+        .selectCompany(resolvedTargetCompanyName.substring(0, 4), resolvedTargetCompanyName)
+        .then(() => true)
+        .catch(() => false);
+
+      if (companyVisible) {
+        const propertyVisible = await dealModule
+          .selectProperty(resolvedTargetPropertyName.substring(0, 6), resolvedTargetPropertyName)
+          .then(() => true)
+          .catch(() => false);
+
+        if (propertyVisible) {
+          await dealModule.cancelCreateDeal();
+          await dealModule.assertCreateDealDrawerClosed();
+          return;
+        }
+      }
+
+      await dealModule.cancelCreateDeal().catch(() => {});
+      await dealModule.assertCreateDealDrawerClosed().catch(() => {});
+    }
+
+    resolvedTargetCompanyName =
+      process.env.CREATED_COMPANY_NAME ||
+      readCreatedCompanyName() ||
+      resolvedTargetCompanyName;
+
+    resolvedTargetPropertyName = propertyModule.generateUniquePropertyName();
+    await propertyModule.gotoPropertiesFromMenu();
+    await propertyModule.assertPropertiesPageOpened();
+    await propertyModule.createProperty({
+      propertyName: resolvedTargetPropertyName,
+      companyName: resolvedTargetCompanyName,
+    });
+    await propertyModule.assertPropertyCreated();
+
+    process.env.CREATED_PROPERTY_NAME = resolvedTargetPropertyName;
+    process.env.CREATED_PROPERTY_COMPANY_NAME = resolvedTargetCompanyName;
+    writeCreatedPropertyName(resolvedTargetPropertyName);
+    writeCreatedPropertyCompanyName(resolvedTargetCompanyName);
+
+    await dealModule.gotoDealsFromMenu();
+    await dealModule.assertDealsPageOpened();
+  }
+
+  async function ensureCreatedDealExists() {
+    if (createdDealName) {
+      return createdDealName;
+    }
+
+    await ensureValidDealDependencies();
+    createdDealName = dealModule.generateUniqueDealName();
+
+    await dealModule.createDeal({
+      dealName: createdDealName,
+      companySearchText:  resolvedTargetCompanyName.substring(0, 4),
+      companyOptionText:  resolvedTargetCompanyName,
+      propertySearchText: resolvedTargetPropertyName.substring(0, 6),
+      propertyOptionText: resolvedTargetPropertyName
+    });
+
+    await dealModule.assertDealCreated();
+    process.env.CREATED_DEAL_NAME = createdDealName;
+    writeCreatedDealName(createdDealName);
+    await dealModule.gotoDealsFromMenu();
+    await dealModule.assertDealsPageOpened();
+    return createdDealName;
+  }
+
+  async function openCreatedDealDetail() {
+    const dealName = await ensureCreatedDealExists();
+    await dealModule.gotoDealsFromMenu();
+    await dealModule.assertDealsPageOpened();
+    await dealModule.openDealDetail(dealName);
+    await dealModule.assertDealDetailOpened(dealName);
+  }
 
   test.beforeAll(async ({ browser }) => {
     test.setTimeout(180_000);
     context    = await browser.newContext();
     page       = await context.newPage();
     dealModule = new DealModule(page);
+    propertyModule = new PropertyModule(page);
     await performLogin(page);
   });
 
@@ -65,16 +171,18 @@ test.describe.serial('Deal Module', () => {
   test('TC-DEAL-002 | User can create a deal successfully', async () => {
     test.setTimeout(180_000);
     createdDealName = dealModule.generateUniqueDealName();
+    await ensureValidDealDependencies();
 
     await dealModule.createDeal({
       dealName: createdDealName,
-      companySearchText:  targetCompanyName.substring(0, 4),
-      companyOptionText:  targetCompanyName,
-      propertySearchText: targetPropertyName.substring(0, 6),
-      propertyOptionText: targetPropertyName
+      companySearchText:  resolvedTargetCompanyName.substring(0, 4),
+      companyOptionText:  resolvedTargetCompanyName,
+      propertySearchText: resolvedTargetPropertyName.substring(0, 6),
+      propertyOptionText: resolvedTargetPropertyName
     });
 
     await dealModule.assertDealCreated();
+    process.env.CREATED_DEAL_NAME = createdDealName;
     writeCreatedDealName(createdDealName);
   });
 
@@ -149,11 +257,11 @@ test.describe.serial('Deal Module', () => {
     await tooltip.waitFor({ state: 'visible', timeout: 10_000 });
 
     const searchBox = tooltip.getByRole('textbox', { name: 'Search' });
-    await searchBox.fill(targetCompanyName);
+    await searchBox.fill(resolvedTargetCompanyName);
     await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
     await page.waitForTimeout(1_000);
 
-    const matchingResult = tooltip.getByText(targetCompanyName, { exact: false }).first();
+    const matchingResult = tooltip.getByText(resolvedTargetCompanyName, { exact: false }).first();
     await expect(matchingResult).toBeVisible({ timeout: 10_000 });
 
     await page.keyboard.press('Escape');
@@ -178,7 +286,7 @@ test.describe.serial('Deal Module', () => {
     await dealModule.openCreateDealModal();
     await dealModule.assertCreateDealDrawerOpen();
     // Select company first — property dropdown requires a company to be selected
-    await dealModule.selectCompany(targetCompanyName.substring(0, 4), targetCompanyName);
+    await dealModule.selectCompany(resolvedTargetCompanyName.substring(0, 4), resolvedTargetCompanyName);
     await page.waitForTimeout(2_000);
 
     await dealModule.propertySelector.click({ force: true });
@@ -187,11 +295,11 @@ test.describe.serial('Deal Module', () => {
     await tooltip.waitFor({ state: 'visible', timeout: 10_000 });
 
     const searchBox = tooltip.getByRole('textbox', { name: 'Search' });
-    await searchBox.fill(targetPropertyName);
+    await searchBox.fill(resolvedTargetPropertyName);
     await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
     await page.waitForTimeout(1_000);
 
-    const matchingResult = tooltip.getByText(targetPropertyName, { exact: false }).first();
+    const matchingResult = tooltip.getByText(resolvedTargetPropertyName, { exact: false }).first();
     await expect(matchingResult).toBeVisible({ timeout: 10_000 });
 
     await page.keyboard.press('Escape');
@@ -386,5 +494,122 @@ test.describe.serial('Deal Module', () => {
     await dealModule.searchDeal('zzz_no_match_deal_xyz_99999');
     await dealModule.assertSearchShowsNoResults();
     await dealModule.clearDealSearch();
+  });
+
+  // ══════════════════════════════════════════════════════════════════════
+  //  EDIT DEAL SMOKE TESTS
+  // ══════════════════════════════════════════════════════════════════════
+
+  /**
+   * TC-DEAL-018 | Edit Deal form opens with pre-filled data; Save disabled without changes
+   *
+   * Preconditions: Deal from TC-DEAL-002 exists; user is on deal detail page
+   * Steps:
+   *   1. Navigate to Deals list
+   *   2. Search for and open the created deal
+   *   3. Click the "Edit" button on the detail header
+   * Expected:
+   *   - "Edit Deal" drawer (heading level=3) is visible
+   *   - Deal Name field is visible and pre-filled with current deal name
+   *   - Save/Update button is disabled until a change is made
+   *   - Cancel button is visible
+   * Priority: P1 — High
+   */
+  test('TC-DEAL-018 | Edit Deal form opens pre-filled; Save disabled without changes', async () => {
+    test.setTimeout(180_000);
+    await ensureCreatedDealExists();
+    await dealModule.openDealDetail(createdDealName);
+    await dealModule.assertDealDetailOpened(createdDealName);
+
+    await dealModule.openEditDealForm();
+    await dealModule.assertEditDealFormOpen();
+    await dealModule.assertSaveDealBtnDisabled();
+
+    // Verify the name field is pre-filled with current deal name
+    await expect(dealModule.editDealNameInput).toHaveValue(
+      new RegExp(createdDealName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'),
+      { timeout: 5_000 }
+    );
+
+    await dealModule.cancelEditDealForm();
+    await dealModule.assertEditDealFormClosed();
+  });
+
+  /**
+   * TC-DEAL-019 | Cancel Edit Deal closes drawer without saving changes
+   *
+   * Preconditions: Deal from TC-DEAL-002 exists; user is on deal detail page
+   * Steps:
+   *   1. Open deal detail
+   *   2. Click Edit
+   *   3. Clear deal name and type a temporary name
+   *   4. Click Cancel
+   * Expected:
+   *   - Edit Deal drawer closes
+   *   - Detail page still shows original deal name (not the temporary one)
+   * Priority: P1 — High
+   */
+  test('TC-DEAL-019 | Cancel Edit Deal closes drawer without saving changes', async () => {
+    test.setTimeout(180_000);
+    const cancelledName = `SHOULD NOT SAVE ${String(Date.now()).slice(-4)}`;
+
+    await ensureCreatedDealExists();
+    await dealModule.openDealDetail(createdDealName);
+    await dealModule.assertDealDetailOpened(createdDealName);
+
+    await dealModule.openEditDealForm();
+    await dealModule.editDealNameInput.fill(cancelledName);
+
+    await dealModule.cancelEditDealForm();
+    await dealModule.assertEditDealFormClosed();
+
+    // Original deal name heading must still be visible — not the cancelled name
+    await expect(
+      page.getByRole('heading', { name: new RegExp(createdDealName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }).first()
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page.getByText(cancelledName, { exact: true }).first()
+    ).not.toBeVisible({ timeout: 5_000 });
+  });
+
+  /**
+   * TC-DEAL-020 | User can edit deal name and verify updated name on detail page
+   *
+   * Preconditions: Deal from TC-DEAL-002 exists; user is on deal detail page
+   * Steps:
+   *   1. Open deal detail
+   *   2. Click Edit
+   *   3. Clear Deal Name and fill with a unique edited name
+   *   4. Submit (Save/Update)
+   * Expected:
+   *   - Edit drawer closes after submission
+   *   - Deal detail page heading shows the new (updated) name
+   * Priority: P0 — Critical
+   */
+  test('TC-DEAL-020 | User can edit deal name and verify updated name on detail page', async () => {
+    test.setTimeout(180_000);
+    const editedDealName = dealModule.generateUniqueEditedDealName();
+
+    await ensureCreatedDealExists();
+    await dealModule.openDealDetail(createdDealName);
+    await dealModule.assertDealDetailOpened(createdDealName);
+
+    await dealModule.editDealName(editedDealName);
+    await dealModule.assertEditDealFormClosed();
+
+    // Verify updated name is reflected on the detail page heading
+    await expect(
+      page.getByRole('heading', { name: new RegExp(editedDealName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }).first()
+    ).toBeVisible({ timeout: 15_000 });
+
+    // Carry edited name forward for subsequent tests
+    createdDealName = editedDealName;
+  });
+
+  registerNotesTasksSuite({
+    test,
+    moduleName: 'Deal',
+    getPage: () => page,
+    openEntityDetail: openCreatedDealDetail,
   });
 });

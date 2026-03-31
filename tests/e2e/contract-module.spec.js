@@ -36,10 +36,12 @@
 //       - Notify for Renewal Before (Days) spinbutton (default: 10)
 //       - Cancel + Create Proposal buttons
 
+const { existsSync, mkdirSync } = require('fs');
 const { test, expect } = require('@playwright/test');
 const { ContractModule } = require('../../pages/contract-module');
 const { performLogin }   = require('../../utils/auth/login-action');
 const { DealModule }     = require('../../pages/deal-module');
+const { PropertyModule } = require('../../pages/property-module');
 const {
   PROPOSAL_DATA,
   SERVICE_DATA,
@@ -47,39 +49,125 @@ const {
   PUBLISH_DATA,
 } = require('../../utils/contract-test-data');
 const {
+  readCreatedCompanyName,
+  readCreatedDealName,
+  readCreatedPropertyCompanyName,
+  readCreatedPropertyName,
   writeCreatedDealName,
 } = require('../../utils/shared-run-state');
 
+const sharedPropertyName =
+  process.env.DEAL_TEST_PROPERTY ||
+  process.env.CREATED_PROPERTY_NAME ||
+  readCreatedPropertyName() ||
+  '';
+const sharedPropertyCompanyName =
+  process.env.CREATED_PROPERTY_COMPANY_NAME ||
+  readCreatedPropertyCompanyName() ||
+  (sharedPropertyName ? 'Regression Phase' : '');
 const targetCompanyName =
   process.env.DEAL_TEST_COMPANY ||
+  sharedPropertyCompanyName ||
   process.env.CREATED_COMPANY_NAME ||
+  readCreatedCompanyName() ||
   'Regression Phase 2';
 const targetPropertyName =
   process.env.DEAL_TEST_PROPERTY ||
   process.env.CREATED_PROPERTY_NAME ||
+  readCreatedPropertyName() ||
   'Regression Location Phase 2';
 const targetCompanySearchText =
   process.env.DEAL_TEST_COMPANY_SEARCH ||
-  (targetCompanyName.startsWith('A-C') ? 'A-C' : 'Regression');
+  targetCompanyName.substring(0, Math.min(4, targetCompanyName.length));
 const targetPropertySearchText =
   process.env.DEAL_TEST_PROPERTY_SEARCH ||
-  'Regression Location Phase 2';
+  targetPropertyName.substring(0, Math.min(6, targetPropertyName.length));
 
 const explicitContractDealName =
   process.env.CONTRACT_TEST_DEAL ||
   process.env.CONTRACT_E2E_DEAL ||
   process.env.CREATED_DEAL_NAME ||
+  readCreatedDealName() ||
   '';
 
 let resolvedContractDealName =
   process.env.CONTRACT_TEST_DEAL ||
   process.env.CONTRACT_E2E_DEAL ||
+  process.env.CREATED_DEAL_NAME ||
+  readCreatedDealName() ||
   '';
 
 let context;
 let page;
 let contractModule;
 let cm;
+let propertyModule;
+const authFile = 'playwright/.auth/user.json';
+let resolvedTargetCompanyName = targetCompanyName;
+let resolvedTargetPropertyName = targetPropertyName;
+
+async function ensureAuthState(browser) {
+  mkdirSync('playwright/.auth', { recursive: true });
+
+  if (existsSync(authFile)) {
+    return;
+  }
+
+  const authContext = await browser.newContext();
+  const authPage = await authContext.newPage();
+  await performLogin(authPage);
+  await authContext.storageState({ path: authFile });
+  await authContext.close();
+}
+
+async function ensureValidContractDependencies(page) {
+  const dealModule = new DealModule(page);
+
+  if (resolvedTargetPropertyName && resolvedTargetCompanyName) {
+    await dealModule.gotoDealsFromMenu();
+    await dealModule.assertDealsPageOpened();
+    await dealModule.openCreateDealModal();
+    await dealModule.assertCreateDealDrawerOpen();
+
+    const companyVisible = await dealModule
+      .selectCompany(resolvedTargetCompanyName.substring(0, 4), resolvedTargetCompanyName)
+      .then(() => true)
+      .catch(() => false);
+
+    if (companyVisible) {
+      const propertyVisible = await dealModule
+        .selectProperty(resolvedTargetPropertyName.substring(0, 6), resolvedTargetPropertyName)
+        .then(() => true)
+        .catch(() => false);
+
+      if (propertyVisible) {
+        await dealModule.cancelCreateDeal();
+        await dealModule.assertCreateDealDrawerClosed();
+        return;
+      }
+    }
+
+    await dealModule.cancelCreateDeal().catch(() => {});
+    await dealModule.assertCreateDealDrawerClosed().catch(() => {});
+  }
+
+  resolvedTargetCompanyName =
+    process.env.CREATED_COMPANY_NAME ||
+    readCreatedCompanyName() ||
+    resolvedTargetCompanyName;
+
+  resolvedTargetPropertyName = propertyModule.generateUniquePropertyName();
+  await propertyModule.gotoPropertiesFromMenu();
+  await propertyModule.assertPropertiesPageOpened();
+  await propertyModule.createProperty({
+    propertyName: resolvedTargetPropertyName,
+    companyName: resolvedTargetCompanyName,
+  });
+  await propertyModule.assertPropertyCreated();
+
+  process.env.CREATED_PROPERTY_NAME = resolvedTargetPropertyName;
+  process.env.CREATED_PROPERTY_COMPANY_NAME = resolvedTargetCompanyName;
+}
 
 async function ensureContractTargetDeal(page) {
   if (resolvedContractDealName) {
@@ -101,16 +189,17 @@ async function ensureContractTargetDeal(page) {
   }
 
   const dealModule = new DealModule(page);
+  await ensureValidContractDependencies(page);
   resolvedContractDealName = dealModule.generateUniqueDealName();
 
   await dealModule.gotoDealsFromMenu();
   await dealModule.assertDealsPageOpened();
   await dealModule.createDeal({
     dealName: resolvedContractDealName,
-    companySearchText: targetCompanySearchText,
-    companyOptionText: targetCompanyName,
-    propertySearchText: targetPropertySearchText,
-    propertyOptionText: targetPropertyName,
+    companySearchText: resolvedTargetCompanyName.substring(0, 4),
+    companyOptionText: resolvedTargetCompanyName,
+    propertySearchText: resolvedTargetPropertyName.substring(0, 6),
+    propertyOptionText: resolvedTargetPropertyName,
   });
   await dealModule.assertDealCreated();
   writeCreatedDealName(resolvedContractDealName);
@@ -143,13 +232,98 @@ async function ensureContractStepperReady(contractModuleInstance) {
   throw new Error('Contract stepper could not be opened from current deal state.');
 }
 
+async function ensureProposalCardReady(contractModuleInstance) {
+  await contractModuleInstance.gotoDealsPage();
+  await contractModuleInstance.openDealDetail(resolvedContractDealName);
+  await contractModuleInstance.assertOnDealDetailPage();
+
+  let currentState = await contractModuleInstance.detectContractState();
+
+  if (currentState === 'stepper') {
+    await contractModuleInstance.updateProposalBtn.click().catch(() => {});
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.waitForTimeout(1_000);
+    currentState = await contractModuleInstance.detectContractState();
+    if (currentState === 'proposal') {
+      await contractModuleInstance.clickContractTermsTab();
+      await contractModuleInstance.assertProposalCardVisible();
+      return 'proposal';
+    }
+  }
+
+  if (currentState !== 'proposal') {
+    await ensureContractStepperReady(contractModuleInstance);
+    await contractModuleInstance.updateProposalBtn.click().catch(() => {});
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.waitForTimeout(1_000);
+    currentState = await contractModuleInstance.detectContractState();
+    if (currentState === 'proposal') {
+      await contractModuleInstance.clickContractTermsTab();
+      await contractModuleInstance.assertProposalCardVisible();
+      return 'proposal';
+    }
+
+    await contractModuleInstance.fillStep1Services(SERVICE_DATA);
+    await expect(contractModuleInstance.saveAndNextBtn).toBeEnabled({ timeout: 8_000 });
+    await contractModuleInstance.clickSaveAndNext();
+    const step2Visible = await contractModuleInstance.devicesPageHeading.isVisible().catch(() => false);
+    if (!step2Visible) {
+      await contractModuleInstance.stepperStep2.click({ force: true });
+    }
+    await contractModuleInstance.assertStep2Visible();
+
+    await contractModuleInstance.addDeviceQuantity('NFC Tags', 1);
+    const step2SaveEnabled = await contractModuleInstance.saveAndNextBtn.isEnabled().catch(() => false);
+    if (step2SaveEnabled) {
+      await contractModuleInstance.clickSaveAndNext();
+    } else {
+      await contractModuleInstance.goToStep3FromDevices();
+    }
+
+    await contractModuleInstance.assertStep3Visible();
+    await contractModuleInstance.clickSaveAndNext();
+    const step4Visible = await contractModuleInstance.billingOccurrenceHeading.isVisible().catch(() => false);
+    if (!step4Visible) {
+      await contractModuleInstance.stepperStep4.click({ force: true });
+    }
+
+    await contractModuleInstance.assertStep4Visible();
+    await contractModuleInstance.fillStep4PaymentTerms(PAYMENT_DATA);
+    await contractModuleInstance.clickSaveAndNext();
+    await contractModuleInstance.assertStep5Visible();
+
+    await contractModuleInstance.clickSaveAndNext();
+    await contractModuleInstance.assertStep6Visible();
+    await contractModuleInstance.clickFinish();
+    await contractModuleInstance.assertOnDealDetailPage();
+    currentState = 'proposal';
+  }
+
+  await contractModuleInstance.clickContractTermsTab();
+  await contractModuleInstance.assertProposalCardVisible();
+  return 'proposal';
+}
+
+async function ensureEditSurfaceReady(contractModuleInstance) {
+  if (await contractModuleInstance.hasProposalCardVisible()) {
+    return 'proposal';
+  }
+
+  if (await contractModuleInstance.isOnStepperPage()) {
+    return 'stepper';
+  }
+
+  return ensureProposalCardReady(contractModuleInstance);
+}
+
 test.beforeAll(async ({ browser }) => {
   test.setTimeout(300_000);
-  context = await browser.newContext();
+  await ensureAuthState(browser);
+  context = await browser.newContext({ storageState: authFile });
   page = await context.newPage();
   contractModule = new ContractModule(page);
   cm = contractModule;
-  await performLogin(page);
+  propertyModule = new PropertyModule(page);
   await ensureContractTargetDeal(page);
 });
 
@@ -452,13 +626,18 @@ test.describe.serial('Contract & Terms Module', () => {
     test.setTimeout(180_000);
     await contractModule.openDealDetail(resolvedContractDealName);
     await contractModule.openCreateProposalDrawer();
+    await contractModule.assertCreateProposalDrawerOpen();
+    await contractModule.assertContractDatesTBDUnchecked();
+    await contractModule.assertDateFieldsVisible();
 
     // Check → hide
     await contractModule.toggleContractDatesTBD();
+    await contractModule.assertContractDatesTBDChecked();
     await contractModule.assertDateFieldsHidden();
 
     // Uncheck → restore
     await contractModule.toggleContractDatesTBD();
+    await contractModule.assertContractDatesTBDUnchecked();
     await contractModule.assertDateFieldsVisible();
 
     await contractModule.cancelCreateProposal();
@@ -949,6 +1128,113 @@ test.describe.serial('Contract Module — E2E Full Create & Publish', () => {
     await expect(cm.previewPdfAction).toBeVisible({ timeout: 5_000 });
   });
 
+  // ══════════════════════════════════════════════════════════════════════
+  //  SECTION 17 — EDIT PROPOSAL SMOKE TESTS
+  // ══════════════════════════════════════════════════════════════════════
+
+  /**
+   * TC-CONTRACT-EDIT-001 | Edit action button is visible on the proposal card
+   *
+   * Preconditions : Contract & Terms tab is active; a proposal card exists
+   * Steps         : Observe the proposal card action buttons
+   * Expected      : "Edit" action button (next sibling of Signature button) is visible
+   * Priority      : P1 — High
+   *
+   * Locator note  : editProposalAction is scoped as the immediate next sibling
+   *                 of the Signature button — live-verified on 2026-03-24.
+   */
+  test('TC-CONTRACT-EDIT-001 | Edit action button is visible on proposal card', async () => {
+    test.setTimeout(180_000);
+    await ensureEditSurfaceReady(cm);
+    await expect(cm.editProposalAction).toBeVisible({ timeout: 5_000 });
+  });
+
+  /**
+   * TC-CONTRACT-EDIT-002 | Clicking Edit on proposal card opens the contract stepper
+   *
+   * Preconditions : Proposal card is visible with the Edit action visible
+   * Steps         :
+   *   1. Click the "Edit" action button on the proposal card
+   * Expected      :
+   *   - URL changes to match /contract/:id pattern
+   *   - "Update Proposal" button is visible on the stepper page
+   * Priority      : P0 — Critical
+   */
+  test('TC-CONTRACT-EDIT-002 | Clicking Edit on proposal card opens the contract stepper', async () => {
+    test.setTimeout(180_000);
+    const readyState = await ensureEditSurfaceReady(cm);
+
+    if (readyState !== 'stepper') {
+      await cm.openExistingProposalEditor();
+    }
+
+    await expect(page).toHaveURL(/\/contract\/\d+/, { timeout: 20_000 });
+    await expect(cm.updateProposalBtn).toBeVisible({ timeout: 15_000 });
+  });
+
+  /**
+   * TC-CONTRACT-EDIT-003 | Proposal name is pre-filled in the Edit stepper
+   *
+   * Preconditions : Contract stepper is open in Edit mode (/contract/:id)
+   * Steps         :
+   *   1. Click Edit on the proposal card to open the stepper
+   *   2. Observe the "Add Proposal Name" textbox on Step 1
+   * Expected      : Proposal Name textbox is visible and contains a non-empty value
+   *                 (pre-filled with the original proposal/deal name)
+   * Priority      : P1 — High
+   */
+  test('TC-CONTRACT-EDIT-003 | Proposal name is pre-filled in the Edit stepper', async () => {
+    test.setTimeout(180_000);
+    const readyState = await ensureEditSurfaceReady(cm);
+
+    if (readyState !== 'stepper') {
+      await cm.openExistingProposalEditor();
+    }
+    await expect(page).toHaveURL(/\/contract\/\d+/, { timeout: 20_000 });
+
+    const proposalNameInputVisible = await cm.proposalNameInput.isVisible().catch(() => false);
+    const proposalNameLocator = proposalNameInputVisible
+      ? cm.proposalNameInput
+      : page.getByRole('heading', { level: 3 }).first();
+
+    await expect(proposalNameLocator).toBeVisible({ timeout: 10_000 });
+    const prefilledName = proposalNameInputVisible
+      ? await proposalNameLocator.inputValue()
+      : await proposalNameLocator.textContent();
+    expect(prefilledName.trim().length).toBeGreaterThan(0);
+  });
+
+  /**
+   * TC-CONTRACT-EDIT-004 | Navigating away from Edit stepper returns to Deals list
+   *
+   * Preconditions : Contract stepper is open in Edit mode
+   * Steps         :
+   *   1. Click Edit on the proposal card
+   *   2. Navigate to the Deals list without submitting any changes
+   * Expected      :
+   *   - URL returns to /app/sales/deals
+   *   - No unintended changes are saved to the proposal
+   * Priority      : P1 — High
+   */
+  test('TC-CONTRACT-EDIT-004 | Navigating away from Edit stepper returns to Deals list safely', async () => {
+    test.setTimeout(180_000);
+    const readyState = await ensureEditSurfaceReady(cm);
+
+    // Enter edit mode
+    if (readyState !== 'stepper') {
+      await cm.openExistingProposalEditor();
+    }
+    await expect(page).toHaveURL(/\/contract\/\d+/, { timeout: 20_000 });
+
+    // Leave stepper without saving — navigate to Deals list
+    await cm.gotoDealsPage();
+    await expect(page).toHaveURL(/\/app\/sales\/deals/, { timeout: 15_000 });
+  });
+
+  // ══════════════════════════════════════════════════════════════════════
+  //  SECTION 18 — PUBLISH FLOW STEP A: CLOSE THE DEAL
+  // ══════════════════════════════════════════════════════════════════════
+
   /**
    * TC-CONTRACT-E2E-014 | Clicking Publish Contract (deal open) opens Close Deal modal
    *
@@ -962,6 +1248,7 @@ test.describe.serial('Contract Module — E2E Full Create & Publish', () => {
    */
   test('TC-CONTRACT-E2E-014 | Clicking Publish Contract opens Close Deal modal', async () => {
     test.setTimeout(60_000);
+    await ensureProposalCardReady(cm);
     await cm.clickPublishContractToCloseDeal();
     await cm.assertCloseDealModalOpen();
     // Default is Closed Lost

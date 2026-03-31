@@ -16,12 +16,19 @@
 const { test, expect } = require('@playwright/test');
 const { performLogin }   = require('../../utils/auth/login-action');
 const { PropertyModule } = require('../../pages/property-module');
+const {
+  readCreatedCompanyName,
+  writeCreatedPropertyCompanyName,
+  writeCreatedPropertyName,
+} = require('../../utils/shared-run-state');
+const { registerNotesTasksSuite } = require('../helpers/register-notes-tasks-suite');
 
 test.describe.serial('Property Module', () => {
   // Dynamic company name — comes from company suite via env var, or fallback
   const targetCompanyName =
     process.env.PROPERTY_TEST_COMPANY ||
     process.env.CREATED_COMPANY_NAME ||
+    readCreatedCompanyName() ||
     'Regression Phase';
 
   // Shared state populated during the test run
@@ -31,6 +38,38 @@ test.describe.serial('Property Module', () => {
   let context;
   let page;
   let propertyModule;
+
+  async function ensureCreatedPropertyExists() {
+    if (createdPropertyName) {
+      return createdPropertyName;
+    }
+
+    createdPropertyName = propertyModule.generateUniquePropertyName();
+    await propertyModule.gotoPropertiesFromMenu();
+    await propertyModule.assertPropertiesPageOpened();
+    await propertyModule.createProperty({
+      propertyName: createdPropertyName,
+      companyName: targetCompanyName
+    });
+    await propertyModule.assertPropertyCreated();
+    process.env.CREATED_PROPERTY_NAME = createdPropertyName;
+    process.env.CREATED_PROPERTY_COMPANY_NAME = targetCompanyName;
+    writeCreatedPropertyName(createdPropertyName);
+    writeCreatedPropertyCompanyName(targetCompanyName);
+    await propertyModule.searchProperty(createdPropertyName);
+    await propertyModule.openPropertyDetail(createdPropertyName);
+    await propertyModule.assertPropertyDetailOpened(createdPropertyName);
+    return createdPropertyName;
+  }
+
+  async function openCreatedPropertyDetail() {
+    const propertyName = await ensureCreatedPropertyExists();
+    await propertyModule.gotoPropertiesFromMenu();
+    await propertyModule.assertPropertiesPageOpened();
+    await propertyModule.searchProperty(propertyName);
+    await propertyModule.openPropertyDetail(propertyName);
+    await propertyModule.assertPropertyDetailOpened(propertyName);
+  }
 
   test.beforeAll(async ({ browser }) => {
     test.setTimeout(180_000);
@@ -190,10 +229,14 @@ test.describe.serial('Property Module', () => {
     await propertyModule.assertPropertiesPageOpened();
     await propertyModule.createProperty({
       propertyName: createdPropertyName,
-      companyName:  'A-C 6548',
+      companyName:  targetCompanyName,
     });
 
     // Verify property appears in the list after creation
+    process.env.CREATED_PROPERTY_NAME = createdPropertyName;
+    process.env.CREATED_PROPERTY_COMPANY_NAME = targetCompanyName;
+    writeCreatedPropertyName(createdPropertyName);
+    writeCreatedPropertyCompanyName(targetCompanyName);
     await propertyModule.gotoPropertiesFromMenu();
     await propertyModule.searchProperty(createdPropertyName);
     await propertyModule.assertPropertyPresentInSearchResults(createdPropertyName);
@@ -289,6 +332,7 @@ test.describe.serial('Property Module', () => {
    */
   test('TC-PROP-012 | Edit Property form opens pre-filled; Save disabled without changes', async () => {
     test.setTimeout(180_000);
+    await ensureCreatedPropertyExists();
     await propertyModule.assertPropertyDetailOpened(createdPropertyName);
     await propertyModule.openEditPropertyForm();
     await propertyModule.assertEditPropertyFormOpen();
@@ -313,6 +357,7 @@ test.describe.serial('Property Module', () => {
     test.setTimeout(180_000);
     updatedPropertyName = propertyModule.generateUniqueEditedName();
 
+    await ensureCreatedPropertyExists();
     await propertyModule.assertPropertyDetailOpened(createdPropertyName);
     await propertyModule.openEditPropertyForm();
     await propertyModule.assertEditPropertyFormOpen();
@@ -486,5 +531,12 @@ test.describe.serial('Property Module', () => {
     await propertyModule.searchProperty(dupTestPropertyName);
     await propertyModule.assertSearchShowsNoResults();
     await propertyModule.clearPropertySearch();
+  });
+
+  registerNotesTasksSuite({
+    test,
+    moduleName: 'Property',
+    getPage: () => page,
+    openEntityDetail: openCreatedPropertyDetail,
   });
 });

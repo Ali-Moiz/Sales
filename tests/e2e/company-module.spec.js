@@ -1,13 +1,55 @@
 const { test } = require('@playwright/test');
 const { performLogin }   = require('../../utils/auth/login-action');
 const { CompanyModule }  = require('../../pages/company-module');
+const { writeCreatedCompanyName } = require('../../utils/shared-run-state');
+const { registerNotesTasksSuite } = require('../helpers/register-notes-tasks-suite');
 
 test.describe.serial('Company Module', () => {
   const targetCompanyName = 'A-C 6548';
+  const companyAddress = 'S 9th St, Omaha, NE 68102, USA';
+  let createdCompanyName = '';
   let updatedCompanyDetails;
   let context;
   let page;
   let companyModule;
+
+  async function ensureTargetCompanyDetailOpened() {
+    await companyModule.gotoCompaniesFromMenu();
+    await companyModule.assertCompaniesPageOpened();
+    await companyModule.openCompanyDetail(targetCompanyName);
+    await companyModule.assertCompanyDetailOpened(targetCompanyName);
+  }
+
+  async function ensureCreatedCompanyExists() {
+    if (createdCompanyName) {
+      return createdCompanyName;
+    }
+
+    createdCompanyName = companyModule.generateUniqueCompanyName();
+    await companyModule.gotoCompaniesFromMenu();
+    await companyModule.assertCompaniesPageOpened();
+    await companyModule.createCompany({
+      companyName: createdCompanyName,
+      address: companyAddress,
+    });
+    process.env.CREATED_COMPANY_NAME = createdCompanyName;
+    writeCreatedCompanyName(createdCompanyName);
+    await companyModule.gotoCompaniesFromMenu();
+    await companyModule.assertCompaniesPageOpened();
+    await companyModule.searchForCompany(createdCompanyName);
+    await companyModule.openCompanyDetail(createdCompanyName);
+    await companyModule.assertCompanyDetailOpened(createdCompanyName);
+
+    return createdCompanyName;
+  }
+
+  async function openCreatedCompanyDetail() {
+    const companyName = await ensureCreatedCompanyExists();
+    await companyModule.gotoCompaniesFromMenu();
+    await companyModule.assertCompaniesPageOpened();
+    await companyModule.openCompanyDetail(companyName);
+    await companyModule.assertCompanyDetailOpened(companyName);
+  }
 
   test.beforeAll(async ({ browser }) => {
     test.setTimeout(180_000);
@@ -50,7 +92,7 @@ test.describe.serial('Company Module', () => {
   test('TC-COMP-004 | User can edit the searched company and verify updated values in About this Company', async () => {
     test.setTimeout(180_000);
     updatedCompanyDetails = companyModule.generateRandomCompanyEditData();
-    await companyModule.assertCompanyDetailOpened(targetCompanyName);
+    await ensureTargetCompanyDetailOpened();
     await companyModule.updateCompanyDetails(updatedCompanyDetails);
     await companyModule.openAboutCompanySection();
     await companyModule.assertAboutCompanyDetails(updatedCompanyDetails);
@@ -279,14 +321,18 @@ test.describe.serial('Company Module', () => {
    */
   test('TC-COMP-015 | Edit Company form opens with pre-filled data and Update button is disabled without changes', async () => {
     test.setTimeout(180_000);
-    await companyModule.gotoCompaniesFromMenu();
-    await companyModule.assertCompaniesPageOpened();
-    await companyModule.openCompanyDetail(targetCompanyName);
-    await companyModule.assertCompanyDetailOpened(targetCompanyName);
+    await ensureTargetCompanyDetailOpened();
     await companyModule.openEditCompanyForm();
     await companyModule.assertEditCompanyFormOpen();
     await companyModule.assertUpdateButtonDisabled();
     await companyModule.cancelEditCompanyForm();
     await companyModule.assertEditCompanyFormClosed();
+  });
+
+  registerNotesTasksSuite({
+    test,
+    moduleName: 'Company',
+    getPage: () => page,
+    openEntityDetail: openCreatedCompanyDetail,
   });
 });

@@ -35,7 +35,63 @@ function writeCreatedDealName(createdDealName) {
   });
 }
 
+function readCreatedCompanyName() {
+  return readState().createdCompanyName || '';
+}
+
+function writeCreatedCompanyName(createdCompanyName) {
+  const current = readState();
+  writeState({
+    ...current,
+    createdCompanyName,
+  });
+}
+
+function readCreatedPropertyName() {
+  return readState().createdPropertyName || '';
+}
+
+function writeCreatedPropertyName(createdPropertyName) {
+  const current = readState();
+  writeState({
+    ...current,
+    createdPropertyName,
+  });
+}
+
+function readCreatedPropertyCompanyName() {
+  return readState().createdPropertyCompanyName || '';
+}
+
+function writeCreatedPropertyCompanyName(createdPropertyCompanyName) {
+  const current = readState();
+  writeState({
+    ...current,
+    createdPropertyCompanyName,
+  });
+}
+
+function readCreatedContactName() {
+  return readState().createdContactName || '';
+}
+
+function writeCreatedContactName(createdContactName) {
+  const current = readState();
+  writeState({
+    ...current,
+    createdContactName,
+  });
+}
+
 module.exports = {
+  readCreatedCompanyName,
+  writeCreatedCompanyName,
+  readCreatedPropertyName,
+  writeCreatedPropertyName,
+  readCreatedPropertyCompanyName,
+  writeCreatedPropertyCompanyName,
+  readCreatedContactName,
+  writeCreatedContactName,
   readCreatedDealName,
   writeCreatedDealName,
 };

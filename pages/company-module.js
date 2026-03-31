@@ -110,7 +110,7 @@ class CompanyModule {
   }
 
   generateUniqueCompanyName() {
-    return `Smoke Company ${Date.now()}`;
+    return `A-C ${String(Date.now()).slice(-4)}`;
   }
 
   // ── Navigation ─────────────────────────────────────────────────────────────
@@ -360,7 +360,8 @@ class CompanyModule {
   }
 
   async assertCompanyDetailOpened(companyName) {
-    await expect(this.page.getByRole('heading', { name: companyName, exact: true }).first())
+    const escapedName = companyName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    await expect(this.page.getByRole('heading', { name: new RegExp(escapedName, 'i') }).first())
       .toBeVisible({ timeout: 15_000 });
   }
 

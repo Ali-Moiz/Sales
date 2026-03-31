@@ -90,6 +90,32 @@ class DealModule {
     this.taskSaveBtn         = page.getByRole('button',    { name: 'Save' });
     this.taskCancelBtn       = page.getByRole('button',    { name: 'Cancel' });
     this.taskEmptyState      = page.getByRole('heading',   { name: 'No tasks Added.', level: 2 });
+
+    // ── Edit Deal drawer ──────────────────────────────────────────────────
+    //
+    // Locator rationale:
+    //   editDealButton   — getByRole('button', { name: 'Edit' }) matches the
+    //                       "Edit" CTA on the deal detail header, consistent
+    //                       with the Company and Contact module patterns.
+    //   editDealHeading  — heading level=3, name "Edit Deal" — same structural
+    //                       pattern as "Create Deal" heading verified live.
+    //   editDealNameInput — getByRole('textbox', { name: 'Deal Name' }) — the
+    //                       pre-filled name field; same label used in Create.
+    //   saveDealEditBtn  — tries "Update Deal" first (explicit update CTA used
+    //                       in Company module), falls back to the last "Save"
+    //                       button on the page (Contact module pattern).
+    //   cancelDealEditBtn — getByRole('button', { name: 'Cancel' }) — shared
+    //                       cancel pattern across all edit drawers.
+    //   editDealSuccessToast — Toastify alert filtered for update keywords.
+    this.editDealButton     = page.getByRole('button', { name: 'Edit' });
+    this.editDealHeading    = page.getByRole('heading', { name: 'Edit Deal', level: 3 });
+    this.editDealNameInput  = page.getByRole('textbox', { name: /Deal Name/ });
+    this.saveDealEditBtn    = page.getByRole('button', { name: 'Update Deal' })
+                                  .or(page.getByRole('button', { name: 'Save' }).last());
+    this.cancelDealEditBtn  = page.getByRole('button', { name: 'Cancel' });
+    this.editDealSuccessToast = page.locator('.Toastify__toast-body[role="alert"]').filter({
+      hasText: /updated|deal updated/i
+    }).first();
   }
 
   // ── Data generators ───────────────────────────────────────────────────
@@ -131,13 +157,7 @@ class DealModule {
   // ── Navigation ────────────────────────────────────────────────────────
 
   async gotoDealsFromMenu() {
-    const menuVisible = await this.dealsMenuLink
-      .waitFor({ state: 'visible', timeout: 20_000 }).then(() => true).catch(() => false);
-    if (menuVisible) {
-      await this.dealsMenuLink.click();
-    } else {
-      await this.page.goto('/app/sales/deals', { waitUntil: 'domcontentloaded' });
-    }
+    await this.page.goto('/app/sales/deals', { waitUntil: 'domcontentloaded' });
     await this.page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {});
   }
 
@@ -202,6 +222,7 @@ class DealModule {
   async waitForDealSearchToApply(term, previousPaginationText = '') {
     const emptyStateHeading = this.page.getByRole('heading', { name: 'No Record Found', level: 2 });
     const tableBody = this.page.locator('table tbody');
+    const dataRows = tableBody.locator('tr').filter({ hasNot: this.page.locator('[colspan]') });
 
     await expect
       .poll(async () => {
@@ -214,12 +235,23 @@ class DealModule {
         if (/0–0 of 0/.test(paginationText)) return 'zero-results';
         if (paginationText && paginationText !== previousPaginationText) return 'pagination-changed';
 
+        const visibleRowCount = await dataRows.count().catch(() => 0);
+
+        if (!term) {
+          const searchValue = await this.dealSearchInput.inputValue().catch(() => '');
+          if (!searchValue.trim() && visibleRowCount > 0) {
+            return 'cleared';
+          }
+        }
+
         if (term) {
           const visibleMatches = await tableBody
             .getByText(term, { exact: false })
             .count()
             .catch(() => 0);
           if (visibleMatches > 0) return 'match-visible';
+        } else if (visibleRowCount > 0) {
+          return 'rows-visible';
         }
 
         return 'pending';
@@ -348,6 +380,8 @@ class DealModule {
   // ── Deal Detail ───────────────────────────────────────────────────────
 
   async openDealDetail(dealName) {
+    await this.gotoDealsFromMenu();
+    await this.assertDealsPageOpened();
     await this.dealSearchInput.waitFor({ state: 'visible', timeout: 10_000 });
     const previousPaginationText = this.normalizeText(
       await this.paginationInfo.textContent().catch(() => '')
@@ -356,9 +390,15 @@ class DealModule {
     await this.dealSearchInput.press('Enter').catch(() => {});
     await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
     await this.waitForDealSearchToApply(dealName, previousPaginationText);
-    const dealRow = this.page.getByText(dealName, { exact: true }).first();
+    const dealRow = this.page.locator('table tbody tr').filter({ hasText: dealName }).first();
     await dealRow.waitFor({ state: 'visible', timeout: 10_000 });
-    await dealRow.click({ force: true });
+
+    const dealNameCell = dealRow.locator('td').nth(1);
+    const clickableCell = await dealNameCell.isVisible().catch(() => false)
+      ? dealNameCell
+      : dealRow.getByText(dealName, { exact: false }).first();
+
+    await clickableCell.click({ force: true });
     await this.page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
   }
 
@@ -498,6 +538,90 @@ class DealModule {
 
   async assertCreateTaskDrawerClosed() {
     await expect(this.createTaskHeading).not.toBeVisible({ timeout: 8_000 });
+  }
+
+  // ── Edit Deal ─────────────────────────────────────────────────────────
+
+  /**
+   * Click the "Edit" button on the deal detail page and wait for the
+   * Edit Deal drawer to appear.
+   */
+  async openEditDealForm() {
+    await this.editDealButton.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.editDealButton.click();
+    await this.editDealHeading.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.editDealNameInput.waitFor({ state: 'visible', timeout: 10_000 });
+  }
+
+  /**
+   * Assert the Edit Deal drawer is fully rendered with all expected elements.
+   */
+  async assertEditDealFormOpen() {
+    await expect(this.editDealHeading).toBeVisible({ timeout: 10_000 });
+    await expect(this.editDealNameInput).toBeVisible({ timeout: 5_000 });
+    await expect(this.saveDealEditBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.cancelDealEditBtn).toBeVisible({ timeout: 5_000 });
+  }
+
+  /**
+   * Assert the Save/Update button is disabled before any change is made.
+   * Mirrors the Company (Update Company) and Property (Save) behaviour.
+   */
+  async assertSaveDealBtnDisabled() {
+    await expect(this.saveDealEditBtn).toBeDisabled({ timeout: 5_000 });
+  }
+
+  /**
+   * Replace the deal name in the edit drawer.
+   * Uses triple-click → fill to reliably clear existing value first.
+   */
+  async fillEditDealName(newName) {
+    await this.editDealNameInput.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.editDealNameInput.click({ clickCount: 3 });
+    await this.editDealNameInput.fill(newName);
+    await this.editDealNameInput.press('Tab');
+    await expect(this.saveDealEditBtn).toBeEnabled({ timeout: 10_000 });
+  }
+
+  /**
+   * Submit the edit form and wait for the drawer to close.
+   */
+  async submitEditDeal() {
+    await this.saveDealEditBtn.waitFor({ state: 'visible', timeout: 10_000 });
+    await expect(this.saveDealEditBtn).toBeEnabled({ timeout: 10_000 });
+    await this.saveDealEditBtn.click({ force: true });
+    await this.editDealHeading.waitFor({ state: 'hidden', timeout: 20_000 }).catch(() => {});
+    await this.page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+  }
+
+  /**
+   * Cancel the edit form and assert the drawer closes without saving.
+   */
+  async cancelEditDealForm() {
+    await this.cancelDealEditBtn.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.cancelDealEditBtn.click();
+    await this.editDealHeading.waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => {});
+  }
+
+  /**
+   * Assert the Edit Deal drawer has closed.
+   */
+  async assertEditDealFormClosed() {
+    await expect(this.editDealHeading).not.toBeVisible({ timeout: 8_000 });
+  }
+
+  /**
+   * Full Edit Deal flow helper.
+   * Opens the drawer, replaces the deal name, submits.
+   */
+  async editDealName(newDealName) {
+    await this.openEditDealForm();
+    await this.fillEditDealName(newDealName);
+    await this.submitEditDeal();
+  }
+
+  generateUniqueEditedDealName() {
+    return `A-D Edited ${String(Date.now()).slice(-4)}`;
   }
 }
 
