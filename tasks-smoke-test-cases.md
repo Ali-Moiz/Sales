@@ -2,7 +2,7 @@
 
 **Application:** Signal CRM
 **Module:** Tasks
-**Base URL:** `https://proud-desert-02abf6a10.1.azurestaticapps.net/app/sales/tasks`
+**Base URL:** `https://uat.sales.teamsignal.com/app/sales/tasks`
 **Credentials:** `moiz.qureshi+ho@camp1.tkxel.com` / `Admin@123`
 **Explored By:** Live MCP exploration (2026-03-25)
 **Test Type:** Smoke Testing

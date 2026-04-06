@@ -170,6 +170,34 @@ class NotesTaskPage {
     await this.page.waitForTimeout(400);
   }
 
+  async getVisibleLocator(locator) {
+    const count = await locator.count().catch(() => 0);
+    for (let i = 0; i < count; i += 1) {
+      const candidate = locator.nth(i);
+      if (await candidate.isVisible().catch(() => false)) {
+        return candidate;
+      }
+    }
+
+    return locator.first();
+  }
+
+  async getVisibleNoteSubjectInput() {
+    return this.getVisibleLocator(this.noteSubjectInput);
+  }
+
+  async getVisibleNoteEditor() {
+    return this.getVisibleLocator(this.noteDescEditor);
+  }
+
+  async getVisibleNoteSaveButton() {
+    return this.getVisibleLocator(this.noteSaveBtn);
+  }
+
+  async getVisibleNoteCancelButton() {
+    return this.getVisibleLocator(this.noteCancelBtn);
+  }
+
   // ════════════════════════════════════════════════════════════
   //  NOTES METHODS
   // ════════════════════════════════════════════════════════════
@@ -193,24 +221,30 @@ class NotesTaskPage {
    * @param {string} data.description - note body (required)
    */
   async fillNoteForm({ subject, description }) {
+    const subjectInput = await this.getVisibleNoteSubjectInput();
+    const noteEditor = await this.getVisibleNoteEditor();
+
     // Subject field (id="title")
-    await this.noteSubjectInput.fill(subject);
+    await subjectInput.click();
+    await subjectInput.fill(subject);
 
     // Description editor – click first to ensure focus, then fill
-    await this.noteDescEditor.click();
-    await this.noteDescEditor.fill(description);
+    await noteEditor.click();
+    await noteEditor.fill(description);
     await this.page.waitForTimeout(200);
   }
 
   /** Click Save and wait for success toast */
   async saveNote() {
-    await this.noteSaveBtn.click();
+    const saveButton = await this.getVisibleNoteSaveButton();
+    await saveButton.click();
     await this.waitForMutationFeedback(this.addNoteDrawerHeading);
   }
 
   /** Click Cancel in the note drawer */
   async cancelNote() {
-    await this.noteCancelBtn.click();
+    const cancelButton = await this.getVisibleNoteCancelButton();
+    await cancelButton.click();
     // Drawer should close
     await this.addNoteDrawerHeading
       .waitFor({ state: 'hidden', timeout: 5_000 })
@@ -256,21 +290,26 @@ class NotesTaskPage {
    * @param {string} [data.description]
    */
   async fillEditNoteForm({ subject, description } = {}) {
+    const subjectInput = await this.getVisibleNoteSubjectInput();
+    const noteEditor = await this.getVisibleNoteEditor();
+
     if (subject !== undefined) {
-      await this.noteSubjectInput.clear();
-      await this.noteSubjectInput.fill(subject);
+      await subjectInput.click();
+      await subjectInput.press(`${process.platform === 'darwin' ? 'Meta' : 'Control'}+A`).catch(() => {});
+      await subjectInput.fill(subject);
     }
     if (description !== undefined) {
       // Triple-click to select all existing text, then replace
-      await this.noteDescEditor.click({ clickCount: 3 });
-      await this.noteDescEditor.fill(description);
+      await noteEditor.click({ clickCount: 3 });
+      await noteEditor.fill(description);
     }
     await this.page.waitForTimeout(200);
   }
 
   /** Click Save in the Edit Notes drawer and wait for success toast */
   async saveEditedNote() {
-    await this.noteSaveBtn.click();
+    const saveButton = await this.getVisibleNoteSaveButton();
+    await saveButton.click();
     await this.waitForMutationFeedback(this.editNoteDrawerHeading);
   }
 

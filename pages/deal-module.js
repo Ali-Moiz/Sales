@@ -4,10 +4,12 @@
 // Fully dynamic — no hardcoded IDs, names, or indices
 
 const { expect } = require('@playwright/test');
+const { credentials } = require('../data/credentials');
 
 class DealModule {
   constructor(page) {
     this.page = page;
+    this.baseUrl = credentials.baseUrl;
 
     // ── Sidebar navigation ────────────────────────────────────────────────
     this.dealsMenuLink = page.getByRole('listitem', { name: 'Deals' }).getByRole('link');
@@ -157,7 +159,7 @@ class DealModule {
   // ── Navigation ────────────────────────────────────────────────────────
 
   async gotoDealsFromMenu() {
-    await this.page.goto('/app/sales/deals', { waitUntil: 'domcontentloaded' });
+    await this.page.goto(`${this.baseUrl}/app/sales/deals`, { waitUntil: 'domcontentloaded' });
     await this.page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {});
   }
 

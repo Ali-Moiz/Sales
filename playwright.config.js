@@ -3,7 +3,7 @@ const dotenv = require('dotenv');
 
 dotenv.config({ quiet: true });
 
-const baseURL = process.env.BASE_URL || 'https://proud-desert-02abf6a10.1.azurestaticapps.net';
+const baseURL = process.env.BASE_URL || 'https://uat.sales.teamsignal.com';
 const headless = (process.env.HEADLESS || 'true').toLowerCase() === 'true';
 
 module.exports = defineConfig({

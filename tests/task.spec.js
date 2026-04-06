@@ -16,7 +16,7 @@ const { LoginPage } = require('../pages/login.page');
 const { TaskPage }  = require('../pages/task.page');
 
 // ── Test data ────────────────────────────────────────────────
-const BASE_URL   = 'https://proud-desert-02abf6a10.1.azurestaticapps.net';
+const BASE_URL   = 'https://uat.sales.teamsignal.com';
 const DEAL_URL   = `${BASE_URL}/app/sales/deals/deal/18596`;
 
 const CREDENTIALS = {

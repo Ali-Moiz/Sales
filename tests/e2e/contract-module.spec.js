@@ -109,10 +109,6 @@ let resolvedTargetPropertyName = targetPropertyName;
 async function ensureAuthState(browser) {
   mkdirSync('playwright/.auth', { recursive: true });
 
-  if (existsSync(authFile)) {
-    return;
-  }
-
   const authContext = await browser.newContext();
   const authPage = await authContext.newPage();
   await performLogin(authPage);
@@ -152,9 +148,16 @@ async function ensureValidContractDependencies(page) {
   }
 
   resolvedTargetCompanyName =
+    process.env.CREATED_PROPERTY_COMPANY_NAME ||
+    readCreatedPropertyCompanyName() ||
     process.env.CREATED_COMPANY_NAME ||
     readCreatedCompanyName() ||
-    resolvedTargetCompanyName;
+    resolvedTargetCompanyName ||
+    targetCompanyName;
+
+  if (!resolvedTargetCompanyName) {
+    throw new Error('No company name available to create contract dependencies.');
+  }
 
   resolvedTargetPropertyName = propertyModule.generateUniquePropertyName();
   await propertyModule.gotoPropertiesFromMenu();
@@ -184,7 +187,13 @@ async function ensureContractTargetDeal(page) {
       .catch(() => false);
 
     if (existingDealRowVisible) {
-      return resolvedContractDealName;
+      const candidateContractModule = new ContractModule(page);
+      await candidateContractModule.openDealDetail(resolvedContractDealName);
+      const existingState = await candidateContractModule.detectContractState(8_000);
+
+      if (existingState === 'empty') {
+        return resolvedContractDealName;
+      }
     }
   }
 

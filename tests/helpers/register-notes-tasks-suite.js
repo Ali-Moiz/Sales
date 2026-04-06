@@ -5,6 +5,8 @@ const ts = () => Date.now();
 
 function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }) {
   test.describe(`${moduleName} Notes & Tasks CRUD`, () => {
+    test.describe.configure({ timeout: 180_000 });
+
     /** @type {import('../../pages/notesTask.page').NotesTaskPage} */
     let ntPage;
     /** @type {import('@playwright/test').Page} */

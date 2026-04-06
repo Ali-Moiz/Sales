@@ -1,7 +1,7 @@
 # Signal CRM — Edit Functionality: Smoke Test Cases (All Modules)
 
 **Application:** Signal CRM
-**Base URL:** `https://proud-desert-02abf6a10.1.azurestaticapps.net/`
+**Base URL:** `https://uat.sales.teamsignal.com/`
 **Credentials:** `moiz.qureshi+ho@camp1.tkxel.com` / `Admin@123`
 **Modules Covered:** Company · Property · Deal · Contract · Contact
 **Test Type:** Smoke Testing — Edit Coverage

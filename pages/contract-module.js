@@ -689,9 +689,12 @@ class ContractModule {
    * Waits for the button to be enabled first.
    */
   async clickSaveAndNext() {
-    await this.saveAndNextBtn.waitFor({ state: 'visible', timeout: 10_000 });
-    await expect(this.saveAndNextBtn).toBeEnabled({ timeout: 8_000 });
-    await this.saveAndNextBtn.click();
+    const saveAndNextVisible = await this.saveAndNextBtn.isVisible().catch(() => false);
+    const primaryActionButton = saveAndNextVisible ? this.saveAndNextBtn : this.updateProposalBtn;
+
+    await primaryActionButton.waitFor({ state: 'visible', timeout: 10_000 });
+    await expect(primaryActionButton).toBeEnabled({ timeout: 8_000 });
+    await primaryActionButton.click();
     await this.page.waitForTimeout(800);
     await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
   }
@@ -832,12 +835,36 @@ class ContractModule {
       }
     }
 
-    const option = popper.locator('[role="option"], li, h6, p').first();
-    await option.waitFor({ state: 'visible', timeout: 8_000 });
-    await option.click({ force: true });
+    const options = popper.locator('[role="option"], li, h6, p');
+    const optionCount = await options.count().catch(() => 0);
 
-    // Brief pause so the selection registers in React state before the next action
-    await this.page.waitForTimeout(400);
+    for (let i = 0; i < optionCount; i += 1) {
+      const option = options.nth(i);
+      const optionText = (await option.textContent().catch(() => '')).trim();
+      const isVisible = await option.isVisible().catch(() => false);
+
+      if (!isVisible || !optionText) {
+        continue;
+      }
+
+      if (/^select\s|^search$|resource type|line item/i.test(optionText)) {
+        continue;
+      }
+
+      await option.click({ force: true }).catch(async () => {
+        await option.evaluate((el) => el.click());
+      });
+      await this.page.waitForTimeout(500);
+
+      const updatedValue = await triggerDiv.locator('h6').first().textContent().catch(() => '');
+      if (updatedValue?.trim() && !/^select\s/i.test(updatedValue.trim())) {
+        return;
+      }
+    }
+
+    await triggerDiv.press('ArrowDown').catch(() => {});
+    await triggerDiv.press('Enter').catch(() => {});
+    await this.page.waitForTimeout(500);
   }
 
   /**

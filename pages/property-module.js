@@ -395,6 +395,51 @@ class PropertyModule {
     await expect(this.cancelCreateBtn).toBeVisible({ timeout: 5_000 });
   }
 
+  escapeRegex(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  async clickVisibleDropdownOption(container, optionText, timeout = 10_000) {
+    const exactOptions = container
+      .locator('p, h6, [role="option"]')
+      .filter({ hasText: new RegExp(`^\\s*${this.escapeRegex(optionText)}\\s*$`, 'i') });
+
+    const partialOptions = container
+      .locator('p, h6, [role="option"]')
+      .filter({ hasText: new RegExp(this.escapeRegex(optionText), 'i') });
+
+    const optionGroups = [exactOptions, partialOptions];
+
+    for (const options of optionGroups) {
+      const visible = await options.first()
+        .waitFor({ state: 'visible', timeout })
+        .then(() => true)
+        .catch(() => false);
+
+      if (!visible) {
+        continue;
+      }
+
+      const optionCount = await options.count();
+      for (let i = 0; i < optionCount; i++) {
+        const option = options.nth(i);
+        const isVisible = await option.isVisible().catch(() => false);
+        if (!isVisible) continue;
+
+        try {
+          await option.click({ force: true });
+        } catch {
+          await option.evaluate((el) => {
+            el.click();
+          });
+        }
+        return;
+      }
+    }
+
+    throw new Error(`Dropdown option "${optionText}" was not clickable.`);
+  }
+
   /**
    * Select company by searching in the "Search Company" dropdown.
    * Live-verified: clicking heading opens tooltip with Search textbox.
@@ -403,7 +448,7 @@ class PropertyModule {
    */
   async selectCompanyInCreateForm(companyName) {
     await this.companyDropdownTrigger.waitFor({ state: 'visible', timeout: 10_000 });
-    await this.companyDropdownTrigger.click();
+    await this.companyDropdownTrigger.click({ force: true });
 
     const tooltip = this.page.locator('#simple-popper[role="tooltip"]').first()
       .or(this.page.getByRole('tooltip').first());
@@ -411,14 +456,29 @@ class PropertyModule {
 
     const searchInput = tooltip.getByRole('textbox', { name: 'Search' });
     await searchInput.waitFor({ state: 'visible', timeout: 5_000 });
-    await searchInput.fill(companyName);
-    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
-    await this.page.waitForTimeout(1_500);
+    const searchAttempts = [
+      companyName,
+      companyName.substring(0, Math.min(4, companyName.length)),
+    ].filter(Boolean);
 
-    const matchingResult = tooltip.getByText(companyName, { exact: false }).first();
-    await matchingResult.waitFor({ state: 'visible', timeout: 10_000 });
-    await matchingResult.click({ force: true });
-    await this.page.waitForTimeout(500);
+    for (const searchText of searchAttempts) {
+      await searchInput.click();
+      await searchInput.fill('');
+      await searchInput.fill(searchText);
+      await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+      await this.page.waitForTimeout(1_000);
+
+      const optionSelected = await this.clickVisibleDropdownOption(tooltip, companyName, 5_000)
+        .then(() => true)
+        .catch(() => false);
+
+      if (optionSelected) {
+        await this.page.waitForTimeout(500);
+        return;
+      }
+    }
+
+    throw new Error(`Company "${companyName}" was not selectable in property create form.`);
   }
 
   async fillPropertyName(propertyName) {
