@@ -21,15 +21,12 @@ const {
   writeCreatedPropertyCompanyName,
   writeCreatedPropertyName,
 } = require('../../utils/shared-run-state');
+const { DEFAULT_COMPANY_NAME, resolvePropertyCompanyName } = require('../../utils/property-company-selector');
 const { registerNotesTasksSuite } = require('../helpers/register-notes-tasks-suite');
 
 test.describe.serial('Property Module', () => {
-  // Dynamic company name — comes from company suite via env var, or fallback
-  const targetCompanyName =
-    process.env.PROPERTY_TEST_COMPANY ||
-    process.env.CREATED_COMPANY_NAME ||
-    readCreatedCompanyName() ||
-    'Regression Phase';
+  // Runtime-selected company name used across the full property suite.
+  let targetCompanyName = '';
 
   // Shared state populated during the test run
   let createdPropertyName;
@@ -73,6 +70,13 @@ test.describe.serial('Property Module', () => {
 
   test.beforeAll(async ({ browser }) => {
     test.setTimeout(180_000);
+    targetCompanyName =
+      await resolvePropertyCompanyName() ||
+      process.env.CREATED_COMPANY_NAME ||
+      readCreatedCompanyName() ||
+      DEFAULT_COMPANY_NAME;
+
+    process.env.PROPERTY_TEST_COMPANY = targetCompanyName;
     context        = await browser.newContext();
     page           = await context.newPage();
     propertyModule = new PropertyModule(page);

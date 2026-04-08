@@ -4,6 +4,7 @@
 // Fully dynamic — no hardcoded IDs or names
 
 const { expect } = require('@playwright/test');
+const { env } = require('../utils/env');
 
 class PropertyModule {
   constructor(page) {
@@ -509,6 +510,10 @@ class PropertyModule {
   }
 
   async selectAssociatedFranchise() {
+    const franchiseLabel = env.testEnv === 'prod'
+      ? 'Tkxel Test Franchise'
+      : '216 - Omaha, NE';
+
     await this.associatedFranchiseTrigger.waitFor({ state: 'visible', timeout: 8_000 });
     await this.associatedFranchiseTrigger.click();
 
@@ -517,11 +522,11 @@ class PropertyModule {
     await tooltip.waitFor({ state: 'visible', timeout: 8_000 });
 
     const searchInput = tooltip.getByRole('textbox', { name: 'Search' });
-    await searchInput.fill('216');
+    await searchInput.fill(franchiseLabel);
     await this.page.waitForTimeout(1_000);
 
-    const franchiseOption = this.page.getByRole('tooltip', { name: /216 - Omaha, NE/i }).getByRole('paragraph').first()
-      .or(tooltip.getByText(/216 - Omaha, NE/i).first());
+    const franchiseOption = tooltip.getByText(franchiseLabel, { exact: false }).first()
+      .or(tooltip.getByRole('paragraph').filter({ hasText: franchiseLabel }).first());
     await franchiseOption.waitFor({ state: 'visible', timeout: 8_000 });
     await franchiseOption.click({ force: true });
     await this.page.waitForTimeout(500);
@@ -554,6 +559,10 @@ class PropertyModule {
    * Picks the first card dynamically.
    */
   async selectAssignee() {
+    const assigneeLabel = env.testEnv === 'prod'
+      ? 'Moiz ProdHO'
+      : 'Moiz SM UAT';
+
     await this.assigneeTrigger.waitFor({ state: 'visible', timeout: 8_000 });
     await this.assigneeTrigger.click();
     const tooltip = this.page.locator('#simple-popper[role="tooltip"]').last()
@@ -561,11 +570,11 @@ class PropertyModule {
     await tooltip.waitFor({ state: 'visible', timeout: 8_000 });
 
     const searchInput = tooltip.getByRole('textbox', { name: 'Search' });
-    await searchInput.fill('moiz');
+    await searchInput.fill(assigneeLabel);
     await this.page.waitForTimeout(1_000);
 
-    const assigneeOption = tooltip.getByRole('heading', { name: 'Moiz SM UAT' }).first()
-      .or(tooltip.getByText('Moiz SM UAT', { exact: false }).first());
+    const assigneeOption = tooltip.getByRole('heading', { name: assigneeLabel }).first()
+      .or(tooltip.getByText(assigneeLabel, { exact: false }).first());
     await assigneeOption.waitFor({ state: 'visible', timeout: 8_000 });
     await assigneeOption.click({ force: true });
     await this.page.waitForTimeout(500);
@@ -601,6 +610,11 @@ class PropertyModule {
   }
 
   async selectContactAffiliation() {
+    const contactSearchText = env.testEnv === 'prod' ? 'Ahsan Awan' : 'moiz';
+    const contactLabel = env.testEnv === 'prod'
+      ? 'Ahsan Awan'
+      : 'Ali TkSmoke (moiz.qureshi+c1@';
+
     await this.contactTrigger.waitFor({ state: 'visible', timeout: 10_000 });
     await this.contactTrigger.click();
 
@@ -609,11 +623,11 @@ class PropertyModule {
     await tooltip.waitFor({ state: 'visible', timeout: 8_000 });
 
     const searchInput = tooltip.getByRole('textbox', { name: 'Search by name' });
-    await searchInput.fill('moiz');
+    await searchInput.fill(contactSearchText);
     await this.page.waitForTimeout(1_000);
 
-    const contactOption = tooltip.getByText('Ali TkSmoke (moiz.qureshi+c1@', { exact: false }).first()
-      .or(this.page.getByText('Ali TkSmoke (moiz.qureshi+c1@', { exact: false }).first());
+    const contactOption = tooltip.getByText(contactLabel, { exact: false }).first()
+      .or(this.page.getByText(contactLabel, { exact: false }).first());
     await contactOption.waitFor({ state: 'visible', timeout: 10_000 });
     await contactOption.click({ force: true });
     await this.page.waitForTimeout(700);

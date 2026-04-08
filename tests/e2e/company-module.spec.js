@@ -5,7 +5,6 @@ const { writeCreatedCompanyName } = require('../../utils/shared-run-state');
 const { registerNotesTasksSuite } = require('../helpers/register-notes-tasks-suite');
 
 test.describe.serial('Company Module', () => {
-  const targetCompanyName = 'A-C 6548';
   const companyAddress = 'S 9th St, Omaha, NE 68102, USA';
   let createdCompanyName = '';
   let updatedCompanyDetails;
@@ -13,11 +12,13 @@ test.describe.serial('Company Module', () => {
   let page;
   let companyModule;
 
-  async function ensureTargetCompanyDetailOpened() {
+  async function ensureCreatedCompanyDetailOpened() {
+    const companyName = await ensureCreatedCompanyExists();
     await companyModule.gotoCompaniesFromMenu();
     await companyModule.assertCompaniesPageOpened();
-    await companyModule.openCompanyDetail(targetCompanyName);
-    await companyModule.assertCompanyDetailOpened(targetCompanyName);
+    await companyModule.openCompanyDetail(companyName);
+    await companyModule.assertCompanyDetailOpened(companyName);
+    return companyName;
   }
 
   async function ensureCreatedCompanyExists() {
@@ -74,25 +75,28 @@ test.describe.serial('Company Module', () => {
     await companyModule.assertCompaniesPageOpened();
   });
 
-  test('TC-COMP-002 | User can search and open an existing company successfully', async () => {
+  test('TC-COMP-002 | User can search and open the newly created company successfully', async () => {
     test.setTimeout(180_000);
+    const companyName = await ensureCreatedCompanyExists();
     await companyModule.gotoCompaniesFromMenu();
     await companyModule.assertCompaniesPageOpened();
-    await companyModule.openCompanyDetail(targetCompanyName);
-    await companyModule.assertCompanyDetailOpened(targetCompanyName);
+    await companyModule.searchForCompany(companyName);
+    await companyModule.openCompanyDetail(companyName);
+    await companyModule.assertCompanyDetailOpened(companyName);
   });
 
-  test('TC-COMP-003 | Activities tab shows company creation activity for the searched company', async () => {
+  test('TC-COMP-003 | Activities tab shows company creation activity for the created company', async () => {
     test.setTimeout(180_000);
-    await companyModule.assertCompanyDetailOpened(targetCompanyName);
+    const companyName = await ensureCreatedCompanyExists();
+    await companyModule.assertCompanyDetailOpened(companyName);
     await companyModule.gotoActivitiesTab();
-    await companyModule.assertCompanyCreationActivity(targetCompanyName);
+    await companyModule.assertCompanyCreationActivity(companyName);
   });
 
   test('TC-COMP-004 | User can edit the searched company and verify updated values in About this Company', async () => {
     test.setTimeout(180_000);
     updatedCompanyDetails = companyModule.generateRandomCompanyEditData();
-    await ensureTargetCompanyDetailOpened();
+    await ensureCreatedCompanyDetailOpened();
     await companyModule.updateCompanyDetails(updatedCompanyDetails);
     await companyModule.openAboutCompanySection();
     await companyModule.assertAboutCompanyDetails(updatedCompanyDetails);
@@ -188,10 +192,11 @@ test.describe.serial('Company Module', () => {
    */
   test('TC-COMP-009 | Searching with a non-existent company name returns no results', async () => {
     test.setTimeout(180_000);
+    const companyName = await ensureCreatedCompanyExists();
     await companyModule.gotoCompaniesFromMenu();
     await companyModule.assertCompaniesPageOpened();
     await companyModule.searchForCompany('zzz_no_match_company_xyz_99999');
-    await companyModule.assertSearchShowsNoResults(targetCompanyName);
+    await companyModule.assertSearchShowsNoResults(companyName);
     await companyModule.clearCompanySearch();
   });
 
@@ -226,10 +231,7 @@ test.describe.serial('Company Module', () => {
    */
   test('TC-COMP-011 | Company detail page shows all sidebar sections', async () => {
     test.setTimeout(180_000);
-    await companyModule.gotoCompaniesFromMenu();
-    await companyModule.assertCompaniesPageOpened();
-    await companyModule.openCompanyDetail(targetCompanyName);
-    await companyModule.assertCompanyDetailOpened(targetCompanyName);
+    await ensureCreatedCompanyDetailOpened();
     await companyModule.assertCompanyDetailSectionsVisible();
   });
 
@@ -247,10 +249,7 @@ test.describe.serial('Company Module', () => {
    */
   test('TC-COMP-012 | Notes tab is visible and Create New Note drawer opens with correct fields', async () => {
     test.setTimeout(180_000);
-    await companyModule.gotoCompaniesFromMenu();
-    await companyModule.assertCompaniesPageOpened();
-    await companyModule.openCompanyDetail(targetCompanyName);
-    await companyModule.assertCompanyDetailOpened(targetCompanyName);
+    await ensureCreatedCompanyDetailOpened();
     await companyModule.assertNotesTabVisible();
     await companyModule.gotoNotesTab();
     await companyModule.assertCreateNewNoteButtonVisible();
@@ -273,10 +272,7 @@ test.describe.serial('Company Module', () => {
    */
   test('TC-COMP-013 | Tasks tab shows correct columns, New Task button, and empty state', async () => {
     test.setTimeout(180_000);
-    await companyModule.gotoCompaniesFromMenu();
-    await companyModule.assertCompaniesPageOpened();
-    await companyModule.openCompanyDetail(targetCompanyName);
-    await companyModule.assertCompanyDetailOpened(targetCompanyName);
+    await ensureCreatedCompanyDetailOpened();
     await companyModule.assertTasksTabVisible();
     await companyModule.gotoTasksTab();
     await companyModule.assertTasksTableColumns();
@@ -297,10 +293,7 @@ test.describe.serial('Company Module', () => {
    */
   test('TC-COMP-014 | Create New Task drawer opens with all required fields', async () => {
     test.setTimeout(180_000);
-    await companyModule.gotoCompaniesFromMenu();
-    await companyModule.assertCompaniesPageOpened();
-    await companyModule.openCompanyDetail(targetCompanyName);
-    await companyModule.assertCompanyDetailOpened(targetCompanyName);
+    await ensureCreatedCompanyDetailOpened();
     await companyModule.gotoTasksTab();
     await companyModule.openCreateTaskDrawer();
     await companyModule.assertCreateTaskDrawerOpen();
@@ -321,7 +314,7 @@ test.describe.serial('Company Module', () => {
    */
   test('TC-COMP-015 | Edit Company form opens with pre-filled data and Update button is disabled without changes', async () => {
     test.setTimeout(180_000);
-    await ensureTargetCompanyDetailOpened();
+    await ensureCreatedCompanyDetailOpened();
     await companyModule.openEditCompanyForm();
     await companyModule.assertEditCompanyFormOpen();
     await companyModule.assertUpdateButtonDisabled();

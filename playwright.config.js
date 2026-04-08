@@ -1,7 +1,5 @@
 const { defineConfig, devices } = require('@playwright/test');
-const dotenv = require('dotenv');
-
-dotenv.config({ quiet: true });
+require('./utils/load-env');
 
 const baseURL = process.env.BASE_URL || 'https://uat.sales.teamsignal.com';
 const headless = (process.env.HEADLESS || 'true').toLowerCase() === 'true';
