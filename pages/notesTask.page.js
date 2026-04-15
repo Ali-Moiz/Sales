@@ -32,100 +32,133 @@ class NotesTaskPage {
 
     // ── SHARED ──────────────────────────────────────────────────
     // Toast notification – appears on successful create / update / delete
-    this.successToast = page.getByRole('alert');
+    this.successToast = page.getByRole("alert");
 
     // ── NOTES TAB ───────────────────────────────────────────────
     // Why: tab role with /^Notes/ matches both "Notes" and "Notes 1" (count badge)
-    this.notesTab = page.getByRole('tab', { name: /^Notes/ });
+    this.notesTab = page.getByRole("tab", { name: /^Notes/ });
 
     // "Create New Note" button – appears in the Overview header when Notes tab is active
     // Why: role-based, stable text, no fragile CSS chain
-    this.createNoteBtn = page.getByRole('button', { name: 'Create New Note' });
+    this.createNoteBtn = page.getByRole("button", { name: "Create New Note" });
 
     // ── Add / Edit Notes Drawer ──────────────────────────────────
     // Drawer heading identifies which mode (Add vs Edit) is open
     // Why: heading level + text is unique – no other h4 with these names on page
-    this.addNoteDrawerHeading  = page.getByRole('heading', { name: 'Add Notes',  level: 4 });
-    this.editNoteDrawerHeading = page.getByRole('heading', { name: 'Edit Notes', level: 4 });
+    this.addNoteDrawerHeading = page.getByRole("heading", {
+      name: "Add Notes",
+      level: 4,
+    });
+    this.editNoteDrawerHeading = page.getByRole("heading", {
+      name: "Edit Notes",
+      level: 4,
+    });
 
     // Subject field – DOM id="title", confirmed via MCP exploration
     // Why: id attribute is the most stable selector available; Playwright auto-resolved it
-    this.noteSubjectInput = page.locator('#title');
+    this.noteSubjectInput = page.locator("#title");
 
     // Description rich-text editor (Draft.js / rdw-editor)
     // Why: role=textbox with aria-label "rdw-editor" is set by the editor library
-    this.noteDescEditor = page.getByRole('textbox', { name: 'rdw-editor' });
+    this.noteDescEditor = page.getByRole("textbox", { name: "rdw-editor" });
 
     // Character counter ("39 / 4961") – confirms description was typed
-    this.noteCharCounter = page.locator('p').filter({ hasText: /\d+ \/ [45]\d{3}/ });
+    this.noteCharCounter = page
+      .locator("p")
+      .filter({ hasText: /\d+ \/ [45]\d{3}/ });
 
     // Drawer action buttons – scoped by text (one drawer is open at a time)
     // Why: Save / Cancel appear uniquely inside the active drawer; no ambiguity while drawer is open
-    this.noteSaveBtn   = page.getByRole('button', { name: 'Save' });
-    this.noteCancelBtn = page.getByRole('button', { name: 'Cancel' });
+    this.noteSaveBtn = page.getByRole("button", { name: "Save" });
+    this.noteCancelBtn = page.getByRole("button", { name: "Cancel" });
 
     // ── Notes Tab Panel ──────────────────────────────────────────
     // Container for the notes list – scoped to avoid selecting buttons from main page header
     // Why: tabpanel role + name matching /Notes/ isolates note-area buttons (Edit/Delete)
     //      from the module-level "Edit" button (e.g. "Edit Contact" in the header)
-    this.notesTabPanel = page.getByRole('tabpanel', { name: /Notes/ });
+    this.notesTabPanel = page.getByRole("tabpanel", { name: /Notes/ });
 
     // Empty state shown when no notes exist
-    this.noteEmptyHeading = this.notesTabPanel.getByText("Oops, It's Empty Here!");
-    this.noteEmptySubtext = this.notesTabPanel.getByText('Get Started and Fill It Up!');
+    this.noteEmptyHeading = this.notesTabPanel.getByText(
+      "Oops, It's Empty Here!",
+    );
+    this.noteEmptySubtext = this.notesTabPanel.getByText(
+      "Get Started and Fill It Up!",
+    );
 
     // ── Delete Note Confirmation Dialog ──────────────────────────
     // Why: role=dialog with accessible name "Delete Note!" pinpoints this specific dialog
-    this.deleteNoteDialog    = page.getByRole('dialog', { name: 'Delete Note!' });
-    this.deleteNoteText      = page.getByText('Are you sure you want to delete this note?');
-    this.deleteNoteConfirmBtn = page.getByRole('button', { name: 'Delete Note' });
+    this.deleteNoteDialog = page.getByRole("dialog", { name: "Delete Note!" });
+    this.deleteNoteText = page.getByText(
+      "Are you sure you want to delete this note?",
+    );
+    this.deleteNoteConfirmBtn = page.getByRole("button", {
+      name: "Delete Note",
+    });
 
     // ── TASKS TAB ────────────────────────────────────────────────
     // Why: /^Tasks/ matches "Tasks" and "Tasks (n)" badge variants
-    this.tasksTab = page.getByRole('tab', { name: /^Tasks/ });
+    this.tasksTab = page.getByRole("tab", { name: /^Tasks/ });
 
     // "New Task" button in the module-context tasks toolbar
     // Why: role + name; no XPath or fragile CSS needed
-    this.newTaskBtn = page.getByRole('button', { name: 'New Task' });
+    this.newTaskBtn = page.getByRole("button", { name: "New Task" });
 
     // Task search box in the tasks toolbar
     this.taskSearchInput = page
-      .getByRole('searchbox', { name: 'Search by Title' })
+      .getByRole("searchbox", { name: "Search by Title" })
       .or(page.locator('input[placeholder*="Search by Title"]').first())
-      .or(page.getByRole('searchbox').first());
+      .or(page.getByRole("searchbox").first());
 
     // Filter dropdowns inside the tasks tab toolbar
     // Why: h6 with exact text is the rendered trigger for each custom dropdown
-    this.typeFilterTrigger     = page.locator('h6').filter({ hasText: /^Type$/ }).first();
-    this.priorityFilterTrigger = page.locator('h6').filter({ hasText: /^Priority$/ }).first();
-    this.statusFilterTrigger   = page.locator('h6').filter({ hasText: /^Status$/ }).first();
+    this.typeFilterTrigger = page
+      .locator("h6")
+      .filter({ hasText: /^Type$/ })
+      .first();
+    this.priorityFilterTrigger = page
+      .locator("h6")
+      .filter({ hasText: /^Priority$/ })
+      .first();
+    this.statusFilterTrigger = page
+      .locator("h6")
+      .filter({ hasText: /^Status$/ })
+      .first();
 
     // ── Create / Edit Task Drawer ────────────────────────────────
     // Why: heading level 3 + exact name uniquely identifies the drawer mode
-    this.createTaskDrawerHeading = page.getByRole('heading', { name: 'Create New Task', level: 3 });
-    this.editTaskDrawerHeading   = page.getByRole('heading', { name: 'Update This Task', level: 3 });
+    this.createTaskDrawerHeading = page.getByRole("heading", {
+      name: "Create New Task",
+      level: 3,
+    });
+    this.editTaskDrawerHeading = page.getByRole("heading", {
+      name: "Update This Task",
+      level: 3,
+    });
 
     // Task title textbox
     // Why: placeholder "Task Title" is a stable, role-based selector
-    this.taskTitleInput = page.getByRole('textbox', { name: 'Task Title' });
+    this.taskTitleInput = page.getByRole("textbox", { name: "Task Title" });
 
     // Task description editor (same Draft.js component as notes)
-    this.taskDescEditor = page.getByRole('textbox', { name: 'rdw-editor' });
+    this.taskDescEditor = page.getByRole("textbox", { name: "rdw-editor" });
 
     // Task char counter (500 char limit for tasks vs 5000 for notes)
-    this.taskCharCounter = page.locator('p').filter({ hasText: /\d+ \/ 5\d\d/ });
+    this.taskCharCounter = page
+      .locator("p")
+      .filter({ hasText: /\d+ \/ 5\d\d/ });
 
     // Type dropdown trigger – reflects current selection or placeholder
     // Why: h6 text cycles through "Select Type" / "To-do" / "Email" / "Call" / "LinkedIn"
     this.taskTypeDropdown = page
-      .locator('h6')
+      .locator("h6")
       .filter({ hasText: /^(Select Type|To-do|Email|Call|LinkedIn)$/ })
       .first();
 
     // Priority dropdown trigger
     // Why: same pattern – h6 reflects current value or placeholder
     this.taskPriorityDropdown = page
-      .locator('h6')
+      .locator("h6")
       .filter({ hasText: /^(Select Priority|High|Medium|Low)$/ })
       .first();
 
@@ -134,39 +167,53 @@ class NotesTaskPage {
     this.taskDueDateInput = page.locator('input[placeholder*="efine"]').first();
 
     // Drawer action buttons (one drawer open at a time → no ambiguity)
-    this.taskSaveBtn   = page.getByRole('button', { name: 'Save' });
-    this.taskCancelBtn = page.getByRole('button', { name: 'Cancel' });
+    this.taskSaveBtn = page.getByRole("button", { name: "Save" });
+    this.taskCancelBtn = page.getByRole("button", { name: "Cancel" });
 
     // ── Tasks Table ──────────────────────────────────────────────
-    this.taskTable        = page.getByRole('table');
-    this.taskEmptyHeading = page.getByRole('heading', { name: 'No tasks Added.' });
-    this.taskRowsPerPage  = page.getByRole('combobox', { name: /Rows per page/ });
-    this.taskPagination   = page.locator('p').filter({ hasText: /\d+–\d+ of \d+/ });
+    this.taskTable = page.getByRole("table");
+    this.taskEmptyHeading = page.getByRole("heading", {
+      name: "No tasks Added.",
+    });
+    this.taskRowsPerPage = page.getByRole("combobox", {
+      name: /Rows per page/,
+    });
+    this.taskPagination = page
+      .locator("p")
+      .filter({ hasText: /\d+–\d+ of \d+/ });
 
     // ── Task Detail Panel ────────────────────────────────────────
     // Three-dot actions menu inside the detail panel
     // Why: [class*="active"] scopes to the open slide-in panel
     this.taskMoreActionsBtn = page.locator('[class*="active"] button').first();
-    this.taskEditMenuItem   = page.getByRole('menuitem', { name: 'Edit' });
-    this.taskDeleteMenuItem = page.getByRole('menuitem', { name: 'Delete' });
+    this.taskEditMenuItem = page.getByRole("menuitem", { name: "Edit" });
+    this.taskDeleteMenuItem = page.getByRole("menuitem", { name: "Delete" });
 
     // Close detail panel (X link)
     this.taskDetailCloseBtn = page.locator('a[href="#"]');
 
     // ── Delete Task Confirmation Dialog ──────────────────────────
-    this.deleteTaskDialog     = page.getByRole('dialog', { name: 'Delete Task' });
-    this.deleteTaskText       = page.getByText('Are you sure you want to delete this task?');
-    this.deleteTaskConfirmBtn = page.getByRole('button', { name: 'Delete' });
+    this.deleteTaskDialog = page.getByRole("dialog", { name: "Delete Task" });
+    this.deleteTaskText = page.getByText(
+      "Are you sure you want to delete this task?",
+    );
+    this.deleteTaskConfirmBtn = page.getByRole("button", { name: "Delete" });
   }
 
   async waitForMutationFeedback(closeTarget) {
     await Promise.any([
-      this.successToast.waitFor({ state: 'visible', timeout: 5_000 }),
-      closeTarget.waitFor({ state: 'hidden', timeout: 8_000 }),
+      this.successToast.waitFor({ state: "visible", timeout: 5_000 }),
+      closeTarget.waitFor({ state: "hidden", timeout: 8_000 }),
     ]).catch(() => {});
 
-    await closeTarget.waitFor({ state: 'hidden', timeout: 8_000 }).catch(() => {});
-    await this.page.waitForLoadState('networkidle').catch(() => {});
+    await closeTarget
+      .waitFor({ state: "hidden", timeout: 8_000 })
+      .catch(() => {});
+    // Cap networkidle at 5 s — CRM apps keep open polling/WS connections so the
+    // default 30 s navigationTimeout is always exhausted before .catch() fires.
+    await this.page
+      .waitForLoadState("networkidle", { timeout: 5_000 })
+      .catch(() => {});
     await this.page.waitForTimeout(400);
   }
 
@@ -211,7 +258,10 @@ class NotesTaskPage {
   /** Click "Create New Note" and wait for drawer to open */
   async openCreateNoteDrawer() {
     await this.createNoteBtn.click();
-    await this.addNoteDrawerHeading.waitFor({ state: 'visible', timeout: 6_000 });
+    await this.addNoteDrawerHeading.waitFor({
+      state: "visible",
+      timeout: 6_000,
+    });
   }
 
   /**
@@ -247,7 +297,7 @@ class NotesTaskPage {
     await cancelButton.click();
     // Drawer should close
     await this.addNoteDrawerHeading
-      .waitFor({ state: 'hidden', timeout: 5_000 })
+      .waitFor({ state: "hidden", timeout: 5_000 })
       .catch(() => {}); // may already be gone
   }
 
@@ -270,16 +320,22 @@ class NotesTaskPage {
     if (subject) {
       // Find the note container that contains this subject text, then click its Edit button
       await this.notesTabPanel
-        .locator('div')
+        .locator("div")
         .filter({ hasText: new RegExp(`Note: ${subject}`) })
-        .getByRole('button', { name: 'Edit' })
+        .getByRole("button", { name: "Edit" })
         .first()
         .click();
     } else {
       // Click the first Edit button inside the notes panel
-      await this.notesTabPanel.getByRole('button', { name: 'Edit' }).first().click();
+      await this.notesTabPanel
+        .getByRole("button", { name: "Edit" })
+        .first()
+        .click();
     }
-    await this.editNoteDrawerHeading.waitFor({ state: 'visible', timeout: 6_000 });
+    await this.editNoteDrawerHeading.waitFor({
+      state: "visible",
+      timeout: 6_000,
+    });
   }
 
   /**
@@ -295,7 +351,9 @@ class NotesTaskPage {
 
     if (subject !== undefined) {
       await subjectInput.click();
-      await subjectInput.press(`${process.platform === 'darwin' ? 'Meta' : 'Control'}+A`).catch(() => {});
+      await subjectInput
+        .press(`${process.platform === "darwin" ? "Meta" : "Control"}+A`)
+        .catch(() => {});
       await subjectInput.fill(subject);
     }
     if (description !== undefined) {
@@ -320,16 +378,23 @@ class NotesTaskPage {
    */
   async clickDeleteNote(subject) {
     if (subject) {
-      await this.notesTabPanel
-        .locator('div')
+      const noteContainer = this.notesTabPanel
+        .locator("div")
         .filter({ hasText: new RegExp(`Note: ${subject}`) })
-        .getByRole('button', { name: /delete/i })
+        .first();
+      // Wait for the note to appear in the DOM before looking for its Delete button.
+      await noteContainer.waitFor({ state: "visible", timeout: 10_000 });
+      await noteContainer
+        .getByRole("button", { name: /delete/i })
         .first()
         .click();
     } else {
-      await this.notesTabPanel.getByRole('button', { name: /delete/i }).first().click();
+      await this.notesTabPanel
+        .getByRole("button", { name: /delete/i })
+        .first()
+        .click();
     }
-    await this.deleteNoteDialog.waitFor({ state: 'visible', timeout: 5_000 });
+    await this.deleteNoteDialog.waitFor({ state: "visible", timeout: 5_000 });
   }
 
   /** Click "Delete Note" in the confirmation dialog and wait for toast */
@@ -340,17 +405,21 @@ class NotesTaskPage {
 
   /** Click "Cancel" in the Delete Note confirmation dialog */
   async cancelDeleteNote() {
-    await this.deleteNoteDialog.getByRole('button', { name: 'Cancel' }).click();
-    await this.deleteNoteDialog.waitFor({ state: 'hidden', timeout: 5_000 });
+    await this.deleteNoteDialog.getByRole("button", { name: "Cancel" }).click();
+    await this.deleteNoteDialog.waitFor({ state: "hidden", timeout: 5_000 });
   }
 
   /** Returns true if the notes empty state is visible */
   async isNotesEmptyStateVisible() {
-    await this.notesTab.waitFor({ state: 'visible', timeout: 5_000 }).catch(() => {});
+    await this.notesTab
+      .waitFor({ state: "visible", timeout: 5_000 })
+      .catch(() => {});
 
     const startedAt = Date.now();
     while (Date.now() - startedAt < 5_000) {
-      const emptyVisible = await this.noteEmptyHeading.isVisible().catch(() => false);
+      const emptyVisible = await this.noteEmptyHeading
+        .isVisible()
+        .catch(() => false);
       if (emptyVisible) {
         return true;
       }
@@ -372,7 +441,7 @@ class NotesTaskPage {
    * @param {string} subject
    */
   getNoteBySubject(subject) {
-    return this.notesTabPanel.locator('p').filter({
+    return this.notesTabPanel.locator("p").filter({
       hasText: new RegExp(`Note: ${subject}`),
     });
   }
@@ -380,7 +449,7 @@ class NotesTaskPage {
   /** Returns the count of visible note items in the Notes tab panel */
   async getNoteCount() {
     const subjectCount = await this.notesTabPanel
-      .locator('p')
+      .locator("p")
       .filter({ hasText: /^Note:/ })
       .count();
 
@@ -388,7 +457,7 @@ class NotesTaskPage {
       return subjectCount;
     }
 
-    return this.notesTabPanel.getByRole('button', { name: 'Edit' }).count();
+    return this.notesTabPanel.getByRole("button", { name: "Edit" }).count();
   }
 
   getTaskTitleSnippet(taskTitle) {
@@ -397,7 +466,7 @@ class NotesTaskPage {
 
   getTaskRowByTitle(taskTitle) {
     return this.page
-      .locator('table tbody tr')
+      .locator("table tbody tr")
       .filter({ hasText: this.getTaskTitleSnippet(taskTitle) });
   }
 
@@ -414,7 +483,10 @@ class NotesTaskPage {
   /** Click "New Task" and wait for the create drawer to open */
   async openCreateTaskDrawer() {
     await this.newTaskBtn.click();
-    await this.createTaskDrawerHeading.waitFor({ state: 'visible', timeout: 6_000 });
+    await this.createTaskDrawerHeading.waitFor({
+      state: "visible",
+      timeout: 6_000,
+    });
   }
 
   /**
@@ -423,7 +495,10 @@ class NotesTaskPage {
    */
   async selectTaskType(typeOption) {
     await this.taskTypeDropdown.click();
-    await this.page.getByRole('tooltip').getByText(typeOption, { exact: true }).click();
+    await this.page
+      .getByRole("tooltip")
+      .getByText(typeOption, { exact: true })
+      .click();
     await this.page.waitForTimeout(200);
   }
 
@@ -433,7 +508,10 @@ class NotesTaskPage {
    */
   async selectTaskPriority(priorityOption) {
     await this.taskPriorityDropdown.click();
-    await this.page.getByRole('tooltip').getByText(priorityOption, { exact: true }).click();
+    await this.page
+      .getByRole("tooltip")
+      .getByText(priorityOption, { exact: true })
+      .click();
     await this.page.waitForTimeout(200);
   }
 
@@ -449,7 +527,7 @@ class NotesTaskPage {
     await this.taskTitleInput.fill(title);
     await this.taskDescEditor.click();
     await this.taskDescEditor.fill(description);
-    if (type)     await this.selectTaskType(type);
+    if (type) await this.selectTaskType(type);
     if (priority) await this.selectTaskPriority(priority);
     await this.page.waitForTimeout(200);
   }
@@ -458,9 +536,9 @@ class NotesTaskPage {
   async saveTask() {
     await this.taskSaveBtn.click();
     await this.waitForMutationFeedback(
-      await this.editTaskDrawerHeading.isVisible().catch(() => false)
+      (await this.editTaskDrawerHeading.isVisible().catch(() => false))
         ? this.editTaskDrawerHeading
-        : this.createTaskDrawerHeading
+        : this.createTaskDrawerHeading,
     );
   }
 
@@ -468,7 +546,7 @@ class NotesTaskPage {
   async cancelTask() {
     await this.taskCancelBtn.click();
     await this.createTaskDrawerHeading
-      .waitFor({ state: 'hidden', timeout: 5_000 })
+      .waitFor({ state: "hidden", timeout: 5_000 })
       .catch(() => {});
   }
 
@@ -487,14 +565,14 @@ class NotesTaskPage {
    * @param {string} term
    */
   async searchTask(term) {
-    await this.taskSearchInput.waitFor({ state: 'visible', timeout: 15_000 });
+    await this.taskSearchInput.waitFor({ state: "visible", timeout: 15_000 });
     await this.taskSearchInput.fill(term);
     await this.page.waitForTimeout(800); // debounce
   }
 
   /** Clear the task search box */
   async clearTaskSearch() {
-    await this.taskSearchInput.waitFor({ state: 'visible', timeout: 15_000 });
+    await this.taskSearchInput.waitFor({ state: "visible", timeout: 15_000 });
     await this.taskSearchInput.clear();
     await this.page.waitForTimeout(800);
   }
@@ -507,58 +585,72 @@ class NotesTaskPage {
     this.currentTaskTitle = taskTitle;
     let row = this.getTaskRowByTitle(taskTitle).first();
 
-    if (await row.count().catch(() => 0) === 0) {
+    if ((await row.count().catch(() => 0)) === 0) {
       await this.searchTask(taskTitle);
       row = this.page
-        .locator('table tbody tr')
-        .filter({ hasNot: this.page.locator('[colspan]') })
+        .locator("table tbody tr")
+        .filter({ hasNot: this.page.locator("[colspan]") })
         .first();
     }
 
-    await row.locator('td').nth(1).click();
+    await row.locator("td").nth(1).click();
     await Promise.any([
-      this.page.getByText('Task Description').waitFor({ state: 'visible', timeout: 5_000 }),
-      this.page.getByRole('heading', { name: new RegExp(taskTitle) }).waitFor({ state: 'visible', timeout: 5_000 }),
+      this.page
+        .getByText("Task Description")
+        .waitFor({ state: "visible", timeout: 5_000 }),
+      this.page
+        .getByRole("heading", { name: new RegExp(taskTitle) })
+        .waitFor({ state: "visible", timeout: 5_000 }),
     ]).catch(() => {});
     await this.page.waitForTimeout(400);
   }
 
   getTaskDetailPanel() {
     const escapedTitle = this.currentTaskTitle
-      ? this.currentTaskTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      : '.*';
-    const detailHeading = this.page.getByRole('heading', {
-      name: new RegExp(escapedTitle, 'i'),
+      ? this.currentTaskTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      : ".*";
+    const detailHeading = this.page.getByRole("heading", {
+      name: new RegExp(escapedTitle, "i"),
       level: 3,
     });
 
     return this.page
-      .locator('[active], [class*="active"], [role="dialog"], [class*="drawer"]')
+      .locator(
+        '[active], [class*="active"], [role="dialog"], [class*="drawer"]',
+      )
       .filter({ has: detailHeading })
       .last();
   }
 
   /** Open the three-dot ⋮ menu inside the task detail panel */
   async openTaskMoreActionsMenu() {
-    const waitForTaskMenu = async () => Promise.any([
-      this.taskEditMenuItem.waitFor({ state: 'visible', timeout: 3_000 }),
-      this.taskDeleteMenuItem.waitFor({ state: 'visible', timeout: 3_000 }),
-    ]);
+    const waitForTaskMenu = async () =>
+      Promise.any([
+        this.taskEditMenuItem.waitFor({ state: "visible", timeout: 3_000 }),
+        this.taskDeleteMenuItem.waitFor({ state: "visible", timeout: 3_000 }),
+      ]);
 
-    const detailHeading = this.page.getByRole('heading', {
-      name: new RegExp(this.currentTaskTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'),
+    const detailHeading = this.page.getByRole("heading", {
+      name: new RegExp(
+        this.currentTaskTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        "i",
+      ),
       level: 3,
     });
-    await detailHeading.waitFor({ state: 'visible', timeout: 10_000 }).catch(() => {});
+    await detailHeading
+      .waitFor({ state: "visible", timeout: 10_000 })
+      .catch(() => {});
 
-    const detailHeader = detailHeading.locator('xpath=..');
-    const detailPanelButtons = detailHeader.getByRole('button');
-    const detailPanelButtonCount = await detailPanelButtons.count().catch(() => 0);
+    const detailHeader = detailHeading.locator("xpath=..");
+    const detailPanelButtons = detailHeader.getByRole("button");
+    const detailPanelButtonCount = await detailPanelButtons
+      .count()
+      .catch(() => 0);
 
     for (let i = Math.max(detailPanelButtonCount - 1, 0); i >= 0; i -= 1) {
       const panelButton = detailPanelButtons.nth(i);
 
-      if (!await panelButton.isVisible().catch(() => false)) {
+      if (!(await panelButton.isVisible().catch(() => false))) {
         continue;
       }
 
@@ -575,19 +667,25 @@ class NotesTaskPage {
     }
 
     let rowActionButton = this.currentTaskTitle
-      ? this.getTaskRowByTitle(this.currentTaskTitle).first().getByRole('button').last()
+      ? this.getTaskRowByTitle(this.currentTaskTitle)
+          .first()
+          .getByRole("button")
+          .last()
       : null;
 
-    if (!rowActionButton || !await rowActionButton.isVisible().catch(() => false)) {
+    if (
+      !rowActionButton ||
+      !(await rowActionButton.isVisible().catch(() => false))
+    ) {
       if (this.currentTaskTitle) {
         await this.searchTask(this.currentTaskTitle);
       }
 
       rowActionButton = this.page
-        .locator('table tbody tr')
-        .filter({ hasNot: this.page.locator('[colspan]') })
+        .locator("table tbody tr")
+        .filter({ hasNot: this.page.locator("[colspan]") })
         .first()
-        .getByRole('button')
+        .getByRole("button")
         .last();
     }
 
@@ -600,14 +698,17 @@ class NotesTaskPage {
   async clickEditTaskFromMenu() {
     await this.openTaskMoreActionsMenu();
     await this.taskEditMenuItem.click();
-    await this.editTaskDrawerHeading.waitFor({ state: 'visible', timeout: 6_000 });
+    await this.editTaskDrawerHeading.waitFor({
+      state: "visible",
+      timeout: 6_000,
+    });
   }
 
   /** Open detail panel → click Delete from the three-dot menu */
   async clickDeleteTaskFromMenu() {
     await this.openTaskMoreActionsMenu();
     await this.taskDeleteMenuItem.click();
-    await this.deleteTaskDialog.waitFor({ state: 'visible', timeout: 5_000 });
+    await this.deleteTaskDialog.waitFor({ state: "visible", timeout: 5_000 });
   }
 
   /** Click "Delete" in the task confirmation dialog and wait for toast */
@@ -618,8 +719,8 @@ class NotesTaskPage {
 
   /** Click "Cancel" in the task confirmation dialog */
   async cancelDeleteTask() {
-    await this.deleteTaskDialog.getByRole('button', { name: 'Cancel' }).click();
-    await this.deleteTaskDialog.waitFor({ state: 'hidden', timeout: 5_000 });
+    await this.deleteTaskDialog.getByRole("button", { name: "Cancel" }).click();
+    await this.deleteTaskDialog.waitFor({ state: "hidden", timeout: 5_000 });
   }
 
   /**
@@ -629,10 +730,10 @@ class NotesTaskPage {
   async toggleTaskComplete(taskTitle) {
     await this.searchTask(taskTitle);
     const row = this.page
-      .locator('table tbody tr')
-      .filter({ hasNot: this.page.locator('[colspan]') })
+      .locator("table tbody tr")
+      .filter({ hasNot: this.page.locator("[colspan]") })
       .first();
-    await row.getByRole('checkbox').click();
+    await row.getByRole("checkbox").click();
     await this.page.waitForTimeout(500);
   }
 
@@ -641,8 +742,8 @@ class NotesTaskPage {
    * @param {string} taskTitle
    */
   async isTaskChecked(taskTitle) {
-    const row = this.page.getByRole('row').filter({ hasText: taskTitle });
-    return row.getByRole('checkbox').isChecked();
+    const row = this.page.getByRole("row").filter({ hasText: taskTitle });
+    return row.getByRole("checkbox").isChecked();
   }
 
   /** Returns true if the tasks empty state heading is visible */
@@ -653,8 +754,8 @@ class NotesTaskPage {
   /** Returns the count of non-empty task rows in the table */
   async getTaskRowCount() {
     const rows = this.page
-      .locator('table tbody tr')
-      .filter({ hasNot: this.page.locator('[colspan]') });
+      .locator("table tbody tr")
+      .filter({ hasNot: this.page.locator("[colspan]") });
     return rows.count();
   }
 
@@ -665,26 +766,28 @@ class NotesTaskPage {
 
   /** Waits for the success toast to appear */
   async waitForSuccessToast() {
-    await this.successToast.waitFor({ state: 'visible', timeout: 8_000 }).catch(() => {});
+    await this.successToast
+      .waitFor({ state: "visible", timeout: 8_000 })
+      .catch(() => {});
   }
 
   // ── Assertion Helpers ────────────────────────────────────────
 
   /** Assert note is visible in the notes panel by subject text */
   async assertNoteVisible(subject) {
-    const { expect } = require('@playwright/test');
+    const { expect } = require("@playwright/test");
     await expect(this.getNoteBySubject(subject)).toBeVisible();
   }
 
   /** Assert note is NOT visible in the notes panel */
   async assertNoteNotVisible(subject) {
-    const { expect } = require('@playwright/test');
+    const { expect } = require("@playwright/test");
     await expect(this.getNoteBySubject(subject)).not.toBeVisible();
   }
 
   /** Assert task title cell is visible in the tasks table */
   async assertTaskVisible(taskTitle) {
-    const { expect } = require('@playwright/test');
+    const { expect } = require("@playwright/test");
     await this.searchTask(taskTitle);
     await expect
       .poll(() => this.getTaskRowCount(), { timeout: 10_000 })
@@ -693,7 +796,7 @@ class NotesTaskPage {
 
   /** Assert task title cell is NOT visible in the tasks table */
   async assertTaskNotVisible(taskTitle) {
-    const { expect } = require('@playwright/test');
+    const { expect } = require("@playwright/test");
     await this.searchTask(taskTitle);
     await expect
       .poll(() => this.getTaskRowCount(), { timeout: 10_000 })
@@ -702,25 +805,25 @@ class NotesTaskPage {
 
   /** Assert the Add Notes drawer is open */
   async assertAddNoteDrawerOpen() {
-    const { expect } = require('@playwright/test');
+    const { expect } = require("@playwright/test");
     await expect(this.addNoteDrawerHeading).toBeVisible();
   }
 
   /** Assert the Edit Notes drawer is open */
   async assertEditNoteDrawerOpen() {
-    const { expect } = require('@playwright/test');
+    const { expect } = require("@playwright/test");
     await expect(this.editNoteDrawerHeading).toBeVisible();
   }
 
   /** Assert the Create Task drawer is open */
   async assertCreateTaskDrawerOpen() {
-    const { expect } = require('@playwright/test');
+    const { expect } = require("@playwright/test");
     await expect(this.createTaskDrawerHeading).toBeVisible();
   }
 
   /** Assert the Delete Note dialog is visible */
   async assertDeleteNoteDialogVisible() {
-    const { expect } = require('@playwright/test');
+    const { expect } = require("@playwright/test");
     await expect(this.deleteNoteDialog).toBeVisible();
     await expect(this.deleteNoteText).toBeVisible();
     await expect(this.deleteNoteConfirmBtn).toBeVisible();
@@ -728,7 +831,7 @@ class NotesTaskPage {
 
   /** Assert the Delete Task dialog is visible */
   async assertDeleteTaskDialogVisible() {
-    const { expect } = require('@playwright/test');
+    const { expect } = require("@playwright/test");
     await expect(this.deleteTaskDialog).toBeVisible();
     await expect(this.deleteTaskText).toBeVisible();
     await expect(this.deleteTaskConfirmBtn).toBeVisible();
