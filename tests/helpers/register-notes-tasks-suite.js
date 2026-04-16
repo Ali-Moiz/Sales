@@ -70,7 +70,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
         description: `Smoke test note for ${moduleName} – created by Playwright automation.`,
       });
 
-      await expect(ntPage.addNoteDrawerHeading).not.toBeVisible();
+      await expect(ntPage.addNoteDrawerHeading).toBeHidden();
       await ntPage.assertNoteVisible(subject);
     });
 
@@ -94,7 +94,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
       });
       await ntPage.cancelNote();
 
-      await expect(ntPage.addNoteDrawerHeading).not.toBeVisible();
+      await expect(ntPage.addNoteDrawerHeading).toBeHidden();
     });
 
     test(`NT-${moduleName}-N007: Character counter updates as description is typed`, async () => {
@@ -141,7 +141,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
       await ntPage.fillEditNoteForm({ subject: 'SHOULD NOT SAVE THIS' });
       await ntPage.cancelNote();
 
-      await expect(ntPage.editNoteDrawerHeading).not.toBeVisible();
+      await expect(ntPage.editNoteDrawerHeading).toBeHidden();
       await ntPage.assertNoteVisible(subject);
     });
 
@@ -213,9 +213,9 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
       await ntPage.openCreateTaskDrawer();
 
       await ntPage.assertCreateTaskDrawerOpen();
-      await expect(page.getByRole('radio', { name: 'Company' })).not.toBeVisible();
-      await expect(page.getByRole('radio', { name: 'Deal' })).not.toBeVisible();
-      await expect(page.getByRole('radio', { name: 'Contacts' })).not.toBeVisible();
+      await expect(page.getByRole('radio', { name: 'Company' })).toBeHidden();
+      await expect(page.getByRole('radio', { name: 'Deal' })).toBeHidden();
+      await expect(page.getByRole('radio', { name: 'Contacts' })).toBeHidden();
       await expect(ntPage.taskTitleInput).toBeVisible();
       await expect(ntPage.taskDescEditor).toBeVisible();
       await expect(ntPage.taskTypeDropdown).toBeVisible();
@@ -258,7 +258,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
         priority: 'High',
       });
 
-      await expect(ntPage.createTaskDrawerHeading).not.toBeVisible();
+      await expect(ntPage.createTaskDrawerHeading).toBeHidden();
       await ntPage.assertTaskVisible(title);
     });
 
@@ -273,7 +273,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
       });
       await ntPage.cancelTask();
 
-      await expect(ntPage.createTaskDrawerHeading).not.toBeVisible();
+      await expect(ntPage.createTaskDrawerHeading).toBeHidden();
     });
 
     test(`NT-${moduleName}-T009: Create task – validation shown for empty Title`, async () => {
@@ -363,7 +363,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
       await ntPage.taskTitleInput.fill('SHOULD NOT SAVE');
       await ntPage.cancelTask();
 
-      await expect(ntPage.editTaskDrawerHeading).not.toBeVisible();
+      await expect(ntPage.editTaskDrawerHeading).toBeHidden();
       await ntPage.assertTaskVisible(title);
     });
 
@@ -442,7 +442,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
       await expect
         .poll(() => ntPage.getTaskRowCount(), { timeout: 10_000 })
         .toBeGreaterThan(0);
-      await expect(ntPage.deleteTaskDialog).not.toBeVisible();
+      await expect(ntPage.deleteTaskDialog).toBeHidden();
     });
 
     test(`NT-${moduleName}-T019: Delete task – Confirm removes task from table`, async () => {

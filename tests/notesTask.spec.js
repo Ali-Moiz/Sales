@@ -148,7 +148,7 @@ for (const mod of MODULES) {
       await ntPage.createNote({ subject, description: desc });
 
       // After save: drawer closes, note appears in the list
-      await expect(ntPage.addNoteDrawerHeading).not.toBeVisible();
+      await expect(ntPage.addNoteDrawerHeading).toBeHidden();
       await ntPage.assertNoteVisible(subject);
 
       // Notes counter on tab badge increments
@@ -182,7 +182,7 @@ for (const mod of MODULES) {
       await ntPage.cancelNote();
 
       // Drawer closed; no note with this subject in the list
-      await expect(ntPage.addNoteDrawerHeading).not.toBeVisible();
+      await expect(ntPage.addNoteDrawerHeading).toBeHidden();
     });
 
     test(`NT-${mod.name}-N007: Character counter updates as description is typed`, async () => {
@@ -240,7 +240,7 @@ for (const mod of MODULES) {
       await ntPage.cancelNote();
 
       // Edit drawer closed, original subject still visible
-      await expect(ntPage.editNoteDrawerHeading).not.toBeVisible();
+      await expect(ntPage.editNoteDrawerHeading).toBeHidden();
       await ntPage.assertNoteVisible(subject);
     });
 
@@ -330,9 +330,9 @@ for (const mod of MODULES) {
       await ntPage.assertCreateTaskDrawerOpen();
 
       // NO radio group (module-context drawer differs from global Tasks page)
-      await expect(page.getByRole('radio', { name: 'Company' })).not.toBeVisible();
-      await expect(page.getByRole('radio', { name: 'Deal' })).not.toBeVisible();
-      await expect(page.getByRole('radio', { name: 'Contacts' })).not.toBeVisible();
+      await expect(page.getByRole('radio', { name: 'Company' })).toBeHidden();
+      await expect(page.getByRole('radio', { name: 'Deal' })).toBeHidden();
+      await expect(page.getByRole('radio', { name: 'Contacts' })).toBeHidden();
 
       // Required fields ARE present
       await expect(ntPage.taskTitleInput).toBeVisible();
@@ -382,7 +382,7 @@ for (const mod of MODULES) {
       });
 
       // Drawer closes and task row appears in the table
-      await expect(ntPage.createTaskDrawerHeading).not.toBeVisible();
+      await expect(ntPage.createTaskDrawerHeading).toBeHidden();
       await ntPage.assertTaskVisible(title);
     });
 
@@ -398,7 +398,7 @@ for (const mod of MODULES) {
       });
       await ntPage.cancelTask();
 
-      await expect(ntPage.createTaskDrawerHeading).not.toBeVisible();
+      await expect(ntPage.createTaskDrawerHeading).toBeHidden();
     });
 
     test(`NT-${mod.name}-T009: Create task – validation shown for empty Title`, async () => {
@@ -509,7 +509,7 @@ for (const mod of MODULES) {
       await ntPage.cancelTask();
 
       // Edit drawer closed, original title still in table
-      await expect(ntPage.editTaskDrawerHeading).not.toBeVisible();
+      await expect(ntPage.editTaskDrawerHeading).toBeHidden();
       await ntPage.assertTaskVisible(title);
     });
 
@@ -601,7 +601,7 @@ for (const mod of MODULES) {
       await expect
         .poll(() => ntPage.getTaskRowCount(), { timeout: 10_000 })
         .toBeGreaterThan(0);
-      await expect(ntPage.deleteTaskDialog).not.toBeVisible();
+      await expect(ntPage.deleteTaskDialog).toBeHidden();
     });
 
     test(`NT-${mod.name}-T019: Delete task – Confirm removes task from table`, async () => {

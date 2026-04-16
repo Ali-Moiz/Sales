@@ -1,4 +1,3 @@
-const { envName } = require("./auth/load-env");
 
 const env = {
   baseUrl: (process.env.BASE_URL || "https://uat.sales.teamsignal.com").replace(

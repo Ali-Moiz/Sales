@@ -590,6 +590,7 @@ test.describe('Company Module', () => {
     await attemptCreate({ name: `${baseName} B`, dom: domain });
     await attemptCreate({ name: `${baseName} C`, dom: `x-${domain}` });
   });
+
   registerNotesTasksSuite({
     test,
     moduleName: 'Company',

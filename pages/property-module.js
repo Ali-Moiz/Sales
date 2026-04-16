@@ -3,8 +3,8 @@
 // ALL locators live-verified via MCP browser on 2026-03-20
 // Fully dynamic — no hardcoded IDs or names
 
-const { expect } = require('@playwright/test');
-const { env } = require('../utils/env');
+const { expect } = require("@playwright/test");
+const { env } = require("../utils/env");
 
 class PropertyModule {
   constructor(page) {
@@ -618,7 +618,9 @@ class PropertyModule {
   }
 
   createNewCompanyHeading() {
-    return this.page.getByRole("heading", { name: /Create a New Company/i }).first();
+    return this.page
+      .getByRole("heading", { name: /Create a New Company/i })
+      .first();
   }
 
   createNewCompanyModalRoot() {
@@ -840,11 +842,9 @@ class PropertyModule {
   }
 
   async clickVisibleDropdownOption(container, optionText, timeout = 10_000) {
-    const exactOptions = container
-      .locator('p, h6, [role="option"]')
-      .filter({
-        hasText: new RegExp(`^\\s*${this.escapeRegex(optionText)}\\s*$`, "i"),
-      });
+    const exactOptions = container.locator('p, h6, [role="option"]').filter({
+      hasText: new RegExp(`^\\s*${this.escapeRegex(optionText)}\\s*$`, "i"),
+    });
 
     const partialOptions = container
       .locator('p, h6, [role="option"]')
@@ -999,9 +999,8 @@ class PropertyModule {
   }
 
   async selectAssociatedFranchise() {
-    const franchiseLabel = env.envName === 'prod'
-      ? 'Tkxel Test Franchise'
-      : '216 - Omaha, NE';
+    const franchiseLabel =
+      env.envName === "prod" ? "Tkxel Test Franchise" : "216 - Omaha, NE";
 
     const inEditForm = await this.editPropertyHeading
       .isVisible()
@@ -1084,9 +1083,8 @@ class PropertyModule {
    * Picks the first card dynamically.
    */
   async selectAssignee() {
-    const assigneeLabel = env.envName === 'prod'
-      ? 'Moiz ProdHO'
-      : 'Moiz SM UAT';
+    const assigneeLabel =
+      env.envName === "prod" ? "Moiz ProdHO" : "Moiz SM UAT";
 
     await this.assigneeTrigger.waitFor({ state: "visible", timeout: 8_000 });
     await this.assigneeTrigger.click();
@@ -1143,10 +1141,9 @@ class PropertyModule {
   }
 
   async selectContactAffiliation() {
-    const contactSearchText = env.envName === 'prod' ? 'Ahsan Awan' : 'moiz';
-    const contactLabel = env.envName === 'prod'
-      ? 'Ahsan Awan'
-      : 'Ali TkSmoke (moiz.qureshi+c1@';
+    const contactSearchText = env.envName === "prod" ? "Ahsan Awan" : "moiz";
+    const contactLabel =
+      env.envName === "prod" ? "Ahsan Awan" : "Ali TkSmoke (moiz.qureshi+c1@";
 
     await this.contactTrigger.waitFor({ state: "visible", timeout: 10_000 });
     await this.contactTrigger.click();
@@ -1372,7 +1369,9 @@ class PropertyModule {
       if (opened) return;
       await this.page.waitForTimeout(300 * attempt);
     }
-    throw new Error('Property Assignment modal did not open from "Assigned to" control.');
+    throw new Error(
+      'Property Assignment modal did not open from "Assigned to" control.',
+    );
   }
 
   async assertAssignmentModalSelectedAssigneeVisible(assigneeText) {
@@ -1389,7 +1388,9 @@ class PropertyModule {
     const heading = this.page
       .getByRole("heading", { name: /Property Assignment/i })
       .first();
-    const cancelBtn = this.page.getByRole("button", { name: /^Cancel$/i }).last();
+    const cancelBtn = this.page
+      .getByRole("button", { name: /^Cancel$/i })
+      .last();
     const closeLinkNearHeading = heading.locator("xpath=following::a[1]");
 
     const cancelVisible = await cancelBtn.isVisible().catch(() => false);

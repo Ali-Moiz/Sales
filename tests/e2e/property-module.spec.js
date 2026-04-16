@@ -651,13 +651,17 @@ test.describe.serial("Property Module", () => {
    * M-PROP-04A — Company + Create New opens Create Company flow and can be dismissed.
    */
   test("TC-PROP-024 | Verify that clicking '+ Create New' in Company section opens the Create New Company flow. (M-PROP-04A)", async () => {
-    console.log("[TC-PROP-024] Start: Create New Company flow from Property drawer");
+    console.log(
+      "[TC-PROP-024] Start: Create New Company flow from Property drawer",
+    );
     const ensureCreatePropertyDrawerOpenForMProp04A = async () => {
       const drawerVisible = await propertyModule.createPropertyHeading
         .isVisible()
         .catch(() => false);
       if (!drawerVisible) {
-        console.log("[TC-PROP-024] Parent drawer closed; reopening Create Property drawer");
+        console.log(
+          "[TC-PROP-024] Parent drawer closed; reopening Create Property drawer",
+        );
         await openCreatePropertyDrawerFromList();
       }
     };
@@ -693,19 +697,27 @@ test.describe.serial("Property Module", () => {
   test("TC-PROP-031 | Verify that Parent Company field is visible. (M-PROP-04B)", async () => {
     console.log("[TC-PROP-031] Step 1: Open Create Property drawer");
     await openCreatePropertyDrawerFromList();
-    console.log("[TC-PROP-031] Step 2: Verify Parent Company visible on initial open");
+    console.log(
+      "[TC-PROP-031] Step 2: Verify Parent Company visible on initial open",
+    );
     await propertyModule.assertParentCompanyFieldVisibleInCreatePropertyDrawer();
 
     console.log("[TC-PROP-031] Step 3: Select company in create form");
     await propertyModule.selectCompanyInCreateForm(targetCompanyName);
-    console.log("[TC-PROP-031] Step 4: Verify Parent Company remains visible after company selection");
+    console.log(
+      "[TC-PROP-031] Step 4: Verify Parent Company remains visible after company selection",
+    );
     await propertyModule.assertParentCompanyFieldVisibleInCreatePropertyDrawer();
 
-    console.log("[TC-PROP-031] Step 5: Close drawer via backdrop and verify closed");
+    console.log(
+      "[TC-PROP-031] Step 5: Close drawer via backdrop and verify closed",
+    );
     await propertyModule.dismissCreatePropertyViaBackdrop();
     await propertyModule.assertCreatePropertyDrawerClosed();
 
-    console.log("[TC-PROP-031] Step 6: Reopen drawer and verify Parent Company visible again");
+    console.log(
+      "[TC-PROP-031] Step 6: Reopen drawer and verify Parent Company visible again",
+    );
     await openCreatePropertyDrawerFromList();
     await propertyModule.assertParentCompanyFieldVisibleInCreatePropertyDrawer();
 

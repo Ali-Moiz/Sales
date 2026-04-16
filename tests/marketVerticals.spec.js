@@ -83,15 +83,15 @@ test.describe('Market Verticals Module — Smoke Tests', () => {
       await mvPage.searchIndustry('Commercial');
       await mvPage.assertIndustryInList('Commercial');
       // Other verticals should be hidden
-      await expect(mvPage.page.getByRole('cell', { name: 'Distribution' })).not.toBeVisible();
-      await expect(mvPage.page.getByRole('cell', { name: 'Industrial' })).not.toBeVisible();
+      await expect(mvPage.page.getByRole('cell', { name: 'Distribution' })).toBeHidden();
+      await expect(mvPage.page.getByRole('cell', { name: 'Industrial' })).toBeHidden();
     });
 
     test('TC-MV-005 | Search with no match shows empty table', async () => {
       await mvPage.navigateToListPage();
       await mvPage.searchIndustry('XYZABC_NOMATCH');
       for (const name of ['Commercial', 'Distribution', 'Industrial', 'Manufacturing', 'Residential']) {
-        await expect(mvPage.page.getByRole('cell', { name, exact: true })).not.toBeVisible();
+        await expect(mvPage.page.getByRole('cell', { name, exact: true })).toBeHidden();
       }
     });
 
@@ -145,8 +145,8 @@ test.describe('Market Verticals Module — Smoke Tests', () => {
       await mvPage.searchSidebarVertical('Comm');
 
       await expect(page.getByText('Commercial', { exact: true }).first()).toBeVisible();
-      await expect(page.getByText('Distribution', { exact: true }).first()).not.toBeVisible();
-      await expect(page.getByText('Industrial', { exact: true }).first()).not.toBeVisible();
+      await expect(page.getByText('Distribution', { exact: true }).first()).toBeHidden();
+      await expect(page.getByText('Industrial', { exact: true }).first()).toBeHidden();
     });
 
     test('TC-MV-010 | Clearing sidebar search restores all verticals', async () => {

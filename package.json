@@ -6,11 +6,9 @@
   "scripts": {
     "test:uat": "cross-env ENV_NAME=uat HEADLESS=true npx playwright test",
     "test:uat:headed": "cross-env ENV_NAME=uat npx playwright test --headed",
-
     "test:prod": "cross-env ENV_NAME=prod npx playwright test",
     "test:prod:headed": "cross-env ENV_NAME=prod npx playwright test --headed",
     "report": "npx playwright show-report",
-
     "test:uat:login": "cross-env ENV_NAME=uat npx playwright test --project=chrome --headed --workers=1 tests/e2e/login-module.spec.js",
     "test:uat:company": "cross-env ENV_NAME=uat npx playwright test --project=chrome --headed --workers=1 tests/e2e/company-module.spec.js",
     "test:uat:contact": "cross-env ENV_NAME=uat npx playwright test --project=chrome --headed --workers=1 tests/e2e/contact-module.spec.js",
@@ -22,15 +20,22 @@
     "test:prod:contact": "cross-env ENV_NAME=prod npx playwright test --project=chrome --headed --workers=1 tests/e2e/contact-module.spec.js",
     "test:prod:property": "cross-env ENV_NAME=prod npx playwright test --project=chrome --headed --workers=1 tests/e2e/property-module.spec.js",
     "test:prod:deal": "cross-env ENV_NAME=prod npx playwright test --project=chrome --headed --workers=1 tests/e2e/deal-module.spec.js",
-    "test:prod:contract": "cross-env ENV_NAME=prod npx playwright test --project=chrome --headed --workers=1 tests/e2e/contract-module.spec.js"
+    "test:prod:contract": "cross-env ENV_NAME=prod npx playwright test --project=chrome --headed --workers=1 tests/e2e/contract-module.spec.js",
+
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "@playwright/test": "^1.58.2",
     "cross-env": "^10.1.0",
-    "dotenv": "^17.3.1"
+    "dotenv": "^17.3.1",
+    "eslint": "^9.39.4",
+    "eslint-plugin-playwright": "^2.10.1",
+    "globals": "^15.15.0"
   }
 }

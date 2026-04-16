@@ -110,14 +110,14 @@ test.describe('Contact Module', () => {
 
     await contactPage.submitCreateForm();
     createdContactFullName = `${VALID_CONTACT.firstName} ${VALID_CONTACT.lastName}`;
-    await expect(contactPage.createDrawerHeading).not.toBeVisible();
+    await expect(contactPage.createDrawerHeading).toBeHidden();
   });
 
   test('TC-CN-006 | Cancel Create Contact closes drawer', async () => {
     await contactPage.openCreateDrawer();
     await contactPage.emailField.fill(`cancel.${uniqueSuffix}@signal-qa.com`);
     await contactPage.cancelCreateForm();
-    await expect(contactPage.createDrawerHeading).not.toBeVisible();
+    await expect(contactPage.createDrawerHeading).toBeHidden();
   });
 
   test('TC-CN-007 | Search by name returns matching contacts', async () => {
@@ -130,7 +130,7 @@ test.describe('Contact Module', () => {
   test('TC-CN-008 | Search with non-existent term shows no results', async () => {
     await contactPage.searchContact(SEARCH_TERMS.nonExistent);
     await expect(contactPage.searchBox).toHaveValue(SEARCH_TERMS.nonExistent);
-    await expect(page.getByRole('cell', { name: new RegExp(SEARCH_TERMS.nonExistent, 'i') }).first()).not.toBeVisible();
+    await expect(page.getByRole('cell', { name: new RegExp(SEARCH_TERMS.nonExistent, 'i') }).first()).toBeHidden();
   });
 
   test('TC-CN-009 | Click contact name navigates to detail page', async () => {
@@ -200,7 +200,7 @@ test.describe('Contact Module', () => {
     await expect(contactPage.saveContactBtn).toBeEnabled();
 
     await contactPage.submitEditForm();
-    await expect(contactPage.editDrawerHeading).not.toBeVisible();
+    await expect(contactPage.editDrawerHeading).toBeHidden();
   });
 
   test('TC-CN-015 | Cancel Edit Contact closes drawer', async () => {
@@ -213,7 +213,7 @@ test.describe('Contact Module', () => {
     await contactPage.firstNameField.fill('SHOULD_NOT_SAVE');
     await contactPage.cancelEditForm();
 
-    await expect(contactPage.editDrawerHeading).not.toBeVisible();
+    await expect(contactPage.editDrawerHeading).toBeHidden();
     await expect(page.getByRole('heading', { name: createdContactFullName, level: 3 })).toBeVisible();
   });
 

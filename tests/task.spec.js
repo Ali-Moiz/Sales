@@ -205,7 +205,7 @@ test.describe('Tasks Module – Smoke Tests', () => {
     await page.waitForTimeout(500);
 
     // Deal-context drawer has NO radio group
-    await expect(taskPage.radioCompany).not.toBeVisible();
+    await expect(taskPage.radioCompany).toBeHidden();
 
     // Fill and save
     await taskPage.fillTaskForm(TASK_DATA);
@@ -258,7 +258,7 @@ test.describe('Tasks Module – Smoke Tests', () => {
 
     // Close via X (link with href="#")
     await page.locator('a[href="#"]').click();
-    await expect(heading).not.toBeVisible();
+    await expect(heading).toBeHidden();
   });
 
   // ── TC-TASK-015 + TC-TASK-016: Edit task ─────────────────
@@ -313,7 +313,7 @@ test.describe('Tasks Module – Smoke Tests', () => {
 
     // Original title still in table
     await expect(page.getByRole('cell', { name: /TC-TASK-SMOKE-001/ })).toBeVisible();
-    await expect(page.getByRole('cell', { name: 'Should Not Save This Title' })).not.toBeVisible();
+    await expect(page.getByRole('cell', { name: 'Should Not Save This Title' })).toBeHidden();
   });
 
   // ── TC-TASK-018: Mark task complete ─────────────────────
@@ -435,7 +435,7 @@ test.describe('Tasks Module – Smoke Tests', () => {
     await taskPage.confirmDelete();
 
     // Task no longer in list
-    await expect(page.getByRole('cell', { name: 'DELETE-ME Task' })).not.toBeVisible();
+    await expect(page.getByRole('cell', { name: 'DELETE-ME Task' })).toBeHidden();
   });
 
   // ── TC-TASK-023: Filter by Type – To-Do ─────────────────
@@ -506,8 +506,8 @@ test.describe('Tasks Module – Smoke Tests', () => {
     await page.waitForTimeout(500);
 
     // Radio buttons should NOT be present
-    await expect(taskPage.radioCompany).not.toBeVisible();
-    await expect(taskPage.radioDeal).not.toBeVisible();
+    await expect(taskPage.radioCompany).toBeHidden();
+    await expect(taskPage.radioDeal).toBeHidden();
 
     // Standard fields should be present
     await expect(taskPage.taskTitleInput).toBeVisible();
