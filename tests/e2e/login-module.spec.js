@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 const { LoginModule } = require('../../pages/login-module');
-const { env } = require('../../utils/auth/env');
+const { env } = require('../../utils/env');
 const { performLogin } = require('../../utils/auth/login-action');
 
 const VALID_EMAIL   = env.email;

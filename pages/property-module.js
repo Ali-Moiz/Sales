@@ -4,7 +4,7 @@
 // Fully dynamic — no hardcoded IDs or names
 
 const { expect } = require('@playwright/test');
-const { env } = require('../utils/auth/env');
+const { env } = require('../utils/env');
 
 class PropertyModule {
   constructor(page) {

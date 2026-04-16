@@ -1,4 +1,4 @@
-const { env } = require('./env');
+const { env } = require('../env');
 const {
   enableSliderImageBlocking,
   disableSliderImageBlocking
@@ -128,7 +128,7 @@ async function performLoginAttempt(page, loginCredentials = credentials) {
 }
 
 async function performLogin(page, { attempts = 2, loginCredentials } = {}) {
-  const creds = loginCredentials || credentials;
+  const creds = loginCredentials || env;
   if (!creds?.email || !creds?.password) {
     throw new Error(
       "Login credentials are required. Set SIGNAL_EMAIL_HO/SIGNAL_PASSWORD_HO or pass loginCredentials.",

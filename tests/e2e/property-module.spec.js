@@ -16,7 +16,7 @@
 const { test, expect } = require("@playwright/test");
 const { performLogin } = require("../../utils/auth/login-action");
 const { PropertyModule } = require("../../pages/property-module");
-const { credentials } = require("../../data/credentials");
+const { env } = require("../../utils/env");
 const {
   readCreatedPropertyName,
   readCreatedCompanyName,
@@ -49,7 +49,6 @@ test.describe.serial("Property Module", () => {
     }
   }
 
-test.describe('Property Module', () => {
   // Runtime-selected company name used across the full property suite.
   let targetCompanyName = "";
 
@@ -852,9 +851,9 @@ test.describe('Property Module', () => {
     test.setTimeout(200_000);
     console.log("[TC-PROP-029] Start: HO assignment flow");
 
-    const hoEmail = (credentials.email || "").trim();
-    const hoPassword = (credentials.password || "").trim();
-    const smEmail = (credentials.email_sm || "").trim();
+    const hoEmail = (env.email || "").trim();
+    const hoPassword = (env.password || "").trim();
+    const smEmail = (env.email_sm || "").trim();
     const smUsername = (process.env.SM_USERNAME || "").trim();
     const configuredSmAssigneeText = (
       process.env.PROPERTY_ASSIGNMENT_OPTION_SM ||

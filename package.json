@@ -4,6 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "test:uat": "cross-env ENV_NAME=uat HEADLESS=true npx playwright test",
+    "test:uat:headed": "cross-env ENV_NAME=uat npx playwright test --headed",
+
+    "test:prod": "cross-env ENV_NAME=prod npx playwright test",
+    "test:prod:headed": "cross-env ENV_NAME=prod npx playwright test --headed",
     "report": "npx playwright show-report",
 
     "test:uat:login": "cross-env ENV_NAME=uat npx playwright test --project=chrome --headed --workers=1 tests/e2e/login-module.spec.js",

@@ -1,5 +1,5 @@
 const { expect } = require('@playwright/test');
-const { env } = require('../utils/auth/env');
+const { env } = require('../utils/env');
 const {
   enableSliderImageBlocking,
   disableSliderImageBlocking

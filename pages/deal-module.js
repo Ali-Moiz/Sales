@@ -4,7 +4,7 @@
 // Fully dynamic — no hardcoded IDs, names, or indices
 
 const { expect } = require('@playwright/test');
-const { env } = require('../utils/auth/env');
+const { env } = require('../utils/env');
 
 class DealModule {
   constructor(page) {

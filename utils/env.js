@@ -1,6 +1,6 @@
-require("../utils/load-env");
+const { envName } = require("./auth/load-env");
 
-const credentials = {
+const env = {
   baseUrl: (process.env.BASE_URL || "https://uat.sales.teamsignal.com").replace(
     /\/$/,
     "",
@@ -13,4 +13,4 @@ const credentials = {
   password_sp: process.env.SIGNAL_PASSWORD_SP || "",
 };
 
-module.exports = { credentials };
+module.exports = { env };
