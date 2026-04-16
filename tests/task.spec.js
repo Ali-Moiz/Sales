@@ -78,6 +78,8 @@ test.describe('Tasks Module – Smoke Tests', () => {
     await taskPage.navigateToTasks();
 
     // Global tasks page shows empty for this user (API returns 0 tasks)
+    // When there are no tasks, pagination is "0–0 of 0" and the empty state appears.
+    // When tasks exist (typical UAT), assert the list table has rows instead of skipping.
     const paginationText = await taskPage.getPaginationText();
     if (paginationText?.includes('0–0 of 0')) {
       await expect(taskPage.emptyStateHeading).toBeVisible();

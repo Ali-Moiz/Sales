@@ -33,7 +33,7 @@ async function gotoBaseUrl(page) {
   await page.waitForLoadState('domcontentloaded', { timeout: 20_000 }).catch(() => {});
 }
 
-async function performLoginAttempt(page) {
+async function performLoginAttempt(page, loginCredentials = credentials) {
   await enableSliderImageBlocking(page);
 
   try {
@@ -127,12 +127,19 @@ async function performLoginAttempt(page) {
   }
 }
 
-async function performLogin(page, { attempts = 2 } = {}) {
+async function performLogin(page, { attempts = 2, loginCredentials } = {}) {
+  const creds = loginCredentials || credentials;
+  if (!creds?.email || !creds?.password) {
+    throw new Error(
+      "Login credentials are required. Set SIGNAL_EMAIL_HO/SIGNAL_PASSWORD_HO or pass loginCredentials.",
+    );
+  }
+
   let lastError;
 
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
-      await performLoginAttempt(page);
+      await performLoginAttempt(page, creds);
       return;
     } catch (error) {
       lastError = error;
