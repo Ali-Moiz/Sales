@@ -23,7 +23,7 @@ const SEARCH_TERMS = {
   nonExistent: `NoContact${uniqueSuffix}`
 };
 
-test.describe.serial('Contact Module', () => {
+test.describe('Contact Module', () => {
   let context;
   let page;
   let contactPage;

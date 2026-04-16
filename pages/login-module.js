@@ -1,5 +1,5 @@
 const { expect } = require('@playwright/test');
-const { credentials } = require('../data/credentials');
+const { env } = require('../utils/auth/env');
 const {
   enableSliderImageBlocking,
   disableSliderImageBlocking
@@ -8,7 +8,7 @@ const {
 class LoginModule {
   constructor(page) {
     this.page = page;
-    this.baseUrl = credentials.baseUrl;
+    this.baseUrl = env.baseUrl;
 
     // ── Locators ──────────────────────────────────────────────────────────
     this.emailInput          = page.getByPlaceholder('Enter your Email');

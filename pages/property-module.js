@@ -4,7 +4,7 @@
 // Fully dynamic — no hardcoded IDs or names
 
 const { expect } = require('@playwright/test');
-const { env } = require('../utils/env');
+const { env } = require('../utils/auth/env');
 
 class PropertyModule {
   constructor(page) {
@@ -510,7 +510,7 @@ class PropertyModule {
   }
 
   async selectAssociatedFranchise() {
-    const franchiseLabel = env.testEnv === 'prod'
+    const franchiseLabel = env.envName === 'prod'
       ? 'Tkxel Test Franchise'
       : '216 - Omaha, NE';
 
@@ -559,7 +559,7 @@ class PropertyModule {
    * Picks the first card dynamically.
    */
   async selectAssignee() {
-    const assigneeLabel = env.testEnv === 'prod'
+    const assigneeLabel = env.envName === 'prod'
       ? 'Moiz ProdHO'
       : 'Moiz SM UAT';
 
@@ -610,8 +610,8 @@ class PropertyModule {
   }
 
   async selectContactAffiliation() {
-    const contactSearchText = env.testEnv === 'prod' ? 'Ahsan Awan' : 'moiz';
-    const contactLabel = env.testEnv === 'prod'
+    const contactSearchText = env.envName === 'prod' ? 'Ahsan Awan' : 'moiz';
+    const contactLabel = env.envName === 'prod'
       ? 'Ahsan Awan'
       : 'Ali TkSmoke (moiz.qureshi+c1@';
 

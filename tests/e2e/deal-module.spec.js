@@ -4,7 +4,7 @@
 //
 // Session design — matches company/property spec pattern exactly:
 //   • Single login in beforeAll, shared context for ALL tests
-//   • test.describe.serial — ordered execution
+//   • test.describe — ordered execution
 //   • test.beforeEach navigates to Deals page (same as original)
 //   • Shared state via module-level variables
 //
@@ -29,7 +29,7 @@ const {
 } = require('../../utils/shared-run-state');
 const { registerNotesTasksSuite } = require('../helpers/register-notes-tasks-suite');
 
-test.describe.serial('Deal Module', () => {
+test.describe('Deal Module', () => {
   const sharedPropertyName =
     process.env.DEAL_TEST_PROPERTY ||
     process.env.CREATED_PROPERTY_NAME ||

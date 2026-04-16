@@ -4,12 +4,12 @@
 // Fully dynamic — no hardcoded IDs, names, or indices
 
 const { expect } = require('@playwright/test');
-const { credentials } = require('../data/credentials');
+const { env } = require('../utils/auth/env');
 
 class DealModule {
   constructor(page) {
     this.page = page;
-    this.baseUrl = credentials.baseUrl;
+    this.baseUrl = env.baseUrl;
 
     // ── Sidebar navigation ────────────────────────────────────────────────
     this.dealsMenuLink = page.getByRole('listitem', { name: 'Deals' }).getByRole('link');

@@ -6,14 +6,14 @@
 //
 // Same session pattern as all other modules:
 //   • Single login in beforeAll, shared context for all tests
-//   • test.describe.serial — ordered execution
+//   • test.describe — ordered execution
 //   • test.beforeEach navigates to Signal Map page
 
 const { test } = require('@playwright/test');
 const { SignalMapModule } = require('../../pages/signalmap-module');
 const { performLogin }    = require('../../utils/auth/login-action');
 
-test.describe.serial('Signal Map Module', () => {
+test.describe('Signal Map Module', () => {
   let context;
   let page;
   let signalMap;

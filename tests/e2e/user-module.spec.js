@@ -4,7 +4,7 @@
 //
 // Same session pattern as all other modules:
 //   • Single login in beforeAll, shared context for all tests
-//   • test.describe.serial — ordered execution
+//   • test.describe — ordered execution
 //   • test.beforeEach navigates to Users page
 //
 // NOTE: If any test fails on first run, please share the error message
@@ -14,7 +14,7 @@ const { test } = require('@playwright/test');
 const { UserModule }   = require('../../pages/user-module');
 const { performLogin } = require('../../utils/auth/login-action');
 
-test.describe.serial('User Module', () => {
+test.describe('User Module', () => {
   let context;
   let page;
   let userModule;

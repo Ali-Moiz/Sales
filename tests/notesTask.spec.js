@@ -68,7 +68,7 @@ async function ensureAuthState(browser) {
 // Parameterised describe – one full CRUD suite per module
 // ════════════════════════════════════════════════════════════════
 
-test.describe.serial('Notes & Tasks CRUD – Smoke Tests', () => {
+test.describe('Notes & Tasks CRUD – Smoke Tests', () => {
   test.setTimeout(180_000);
 
   /** @type {import('@playwright/test').BrowserContext} */

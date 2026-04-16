@@ -4,7 +4,7 @@
 //
 // Session design — matches company-module.spec.js exactly:
 //   • Single login in beforeAll, one shared browser context for all 17 tests
-//   • test.describe.serial — ordered execution, each test depends on previous state
+//   • test.describe — ordered execution, each test depends on previous state
 //   • Shared state via module-level variables (createdPropertyName etc.)
 //
 // Company linkage — fully dynamic:
@@ -24,7 +24,7 @@ const {
 const { DEFAULT_COMPANY_NAME, resolvePropertyCompanyName } = require('../../utils/property-company-selector');
 const { registerNotesTasksSuite } = require('../helpers/register-notes-tasks-suite');
 
-test.describe.serial('Property Module', () => {
+test.describe('Property Module', () => {
   // Runtime-selected company name used across the full property suite.
   let targetCompanyName = '';
 
