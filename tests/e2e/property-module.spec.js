@@ -3,8 +3,8 @@
 // Smoke Test Suite — Properties Module — Signal CRM
 //
 // Session design — matches company-module.spec.js exactly:
-//   • Single login in beforeAll, one shared browser context for all serial tests
-//   • test.describe.serial — ordered execution, each test depends on previous state
+//   • Single login in beforeAll, one shared browser context for all 17 tests
+//   • test.describe — ordered execution, each test depends on previous state
 //   • Shared state via module-level variables (createdPropertyName etc.)
 //
 // Company linkage — fully dynamic:
@@ -49,6 +49,7 @@ test.describe.serial("Property Module", () => {
     }
   }
 
+test.describe('Property Module', () => {
   // Runtime-selected company name used across the full property suite.
   let targetCompanyName = "";
 

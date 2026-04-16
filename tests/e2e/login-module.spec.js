@@ -1,10 +1,10 @@
 const { test, expect } = require('@playwright/test');
 const { LoginModule } = require('../../pages/login-module');
-const { credentials } = require('../../data/credentials');
+const { env } = require('../../utils/auth/env');
 const { performLogin } = require('../../utils/auth/login-action');
 
-const VALID_EMAIL   = credentials.email;
-const VALID_PASS    = credentials.password;
+const VALID_EMAIL   = env.email;
+const VALID_PASS    = env.password;
 const WRONG_PASS    = 'WrongPass@9999';
 const UNKNOWN_EMAIL = 'ghost.xyz@notexist.com';
 
@@ -135,7 +135,7 @@ test.describe('Login Module — Signal App', () => {
   test('TC-014 | User can log out and is redirected to the login page', async ({ page }) => {
     test.setTimeout(180_000);
     await performLogin(page);
-    await page.goto(`${credentials.baseUrl}/app/sales/dashboard`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${env.baseUrl}/app/sales/dashboard`, { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
     await loginPage.logout();
     await loginPage.assertLoggedOut();

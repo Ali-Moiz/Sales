@@ -4,7 +4,7 @@ const { CompanyModule }  = require('../../pages/company-module');
 const { writeCreatedCompanyName } = require('../../utils/shared-run-state');
 const { registerNotesTasksSuite } = require('../helpers/register-notes-tasks-suite');
 
-test.describe.serial('Company Module', () => {
+test.describe('Company Module', () => {
   const companyAddress = 'S 9th St, Omaha, NE 68102, USA';
   let createdCompanyName = '';
   let updatedCompanyDetails;

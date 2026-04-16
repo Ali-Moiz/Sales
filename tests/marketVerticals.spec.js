@@ -27,7 +27,7 @@ async function ensureAuthState(browser) {
 }
 
 // ─── Fixture Setup ──────────────────────────────────────────────────────────
-test.describe.serial('Market Verticals Module — Smoke Tests', () => {
+test.describe('Market Verticals Module — Smoke Tests', () => {
   let context;
   let page;
   let mvPage;

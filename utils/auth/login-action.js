@@ -1,11 +1,11 @@
-const { credentials } = require('../../data/credentials');
+const { env } = require('./env');
 const {
   enableSliderImageBlocking,
   disableSliderImageBlocking
 } = require('./slider-image-blocker');
 
 async function gotoBaseUrl(page) {
-  const homeUrl = `${credentials.baseUrl}/`;
+  const homeUrl = `${env.baseUrl}/`;
 
   const domLoaded = await page
     .goto(homeUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 })
@@ -26,7 +26,7 @@ async function gotoBaseUrl(page) {
     return;
   }
 
-  await page.goto(`${credentials.baseUrl}/login`, {
+  await page.goto(`${env.baseUrl}/login`, {
     waitUntil: 'commit',
     timeout: 60_000,
   });
@@ -69,12 +69,12 @@ async function performLoginAttempt(page) {
       !/\/app\/sales\//.test(page.url()) &&
       !(await appEmail.isVisible().catch(() => false))
     ) {
-      await page.goto(`${credentials.baseUrl}/login`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+      await page.goto(`${env.baseUrl}/login`, { waitUntil: 'domcontentloaded' }).catch(() => {});
     }
 
     if (await appEmail.isVisible().catch(() => false)) {
-      await appEmail.fill(credentials.email);
-      await appPassword.fill(credentials.password);
+      await appEmail.fill(env.email);
+      await appPassword.fill(env.password);
 
       const submitAttempts = [
         async () => appLogIn.click(),
@@ -98,8 +98,8 @@ async function performLoginAttempt(page) {
     const auth0Submit = page.locator('button[type="submit"], button[name="action"]').first();
 
     if (/auth0\.com/.test(page.url()) || await auth0User.isVisible().catch(() => false)) {
-      await auth0User.fill(credentials.email);
-      await auth0Pass.fill(credentials.password);
+      await auth0User.fill(env.email);
+      await auth0Pass.fill(env.password);
       if (/auth0\.com/.test(page.url())) {
         const authSubmitAttempts = [
           async () => auth0Submit.click({ timeout: 5_000 }),

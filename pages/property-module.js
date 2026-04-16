@@ -3,8 +3,8 @@
 // ALL locators live-verified via MCP browser on 2026-03-20
 // Fully dynamic — no hardcoded IDs or names
 
-const { expect } = require("@playwright/test");
-const { env } = require("../utils/env");
+const { expect } = require('@playwright/test');
+const { env } = require('../utils/auth/env');
 
 class PropertyModule {
   constructor(page) {
@@ -999,8 +999,9 @@ class PropertyModule {
   }
 
   async selectAssociatedFranchise() {
-    const franchiseLabel =
-      env.testEnv === "prod" ? "Tkxel Test Franchise" : "216 - Omaha, NE";
+    const franchiseLabel = env.envName === 'prod'
+      ? 'Tkxel Test Franchise'
+      : '216 - Omaha, NE';
 
     const inEditForm = await this.editPropertyHeading
       .isVisible()
@@ -1083,8 +1084,9 @@ class PropertyModule {
    * Picks the first card dynamically.
    */
   async selectAssignee() {
-    const assigneeLabel =
-      env.testEnv === "prod" ? "Moiz ProdHO" : "Moiz SM UAT";
+    const assigneeLabel = env.envName === 'prod'
+      ? 'Moiz ProdHO'
+      : 'Moiz SM UAT';
 
     await this.assigneeTrigger.waitFor({ state: "visible", timeout: 8_000 });
     await this.assigneeTrigger.click();
@@ -1141,9 +1143,10 @@ class PropertyModule {
   }
 
   async selectContactAffiliation() {
-    const contactSearchText = env.testEnv === "prod" ? "Ahsan Awan" : "moiz";
-    const contactLabel =
-      env.testEnv === "prod" ? "Ahsan Awan" : "Ali TkSmoke (moiz.qureshi+c1@";
+    const contactSearchText = env.envName === 'prod' ? 'Ahsan Awan' : 'moiz';
+    const contactLabel = env.envName === 'prod'
+      ? 'Ahsan Awan'
+      : 'Ali TkSmoke (moiz.qureshi+c1@';
 
     await this.contactTrigger.waitFor({ state: "visible", timeout: 10_000 });
     await this.contactTrigger.click();

@@ -1,11 +1,8 @@
 const { test, expect } = require('@playwright/test');
 const { performLogin } = require('../../utils/auth/login-action');
 const { ContactNamePage } = require('../../pages/contact-module');
-<<<<<<< ours
-=======
 const { writeCreatedContactName } = require('../../utils/shared-run-state');
 const { registerNotesTasksSuite } = require('../helpers/register-notes-tasks-suite');
->>>>>>> theirs
 
 const uniqueSuffix = String(Date.now()).slice(-4);
 const alphabeticSuffix = uniqueSuffix
@@ -26,14 +23,12 @@ const SEARCH_TERMS = {
   nonExistent: `NoContact${uniqueSuffix}`
 };
 
-test.describe.serial('Contact Module', () => {
+test.describe('Contact Module', () => {
   let context;
   let page;
   let contactPage;
   let createdContactFullName = '';
 
-<<<<<<< ours
-=======
   async function ensureCreatedContactExists() {
     if (createdContactFullName) {
       return createdContactFullName;
@@ -58,7 +53,6 @@ test.describe.serial('Contact Module', () => {
     await expect(page.getByRole('heading', { name: contactName, level: 3 })).toBeVisible();
   }
 
->>>>>>> theirs
   test.beforeAll(async ({ browser }) => {
     test.setTimeout(180_000);
     context = await browser.newContext();
@@ -170,11 +164,8 @@ test.describe.serial('Contact Module', () => {
   });
 
   test('TC-CN-012 | Edit Contact drawer opens with correct state', async () => {
-<<<<<<< ours
     expect(createdContactFullName).toBeTruthy();
-=======
     await ensureCreatedContactExists();
->>>>>>> theirs
     await contactPage.searchContact(createdContactFullName);
     await contactPage.openContactByName(createdContactFullName);
     await contactPage.openEditDrawer();
@@ -186,11 +177,8 @@ test.describe.serial('Contact Module', () => {
   });
 
   test('TC-CN-013 | Save Contact disabled with no changes', async () => {
-<<<<<<< ours
     expect(createdContactFullName).toBeTruthy();
-=======
     await ensureCreatedContactExists();
->>>>>>> theirs
     await contactPage.searchContact(createdContactFullName);
     await contactPage.openContactByName(createdContactFullName);
     await contactPage.openEditDrawer();
@@ -198,11 +186,8 @@ test.describe.serial('Contact Module', () => {
   });
 
   test('TC-CN-014 | Edit Contact updates Job Title successfully', async () => {
-<<<<<<< ours
     expect(createdContactFullName).toBeTruthy();
-=======
     await ensureCreatedContactExists();
->>>>>>> theirs
     await contactPage.searchContact(createdContactFullName);
     await contactPage.openContactByName(createdContactFullName);
     await contactPage.openEditDrawer();
@@ -219,11 +204,8 @@ test.describe.serial('Contact Module', () => {
   });
 
   test('TC-CN-015 | Cancel Edit Contact closes drawer', async () => {
-<<<<<<< ours
     expect(createdContactFullName).toBeTruthy();
-=======
     await ensureCreatedContactExists();
->>>>>>> theirs
     await contactPage.searchContact(createdContactFullName);
     await contactPage.openContactByName(createdContactFullName);
     await contactPage.openEditDrawer();
@@ -255,8 +237,6 @@ test.describe.serial('Contact Module', () => {
     expect(nextInfo).toMatch(/11–20 of/);
     await expect(contactPage.prevPageBtn).toBeEnabled();
   });
-<<<<<<< ours
-=======
 
   registerNotesTasksSuite({
     test,
@@ -264,5 +244,4 @@ test.describe.serial('Contact Module', () => {
     getPage: () => page,
     openEntityDetail: openCreatedContactDetail,
   });
->>>>>>> theirs
 });

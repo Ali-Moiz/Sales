@@ -7,7 +7,7 @@
 //
 // Session design — matches the established project pattern exactly:
 //   • Single login in beforeAll, shared context for ALL tests
-//   • test.describe.serial  — ordered, sequential execution
+//   • test.describe  — ordered, sequential execution
 //   • test.beforeEach       — navigates to Deals page before each test
 //   • Shared state via module-level variables
 //
@@ -340,7 +340,7 @@ test.afterAll(async () => {
   await context.close();
 });
 
-test.describe.serial('Contract & Terms Module', () => {
+test.describe('Contract & Terms Module', () => {
   test.beforeEach(async () => {
     await contractModule.gotoDealsPage();
   });
@@ -825,7 +825,7 @@ test.describe.serial('Contract & Terms Module', () => {
 //
 // ══════════════════════════════════════════════════════════════════════════
 
-test.describe.serial('Contract Module — E2E Full Create & Publish', () => {
+test.describe('Contract Module — E2E Full Create & Publish', () => {
 
   // All test data is resolved dynamically from utils/contract-test-data.js.
   // To override any value, set the corresponding environment variable or edit

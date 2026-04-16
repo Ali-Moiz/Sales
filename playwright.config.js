@@ -1,5 +1,6 @@
-const { defineConfig, devices } = require("@playwright/test");
-require("./utils/load-env");
+const { defineConfig, devices } = require('@playwright/test');
+require('./utils/auth/load-env');
+
 
 const baseURL = process.env.BASE_URL || "https://uat.sales.teamsignal.com";
 const headless = (process.env.HEADLESS || "false").toLowerCase() === "true";
