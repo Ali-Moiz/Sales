@@ -9,10 +9,10 @@
 //   • Shared state via module-level variables
 //
 // Dynamic linking:
-//   • CREATED_COMPANY_NAME  — set by company suite afterAll (or fallback 'A-C 6548')
+//   • CREATED_COMPANY_NAME  — set by company suite afterAll (or fallback 'PAT 6548')
 //   • CREATED_PROPERTY_NAME — set by property suite afterAll (or fallback 'regression location phase 2')
 //   Deal create uses BOTH so the entire flow is end-to-end integrated.
-//   Property prefix: 'A-P' as requested — generated via propertyModule.generateUniquePropertyName()
+//   Property prefix: 'PAT' as requested — generated via propertyModule.generateUniquePropertyName()
 //   in the property suite. When running the full pipeline these will resolve automatically.
 
 const { test, expect } = require('@playwright/test');

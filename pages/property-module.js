@@ -333,11 +333,11 @@ class PropertyModule {
   // ── Data Generators ──────────────────────────────────────────────────────
 
   generateUniquePropertyName() {
-    return `S-P ${String(Date.now()).slice(-4)}`;
+    return `PAT ${String(Date.now()).slice(-4)}`;
   }
 
   generateUniqueEditedName() {
-    return `S-P ${String(Date.now() + 1).slice(-4)}`;
+    return `PAT ${String(Date.now() + 1).slice(-4)}`;
   }
 
   /**
