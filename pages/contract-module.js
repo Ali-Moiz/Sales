@@ -1358,6 +1358,221 @@ class ContractModule {
     await expect(this.viewContractGeneric).toBeVisible({ timeout: 5_000 });
     await expect(this.terminateContractGeneric).toBeVisible({ timeout: 5_000 });
   }
+
+  // ── Step 1 — Multi-Service Management ───────────────────────────────────
+
+  /**
+   * Get the count of visible service forms on Step 1.
+   * Each service is represented by a set of input fields.
+   */
+  async getServiceCount() {
+    const serviceContainers = this.page.locator('[class*="service"][class*="form"], [class*="Service"][class*="Form"]');
+    return serviceContainers.count().catch(() => 0);
+  }
+
+  /**
+   * Click the delete button for the first service on Step 1.
+   * Tries multiple selector patterns to find the delete button.
+   * TODO: Requires DOM inspection to identify the exact delete button selector.
+   *       Run codegen to capture the actual selector: npx playwright codegen [url]
+   */
+  async deleteFirstService() {
+    // Try multiple selector strategies in order of preference
+    const selectors = [
+      // Strategy 1: Button with exact name match (via codegen discovery)
+      () => this.page.getByRole('button', { name: 'Delete Service' }).first(),
+
+      // Strategy 2: Button with partial name match
+      () => this.page.getByRole('button', { name: /Delete|Remove/ }).first(),
+
+      // Strategy 3: SVG icon or child element within delete button
+      () => this.page.locator('button:has-text("Delete"), button svg[aria-label*="Delete"]').first(),
+
+      // Strategy 4: Button with data attributes commonly used for delete
+      () => this.page.locator('button[data-testid*="delete"], button[aria-label*="delete"]').first(),
+
+      // Strategy 5: Within service container, find trash/delete icon button
+      () => this.page.locator('[class*="service"]:first-child button[type="button"]').last()
+    ];
+
+    for (let i = 0; i < selectors.length; i++) {
+      try {
+        const btn = selectors[i]();
+        const visible = await btn.isVisible({ timeout: 4_000 }).catch(() => false);
+
+        if (visible) {
+          console.log(`[DELETE] Found delete button using strategy ${i + 1}`);
+          await btn.click({ force: true });
+          await this.page.waitForTimeout(500);
+          await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+          return;
+        }
+      } catch (e) {
+        // Continue to next strategy
+      }
+    }
+
+    // Last resort: Try to find any button that looks like a delete action
+    const allButtons = this.page.locator('button');
+    const count = await allButtons.count().catch(() => 0);
+
+    for (let j = 0; j < count; j++) {
+      try {
+        const btn = allButtons.nth(j);
+        const text = await btn.textContent().catch(() => '');
+        const ariaLabel = await btn.getAttribute('aria-label').catch(() => '');
+
+        if (text.toLowerCase().includes('delete') || ariaLabel.toLowerCase().includes('delete')) {
+          const visible = await btn.isVisible({ timeout: 2_000 }).catch(() => false);
+          if (visible) {
+            console.log(`[DELETE] Found delete button as button #${j}`);
+            await btn.click({ force: true });
+            await this.page.waitForTimeout(500);
+            await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+            return;
+          }
+        }
+      } catch (e) {
+        // Continue searching
+      }
+    }
+
+    throw new Error('Delete button not found for first service');
+  }
+
+  /**
+   * Delete a service by index (0-based).
+   * Discovered via Playwright Codegen: getByRole('button', { name: 'Delete Service' })
+   * @param {number} index — 0 for first service, 1 for second, etc.
+   */
+  async deleteServiceByIndex(index) {
+    // Collect all possible delete buttons
+    const possibleDeleteBtns = await this.page.locator('button').all().then(async (btns) => {
+      const results = [];
+      for (const btn of btns) {
+        try {
+          const text = await btn.textContent().catch(() => '');
+          const ariaLabel = await btn.getAttribute('aria-label').catch(() => '');
+
+          if (text.toLowerCase().includes('delete') || ariaLabel.toLowerCase().includes('delete')) {
+            const visible = await btn.isVisible({ timeout: 2_000 }).catch(() => false);
+            if (visible) {
+              results.push(btn);
+            }
+          }
+        } catch (e) {
+          // Skip on error
+        }
+      }
+      return results;
+    }).catch(() => []);
+
+    // Try to get the button at the requested index
+    if (possibleDeleteBtns.length > index) {
+      try {
+        console.log(`[DELETE] Found ${possibleDeleteBtns.length} delete buttons, using index ${index}`);
+        const btn = possibleDeleteBtns[index];
+        await btn.click({ force: true });
+        await this.page.waitForTimeout(500);
+        await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+        return;
+      } catch (e) {
+        console.warn(`[DELETE] Failed to click delete button at index ${index}: ${e.message}`);
+      }
+    }
+
+    // Fallback: Try with locator strategies
+    const selectors = [
+      () => this.page.getByRole('button', { name: 'Delete Service' }).nth(index),
+      () => this.page.getByRole('button', { name: /Delete|Remove/ }).nth(index),
+      () => this.page.locator('button[data-testid*="delete"]').nth(index),
+      () => this.page.locator('button[aria-label*="delete"]').nth(index)
+    ];
+
+    for (let i = 0; i < selectors.length; i++) {
+      try {
+        const btn = selectors[i]();
+        const visible = await btn.isVisible({ timeout: 3_000 }).catch(() => false);
+
+        if (visible) {
+          console.log(`[DELETE] Found delete button at index ${index} using strategy ${i + 1}`);
+          await btn.click({ force: true });
+          await this.page.waitForTimeout(500);
+          await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+          return;
+        }
+      } catch (e) {
+        // Continue to next strategy
+      }
+    }
+
+    throw new Error(`Delete button not found for service at index ${index}`);
+  }
+
+  /**
+   * Assert a service with a given name exists in the service list.
+   * Checks both text content and input values (since service name may be in input field).
+   * @param {string} serviceName — the name to search for
+   */
+  async assertServiceExists(serviceName) {
+    // Try to find by visible text first
+    const textLocator = this.page.getByText(serviceName, { exact: true });
+    const textVisible = await textLocator.isVisible({ timeout: 3_000 }).catch(() => false);
+
+    if (textVisible) {
+      await expect(textLocator).toBeVisible();
+      return;
+    }
+
+    // If not found as text, check input value (service name field)
+    const inputLocator = this.page.locator(`input[value="${serviceName}"]`);
+    const inputVisible = await inputLocator.isVisible({ timeout: 3_000 }).catch(() => false);
+
+    if (inputVisible) {
+      await expect(inputLocator).toBeVisible();
+      return;
+    }
+
+    // If neither found, throw error with helpful message
+    throw new Error(`Service "${serviceName}" not found as visible text or input value`);
+  }
+
+  /**
+   * Get the text value of the grand total field on Step 1.
+   * Returns null if not found or visible.
+   */
+  async getGrandTotal() {
+    const grandTotalLabel = this.page.getByText(/Grand Total|Total:/i, { exact: false });
+    const grandTotalField = grandTotalLabel
+      .locator('xpath=following-sibling::input[1], xpath=following-sibling::div[1], xpath=following-sibling::span[1]')
+      .first();
+
+    const isVisible = await grandTotalField.isVisible({ timeout: 5_000 }).catch(() => false);
+    if (!isVisible) {
+      return null;
+    }
+
+    const value = await grandTotalField.textContent().catch(() => null);
+    return value;
+  }
+
+  /**
+   * Click the "Add Service" button to add another service to Step 1.
+   */
+  async clickAddService() {
+    const addServiceBtn = this.page
+      .getByRole('button', { name: /Add Service|Add Another Service/i })
+      .or(this.page.locator('button[title*="Add Service"]'))
+      .first();
+
+    const btnVisible = await addServiceBtn.isVisible({ timeout: 8_000 }).catch(() => false);
+    if (btnVisible) {
+      await addServiceBtn.click({ force: true });
+      await this.page.waitForTimeout(600);
+    } else {
+      throw new Error('Add Service button not found');
+    }
+  }
 }
 
 module.exports = { ContractModule };

@@ -53,6 +53,41 @@ It is based on:
 - **Time Zone**: Eastern (for contract date calculations)
 - **Stepper & Publish Data**: From `utils/contract-test-data.js`
 
+## Assertion Requirements (CRITICAL)
+
+⚠️ **EVERY TEST MUST HAVE MEANINGFUL ASSERTIONS** — Weak assertions (like `toBeDefined()` alone) are NOT acceptable.
+
+### Examples of ❌ WEAK Assertions (DO NOT USE)
+```javascript
+expect(grandTotal).toBeDefined();  // ❌ Only checks existence, not value
+```
+
+### Examples of ✅ STRONG Assertions (DO USE)
+```javascript
+// Check value format
+expect(grandTotal).toMatch(/\$[\d,]+\.\d{2}/);
+
+// Check calculated value
+expect(serviceTotal).toBe('$800.00');
+
+// Check state changes
+expect(saveAndNextBtn).toBeEnabled();
+expect(serviceNameInput).toHaveValue('Security Service A');
+
+// Check element visibility/presence
+await expect(successToast).toBeVisible({ timeout: 5_000 });
+await expect(deletedService).not.toBeInTheDocument();
+```
+
+### Assertion Checklist for Each Test
+Every test must validate:
+- ✅ **Expected outcome exists** (element visible, value set, calculation correct)
+- ✅ **No just `toBeDefined()` alone** — always pair with format/value checks
+- ✅ **State changes after actions** (button enabled/disabled, form filled, item deleted)
+- ✅ **User-facing impact** (what does the user see/experience?)
+
+When documenting test cases in the sections below, the "Expected result" field MUST describe what assertion should validate.
+
 ## Smoke Test Cases
 
 ### TC-CONTRACT-001 | Contract & Terms tab is visible on deal detail page

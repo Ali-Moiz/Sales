@@ -137,14 +137,36 @@ await contractTermsTab.click();
 ```
 
 #### 1e. Add Assertions & Error Handling
-```javascript
-// BEFORE (Codegen — no assertions)
-await page.locator('button').click();
 
-// AFTER (Claude — proper assertions)
+⚠️ **CRITICAL: Every test MUST have meaningful assertions.** Weak assertions alone are insufficient.
+
+```javascript
+// ❌ WEAK (Codegen — no assertions, or just checking existence)
+await page.locator('button').click();
+expect(grandTotal).toBeDefined();  // ← NOT ENOUGH!
+
+// ✅ STRONG (Claude — validate expected outcomes)
+// Example 1: Check visibility of success state
 await expect(successToast).toBeVisible({ timeout: 5_000 });
+
+// Example 2: Check calculated value format
 await expect(serviceTotal).toHaveValue(/\$\d+\.\d{2}/);
+
+// Example 3: Check state changes
+await expect(saveAndNextBtn).toBeEnabled();
+expect(serviceNameValue).toContain('Security Service A');
+
+// Example 4: Pair existence check with value validation
+const grandTotal = await cm.getGrandTotal();
+expect(grandTotal).toBeDefined();
+expect(grandTotal).toMatch(/\$[\d,]+\.\d{2}/);  // ← Adds real validation
 ```
+
+**Rules:**
+- ✅ Check **what changed** after the action (not just that something exists)
+- ✅ Validate **user-visible outcomes** (values, visibility, state)
+- ✅ **Never use `toBeDefined()` alone** — pair with format or value checks
+- ✅ Test **expected calculations** (totals, counts, dates)
 
 #### 1f. Add Logging & Comments
 ```javascript
@@ -617,6 +639,7 @@ test('TC-EXAMPLE-001 | Unresolvable feature', async () => {
 | **RUN IN HEADED MODE** | Execute with `HEADLESS=false` | Browser visible for debugging |
 | **AUTO-FIX MAX 3 ATTEMPTS** | Try selector → timeout → logic fixes | Report manually if all fail |
 | **VALIDATE TIMEOUTS** | Keep waits in 5s–20s range | Warn if outside bounds |
+| **ASSERTIONS REQUIRED** | Every test MUST have meaningful assertions | ❌ `toBeDefined()` alone is insufficient; pair with value/format checks |
 
 ---
 
