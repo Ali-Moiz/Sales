@@ -760,6 +760,157 @@ npx playwright test tests/e2e/contract-module.spec.js --project=chromium --grep 
 
 ---
 
+## Device Quantity Validation Test Cases
+
+### TC-CONTRACT-DEVICE-001 | Navigate to Step 2 Devices section
+Execution steps:
+- Complete Create Proposal flow and reach Step 1 Services.
+- Fill Service 1 with name "Test Security Service", 2 officers, $15/hr, Mon-Fri, 09:00-17:00.
+- Click `Save & Next` to advance to Step 2.
+- Verify Step 2 Devices section is visible.
+
+Expected result:
+- Step 2 Devices section displays with "Checkpoints & Devices" heading.
+- Device options (NFC Tags, Beacons, QR Tags) are visible with quantity controls (+/- buttons).
+
+### TC-CONTRACT-DEVICE-002 | Device quantity accepts valid numeric input (positive increment)
+Execution steps:
+- On Step 2 Devices section.
+- Click the "+" button for NFC Tags once.
+- Verify the quantity increments by 1.
+- Click "+" button again to increase to quantity 2.
+
+Expected result:
+- Quantity increases correctly with each "+" click.
+- Total devices count updates in the heading.
+
+### TC-CONTRACT-DEVICE-003 | Device quantity cannot go below 0 (minus button disabled at zero)
+Execution steps:
+- On Step 2 Devices section with NFC Tags at quantity 0.
+- Attempt to click the "-" button (if visible/enabled).
+- Verify the "-" button is disabled or quantity does not decrease below 0.
+
+Expected result:
+- The "-" button is disabled when quantity is 0, or click has no effect.
+- Quantity remains 0 (does not go negative).
+
+### TC-CONTRACT-DEVICE-004 | Device quantity validation rejects non-numeric input
+**Note:** This test applies if devices support direct text input (currently they use +/- buttons)
+
+Execution steps:
+- If a device quantity input field exists (direct textbox).
+- Attempt to type non-numeric characters (e.g., "abc", "!@#", "12.5").
+- Verify the input is rejected, cleared, or shows a validation error.
+
+Expected result:
+- Non-numeric input is either prevented from being entered, or cleared immediately.
+- Only numeric characters are accepted in device quantity fields.
+
+### TC-CONTRACT-DEVICE-005 | Decrement quantity from 3 to 2
+Execution steps:
+- On Step 2 Devices section with NFC Tags at quantity 3.
+- Click the "-" button once.
+- Verify the quantity decrements by 1 to 2.
+
+Expected result:
+- Quantity decreases from 3 to 2.
+- Total devices count updates accordingly.
+
+### TC-CONTRACT-DEVICE-006 | Decrement quantity from 1 to 0
+Execution steps:
+- On Step 2 Devices section with NFC Tags at quantity 1.
+- Click the "-" button once.
+- Verify the quantity decrements to 0.
+
+Expected result:
+- Quantity decreases from 1 to 0.
+- The "-" button becomes disabled (or subsequent clicks have no effect).
+
+### TC-CONTRACT-DEVICE-007 | Attempt decrement from 0 stays at 0
+Execution steps:
+- On Step 2 Devices section with NFC Tags at quantity 0.
+- Ensure the "-" button is visible but disabled (or attempt click).
+- Verify quantity remains 0.
+
+Expected result:
+- Quantity remains 0.
+- No negative quantities are possible.
+
+### TC-CONTRACT-DEVICE-008 | Multiple device types can be incremented independently
+Execution steps:
+- On Step 2 Devices section.
+- Increment NFC Tags to quantity 2 (by clicking "+").
+- Increment Beacons to quantity 1 (by clicking "+").
+- Increment QR Tags to quantity 3 (by clicking "+").
+- Verify each device shows correct quantity.
+
+Expected result:
+- Each device type maintains its own quantity independently.
+- Total devices count reflects sum of all: 2 + 1 + 3 = 6.
+
+### TC-CONTRACT-DEVICE-009 | Total devices count updates correctly with increments
+Execution steps:
+- On Step 2 Devices section starting from all devices at 0.
+- Add 1 NFC Tag (total should be 1).
+- Add 2 Beacons (total should be 3).
+- Add 4 QR Tags (total should be 7).
+- Verify the total displayed next to "Total:" heading.
+
+Expected result:
+- The Total heading shows the sum of all device quantities.
+- Calculation: 1 + 2 + 4 = 7 devices total.
+
+### TC-CONTRACT-DEVICE-010 | Device quantities persist after Save & Next to Step 3
+Execution steps:
+- On Step 2 Devices section.
+- Set NFC Tags to 2, Beacons to 1, QR Tags to 3.
+- Click `Save & Next` to advance to Step 3.
+- Navigate back to Step 2 (if possible via tab/button).
+- Verify quantities are still 2, 1, 3 respectively.
+
+Expected result:
+- Device quantities are saved and persist when navigating back to Step 2.
+
+### TC-CONTRACT-DEVICE-011 | Large quantity increment (rapid +/- button clicks)
+Execution steps:
+- On Step 2 Devices section.
+- Rapidly click "+" button for NFC Tags 10 times in succession.
+- Verify the quantity reaches 10.
+- Rapidly click "-" button 5 times.
+- Verify the quantity is now 5.
+
+Expected result:
+- Rapid increments and decrements work correctly.
+- Final quantity matches expected value (10 - 5 = 5).
+- No UI glitches, errors, or lost state.
+
+### TC-CONTRACT-DEVICE-012 | Zero quantity is a valid state for all devices
+Execution steps:
+- On Step 2 Devices section.
+- Ensure all devices (NFC Tags, Beacons, QR Tags) are set to 0.
+- Verify the total shows 0.
+- Click `Save & Next` (or attempt to proceed).
+- Verify no validation error prevents moving forward with 0 devices.
+
+Expected result:
+- Zero devices is a valid state.
+- No error message appears.
+- User can proceed to Step 3 with 0 devices (contract does not require devices).
+
+### TC-CONTRACT-DEVICE-013 | Device input field rejects decimal quantity
+**Note:** Applies if devices use direct numeric input (current implementation uses +/- buttons)
+
+Execution steps:
+- If a device quantity input field exists.
+- Attempt to enter a decimal value (e.g., "2.5", "3.14").
+- Verify the input is rejected, rounded, or only the integer part is accepted.
+
+Expected result:
+- Decimal quantities are rejected or auto-corrected to integer.
+- Only whole numbers (0, 1, 2, ...) are accepted.
+
+---
+
 ## Performance Expectations
 
 ### Execution Timeline

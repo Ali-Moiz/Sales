@@ -19,6 +19,8 @@ Reference document for writing fast, reliable Playwright tests. Every rule here 
 
 ## 2. Selector Strategy (NO XPATH)
 
+**Discovering selectors?** Use the `/codegen-workflow` skill to launch Playwright's codegen inspector and record actual DOM interactions.
+
 Use `page.locator()` as the primary approach. Fall back to `getByRole()` / `getByLabel()` only when `page.locator()` doesn't fit cleanly.
 
 ### Priority 1: `page.locator()` — Default for Everything

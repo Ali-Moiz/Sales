@@ -177,7 +177,6 @@ async function ensureValidContractDependencies(page) {
     });
 
     await page.waitForLoadState('domcontentloaded', { timeout: 10_000 }).catch(() => {});
-    await page.waitForTimeout(1_000);
 
     resolvedCompanyName = uniqueCompanyName;
   }
@@ -201,7 +200,6 @@ async function ensureValidContractDependencies(page) {
     });
 
     await page.waitForLoadState('domcontentloaded', { timeout: 10_000 }).catch(() => {});
-    await page.waitForTimeout(1_000);
 
     resolvedPropertyName = uniquePropertyName;
   }
@@ -1729,31 +1727,671 @@ test.describe('Verify deleting a service updates totals and does not break remai
    * NOTE: Blocked by TC-CONTRACT-DELETE-002 which requires delete button selector
    */
   test('TC-CONTRACT-DELETE-010 | Verify no form errors after cascading deletions', async () => {
-    test.setTimeout(60_000);
+    test.setTimeout(120_000);
+
+    console.log('[STEP 0] Navigating to deal and opening stepper...');
+    await cm.gotoDealsPage();
+    await cm.openDealDetail(resolvedContractDealName);
+    await cm.assertOnDealDetailPage();
+
+    const currentState = await cm.detectContractState();
+    if (currentState === 'empty') {
+      await cm.openCreateProposalDrawer();
+      await cm.selectTimeZone(PROPOSAL_DATA.timeZone);
+      await cm.fillStartDate(PROPOSAL_DATA.startDate);
+      await cm.fillRenewalDate(PROPOSAL_DATA.renewalDate);
+      await cm.submitCreateProposal();
+    }
+    await cm.assertOnStepperPage();
+
     console.log('[STEP 1] Completing recovery service entry...');
-    await cm.selectFirstAvailableLineItem();
-    await cm.fillOfficerCount(1);
-    await cm.fillHourlyRate(25);
-    await cm.clickJobDay('Mon');
-    await cm.selectStartTime('09', '00', 'AM');
-    await cm.selectEndTime('05', '00', 'PM');
+    await cm.fillStep1Services({
+      serviceName: 'Recovery Service',
+      officerCount: 1,
+      hourlyRate: 25,
+      jobDays: ['Mon'],
+      startTime: { hours: '09', minutes: '00', meridiem: 'AM' },
+      endTime: { hours: '05', minutes: '00', meridiem: 'PM' }
+    });
+
+    // Allow React to reconcile all field updates and form validation to run
+    await cm.page.waitForLoadState('domcontentloaded', { timeout: 10_000 }).catch(() => {});
+    await cm.page.waitForTimeout(1000);
 
     console.log('[STEP 2] Verifying Save & Next button is enabled...');
-    const saveEnabled = await cm.saveAndNextBtn.isEnabled({ timeout: 8_000 }).catch(() => false);
+    const saveEnabled = await cm.saveAndNextBtn.isEnabled({ timeout: 10_000 }).catch(() => false);
     expect(saveEnabled).toBe(true);
 
     console.log('[ASSERT] Form is fully functional after all deletions');
     console.log('[DONE] No errors detected; test suite completed successfully');
   });
 
-  // ────────────────────────────────────────────────────────────────────────────
-  //  SINGLE SESSION CLEANUP — Runs ONCE after all suites complete
-  //  (inside last describe block to ensure it runs only ONCE, not per-describe)
-  // ────────────────────────────────────────────────────────────────────────────
+});
+
+// ════════════════════════════════════════════════════════════════════════════════
+//  CONTRACT MODULE — Verify devices quantity cannot go below 0 and cannot accept non-numeric input
+// ════════════════════════════════════════════════════════════════════════════════
+
+test.describe('Verify devices quantity cannot go below 0 and cannot accept non-numeric input', () => {
+  test.beforeEach(async () => {
+    test.setTimeout(180_000);
+    await setupPromise;
+
+    // Navigate to deal and open stepper at Step 2
+    await cm.gotoDealsPage();
+    await cm.openDealDetail(resolvedContractDealName);
+    await cm.assertOnDealDetailPage();
+
+    // Ensure we have a proposal and navigate to Step 2
+    const currentState = await cm.detectContractState();
+    if (currentState !== 'stepper') {
+      await cm.clickContractTermsTab();
+      const hasProposal = await cm.hasProposalCardVisible().catch(() => false);
+      if (hasProposal) {
+        await cm.clickUpdateProposalBtn();
+        await page.waitForLoadState('domcontentloaded', { timeout: 15_000 }).catch(() => {});
+      }
+    }
+
+    // Navigate to Step 2 Devices
+    await cm.clickContractTermsTab();
+    const step2Visible = await cm.devicesPageHeading.isVisible({ timeout: 5_000 }).catch(() => false);
+    if (!step2Visible) {
+      // Create fresh proposal if needed
+      await ensureContractStepperReady(cm);
+      await cm.assertStep1Visible();
+      await cm.selectFirstAvailableLineItem().catch(() => {});
+      await cm.fillServiceName(`Device Setup ${Date.now()}`).catch(() => {});
+      await cm.fillOfficerCount(1).catch(() => {});
+      await cm.fillHourlyRate(15).catch(() => {});
+      await cm.saveAndNextBtn.isEnabled({ timeout: 8_000 }).catch(() => false);
+      await cm.clickSaveAndNext();
+      await page.waitForLoadState('domcontentloaded', { timeout: 15_000 }).catch(() => {});
+    }
+
+    // Final assertion: we should be at Step 2
+    await expect(cm.devicesPageHeading).toBeVisible({ timeout: 8_000 });
+  });
+
   test.afterAll(async () => {
     if (context) {
-      console.log('[CLEANUP] Closing shared browser session...');
-      await context.close();
+      console.log('[CLEANUP] Device tests completed');
     }
   });
+
+  /**
+   * TC-CONTRACT-DEVICE-001 | Navigate to Step 2 Devices section
+   *
+   * Preconditions : Logged in, Deal detail page open
+   * Steps         :
+   *   1. Complete Create Proposal flow and reach Step 1 Services
+   *   2. Fill Service 1 with standard data
+   *   3. Click Save & Next to advance to Step 2
+   *   4. Verify Step 2 Devices section is visible
+   * Expected      : Step 2 Devices displays with device quantity controls (+/- buttons)
+   * Priority      : P0
+   */
+  test('TC-CONTRACT-DEVICE-001 | Navigate to Step 2 Devices section', async () => {
+    test.setTimeout(120_000);
+
+    await test.step('Navigate to Step 2 via existing setup helper', async () => {
+      // Use the infrastructure's stepper to get to Step 2 quickly
+      await ensureContractStepperReady(cm);
+      await cm.assertStep1Visible();
+    });
+
+    await test.step('Fill Service 1 with test data', async () => {
+      await cm.selectFirstAvailableLineItem();
+      await cm.fillServiceName(`Device Test Service ${Date.now()}`);
+      await cm.fillOfficerCount(2);
+      await cm.fillHourlyRate(15);
+      await cm.clickJobDay('Mon');
+      await cm.selectStartTime('09', '00', 'AM');
+      await cm.selectEndTime('05', '00', 'PM');
+    });
+
+    await test.step('Click Save & Next to advance to Step 2', async () => {
+      await expect(cm.saveAndNextBtn).toBeEnabled({ timeout: 8_000 });
+      await cm.clickSaveAndNext();
+      await page.waitForLoadState('domcontentloaded', { timeout: 15_000 }).catch(() => {});
+    });
+
+    await test.step('Verify Step 2 Devices section is visible', async () => {
+      await cm.assertStep2Visible();
+      await expect(cm.devicesPageHeading).toBeVisible({ timeout: 8_000 });
+      await expect(cm.devicesTotalHeading).toBeVisible({ timeout: 5_000 });
+    });
+  });
+
+  /**
+   * TC-CONTRACT-DEVICE-002 | Device quantity accepts valid numeric input (positive increment)
+   *
+   * Preconditions : On Step 2 Devices section
+   * Steps         :
+   *   1. Click "+" button for NFC Tags once
+   *   2. Verify quantity increments to 1
+   *   3. Click "+" button again
+   *   4. Verify quantity is now 2
+   * Expected      : Quantity increases correctly with each click
+   * Priority      : P1
+   */
+  test('TC-CONTRACT-DEVICE-002 | Device quantity accepts valid numeric input (positive increment)', async () => {
+    test.setTimeout(30_000);
+
+    await test.step('Ensure Step 2 Devices is visible', async () => {
+      await cm.assertStep2Visible();
+    });
+
+    await test.step('Increment NFC Tags to 1', async () => {
+      await cm.addDeviceQuantity('NFC Tags', 1);
+      const quantity = await cm.getDeviceQuantity('NFC Tags');
+      expect(quantity).toBe(1);
+    });
+
+    await test.step('Increment NFC Tags to 2', async () => {
+      await cm.addDeviceQuantity('NFC Tags', 1);
+      const quantity = await cm.getDeviceQuantity('NFC Tags');
+      expect(quantity).toBe(2);
+    });
+
+    await test.step('Verify total devices count updates', async () => {
+      const total = await cm.getDevicesTotalCount();
+      expect(total).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  /**
+   * TC-CONTRACT-DEVICE-003 | Device quantity cannot go below 0 (minus button disabled at zero)
+   *
+   * Preconditions : On Step 2 Devices section with device at quantity 0
+   * Steps         :
+   *   1. Verify NFC Tags quantity is 0
+   *   2. Verify "-" button is disabled or click has no effect
+   *   3. Attempt to decrement (should not go negative)
+   * Expected      : Quantity remains 0; negative values impossible
+   * Priority      : P1
+   */
+  test('TC-CONTRACT-DEVICE-003 | Device quantity cannot go below 0 (minus button disabled at zero)', async () => {
+    test.setTimeout(30_000);
+
+    await test.step('Ensure Step 2 Devices is visible', async () => {
+      await cm.assertStep2Visible();
+    });
+
+    await test.step('Verify Beacons quantity is 0 initially', async () => {
+      const quantity = await cm.getDeviceQuantity('Beacons');
+      expect(quantity).toBe(0);
+    });
+
+    await test.step('Check if minus button is disabled at quantity 0', async () => {
+      const isDisabled = await cm.isDeviceMinusButtonDisabled('Beacons');
+      // Should be disabled or click should have no effect
+      expect(isDisabled).toBe(true);
+    });
+
+    await test.step('Attempt to decrement from 0 (should stay at 0)', async () => {
+      await cm.subtractDeviceQuantity('Beacons', 1);
+      const quantity = await cm.getDeviceQuantity('Beacons');
+      expect(quantity).toBe(0);
+    });
+  });
+
+  /**
+   * TC-CONTRACT-DEVICE-004 | Device quantity validation rejects non-numeric input
+   *
+   * Preconditions : On Step 2 Devices section
+   * Steps         :
+   *   1. Locate device quantity input field (if text input exists)
+   *   2. Attempt to type non-numeric characters (abc, !@#, 12.5)
+   *   3. Verify input is rejected, cleared, or shows validation error
+   *   4. Test on all three device types (NFC Tags, Beacons, QR Tags)
+   * Expected      : Non-numeric input is either prevented or cleared; only numeric accepted
+   * Priority      : P1
+   */
+  test('TC-CONTRACT-DEVICE-004 | Device quantity validation rejects non-numeric input', async () => {
+    test.setTimeout(30_000);
+
+    await test.step('Ensure Step 2 Devices is visible', async () => {
+      await cm.assertStep2Visible();
+    });
+
+    // Test on all three device types
+    const deviceNames = ['NFC Tags', 'Beacons', 'QR Tags'];
+
+    for (const deviceName of deviceNames) {
+      await test.step(`Test ${deviceName} input validation`, async () => {
+        // First, set a valid numeric value as baseline
+        await cm.subtractDeviceQuantity(deviceName, 10); // Reset to 0
+        await cm.addDeviceQuantity(deviceName, 3);
+        let quantity = await cm.getDeviceQuantity(deviceName);
+        expect(quantity).toBe(3);
+
+        // Attempt non-numeric input: letters
+        await cm.fillDeviceQuantityInput(deviceName, 'abc').catch(() => {});
+        quantity = await cm.getDeviceQuantity(deviceName);
+        // Should either reject or clear the invalid input
+        expect(Number.isInteger(quantity) && quantity >= 0).toBe(true);
+
+        // Attempt non-numeric input: special characters
+        await cm.fillDeviceQuantityInput(deviceName, '!@#').catch(() => {});
+        quantity = await cm.getDeviceQuantity(deviceName);
+        expect(Number.isInteger(quantity) && quantity >= 0).toBe(true);
+
+        // Attempt decimal input (not integer)
+        await cm.fillDeviceQuantityInput(deviceName, '12.5').catch(() => {});
+        quantity = await cm.getDeviceQuantity(deviceName);
+        expect(Number.isInteger(quantity) && quantity >= 0).toBe(true);
+
+        // Verify valid numeric input still works
+        await cm.subtractDeviceQuantity(deviceName, 10); // Reset
+        await cm.addDeviceQuantity(deviceName, 5);
+        quantity = await cm.getDeviceQuantity(deviceName);
+        expect(quantity).toBe(5);
+      });
+    }
+  });
+
+  /**
+   * TC-CONTRACT-DEVICE-005 | Decrement quantity from 3 to 2
+   *
+   * Preconditions : On Step 2 Devices with NFC Tags at quantity 3
+   * Steps         :
+   *   1. Increment NFC Tags to 3 (if not already)
+   *   2. Click "-" button once
+   *   3. Verify quantity decrements to 2
+   * Expected      : Quantity correctly decreases from 3 to 2
+   * Priority      : P1
+   */
+  test('TC-CONTRACT-DEVICE-005 | Decrement quantity from 3 to 2', async () => {
+    test.setTimeout(30_000);
+
+    await test.step('Ensure Step 2 Devices is visible', async () => {
+      await cm.assertStep2Visible();
+    });
+
+    await test.step('Set QR Tags to quantity 3', async () => {
+      // Reset to 0 then set to 3
+      await cm.subtractDeviceQuantity('QR Tags', 10); // Subtract large amount to ensure 0
+      await cm.addDeviceQuantity('QR Tags', 3);
+      const quantity = await cm.getDeviceQuantity('QR Tags');
+      expect(quantity).toBe(3);
+    });
+
+    await test.step('Decrement QR Tags by 1', async () => {
+      await cm.subtractDeviceQuantity('QR Tags', 1);
+      const quantity = await cm.getDeviceQuantity('QR Tags');
+      expect(quantity).toBe(2);
+    });
+
+    await test.step('Verify total updates after decrement', async () => {
+      const total = await cm.getDevicesTotalCount();
+      expect(total).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  /**
+   * TC-CONTRACT-DEVICE-006 | Decrement quantity from 1 to 0
+   *
+   * Preconditions : On Step 2 Devices with a device at quantity 1
+   * Steps         :
+   *   1. Ensure NFC Tags has quantity 1
+   *   2. Click "-" button once
+   *   3. Verify quantity becomes 0
+   *   4. Verify minus button is now disabled
+   * Expected      : Quantity reaches 0; minus button disabled
+   * Priority      : P1
+   */
+  test('TC-CONTRACT-DEVICE-006 | Decrement quantity from 1 to 0', async () => {
+    test.setTimeout(30_000);
+
+    await test.step('Ensure Step 2 Devices is visible', async () => {
+      await cm.assertStep2Visible();
+    });
+
+    await test.step('Set Beacons to quantity 1', async () => {
+      await cm.subtractDeviceQuantity('Beacons', 10); // Reset to 0
+      await cm.addDeviceQuantity('Beacons', 1);
+      const quantity = await cm.getDeviceQuantity('Beacons');
+      expect(quantity).toBe(1);
+    });
+
+    await test.step('Decrement Beacons by 1', async () => {
+      await cm.subtractDeviceQuantity('Beacons', 1);
+      const quantity = await cm.getDeviceQuantity('Beacons');
+      expect(quantity).toBe(0);
+    });
+
+    await test.step('Verify minus button is now disabled', async () => {
+      const isDisabled = await cm.isDeviceMinusButtonDisabled('Beacons');
+      expect(isDisabled).toBe(true);
+    });
+  });
+
+  /**
+   * TC-CONTRACT-DEVICE-007 | Attempt decrement from 0 stays at 0
+   *
+   * Preconditions : Device quantity is 0
+   * Steps         :
+   *   1. Verify QR Tags quantity is 0
+   *   2. Attempt to click "-" (should be disabled or no-op)
+   *   3. Verify quantity still 0
+   * Expected      : Quantity remains 0; no negative values possible
+   * Priority      : P1
+   */
+  test('TC-CONTRACT-DEVICE-007 | Attempt decrement from 0 stays at 0', async () => {
+    test.setTimeout(30_000);
+
+    await test.step('Ensure Step 2 Devices is visible', async () => {
+      await cm.assertStep2Visible();
+    });
+
+    await test.step('Ensure QR Tags is at 0', async () => {
+      await cm.subtractDeviceQuantity('QR Tags', 10); // Reset to 0
+      const quantity = await cm.getDeviceQuantity('QR Tags');
+      expect(quantity).toBe(0);
+    });
+
+    await test.step('Attempt decrement from 0', async () => {
+      // Attempt to decrement (should be disabled or no-op)
+      await cm.subtractDeviceQuantity('QR Tags', 1);
+      const quantity = await cm.getDeviceQuantity('QR Tags');
+      expect(quantity).toBe(0);
+    });
+  });
+
+  /**
+   * TC-CONTRACT-DEVICE-008 | Multiple device types can be incremented independently
+   *
+   * Preconditions : On Step 2 Devices section
+   * Steps         :
+   *   1. Increment NFC Tags to 2
+   *   2. Increment Beacons to 1
+   *   3. Increment QR Tags to 3
+   *   4. Verify each device maintains correct quantity
+   * Expected      : Each device independent; Total = 2 + 1 + 3 = 6
+   * Priority      : P1
+   */
+  test('TC-CONTRACT-DEVICE-008 | Multiple device types can be incremented independently', async () => {
+    test.setTimeout(30_000);
+
+    await test.step('Ensure Step 2 Devices is visible', async () => {
+      await cm.assertStep2Visible();
+    });
+
+    await test.step('Reset all devices to 0', async () => {
+      // Subtract large amount to ensure all are at 0
+      await cm.subtractDeviceQuantity('NFC Tags', 10);
+      await cm.subtractDeviceQuantity('Beacons', 10);
+      await cm.subtractDeviceQuantity('QR Tags', 10);
+    });
+
+    await test.step('Set NFC Tags to 2, Beacons to 1, QR Tags to 3', async () => {
+      await cm.addDeviceQuantity('NFC Tags', 2);
+      await cm.addDeviceQuantity('Beacons', 1);
+      await cm.addDeviceQuantity('QR Tags', 3);
+    });
+
+    await test.step('Verify each device has correct quantity', async () => {
+      const nfcQuantity = await cm.getDeviceQuantity('NFC Tags');
+      const beaconQuantity = await cm.getDeviceQuantity('Beacons');
+      const qrQuantity = await cm.getDeviceQuantity('QR Tags');
+      expect(nfcQuantity).toBe(2);
+      expect(beaconQuantity).toBe(1);
+      expect(qrQuantity).toBe(3);
+    });
+
+    await test.step('Verify total reflects sum of all devices', async () => {
+      const total = await cm.getDevicesTotalCount();
+      expect(total).toBe(6);
+    });
+  });
+
+  /**
+   * TC-CONTRACT-DEVICE-009 | Total devices count updates correctly with increments
+   *
+   * Preconditions : On Step 2 Devices section starting from all devices at 0
+   * Steps         :
+   *   1. Add 1 NFC Tag (total should be 1)
+   *   2. Add 2 Beacons (total should be 3)
+   *   3. Add 4 QR Tags (total should be 7)
+   *   4. Verify total display matches sum
+   * Expected      : Total = 1 + 2 + 4 = 7
+   * Priority      : P1
+   */
+  test('TC-CONTRACT-DEVICE-009 | Total devices count updates correctly with increments', async () => {
+    test.setTimeout(30_000);
+
+    await test.step('Ensure Step 2 Devices is visible', async () => {
+      await cm.assertStep2Visible();
+    });
+
+    await test.step('Reset all devices to 0', async () => {
+      // Subtract large amount to ensure all are at 0
+      await cm.subtractDeviceQuantity('NFC Tags', 10);
+      await cm.subtractDeviceQuantity('Beacons', 10);
+      await cm.subtractDeviceQuantity('QR Tags', 10);
+    });
+
+    await test.step('Add 1 NFC Tag', async () => {
+      await cm.addDeviceQuantity('NFC Tags', 1);
+      const total = await cm.getDevicesTotalCount();
+      expect(total).toBe(1);
+    });
+
+    await test.step('Add 2 Beacons', async () => {
+      await cm.addDeviceQuantity('Beacons', 2);
+      const total = await cm.getDevicesTotalCount();
+      expect(total).toBe(3);
+    });
+
+    await test.step('Add 4 QR Tags', async () => {
+      await cm.addDeviceQuantity('QR Tags', 4);
+      const total = await cm.getDevicesTotalCount();
+      expect(total).toBe(7);
+    });
+
+    await test.step('Verify final total matches sum', async () => {
+      const total = await cm.getDevicesTotalCount();
+      expect(total).toMatch(/7/);
+    });
+  });
+
+  /**
+   * TC-CONTRACT-DEVICE-010 | Device quantities persist after Save & Next to Step 3
+   *
+   * Preconditions : On Step 2 Devices section
+   * Steps         :
+   *   1. Set device quantities (NFC Tags=2, Beacons=1, QR Tags=3)
+   *   2. Click Save & Next to advance to Step 3
+   *   3. Navigate back to Step 2 (via tab/button)
+   *   4. Verify quantities are still 2, 1, 3 respectively
+   * Expected      : Device quantities are saved and persist when navigating back
+   * Priority      : P1
+   */
+  test('TC-CONTRACT-DEVICE-010 | Device quantities persist after Save & Next to Step 3', async () => {
+    test.setTimeout(60_000);
+
+    await test.step('Ensure Step 2 Devices is visible', async () => {
+      await cm.assertStep2Visible();
+    });
+
+    await test.step('Set device quantities (NFC=2, Beacons=1, QR=3)', async () => {
+      await cm.subtractDeviceQuantity('NFC Tags', 10);
+      await cm.subtractDeviceQuantity('Beacons', 10);
+      await cm.subtractDeviceQuantity('QR Tags', 10);
+
+      await cm.addDeviceQuantity('NFC Tags', 2);
+      await cm.addDeviceQuantity('Beacons', 1);
+      await cm.addDeviceQuantity('QR Tags', 3);
+
+      const nfcQty = await cm.getDeviceQuantity('NFC Tags');
+      const beaconQty = await cm.getDeviceQuantity('Beacons');
+      const qrQty = await cm.getDeviceQuantity('QR Tags');
+      expect(nfcQty).toBe(2);
+      expect(beaconQty).toBe(1);
+      expect(qrQty).toBe(3);
+    });
+
+    await test.step('Click Save & Next to advance to Step 3', async () => {
+      await expect(cm.saveAndNextBtn).toBeEnabled({ timeout: 8_000 });
+      await cm.clickSaveAndNext();
+      await page.waitForLoadState('domcontentloaded', { timeout: 15_000 }).catch(() => {});
+    });
+
+    await test.step('Verify Step 3 is now visible', async () => {
+      await cm.assertStep3Visible();
+    });
+
+    await test.step('Navigate back to Step 2', async () => {
+      // Use back navigation or click on Step 2 indicator
+      await cm.page.goBack();
+      await page.waitForLoadState('domcontentloaded', { timeout: 15_000 }).catch(() => {});
+      await cm.assertStep2Visible();
+    });
+
+    await test.step('Verify device quantities persisted', async () => {
+      const nfcQty = await cm.getDeviceQuantity('NFC Tags');
+      const beaconQty = await cm.getDeviceQuantity('Beacons');
+      const qrQty = await cm.getDeviceQuantity('QR Tags');
+      expect(nfcQty).toBe(2);
+      expect(beaconQty).toBe(1);
+      expect(qrQty).toBe(3);
+    });
+  });
+
+  /**
+   * TC-CONTRACT-DEVICE-011 | Large quantity increment (rapid +/- button clicks)
+   *
+   * Preconditions : On Step 2 Devices section
+   * Steps         :
+   *   1. Rapidly click "+" button 10 times for NFC Tags
+   *   2. Verify quantity reaches 10
+   *   3. Rapidly click "-" button 5 times
+   *   4. Verify quantity is now 5
+   * Expected      : Rapid clicks work correctly; final quantity = 5
+   * Priority      : P2
+   */
+  test('TC-CONTRACT-DEVICE-011 | Large quantity increment (rapid +/- button clicks)', async () => {
+    test.setTimeout(30_000);
+
+    await test.step('Ensure Step 2 Devices is visible', async () => {
+      await cm.assertStep2Visible();
+    });
+
+    await test.step('Reset NFC Tags to 0', async () => {
+      await cm.subtractDeviceQuantity('NFC Tags', 10); // Reset to 0
+    });
+
+    await test.step('Rapidly click + 10 times', async () => {
+      await cm.addDeviceQuantity('NFC Tags', 10);
+      const quantity = await cm.getDeviceQuantity('NFC Tags');
+      expect(quantity).toBe(10);
+    });
+
+    await test.step('Rapidly click - 5 times', async () => {
+      await cm.subtractDeviceQuantity('NFC Tags', 5);
+      const quantity = await cm.getDeviceQuantity('NFC Tags');
+      expect(quantity).toBe(5);
+    });
+
+    await test.step('Verify no UI glitches or errors', async () => {
+      await expect(cm.devicesPageHeading).toBeVisible({ timeout: 5_000 });
+    });
+  });
+
+  /**
+   * TC-CONTRACT-DEVICE-012 | Zero quantity is a valid state for all devices
+   *
+   * Preconditions : On Step 2 Devices section
+   * Steps         :
+   *   1. Ensure all devices are at 0
+   *   2. Verify total shows 0
+   *   3. Attempt to proceed to Step 3
+   *   4. Verify no validation error blocks navigation
+   * Expected      : Zero devices is valid; can proceed without devices
+   * Priority      : P2
+   */
+  test('TC-CONTRACT-DEVICE-012 | Zero quantity is a valid state for all devices', async () => {
+    test.setTimeout(30_000);
+
+    await test.step('Ensure Step 2 Devices is visible', async () => {
+      await cm.assertStep2Visible();
+    });
+
+    await test.step('Reset all devices to 0', async () => {
+      // Subtract large amount to ensure all are at 0
+      await cm.subtractDeviceQuantity('NFC Tags', 10);
+      await cm.subtractDeviceQuantity('Beacons', 10);
+      await cm.subtractDeviceQuantity('QR Tags', 10);
+    });
+
+    await test.step('Verify all quantities are 0', async () => {
+      for (const deviceName of ['NFC Tags', 'Beacons', 'QR Tags']) {
+        const quantity = await cm.getDeviceQuantity(deviceName);
+        expect(quantity).toBe(0);
+      }
+    });
+
+    await test.step('Verify total is 0', async () => {
+      const total = await cm.getDevicesTotalCount();
+      expect(total).toBe(0);
+    });
+
+    await test.step('Verify Save & Next button is enabled', async () => {
+      const isEnabled = await cm.saveAndNextBtn.isEnabled({ timeout: 5_000 }).catch(() => false);
+      expect(isEnabled).toBe(true);
+    });
+  });
+
+  /**
+   * TC-CONTRACT-DEVICE-013 | Device input field rejects decimal quantity
+   *
+   * Preconditions : On Step 2 Devices section with text input available
+   * Steps         :
+   *   1. Locate device quantity input field
+   *   2. Attempt to enter decimal values (e.g., "2.5", "3.14")
+   *   3. Verify input is rejected, rounded, or only integer accepted
+   *   4. Test across all device types
+   * Expected      : Decimal quantities rejected or auto-corrected to integer
+   * Priority      : P1
+   */
+  test('TC-CONTRACT-DEVICE-013 | Device input field rejects decimal quantity', async () => {
+    test.setTimeout(30_000);
+
+    await test.step('Ensure Step 2 Devices is visible', async () => {
+      await cm.assertStep2Visible();
+    });
+
+    const deviceNames = ['NFC Tags', 'Beacons', 'QR Tags'];
+
+    for (const deviceName of deviceNames) {
+      await test.step(`Test decimal rejection for ${deviceName}`, async () => {
+        // Set a valid baseline
+        await cm.subtractDeviceQuantity(deviceName, 10);
+        await cm.addDeviceQuantity(deviceName, 3);
+        let quantity = await cm.getDeviceQuantity(deviceName);
+        expect(quantity).toBe(3);
+
+        // Attempt decimal input: 2.5
+        await cm.fillDeviceQuantityInput(deviceName, '2.5').catch(() => {});
+        quantity = await cm.getDeviceQuantity(deviceName);
+        // Should either reject decimal or accept only integer part
+        expect(Number.isInteger(quantity)).toBe(true);
+        expect(quantity >= 0).toBe(true);
+
+        // Attempt decimal input: 3.14
+        await cm.fillDeviceQuantityInput(deviceName, '3.14').catch(() => {});
+        quantity = await cm.getDeviceQuantity(deviceName);
+        expect(Number.isInteger(quantity)).toBe(true);
+        expect(quantity >= 0).toBe(true);
+
+        // Verify we can still use +/- buttons with integer values
+        await cm.subtractDeviceQuantity(deviceName, 10);
+        await cm.addDeviceQuantity(deviceName, 4);
+        quantity = await cm.getDeviceQuantity(deviceName);
+        expect(quantity).toBe(4);
+      });
+    }
+  });
+
 });

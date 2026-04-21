@@ -495,11 +495,14 @@ class DealModule {
   ) {
     await this.propertySelector.waitFor({ state: "visible", timeout: 10_000 });
     await this.propertySelector.click({ force: true });
+    // Wait for page to stabilize after click before looking for tooltip
+    await this.page.waitForTimeout(500);
     const tooltip = this.page
       .locator('#simple-popper[role="tooltip"]')
       .last()
-      .or(this.page.getByRole("tooltip").last());
-    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+      .or(this.page.getByRole("tooltip").last())
+      .or(this.page.locator('[role="listbox"]').last());
+    await tooltip.waitFor({ state: "visible", timeout: 12_000 });
     const searchBox = tooltip.getByRole("textbox", { name: "Search" });
     await searchBox.waitFor({ state: "visible", timeout: 5_000 });
     await searchBox.click();

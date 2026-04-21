@@ -1,13 +1,15 @@
 ---
 name: generate-playwright-tests
-description: Convert manual test case documentation into automated Playwright tests following the playwright-test-standards skill. Orchestrates the full workflow from codegen recording through auto-fix. Use when the user wants to generate Playwright tests, expand test coverage for a module, or convert manual QA test cases into automation.
+description: Convert a single requirement into one comprehensive Playwright test with multiple assertions. Orchestrates the full workflow from codegen recording through auto-fix. Generates ONE test per requirement, packing all critical assertions (state changes, value updates, UI verifications) into a single focused test flow. Use when the user wants to generate a focused Playwright test for a specific requirement.
 ---
 
-# Generate Playwright Tests — Workflow Agent
+# Generate Playwright Tests — Single Test Workflow Agent
 
-Orchestrate the full test generation lifecycle for the Sales CRM. All coding standards, selectors, timeouts, and patterns are defined in the **`playwright-test-standards` skill** — this agent references those rules; it does not duplicate them.
+Generate **ONE comprehensive test per requirement** with multiple assertions packed into a single focused test flow. Orchestrate the full test generation lifecycle for the Sales CRM. All coding standards, selectors, timeouts, and patterns are defined in the **`playwright-test-standards` skill** — this agent references those rules; it does not duplicate them.
 
 **Before doing anything else, load the `playwright-test-standards` skill.** Every phase below assumes you are following those rules.
+
+**Key Philosophy:** One requirement = one test with multiple assertions at critical points (not 10+ tests with 1 assertion each).
 
 ---
 
@@ -90,17 +92,17 @@ Before writing ANY code:
 
 1. **Load the `playwright-test-standards` skill.**
 2. **Parse documentation** (`@{{DOC_PATH}}`):
-   - Extract test case IDs (e.g., `TC-{{PREFIX}}-001`)
-   - Count total scenarios
+   - Extract test case ID (e.g., `TC-{{PREFIX}}-001`)
+   - Confirm requirement is documented
 3. **Check output file** (`@{{TEST_OUTPUT_FILE}}`):
-   - Not exist → create fresh with all tests
-   - Exists → extract existing test names, compute DELTA (new tests only)
+   - Not exist → create fresh with the test
+   - Exists → check if test already exists, skip if present
 4. **Load environment:**
    - Read `@.env.uat` for `BASE_URL` and credentials
    - Fail fast if `BASE_URL` missing
 5. **Report:**
    ```
-   [PRE-FLIGHT] Found {{N}} test cases in doc; {{M}} already implemented; generating {{DELTA}} new tests
+   [PRE-FLIGHT] Found {{TC_CODE}} in doc; already implemented? {{YES/NO}}; generating 1 test
    ```
 
 ---
@@ -173,7 +175,7 @@ Before writing ANY code:
 [POM MAPPED] {{N}} interactions to existing methods
 [NEW METHODS NEEDED] {{M}}: [list]
 [WAITS] Replaced {{K}} networkidle/waitForTimeout with event-based waits
-[ASSERTIONS] Added {{J}} meaningful assertions
+[ASSERTIONS] Planned {{J}} assertions at critical points in single test
 ```
 
 ---
@@ -182,15 +184,16 @@ Before writing ANY code:
 
 1. Open `@{{DOC_PATH}}` (create if missing).
 2. Add section: `## {{REQUIREMENT_DESCRIPTION}}`
-3. Document **10–15 scenarios**:
-   - **Positive cases** (happy path)
-   - **Negative cases** (invalid inputs, errors)
-   - **Edge cases** (boundaries, state transitions, role-based access)
-4. For each scenario:
-   - **Scenario type:** Positive / Negative / Edge Case
+3. Document **ONE comprehensive scenario** that covers the core requirement:
+   - Include the primary happy path
+   - Identify critical assertion points along the way (state changes, value updates, UI changes)
+   - Include edge cases/validations as assertions within that flow
+4. For the scenario:
    - **Preconditions:** Required state, data, auth
    - **Step-by-step execution:** Numbered, manual-friendly
-   - **Expected result:** Final outcome
+   - **Expected results:** List all assertion points (not final result only)
+     - After step X: verify Y
+     - After step Z: verify condition A
 5. Save as DRAFT — finalize after tests generated.
 
 ---
@@ -213,18 +216,25 @@ Before writing ANY code:
 
 ---
 
-## Phase 5: Generate DELTA Tests
+## Phase 5: Generate Single Test with Multiple Assertions
 
 1. **Reference `codegen-cleaned.js`** from Phase 2 as the structure template.
-2. **Generate only missing tests** (DELTA from Phase 0).
-3. **Apply ALL skill rules:**
+2. **Generate ONE test per requirement** — pack all assertion points into a single test flow.
+3. **Structure:**
+   - **Setup:** Create test data, navigate, preconditions
+   - **Execution:** Follow documented scenario steps
+   - **Assertions (multiple):** Add `await expect()` at each critical point:
+     - After action 1: verify state changed
+     - After action 2: verify value updated
+     - After action 3: verify UI reflects changes
+4. **Apply ALL skill rules:**
    - Test structure (skill Section 8)
    - Locator-first selectors (skill Section 2)
    - Event-based waits (skill Section 4)
-   - Meaningful assertions (skill Section 6)
+   - **Meaningful assertions at each step** (skill Section 6) — multiple per test
    - Test isolation (skill Section 5) — unique data per test
-   - `test.step()` logging (skill Section 8)
-4. Write to `@{{TEST_OUTPUT_FILE}}`.
+   - `test.step()` logging (skill Section 8) — one step per logical phase
+5. Write to `@{{TEST_OUTPUT_FILE}}`.
 
 ---
 
@@ -278,15 +288,16 @@ Flag but don't auto-refactor — suggest consolidation.
    - `HEADLESS=true` (default, enforced)
    - Run tests in headless mode to verify they work in CI/CD
 
-2. **Run test grep (only generated tests):**
+2. **Run the generated test:**
    ```bash
-   npx playwright test {{TEST_OUTPUT_FILE}} --grep "TC-{{ TEST_CASE_PATTERN }}" --reporter=list
+   npx playwright test {{TEST_OUTPUT_FILE}} --grep "TC-{{ TEST_CODE }}" --reporter=list
    ```
 
 3. **Verify results:**
-   - ALL tests must PASS (0 failures)
-   - If any fail → move to Phase 8 auto-fix (max 3 attempts)
-   - Only deliver when ALL tests pass
+   - Test must PASS (0 failures)
+   - All assertions within the test must succeed
+   - If test fails → move to Phase 8 auto-fix (max 3 attempts)
+   - Only deliver when test passes
 
 4. **Capture:**
    - Per-test pass/fail status
@@ -295,17 +306,15 @@ Flag but don't auto-refactor — suggest consolidation.
 
 ### Report:
 ```
-[RUN START] {{N}} tests from {{TEST_OUTPUT_FILE}} (HEADLESS MODE)
-[PASS] TC-{{PREFIX}}-001 (32s)
-[PASS] TC-{{PREFIX}}-002 (28s)
-...
-[RUN COMPLETE] {{PASS}}/{{TOTAL}} passed | Total: {{TIME}}s
-[DELIVERY] ✓ All tests passing — ready for delivery
+[RUN START] TC-{{TEST_CODE}} from {{TEST_OUTPUT_FILE}} (HEADLESS MODE)
+[PASS] TC-{{TEST_CODE}} ({{TIME}}s, {{N}} assertions passed)
+[RUN COMPLETE] Test passed with all {{N}} assertions | Total: {{TIME}}s
+[DELIVERY] ✓ Test passing — ready for delivery
 ```
 
-**FAIL CHECK:** If ANY test fails:
+**FAIL CHECK:** If test fails:
 ```
-[DELIVERY BLOCKED] {{N}} test(s) failing — running Phase 8 auto-fix (max 3 attempts)
+[DELIVERY BLOCKED] Test failing — running Phase 8 auto-fix (max 3 attempts)
 ```
 
 ---
@@ -368,7 +377,7 @@ Test fails
 ```
 [PHASE 0] PRE-FLIGHT
 ═══════════════════════════════════════════════════════════════
-[PRE-FLIGHT] {{N}} scenarios in doc; {{M}} existing; {{DELTA}} new
+[PRE-FLIGHT] {{TC_CODE}} documented; exists in file? {{YES/NO}}; generating 1 test
 
 [PHASE 1] CODEGEN (if run)
 ═══════════════════════════════════════════════════════════════
@@ -381,34 +390,32 @@ Test fails
 [SELECTORS] XPath converted → locator-first
 [POM] {{N}} methods mapped, {{M}} new methods identified
 [WAITS] Replaced {{K}} flaky waits with event-based
-[ASSERTIONS] Added {{J}} meaningful assertions
+[ASSERTIONS] Planned {{J}} assertions at critical points
 
-[PHASE 3-5] DOCUMENTATION, POM, TESTS
+[PHASE 3-5] DOCUMENTATION, POM, TEST
 ═══════════════════════════════════════════════════════════════
-[DOCS] (PASS) {{N}} scenarios documented
+[DOCS] (PASS) Scenario documented with {{J}} assertion points
 [POM] (PASS) {{M}} methods appended to {{POM_FILE}}
-[TESTS] (PASS) {{DELTA}} tests generated; {{SKIP}} skipped (already exist)
+[TEST] (PASS) {{TC_CODE}} generated with {{J}} assertions
 
 [PHASE 6] VALIDATION
 ═══════════════════════════════════════════════════════════════
 [SYNTAX] (PASS) ESLint passed
 [STANDARDS] (PASS) All skill rules followed / (FAIL) {{N}} violations
-[DUPLICATION] (WARN) {{M}} patterns flagged
 
 [PHASE 7] EXECUTION
 ═══════════════════════════════════════════════════════════════
-[RUN] {{PASS}} passed, {{FAIL}} failed, {{SKIP}} skipped | {{TIME}}s
+[RUN] {{TC_CODE}} passed with {{J}}/{{J}} assertions | {{TIME}}s
 
-[PHASE 8] AUTO-FIX
+[PHASE 8] AUTO-FIX (if needed)
 ═══════════════════════════════════════════════════════════════
-[FIXED] {{X}} tests auto-fixed
-[UNRESOLVED] {{Y}} tests need manual inspection
+[STATUS] {{FIXED/UNRESOLVED}}
 
 [FINAL]
 ═══════════════════════════════════════════════════════════════
-(PASS) ALL TESTS PASSING
+(PASS) TEST PASSING
   — OR —
-(WARN) {{N}} MANUAL FIXES NEEDED
+(WARN) TEST NEEDS MANUAL INSPECTION
   Debug: HEADLESS=false npx playwright test {{FILE}} --debug
 ```
 
@@ -417,16 +424,19 @@ Test fails
 ## Example Invocation
 
 ```
-User: /generate-playwright-tests
+User: /generate-test
 
-> Requirement: "Verify feature validates input correctly"
-> Module: {{MODULE_NAME}}
-> Docs: docs/{{module}}-test-steps.md
-> Tests: tests/e2e/{{module}}.spec.js
+> Requirement: "Verify deleting a service updates totals correctly"
+> Module: Contract
+> Docs: docs/contract-module-test-steps.md
+> Tests: tests/e2e/contract-module.spec.js
 > Record with codegen: Yes
 
 [Agent loads playwright-test-standards skill]
-[Runs all 9 phases]
+[Runs all 8 phases]
+[Generates ONE test: TC-CONTRACT-123]
+[Test includes assertions for: modal opens, service removed, total updated, confirmation visible]
+[All assertions pass in headless mode]
 [Reports final status]
 ```
 
@@ -435,9 +445,12 @@ User: /generate-playwright-tests
 ## Agent Constraints
 
 - **Always load `playwright-test-standards` skill first.** Do not duplicate its rules inline.
+- **Generate ONE test per requirement** — pack all assertions into a single test flow.
+- **Add multiple assertions at critical points** — after each major action, verify state changed.
+- **Do not generate 10–15 scenarios** — document ONE comprehensive scenario with assertion points.
 - **Do not modify existing POM code** — append only (skill Section 7).
 - **Do not bump timeouts to fix flakiness** — investigate root cause (skill Section 10).
-- **Do not generate tests that already exist** — DELTA only.
+- **Do not generate tests that already exist** — skip if test for this TC code exists.
 - **Do not hardcode credentials or URLs** — `.env` only (skill Section 9).
 - **Ask user before creating new POM files** — default is append to existing.
 - **Report clearly at each phase** — use the templates above.
