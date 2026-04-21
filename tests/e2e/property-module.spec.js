@@ -17,6 +17,7 @@ const { test, expect } = require("@playwright/test");
 const { performLogin } = require("../../utils/auth/login-action");
 const { PropertyModule } = require("../../pages/property-module");
 const { env } = require("../../utils/env");
+const { withTimeout } = require("../helpers/with-timeout");
 const {
   readCreatedPropertyName,
   readCreatedCompanyName,
@@ -32,23 +33,6 @@ const {
 } = require("../helpers/register-notes-tasks-suite");
 
 test.describe.serial("Property Module", () => {
-  async function withTimeout(promise, ms, label) {
-    let timer;
-    try {
-      return await Promise.race([
-        promise,
-        new Promise((_, reject) => {
-          timer = setTimeout(
-            () => reject(new Error(`${label} timed out after ${ms}ms`)),
-            ms,
-          );
-        }),
-      ]);
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-
   // Runtime-selected company name used across the full property suite.
   let targetCompanyName = "";
 
