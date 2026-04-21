@@ -55,38 +55,17 @@ It is based on:
 
 ## Assertion Requirements (CRITICAL)
 
+**See [@.claude/skills/playwright-test-standards/SKILL.md](../../.claude/skills/playwright-test-standards/SKILL.md#6-assertion-rules) — Section 6: Assertion Rules**
+
 ⚠️ **EVERY TEST MUST HAVE MEANINGFUL ASSERTIONS** — Weak assertions (like `toBeDefined()` alone) are NOT acceptable.
 
-### Examples of ❌ WEAK Assertions (DO NOT USE)
-```javascript
-expect(grandTotal).toBeDefined();  // ❌ Only checks existence, not value
-```
+Quick reference:
+- ❌ `expect(total).toBeDefined()` — Only checks existence
+- ✅ `expect(total).toMatch(/\$[\d,]+\.\d{2}/)` — Validates format
+- ✅ `await expect(button).toBeEnabled()` — Validates state
+- ✅ `await expect(toast).toHaveText(/saved/i)` — Validates user-visible outcome
 
-### Examples of ✅ STRONG Assertions (DO USE)
-```javascript
-// Check value format
-expect(grandTotal).toMatch(/\$[\d,]+\.\d{2}/);
-
-// Check calculated value
-expect(serviceTotal).toBe('$800.00');
-
-// Check state changes
-expect(saveAndNextBtn).toBeEnabled();
-expect(serviceNameInput).toHaveValue('Security Service A');
-
-// Check element visibility/presence
-await expect(successToast).toBeVisible({ timeout: 5_000 });
-await expect(deletedService).not.toBeInTheDocument();
-```
-
-### Assertion Checklist for Each Test
-Every test must validate:
-- ✅ **Expected outcome exists** (element visible, value set, calculation correct)
-- ✅ **No just `toBeDefined()` alone** — always pair with format/value checks
-- ✅ **State changes after actions** (button enabled/disabled, form filled, item deleted)
-- ✅ **User-facing impact** (what does the user see/experience?)
-
-When documenting test cases in the sections below, the "Expected result" field MUST describe what assertion should validate.
+When documenting test cases below, the "Expected result" field MUST describe what assertion validates the outcome.
 
 ## Smoke Test Cases
 

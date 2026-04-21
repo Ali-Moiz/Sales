@@ -229,6 +229,8 @@ class ContractModule {
 1. **Use env variables**: Access credentials and URLs via `utils/env.js`, not hardcoded values
 2. **Page Objects**: All page interactions should go through page object methods, not raw selectors
 3. **Test naming**: Follow the `TC-###` naming convention in test names
+   - ⚠️ **CRITICAL:** TC codes must exist in `docs/*.md` (documented first), never invented or auto-generated
+   - Example: `TC-CONTRACT-DELETE-006` must be in `docs/contract-module-test-steps.md` before automation
 4. **Test.setTimeout()**: Use for tests that need longer timeouts (e.g., login tests use 180s)
 5. **Assertions**: Use Playwright's built-in assertions (`expect()`)
 6. **Screenshots/Videos**: Automatically captured on failure; no need to manually enable
@@ -294,7 +296,7 @@ test.describe('Module — Feature', () => {
 
 **Benefits**: 60%+ faster execution (login once, not per-test) + shared authenticated state.
 
-See `.cursor/commands/generate-tests.md` for full single-session test generation workflow (Phases 0–7).
+See `.claude/commands/generate-test.md` for full test generation workflow.
 
 ### Codegen for Selector Discovery
 
@@ -403,28 +405,43 @@ npm run report
 
 ### Generate Tests from Documentation
 
-Use the `/generate-test` skill to automatically convert manual test cases into Playwright automation:
+Use the `/generate-tests` command to automatically convert manual test cases into Playwright automation:
 
+**For Cursor IDE:**
+```
+/generate-tests
+```
+
+**For Claude Code (claude.ai/code):**
 ```
 /generate-test
 ```
 
-**Prompts for:**
-1. Requirement description (e.g., "Verify deleting a service updates totals")
-2. Module name (e.g., "Contract Module")
-3. Documentation file (e.g., `docs/contract-module-test-steps.md`)
-4. Test output file (e.g., `tests/e2e/contract-module.spec.js`)
+Both commands invoke the same agent. Answer 4 input prompts:
+1. **Requirement** — Feature to test (e.g., "Verify deleting a service updates totals")
+2. **Module** — Module name (e.g., "Contract Module")
+3. **Documentation file** — Where test cases are documented (e.g., `docs/contract-module-test-steps.md`)
+4. **Test output file** — Where to write automation (e.g., `tests/e2e/contract-module.spec.js`)
 
-**Workflow (7 Phases):**
-- **Phase 0** (optional): Record actual flow with Playwright codegen
-- **Phase 1**: Analyze codegen output, extract selectors, map to Page Objects
-- **Phase 2–3**: Document manual test cases and update POM with new methods
-- **Phase 4**: Generate automated tests (only missing ones, skip duplicates)
-- **Phase 5**: Validate syntax, check for code duplication
-- **Phase 6**: Run tests in single browser session
-- **Phase 7**: Auto-fix failing tests (up to 3 attempts)
+The agent will run the full 8-phase workflow. 
 
-See `.cursor/commands/generate-tests.md` for detailed workflow documentation.
+(CRITICAL) All test cases (TC codes) MUST be documented in the docs file first. Never invent TC codes — they must exist in documentation before automation.
+
+**Workflow (8 Phases):**
+- **Phase 0**: Pre-flight checks (parse docs, check existing tests, validate env)
+- **Phase 1** (optional): Record actual flow with Playwright codegen
+- **Phase 2**: Analyze codegen output, extract selectors, map to Page Objects
+- **Phase 3**: Update documentation with test scenarios
+- **Phase 4**: Update Page Object Model with new methods
+- **Phase 5**: Generate automated tests (DELTA only — skip tests already in file)
+- **Phase 6**: Validate syntax and standards compliance
+- **Phase 7**: Execute tests in headed browser mode
+- **Phase 8**: Auto-fix failing tests (up to 3 attempts per test)
+
+**Authoritative references:**
+- `@.cursor/commands/generate-tests.md` — Main command documentation (all users)
+- `@.claude/agents/generate-playwright-tests.md` — Agent orchestration
+- `@.claude/skills/playwright-test-standards/SKILL.md` — All coding standards and constraints
 
 ## Performance Notes
 
