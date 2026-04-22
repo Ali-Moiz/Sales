@@ -124,7 +124,7 @@ class CompanyModule {
   }
 
   generateUniqueCompanyName() {
-    return `A-C ${String(Date.now()).slice(-4)}`;
+    return `PAT ${String(Date.now()).slice(-4)}`;
   }
 
   // ── Navigation ─────────────────────────────────────────────────────────────

@@ -460,7 +460,7 @@ test.describe('Company Module', () => {
   test('TC-COMP-GAP-005 | Company Domain + SP Status can be set on Create Company form', async () => {
     test.setTimeout(180_000);
     const unique = String(Date.now()).slice(-6);
-    const companyName = `A-C GAPDOM ${unique}`;
+    const companyName = `PAT ${unique}`;
     const domain = `qa-${unique}.example.com`;
 
     await companyModule.gotoCompaniesFromMenu();
@@ -551,7 +551,7 @@ test.describe('Company Module', () => {
 
   test('TC-COMP-GAP-008/009/010 | Duplicate name/domain/address behaviors are handled (allowed or blocked)', async () => {
     test.setTimeout(180_000);
-    const baseName = `A-C DUP ${String(Date.now()).slice(-6)}`;
+    const baseName = `PAT DUP ${String(Date.now()).slice(-6)}`;
     const domain = `dup-${String(Date.now()).slice(-6)}.example.com`;
 
     await companyModule.gotoCompaniesFromMenu();
@@ -598,5 +598,3 @@ test.describe('Company Module', () => {
     openEntityDetail: openCreatedCompanyDetail,
   });
 });
-
-

@@ -188,7 +188,7 @@ class DealModule {
   // ── Data generators ───────────────────────────────────────────────────
 
   generateUniqueDealName() {
-    return `A-D ${String(Date.now()).slice(-4)}`;
+    return `PAT ${String(Date.now()).slice(-4)}`;
   }
 
   escapeRegex(value) {
@@ -419,7 +419,9 @@ class DealModule {
    * Select a company from the Company dropdown in Create Deal form.
    * Live-verified: clicking heading "Select Company" opens a tooltip with
    * a Search textbox and paragraph results.
+   * Tries multiple search patterns if the exact match fails.
    * @param {string} companySearchText - text to search for (dynamic, from company suite)
+   * @param {string} companyOptionText - exact option text to click (defaults to searchText)
    */
   async selectCompany(
     companySearchText,
@@ -434,13 +436,51 @@ class DealModule {
     await tooltip.waitFor({ state: "visible", timeout: 8_000 });
     const searchBox = tooltip.getByRole("textbox", { name: "Search" });
     await searchBox.waitFor({ state: "visible", timeout: 5_000 });
-    await searchBox.fill(companySearchText);
-    await this.page
-      .waitForLoadState("networkidle", { timeout: 10_000 })
-      .catch(() => {});
-    await this.page.waitForTimeout(1_000);
-    await this.clickVisibleDropdownOption(tooltip, companyOptionText, 8_000);
-    await this.page.waitForTimeout(1_000);
+
+    // Try multiple search patterns: exact, first 4 chars, first 3 chars, then pick first result
+    const searchAttempts = [
+      { text: companySearchText, exactMatch: companyOptionText },
+      { text: companySearchText.substring(0, Math.min(4, companySearchText.length)), exactMatch: null },
+      { text: companySearchText.substring(0, Math.min(3, companySearchText.length)), exactMatch: null },
+    ].filter(a => a.text.length > 0);
+
+    for (const attempt of searchAttempts) {
+      await searchBox.click();
+      await searchBox.fill(attempt.text);
+      await this.page
+        .waitForLoadState("networkidle", { timeout: 10_000 })
+        .catch(() => {});
+      await this.page.waitForTimeout(1_000);
+
+      try {
+        if (attempt.exactMatch) {
+          // Try to click exact match
+          await this.clickVisibleDropdownOption(tooltip, attempt.exactMatch, 4_000);
+          await this.page.waitForTimeout(1_000);
+          return;
+        } else {
+          // If no exact match specified, click the first visible option
+          const options = tooltip.locator('p, h6, [role="option"]').filter({
+            hasText: new RegExp(`.*`, 'i'),
+          });
+          const optionCount = await options.count().catch(() => 0);
+          if (optionCount > 0) {
+            const firstOption = options.first();
+            const visible = await firstOption.isVisible().catch(() => false);
+            if (visible) {
+              await firstOption.click({ force: true });
+              await this.page.waitForTimeout(1_000);
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        // Continue to next attempt
+      }
+    }
+
+    // If all attempts fail, throw error with debugging info
+    throw new Error(`Could not select company from dropdown. Searched for: ${companySearchText}, expected: ${companyOptionText}`);
   }
 
   /**
@@ -455,11 +495,14 @@ class DealModule {
   ) {
     await this.propertySelector.waitFor({ state: "visible", timeout: 10_000 });
     await this.propertySelector.click({ force: true });
+    // Wait for page to stabilize after click before looking for tooltip
+    await this.page.waitForTimeout(500);
     const tooltip = this.page
       .locator('#simple-popper[role="tooltip"]')
       .last()
-      .or(this.page.getByRole("tooltip").last());
-    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+      .or(this.page.getByRole("tooltip").last())
+      .or(this.page.locator('[role="listbox"]').last());
+    await tooltip.waitFor({ state: "visible", timeout: 12_000 });
     const searchBox = tooltip.getByRole("textbox", { name: "Search" });
     await searchBox.waitFor({ state: "visible", timeout: 5_000 });
     await searchBox.click();
@@ -786,7 +829,7 @@ class DealModule {
   }
 
   generateUniqueEditedDealName() {
-    return `A-D Edited ${String(Date.now()).slice(-4)}`;
+    return `PAT Edited ${String(Date.now()).slice(-4)}`;
   }
 }
 

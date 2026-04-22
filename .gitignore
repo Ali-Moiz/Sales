@@ -6,7 +6,6 @@ reports/
 dist/
 .DS_Store
 playwright/.auth/
-.claude/
 .playwright-mcp/
 .tmp/
 tmp-*.png

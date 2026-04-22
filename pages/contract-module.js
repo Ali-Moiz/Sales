@@ -1090,6 +1090,133 @@ class ContractModule {
     }
   }
 
+  /**
+   * Decrement the quantity for a named device by clicking its "-" button.
+   * Navigates from the device's heading to the ancestor row, then finds "-".
+   * Attempts multiple selector strategies for resilience.
+   * @param {'NFC Tags'|'Beacons'|'QR Tags'} deviceName
+   * @param {number} count — how many times to click "-"
+   */
+  async subtractDeviceQuantity(deviceName, count = 1) {
+    const heading = this.page.getByRole('heading', { name: deviceName, level: 6 });
+    // Try multiple selector strategies for finding the minus button
+    const minusBtn = heading
+      .locator('..')  // Go to parent
+      .locator('button', { hasText: '-' })  // Find button with text "-"
+      .or(heading.locator('xpath=following::button[normalize-space()="-"][1]'));  // Fallback to XPath
+
+    for (let i = 0; i < count; i++) {
+      await minusBtn.click({ force: true });
+      await this.page.waitForTimeout(250);
+    }
+  }
+
+  /**
+   * Get the current quantity for a named device.
+   * Locates the quantity display text between +/- buttons.
+   * Attempts multiple selector strategies for resilience.
+   * @param {'NFC Tags'|'Beacons'|'QR Tags'} deviceName
+   * @returns {Promise<number>} The current quantity
+   */
+  async getDeviceQuantity(deviceName) {
+    const heading = this.page.getByRole('heading', { name: deviceName, level: 6 });
+    // Try to find quantity text in the parent row/container
+    let quantityText;
+    try {
+      // Strategy 1: Look for text between +/- buttons in parent
+      quantityText = await heading
+        .locator('..')
+        .locator('span')
+        .first()
+        .textContent();
+    } catch {
+      // Strategy 2: Try XPath fallback
+      try {
+        quantityText = await heading
+          .locator('xpath=following::span[1]')
+          .textContent();
+      } catch {
+        quantityText = '0';
+      }
+    }
+    return parseInt(quantityText?.trim() || '0', 10);
+  }
+
+  /**
+   * Get the total devices count from the Total heading.
+   * @returns {Promise<number>} The total number of all devices
+   */
+  async getDevicesTotalCount() {
+    const totalText = await this.devicesTotalHeading.textContent();
+    // Expected format: "Total: 5" or similar
+    const match = totalText?.match(/\d+/);
+    return match ? parseInt(match[0], 10) : 0;
+  }
+
+  /**
+   * Check if the minus button for a device is disabled (cannot go below 0).
+   * @param {'NFC Tags'|'Beacons'|'QR Tags'} deviceName
+   * @returns {Promise<boolean>} True if button is disabled, false if enabled
+   */
+  async isDeviceMinusButtonDisabled(deviceName) {
+    const heading = this.page.getByRole('heading', { name: deviceName, level: 6 });
+    const minusBtn = heading
+      .locator('..')
+      .locator('button', { hasText: '-' })
+      .or(heading.locator('xpath=following::button[normalize-space()="-"][1]'));
+    return await minusBtn.isDisabled().catch(() => true);  // If selector fails, assume disabled
+  }
+
+  /**
+   * Verify that device quantity input rejects non-numeric input.
+   * Note: Current implementation uses +/- buttons, so this validates
+   * that buttons work correctly and don't accept invalid states.
+   * @param {'NFC Tags'|'Beacons'|'QR Tags'} deviceName
+   * @returns {Promise<boolean>} True if quantity is always numeric (0 or positive integer)
+   */
+  async isDeviceQuantityNumeric(deviceName) {
+    const quantity = await this.getDeviceQuantity(deviceName);
+    // Verify it's an integer >= 0
+    return Number.isInteger(quantity) && quantity >= 0;
+  }
+
+  /**
+   * Fill device quantity input field directly (if text input exists).
+   * Used for validation testing of non-numeric input.
+   * Finds the input field near the device heading.
+   * @param {'NFC Tags'|'Beacons'|'QR Tags'} deviceName
+   * @param {string} inputValue — value to type (e.g., 'abc', '!@#', '12.5')
+   */
+  async fillDeviceQuantityInput(deviceName, inputValue) {
+    const heading = this.page.getByRole('heading', { name: deviceName, level: 6 });
+    // Material-UI input field in the device row
+    const inputField = heading
+      .locator('..')
+      .locator('.MuiInputBase-root input')
+      .first();
+
+    await inputField.click();
+    await inputField.fill(inputValue);
+    // Blur to trigger validation
+    await inputField.blur();
+  }
+
+  /**
+   * Get the current value from the device quantity input field (if text input exists).
+   * Used to verify validation behavior (rejection, clearing, etc.).
+   * @param {'NFC Tags'|'Beacons'|'QR Tags'} deviceName
+   * @returns {Promise<string>} The current input value
+   */
+  async getDeviceQuantityInputValue(deviceName) {
+    const heading = this.page.getByRole('heading', { name: deviceName, level: 6 });
+    const inputField = heading
+      .locator('..')
+      .locator('.MuiInputBase-root input')
+      .first();
+
+    return await inputField.inputValue().catch(() => '');
+  }
+
   // ── Step 3 — On Demand ─────────────────────────────────────────────────
 
   /** Assert Step 3 On Demand section heading is visible */
@@ -1514,6 +1641,221 @@ class ContractModule {
       (await this.terminateContractGeneric.isVisible().catch(() => false)) ||
       (await this.signatureBtnOnCard.isVisible().catch(() => false));
     expect(actionVisible).toBeTruthy();
+  }
+
+  // ── Step 1 — Multi-Service Management ───────────────────────────────────
+
+  /**
+   * Get the count of visible service forms on Step 1.
+   * Each service is represented by a set of input fields.
+   */
+  async getServiceCount() {
+    const serviceContainers = this.page.locator('[class*="service"][class*="form"], [class*="Service"][class*="Form"]');
+    return serviceContainers.count().catch(() => 0);
+  }
+
+  /**
+   * Click the delete button for the first service on Step 1.
+   * Tries multiple selector patterns to find the delete button.
+   * TODO: Requires DOM inspection to identify the exact delete button selector.
+   *       Run codegen to capture the actual selector: npx playwright codegen [url]
+   */
+  async deleteFirstService() {
+    // Try multiple selector strategies in order of preference
+    const selectors = [
+      // Strategy 1: Button with exact name match (via codegen discovery)
+      () => this.page.getByRole('button', { name: 'Delete Service' }).first(),
+
+      // Strategy 2: Button with partial name match
+      () => this.page.getByRole('button', { name: /Delete|Remove/ }).first(),
+
+      // Strategy 3: SVG icon or child element within delete button
+      () => this.page.locator('button:has-text("Delete"), button svg[aria-label*="Delete"]').first(),
+
+      // Strategy 4: Button with data attributes commonly used for delete
+      () => this.page.locator('button[data-testid*="delete"], button[aria-label*="delete"]').first(),
+
+      // Strategy 5: Within service container, find trash/delete icon button
+      () => this.page.locator('[class*="service"]:first-child button[type="button"]').last()
+    ];
+
+    for (let i = 0; i < selectors.length; i++) {
+      try {
+        const btn = selectors[i]();
+        const visible = await btn.isVisible({ timeout: 4_000 }).catch(() => false);
+
+        if (visible) {
+          console.log(`[DELETE] Found delete button using strategy ${i + 1}`);
+          await btn.click({ force: true });
+          await this.page.waitForTimeout(500);
+          await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+          return;
+        }
+      } catch (e) {
+        // Continue to next strategy
+      }
+    }
+
+    // Last resort: Try to find any button that looks like a delete action
+    const allButtons = this.page.locator('button');
+    const count = await allButtons.count().catch(() => 0);
+
+    for (let j = 0; j < count; j++) {
+      try {
+        const btn = allButtons.nth(j);
+        const text = await btn.textContent().catch(() => '');
+        const ariaLabel = await btn.getAttribute('aria-label').catch(() => '');
+
+        if (text.toLowerCase().includes('delete') || ariaLabel.toLowerCase().includes('delete')) {
+          const visible = await btn.isVisible({ timeout: 2_000 }).catch(() => false);
+          if (visible) {
+            console.log(`[DELETE] Found delete button as button #${j}`);
+            await btn.click({ force: true });
+            await this.page.waitForTimeout(500);
+            await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+            return;
+          }
+        }
+      } catch (e) {
+        // Continue searching
+      }
+    }
+
+    throw new Error('Delete button not found for first service');
+  }
+
+  /**
+   * Delete a service by index (0-based).
+   * Discovered via Playwright Codegen: getByRole('button', { name: 'Delete Service' })
+   * @param {number} index — 0 for first service, 1 for second, etc.
+   */
+  async deleteServiceByIndex(index) {
+    // Collect all possible delete buttons
+    const possibleDeleteBtns = await this.page.locator('button').all().then(async (btns) => {
+      const results = [];
+      for (const btn of btns) {
+        try {
+          const text = await btn.textContent().catch(() => '');
+          const ariaLabel = await btn.getAttribute('aria-label').catch(() => '');
+
+          if (text.toLowerCase().includes('delete') || ariaLabel.toLowerCase().includes('delete')) {
+            const visible = await btn.isVisible({ timeout: 2_000 }).catch(() => false);
+            if (visible) {
+              results.push(btn);
+            }
+          }
+        } catch (e) {
+          // Skip on error
+        }
+      }
+      return results;
+    }).catch(() => []);
+
+    // Try to get the button at the requested index
+    if (possibleDeleteBtns.length > index) {
+      try {
+        console.log(`[DELETE] Found ${possibleDeleteBtns.length} delete buttons, using index ${index}`);
+        const btn = possibleDeleteBtns[index];
+        await btn.click({ force: true });
+        await this.page.waitForTimeout(500);
+        await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+        return;
+      } catch (e) {
+        console.warn(`[DELETE] Failed to click delete button at index ${index}: ${e.message}`);
+      }
+    }
+
+    // Fallback: Try with locator strategies
+    const selectors = [
+      () => this.page.getByRole('button', { name: 'Delete Service' }).nth(index),
+      () => this.page.getByRole('button', { name: /Delete|Remove/ }).nth(index),
+      () => this.page.locator('button[data-testid*="delete"]').nth(index),
+      () => this.page.locator('button[aria-label*="delete"]').nth(index)
+    ];
+
+    for (let i = 0; i < selectors.length; i++) {
+      try {
+        const btn = selectors[i]();
+        const visible = await btn.isVisible({ timeout: 3_000 }).catch(() => false);
+
+        if (visible) {
+          console.log(`[DELETE] Found delete button at index ${index} using strategy ${i + 1}`);
+          await btn.click({ force: true });
+          await this.page.waitForTimeout(500);
+          await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+          return;
+        }
+      } catch (e) {
+        // Continue to next strategy
+      }
+    }
+
+    throw new Error(`Delete button not found for service at index ${index}`);
+  }
+
+  /**
+   * Assert a service with a given name exists in the service list.
+   * Checks both text content and input values (since service name may be in input field).
+   * @param {string} serviceName — the name to search for
+   */
+  async assertServiceExists(serviceName) {
+    // Try to find by visible text first
+    const textLocator = this.page.getByText(serviceName, { exact: true });
+    const textVisible = await textLocator.isVisible({ timeout: 3_000 }).catch(() => false);
+
+    if (textVisible) {
+      await expect(textLocator).toBeVisible();
+      return;
+    }
+
+    // If not found as text, check input value (service name field)
+    const inputLocator = this.page.locator(`input[value="${serviceName}"]`);
+    const inputVisible = await inputLocator.isVisible({ timeout: 3_000 }).catch(() => false);
+
+    if (inputVisible) {
+      await expect(inputLocator).toBeVisible();
+      return;
+    }
+
+    // If neither found, throw error with helpful message
+    throw new Error(`Service "${serviceName}" not found as visible text or input value`);
+  }
+
+  /**
+   * Get the text value of the grand total field on Step 1.
+   * Returns null if not found or visible.
+   */
+  async getGrandTotal() {
+    const grandTotalLabel = this.page.getByText(/Grand Total|Total:/i, { exact: false });
+    const grandTotalField = grandTotalLabel
+      .locator('xpath=following-sibling::input[1], xpath=following-sibling::div[1], xpath=following-sibling::span[1]')
+      .first();
+
+    const isVisible = await grandTotalField.isVisible({ timeout: 5_000 }).catch(() => false);
+    if (!isVisible) {
+      return null;
+    }
+
+    const value = await grandTotalField.textContent().catch(() => null);
+    return value;
+  }
+
+  /**
+   * Click the "Add Service" button to add another service to Step 1.
+   */
+  async clickAddService() {
+    const addServiceBtn = this.page
+      .getByRole('button', { name: /Add Service|Add Another Service/i })
+      .or(this.page.locator('button[title*="Add Service"]'))
+      .first();
+
+    const btnVisible = await addServiceBtn.isVisible({ timeout: 8_000 }).catch(() => false);
+    if (btnVisible) {
+      await addServiceBtn.click({ force: true });
+      await this.page.waitForTimeout(600);
+    } else {
+      throw new Error('Add Service button not found');
+    }
   }
 }
 

@@ -9,6 +9,7 @@
     "test:prod": "cross-env ENV_NAME=prod npx playwright test",
     "test:prod:headed": "cross-env ENV_NAME=prod npx playwright test --headed",
     "report": "npx playwright show-report",
+    "codegen": "cross-env ENV_NAME=uat HEADLESS=false npx playwright codegen https://uat.sales.teamsignal.com",
     "test:uat:login": "cross-env ENV_NAME=uat npx playwright test --project=chrome --headed --workers=1 tests/e2e/login-module.spec.js",
     "test:uat:company": "cross-env ENV_NAME=uat npx playwright test --project=chrome --headed --workers=1 tests/e2e/company-module.spec.js",
     "test:uat:contact": "cross-env ENV_NAME=uat npx playwright test --project=chrome --headed --workers=1 tests/e2e/contact-module.spec.js",

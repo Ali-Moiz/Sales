@@ -528,7 +528,7 @@ test.describe.serial("Property Module", () => {
     // Use a unique timestamp name so the property name itself is not a
     // duplicate — only the geocoded address should trigger the error.
     const dupTestPropertyName = propertyModule.generateUniquePropertyName();
-    await propertyModule.selectCompanyInCreateForm("A-C 6548");
+    await propertyModule.selectCompanyInCreateForm("PAT 6548");
     await propertyModule.fillPropertyName(dupTestPropertyName);
     await propertyModule.selectPropertySource();
     await propertyModule.selectAssociatedFranchise();

@@ -336,11 +336,11 @@ class PropertyModule {
   // ── Data Generators ──────────────────────────────────────────────────────
 
   generateUniquePropertyName() {
-    return `S-P ${String(Date.now()).slice(-4)}`;
+    return `PAT ${String(Date.now()).slice(-4)}`;
   }
 
   generateUniqueEditedName() {
-    return `S-P ${String(Date.now() + 1).slice(-4)}`;
+    return `PAT ${String(Date.now() + 1).slice(-4)}`;
   }
 
   /**
@@ -368,16 +368,30 @@ class PropertyModule {
   }
 
   /**
+   * Generate a random Omaha address with a random house number.
+   * Used as fallback when timestamp addresses fail uniqueness validation.
+   *
+   * @returns {string}
+   */
+  generateRandomOmahaAddress() {
+    const street = this._timestampStreets[
+      Math.floor(Math.random() * this._timestampStreets.length)
+    ];
+    const range = street.max - street.min;
+    const houseNum = street.min + Math.round((Math.random() * range) / 100) * 100;
+    return `${houseNum} ${street.street}, Omaha, NE ${street.zip}`;
+  }
+
+  /**
    * Return the candidate address list for createProperty retries.
    *
    * Order:
    *   1. 3 × timestamp-generated addresses (different per run, virtually never collide)
-   *   2. Fallback intersection pool — randomly shuffled (Fisher-Yates)
+   *   2. 5 × dynamically generated random addresses (ensures no fallback pool exhaustion)
    *
-   * If the timestamp address fails autocomplete for any reason (slow Maps,
-   * network issue) the test falls through to the 50-address fallback pool
-   * which is shuffled differently each run so the same address is not
-   * always retried first.
+   * If the timestamp address fails due to uniqueness validation or autocomplete issues,
+   * the test falls through to randomly generated addresses with different house numbers
+   * on real Omaha streets. This ensures unlimited retry candidates.
    *
    * @returns {string[]}
    */
@@ -403,12 +417,10 @@ class PropertyModule {
       })(),
     ];
 
-    // Fisher-Yates shuffle of the fallback pool (random, not deterministic)
-    const fallback = [...this.omahaAddressCandidates];
-    for (let i = fallback.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [fallback[i], fallback[j]] = [fallback[j], fallback[i]];
-    }
+    // Generate 5 random fallback addresses (dynamically generated, never exhausted)
+    const fallback = Array.from({ length: 5 }, () =>
+      this.generateRandomOmahaAddress()
+    );
 
     return [...primary, ...fallback];
   }
