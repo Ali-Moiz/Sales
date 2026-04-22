@@ -40,7 +40,7 @@ It is based on:
   1. Search for existing company with "PAT_" prefix
   2. If found → reuse it
   3. If not found → create `PAT_{timestamp}`
-  
+
 - **Property Resolution**:
   1. Search for existing property with "PAT_" prefix
   2. If found (and matches company) → reuse it
@@ -458,6 +458,24 @@ Expected result:
 - `Publish Contract` button disappears.
 - `Terminate` action appears in place of `Delete`.
 
+## Service Deletion Test Cases
+
+### TC-CONTRACT-DELETE-003 | Verify grand total updates after deleting first service
+Execution steps:
+- Navigate to Step 1 Services in the contract stepper.
+- Ensure the stepper is ready with at least one service already filled in.
+- Add another service
+- Fill service 2 details 
+- Record the current grand total value.
+- Click the Delete button on the first service.
+- Wait for the UI to update.
+- Record the new grand total value.
+- Verify the remaining service form is fully functional.
+
+Expected result:
+- The grand total decreases after service deletion.
+- The remaining service form elements (Service 1 input, Save & Next button) remain visible and enabled.
+
 ## Page Object Summary
 
 The page object in [contract-module.js](/Users/tk-lpt-1156/Desktop/Automations/SignalSalesAutomation/pages/contract-module.js) handles:
@@ -507,13 +525,13 @@ All previously blocked tests are now **ACTIVE** and ready to run.
    ```html
    <!-- Pattern 1: Button with aria-label -->
    <button aria-label="Delete Service" ...>×</button>
-   
+
    <!-- Pattern 2: Button with title attribute -->
    <button title="Delete Service" ...>×</button>
-   
+
    <!-- Pattern 3: Icon-based button -->
    <button><svg data-testid="DeleteIcon" /></button>
-   
+
    <!-- Pattern 4: CSS class-based -->
    <button class="service-delete-btn">Remove</button>
    ```

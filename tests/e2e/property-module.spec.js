@@ -2134,7 +2134,7 @@ test.describe.serial("Property Module", () => {
     console.log(
       "[TC-PROP-038] Step 2: Interact with non-company fields and ensure Property Affiliation stays N/A",
     );
-    await propertyModule.fillPropertyName(`AFF-NA-${Date.now()}`);
+    await propertyModule.fillPropertyName(`PAT-${Date.now()}`);
     await visualPause();
     await propertyModule.openPropertySourceDropdown();
     await visualPause();
