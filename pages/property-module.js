@@ -167,6 +167,9 @@ class PropertyModule {
       name: "Select Assignee",
       level: 6,
     });
+    this.assignSupervisorCheckbox = page.getByRole("checkbox", {
+      name: /Assign Supervisor/i,
+    });
     this.managedButton = page.getByRole("button", { name: "Managed" });
     this.ownedButton = page.getByRole("button", { name: "Owned" });
     this.regionalOfficeButton = page.getByRole("button", {
@@ -749,6 +752,19 @@ class PropertyModule {
     await expect(this.tenantButton).toHaveCount(0);
   }
 
+  async assertPropertyAffiliationShowsNAInCreateDrawer() {
+    const drawer = this.createPropertyDrawerRoot();
+    await expect(
+      drawer.getByRole("heading", {
+        name: /Property Affiliation/i,
+        level: 5,
+      }),
+    ).toBeVisible({ timeout: 8_000 });
+    await expect(drawer.getByText(/^N\/A$/).first()).toBeVisible({
+      timeout: 8_000,
+    });
+  }
+
   /**
    * M-PROP-07 / M-PROP-08 — all six affiliation buttons visible after company selection.
    */
@@ -983,6 +999,255 @@ class PropertyModule {
     this.createdPropertyName = propertyName;
   }
 
+  propertySourceTriggerInCreateDrawer() {
+    const drawer = this.createPropertyDrawerRoot();
+    return drawer
+      .getByRole("heading", {
+        level: 6,
+        name: /^(Add Property Source|ALN|Building Connected|Inbound Lead - National|Referral|Inbound Lead - Local|Local Networking|Other Online Database|Rocket Reach|Sales Routing|ZoomInfo)$/i,
+      })
+      .first();
+  }
+
+  propertySourceTooltip() {
+    return this.page
+      .locator('#simple-popper[role="tooltip"]')
+      .last()
+      .or(this.page.getByRole("tooltip").last());
+  }
+
+  async openPropertySourceDropdown() {
+    const existingTooltipVisible = await this.propertySourceTooltip()
+      .isVisible()
+      .catch(() => false);
+    if (existingTooltipVisible) {
+      return this.propertySourceTooltip();
+    }
+    const trigger = this.propertySourceTriggerInCreateDrawer();
+    await trigger.waitFor({ state: "visible", timeout: 8_000 });
+    const tooltip = this.propertySourceTooltip();
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await trigger.click({ force: true });
+      const visible = await tooltip
+        .waitFor({ state: "visible", timeout: 4_000 })
+        .then(() => true)
+        .catch(() => false);
+      if (visible) {
+        return tooltip;
+      }
+    }
+    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    return tooltip;
+  }
+
+  async getPropertySourceOptionsFromOpenDropdown() {
+    const tooltip = this.propertySourceTooltip();
+    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    const options = tooltip.locator('p, [role="option"], h6');
+    const total = await options.count();
+    const values = [];
+    for (let i = 0; i < total; i++) {
+      const text = (await options.nth(i).innerText().catch(() => "")).trim();
+      if (!text) continue;
+      if (!values.includes(text)) values.push(text);
+    }
+    return values;
+  }
+
+  async assertPropertySourceTriggerValue(expectedText) {
+    const trigger = this.propertySourceTriggerInCreateDrawer();
+    await expect(trigger).toBeVisible({ timeout: 8_000 });
+    await expect(trigger).toHaveText(new RegExp(this.escapeRegex(expectedText), "i"), {
+      timeout: 8_000,
+    });
+  }
+
+  async selectPropertySourceByText(sourceText) {
+    const tooltip = await this.openPropertySourceDropdown();
+    await this.clickVisibleDropdownOption(tooltip, sourceText, 8_000);
+    await this.assertPropertySourceTriggerValue(sourceText);
+  }
+
+  async dismissPropertySourceDropdownWithEscape() {
+    await this.page.keyboard.press("Escape");
+    await this.propertySourceTooltip()
+      .waitFor({ state: "hidden", timeout: 5_000 })
+      .catch(() => {});
+  }
+
+  async dismissPropertySourceDropdownWithoutSelection() {
+    await this.createPropertyHeading.click({ force: true });
+    await this.propertySourceTooltip()
+      .waitFor({ state: "hidden", timeout: 5_000 })
+      .catch(() => {});
+  }
+
+  associatedFranchiseTriggerInCreateDrawer() {
+    const drawer = this.createPropertyDrawerRoot();
+    return drawer
+      .getByRole("heading", {
+        level: 6,
+        name: /^(Add Associated Franchise|.+ - .+)$/i,
+      })
+      .first();
+  }
+
+  associatedFranchiseTooltip() {
+    return this.page
+      .locator('#simple-popper[role="tooltip"]')
+      .last()
+      .or(this.page.getByRole("tooltip").last());
+  }
+
+  async openAssociatedFranchiseDropdown() {
+    const existingTooltipVisible = await this.associatedFranchiseTooltip()
+      .isVisible()
+      .catch(() => false);
+    if (existingTooltipVisible) {
+      return this.associatedFranchiseTooltip();
+    }
+    const trigger = this.associatedFranchiseTriggerInCreateDrawer();
+    await trigger.waitFor({ state: "visible", timeout: 8_000 });
+    const tooltip = this.associatedFranchiseTooltip();
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await trigger.click({ force: true });
+      const visible = await tooltip
+        .waitFor({ state: "visible", timeout: 4_000 })
+        .then(() => true)
+        .catch(() => false);
+      if (visible) {
+        return tooltip;
+      }
+    }
+    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    return tooltip;
+  }
+
+  async getAssociatedFranchiseOptionsFromOpenDropdown(limit = 80) {
+    const tooltip = await this.openAssociatedFranchiseDropdown();
+    const options = tooltip.locator('p, [role="option"], h6');
+    const total = await options.count();
+    const values = [];
+    const scanCount = Math.min(total, limit);
+    for (let i = 0; i < scanCount; i++) {
+      const text = (await options.nth(i).innerText().catch(() => "")).trim();
+      if (!text) continue;
+      if (!values.includes(text)) values.push(text);
+    }
+    return values;
+  }
+
+  async assertAssociatedFranchiseTriggerValue(expectedText) {
+    const trigger = this.associatedFranchiseTriggerInCreateDrawer();
+    await expect(trigger).toBeVisible({ timeout: 8_000 });
+    await expect(
+      trigger,
+      `Associated Franchise trigger should contain "${expectedText}"`,
+    ).toHaveText(new RegExp(this.escapeRegex(expectedText), "i"), {
+      timeout: 8_000,
+    });
+  }
+
+  async searchInAssociatedFranchiseDropdown(searchText) {
+    const tooltip = await this.openAssociatedFranchiseDropdown();
+    const searchInput = tooltip.getByRole("textbox", { name: "Search" });
+    await searchInput.waitFor({ state: "visible", timeout: 5_000 });
+    await searchInput.fill(searchText);
+    await this.page.waitForTimeout(600);
+    return tooltip;
+  }
+
+  async selectAssociatedFranchiseByText(franchiseText) {
+    const tooltip = await this.openAssociatedFranchiseDropdown();
+    await this.clickVisibleDropdownOption(tooltip, franchiseText, 8_000);
+    await this.assertAssociatedFranchiseTriggerValue(franchiseText);
+  }
+
+  async dismissAssociatedFranchiseDropdownWithoutSelection() {
+    await this.createPropertyHeading.click({ force: true });
+    await this.associatedFranchiseTooltip()
+      .waitFor({ state: "hidden", timeout: 5_000 })
+      .catch(() => {});
+  }
+
+  stageTriggerInCreateDrawer() {
+    const drawer = this.createPropertyDrawerRoot();
+    return drawer
+      .getByRole("heading", {
+        level: 6,
+        name: /^(Choose stage|New Location|Approved)$/i,
+      })
+      .first();
+  }
+
+  stageTooltip() {
+    return this.page
+      .locator('#simple-popper[role="tooltip"]')
+      .last()
+      .or(this.page.getByRole("tooltip").last());
+  }
+
+  async openStageDropdown() {
+    const existingTooltipVisible = await this.stageTooltip()
+      .isVisible()
+      .catch(() => false);
+    if (existingTooltipVisible) {
+      return this.stageTooltip();
+    }
+    const trigger = this.stageTriggerInCreateDrawer();
+    await trigger.waitFor({ state: "visible", timeout: 8_000 });
+    const tooltip = this.stageTooltip();
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await trigger.click({ force: true });
+      const visible = await tooltip
+        .waitFor({ state: "visible", timeout: 4_000 })
+        .then(() => true)
+        .catch(() => false);
+      if (visible) {
+        return tooltip;
+      }
+    }
+    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    return tooltip;
+  }
+
+  async getStageOptionsFromOpenDropdown() {
+    const tooltip = await this.openStageDropdown();
+    const options = tooltip.locator('p, [role="option"], h6');
+    const total = await options.count();
+    const values = [];
+    for (let i = 0; i < total; i++) {
+      const text = (await options.nth(i).innerText().catch(() => "")).trim();
+      if (!text) continue;
+      if (!values.includes(text)) values.push(text);
+    }
+    return values;
+  }
+
+  async assertStageTriggerValue(expectedText) {
+    const trigger = this.stageTriggerInCreateDrawer();
+    await expect(trigger).toBeVisible({ timeout: 8_000 });
+    await expect(
+      trigger,
+      `Stage trigger should contain "${expectedText}"`,
+    ).toHaveText(new RegExp(this.escapeRegex(expectedText), "i"), {
+      timeout: 8_000,
+    });
+  }
+
+  async selectStageByText(stageText) {
+    const tooltip = await this.openStageDropdown();
+    await this.clickVisibleDropdownOption(tooltip, stageText, 8_000);
+    await this.assertStageTriggerValue(stageText);
+  }
+
+  async dismissStageDropdownWithoutSelection() {
+    await this.createPropertyHeading.click({ force: true });
+    await this.stageTooltip()
+      .waitFor({ state: "hidden", timeout: 5_000 })
+      .catch(() => {});
+  }
+
   /**
    * Select Property Source from its tooltip dropdown.
    * Live-verified options (as paragraphs): ALN, Building Connected,
@@ -1117,6 +1382,764 @@ class PropertyModule {
     await assigneeOption.waitFor({ state: "visible", timeout: 8_000 });
     await assigneeOption.click({ force: true });
     await this.page.waitForTimeout(500);
+  }
+
+  assigneeTooltip() {
+    return this.page
+      .locator('#simple-popper[role="tooltip"]')
+      .last()
+      .or(this.page.getByRole("tooltip").last());
+  }
+
+  async openAssigneeDropdown() {
+    const tooltip = this.assigneeTooltip();
+    const alreadyVisible = await tooltip.isVisible().catch(() => false);
+    if (alreadyVisible) return tooltip;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const defaultTriggerVisible = await this.assigneeTrigger
+        .isVisible()
+        .catch(() => false);
+      if (defaultTriggerVisible) {
+        await this.assigneeTrigger.scrollIntoViewIfNeeded().catch(() => {});
+        await this.assigneeTrigger.click({ force: true });
+      } else {
+        const drawer = this.createPropertyDrawerRoot();
+        const assigneeLabel = drawer
+          .getByRole("heading", { name: /Select Assignee:?/i })
+          .first()
+          .or(drawer.getByText(/Select Assignee:?/i).first());
+
+        const assigneeRowTrigger = assigneeLabel
+          .locator("xpath=following-sibling::*[1]")
+          .first();
+        await assigneeLabel.waitFor({ state: "visible", timeout: 8_000 });
+        await assigneeLabel.scrollIntoViewIfNeeded().catch(() => {});
+        const rowVisible = await assigneeRowTrigger.isVisible().catch(() => false);
+        if (rowVisible) {
+          await assigneeRowTrigger.scrollIntoViewIfNeeded().catch(() => {});
+          await assigneeRowTrigger.click({ force: true });
+        } else {
+          await assigneeLabel.click({ force: true });
+        }
+      }
+      const opened = await tooltip
+        .waitFor({ state: "visible", timeout: 4_000 })
+        .then(() => true)
+        .catch(() => false);
+      if (opened) return tooltip;
+    }
+    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    return tooltip;
+  }
+
+  async searchAssigneeInDropdown(searchText) {
+    const tooltip = await this.openAssigneeDropdown();
+    const searchInput = tooltip.getByRole("textbox", { name: "Search" });
+    await searchInput.waitFor({ state: "visible", timeout: 5_000 });
+    await searchInput.fill(searchText);
+    await this.page.waitForTimeout(600);
+    return tooltip;
+  }
+
+  async getAssigneeOptionsFromOpenDropdown(limit = 120) {
+    const tooltip = await this.openAssigneeDropdown();
+    const options = tooltip.getByRole("heading", { level: 4 });
+    const total = await options.count();
+    const values = [];
+    const scanCount = Math.min(total, limit);
+    for (let i = 0; i < scanCount; i++) {
+      const text = (await options.nth(i).innerText().catch(() => "")).trim();
+      if (!text) continue;
+      if (!values.includes(text)) values.push(text);
+    }
+    return values;
+  }
+
+  async selectAssigneeByText(assigneeText) {
+    const tooltip = await this.openAssigneeDropdown();
+    const assigneeOption = tooltip
+      .getByRole("heading", { level: 4, name: new RegExp(this.escapeRegex(assigneeText), "i") })
+      .first()
+      .or(tooltip.getByText(assigneeText, { exact: false }).first());
+    await assigneeOption.waitFor({ state: "visible", timeout: 8_000 });
+    await assigneeOption.click({ force: true });
+    await this.page.waitForTimeout(500);
+  }
+
+  async dismissAssigneeDropdownWithoutSelection() {
+    await this.createPropertyHeading.click({ force: true });
+    await this.assigneeTooltip()
+      .waitFor({ state: "hidden", timeout: 5_000 })
+      .catch(() => {});
+  }
+
+  assignSupervisorCheckboxInCreateDrawer() {
+    const drawer = this.createPropertyDrawerRoot();
+    return drawer
+      .getByRole("checkbox", { name: /Assign Supervisor/i })
+      .first()
+      .or(drawer.getByLabel(/Assign Supervisor/i).first())
+      .or(
+        drawer
+          .locator("label")
+          .filter({ hasText: /Assign Supervisor/i })
+          .locator('input[type="checkbox"]')
+          .first(),
+      );
+  }
+
+  async scrollCreateDrawerToAssignSupervisor() {
+    const drawer = this.createPropertyDrawerRoot();
+    const checkbox = this.assignSupervisorCheckboxInCreateDrawer();
+    await checkbox.scrollIntoViewIfNeeded().catch(async () => {
+      await drawer
+        .evaluate((el) => {
+          el.scrollTop = el.scrollHeight;
+        })
+        .catch(() => {});
+    });
+  }
+
+  async assertAssignSupervisorCheckboxVisibleInCreateDrawer() {
+    await this.assertCreatePropertyDrawerOpen();
+    await this.scrollCreateDrawerToAssignSupervisor();
+    const checkbox = this.assignSupervisorCheckboxInCreateDrawer();
+    await expect(checkbox).toBeVisible({ timeout: 10_000 });
+    await expect(
+      this.createPropertyDrawerRoot().getByText(/Assign Supervisor/i).first(),
+    ).toBeVisible({ timeout: 8_000 });
+  }
+
+  async isAssignSupervisorCheckedInCreateDrawer() {
+    const checkbox = this.assignSupervisorCheckboxInCreateDrawer();
+    await checkbox.waitFor({ state: "visible", timeout: 8_000 });
+    return checkbox.isChecked().catch(() => false);
+  }
+
+  async setAssignSupervisorCheckedInCreateDrawer(shouldBeChecked) {
+    await this.scrollCreateDrawerToAssignSupervisor();
+    const checkbox = this.assignSupervisorCheckboxInCreateDrawer();
+    await checkbox.waitFor({ state: "visible", timeout: 8_000 });
+    const isChecked = await this.isAssignSupervisorCheckedInCreateDrawer();
+    if (isChecked === shouldBeChecked) return;
+    if (shouldBeChecked) {
+      await checkbox.check({ force: true });
+      await expect(checkbox).toBeChecked({ timeout: 5_000 });
+      return;
+    }
+    await checkbox.uncheck({ force: true });
+    await expect(checkbox).not.toBeChecked({ timeout: 5_000 });
+  }
+
+  selectSupervisorFieldInCreateDrawer() {
+    const drawer = this.createPropertyDrawerRoot();
+    return drawer
+      .locator('label[for="supervisor"]')
+      .first()
+      .or(
+        drawer
+          .getByText(/^Select Supervisor$/i)
+          .first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor \*/i }).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/^Select Supervisor$/i).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .or(
+        drawer.getByText(/Select Supervisor/i).first(),
+      )
+      .or(
+        drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      )
+      .first();
+  }
+
+  selectSupervisorInteractiveControlInCreateDrawer() {
+    const drawer = this.createPropertyDrawerRoot();
+    const supervisorLabel = drawer.locator('label[for="supervisor"]').first();
+    const labeledControl = drawer.locator('label[for="supervisor"] + div').first();
+    return drawer
+      .locator('input[name="supervisor"], #supervisor, [name="supervisor"]')
+      .first()
+      .or(labeledControl)
+      .or(supervisorLabel)
+      .or(
+        drawer
+          .locator('[role="combobox"]')
+          .filter({
+            has: drawer.locator(
+              'input[name="supervisor"], #supervisor, [name="supervisor"]',
+            ),
+          })
+          .first(),
+      )
+      .or(drawer.getByRole("combobox", { name: /Select Supervisor/i }).first())
+      .or(
+        drawer
+          .locator("label")
+          .filter({ hasText: /Select Supervisor/i })
+          .first(),
+      );
+  }
+
+  selectSupervisorCandidatesInCreateDrawer() {
+    const drawer = this.createPropertyDrawerRoot();
+    const supervisorLabel = drawer.locator('label[for="supervisor"]').first();
+    const labeledControl = drawer.locator('label[for="supervisor"] + div').first();
+    return [
+      drawer
+        .locator('input[name="supervisor"], #supervisor, [name="supervisor"]')
+        .first(),
+      labeledControl,
+      supervisorLabel,
+      drawer
+        .locator('[role="combobox"]')
+        .filter({
+          has: drawer.locator(
+            'input[name="supervisor"], #supervisor, [name="supervisor"]',
+          ),
+        })
+        .first(),
+      drawer.getByRole("heading", { name: /Select Supervisor/i }).first(),
+      drawer.getByRole("combobox", { name: /Select Supervisor/i }).first(),
+      drawer
+        .locator("label")
+        .filter({ hasText: /Select Supervisor/i })
+        .first(),
+    ];
+  }
+
+  async clickSelectSupervisorControlInCreateDrawer() {
+    await this.scrollCreateDrawerToAssignSupervisor();
+    const candidates = this.selectSupervisorCandidatesInCreateDrawer();
+    for (const candidate of candidates) {
+      const visible = await candidate.isVisible().catch(() => false);
+      if (!visible) continue;
+      const clicked = await candidate
+        .click({ force: true, timeout: 800 })
+        .then(() => true)
+        .catch(() => false);
+      if (clicked) return true;
+    }
+    throw new Error("Select Supervisor control was not clickable in Create Property drawer.");
+  }
+
+  async isSelectSupervisorVisibleInCreateDrawer() {
+    await this.scrollCreateDrawerToAssignSupervisor();
+    const drawer = this.createPropertyDrawerRoot();
+    // Only supervisor-scoped nodes — do not use a bare [aria-describedby="simple-popper"]
+    // (other fields in the drawer share that attribute and would false-positive).
+    const label = drawer.locator('label[for="supervisor"]').first();
+    if (await label.isVisible().catch(() => false)) return true;
+    const rowControl = drawer.locator('label[for="supervisor"] + div').first();
+    if (await rowControl.isVisible().catch(() => false)) return true;
+    const input = drawer
+      .locator('input[name="supervisor"], #supervisor, [name="supervisor"]')
+      .first();
+    if (await input.isVisible().catch(() => false)) return true;
+    const combobox = drawer
+      .locator('[role="combobox"]')
+      .filter({
+        has: drawer.locator(
+          'input[name="supervisor"], #supervisor, [name="supervisor"]',
+        ),
+      })
+      .first();
+    return combobox.isVisible().catch(() => false);
+  }
+
+  async assertSelectSupervisorVisibleInCreateDrawer() {
+    await this.scrollCreateDrawerToAssignSupervisor();
+    await expect
+      .poll(async () => this.isSelectSupervisorVisibleInCreateDrawer(), {
+        timeout: 8_000,
+      })
+      .toBeTruthy();
+  }
+
+  selectSupervisorRequiredErrorInCreateDrawer() {
+    const drawer = this.createPropertyDrawerRoot();
+    return drawer
+      .getByText(/Select Supervisor.*required|required.*Select Supervisor/i)
+      .first()
+      .or(drawer.getByText(/Supervisor.*required|required.*Supervisor/i).first());
+  }
+
+  selectSupervisorInputInCreateDrawer() {
+    const drawer = this.createPropertyDrawerRoot();
+    return drawer
+      .locator('#supervisor, input[name="supervisor"]')
+      .first()
+      .or(drawer.getByRole("combobox", { name: /Select Supervisor/i }).first());
+  }
+
+  async hasSelectSupervisorMandatoryMarkerInCreateDrawer() {
+    const drawer = this.createPropertyDrawerRoot();
+    const marker = drawer.getByText(/Select Supervisor\s*\*/i).first();
+    return marker.isVisible().catch(() => false);
+  }
+
+  async isSelectSupervisorInvalidInCreateDrawer() {
+    const input = this.selectSupervisorInputInCreateDrawer();
+    const visible = await input.isVisible().catch(() => false);
+    if (!visible) return false;
+    const ariaInvalid = await input.getAttribute("aria-invalid").catch(() => null);
+    return String(ariaInvalid).toLowerCase() === "true";
+  }
+
+  async assertSelectSupervisorMandatoryValidationShown() {
+    await expect
+      .poll(
+        async () => {
+          const hasErrorText = await this.selectSupervisorRequiredErrorInCreateDrawer()
+            .isVisible()
+            .catch(() => false);
+          if (hasErrorText) return true;
+          return this.isSelectSupervisorInvalidInCreateDrawer();
+        },
+        { timeout: 8_000 },
+      )
+      .toBeTruthy();
+  }
+
+  async selectFirstSupervisorInCreateDrawer() {
+    await this.clickSelectSupervisorControlInCreateDrawer();
+    const tooltip = this.page
+      .locator('#simple-popper[role="tooltip"]')
+      .last()
+      .or(this.page.getByRole("tooltip").last());
+    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    const firstOption = tooltip.getByRole("heading", { level: 4 }).first();
+    const selectedText = ((await firstOption.innerText().catch(() => "")) || "").trim();
+    await firstOption.click({ force: true });
+    await this.page.waitForTimeout(500);
+    return selectedText;
+  }
+
+  selectSupervisorTooltipInCreateDrawer() {
+    return this.page
+      .locator('#simple-popper[role="tooltip"]')
+      .last()
+      .or(this.page.getByRole("tooltip").last())
+      .or(this.page.getByRole("listbox").last());
+  }
+
+  async openSelectSupervisorDropdownInCreateDrawer() {
+    let initiallyVisible = await this.isSelectSupervisorVisibleInCreateDrawer();
+    if (!initiallyVisible) {
+      const assignVisible = await this.assignSupervisorCheckboxInCreateDrawer()
+        .isVisible()
+        .catch(() => false);
+      if (assignVisible) {
+        await this.setAssignSupervisorCheckedInCreateDrawer(true).catch(() => {});
+      }
+      await this.scrollCreateDrawerToAssignSupervisor().catch(() => {});
+      initiallyVisible = await this.isSelectSupervisorVisibleInCreateDrawer();
+    }
+    if (!initiallyVisible) {
+      throw new Error(
+        "Select Supervisor control is not visible in Create Property drawer.",
+      );
+    }
+    const tooltip = this.selectSupervisorTooltipInCreateDrawer();
+    const alreadyOpen = await tooltip.isVisible().catch(() => false);
+    if (alreadyOpen) return tooltip;
+
+    const inputControl = this.selectSupervisorInputInCreateDrawer();
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await this.clickSelectSupervisorControlInCreateDrawer();
+      await inputControl.press("ArrowDown").catch(() => {});
+      await this.page.waitForTimeout(300);
+      const visible = await tooltip
+        .waitFor({ state: "visible", timeout: 2_500 })
+        .then(() => true)
+        .catch(() => false);
+      if (visible) return tooltip;
+    }
+
+    const finalVisible = await tooltip.isVisible().catch(() => false);
+    if (!finalVisible) {
+      throw new Error(
+        "Select Supervisor dropdown did not open after multiple click attempts.",
+      );
+    }
+    return tooltip;
+  }
+
+  async reopenSelectSupervisorDropdownInCreateDrawer() {
+    const opened = await this.openSelectSupervisorDropdownInCreateDrawer()
+      .then(() => true)
+      .catch(() => false);
+    if (opened) {
+      return this.selectSupervisorTooltipInCreateDrawer();
+    }
+
+    // Recovery path for intermittent UI state where the control does not reopen.
+    await this.setAssignSupervisorCheckedInCreateDrawer(false).catch(() => {});
+    await this.page.waitForTimeout(300);
+    await this.setAssignSupervisorCheckedInCreateDrawer(true).catch(() => {});
+    await this.page.waitForTimeout(300);
+    await this.assertSelectSupervisorVisibleInCreateDrawer();
+    await this.createPropertyHeading.click({ force: true }).catch(() => {});
+    await this.page.waitForTimeout(250);
+    return this.openSelectSupervisorDropdownInCreateDrawer();
+  }
+
+  async dismissSelectSupervisorDropdownInCreateDrawer() {
+    await this.createPropertyHeading.click({ force: true }).catch(() => {});
+    await this.selectSupervisorTooltipInCreateDrawer()
+      .waitFor({ state: "hidden", timeout: 5_000 })
+      .catch(() => {});
+  }
+
+  async getSupervisorOptionsFromOpenDropdown(limit = 80) {
+    const tooltip = await this.openSelectSupervisorDropdownInCreateDrawer();
+    return this.getSupervisorOptionsFromVisibleDropdown(tooltip, limit);
+  }
+
+  async getSupervisorOptionsFromVisibleDropdown(tooltip, limit = 80) {
+    const optionNodes = tooltip.getByRole("heading", { level: 4 });
+    const total = await optionNodes.count();
+    const scanCount = Math.min(total, limit);
+    const options = [];
+    for (let i = 0; i < scanCount; i++) {
+      const text = ((await optionNodes.nth(i).innerText().catch(() => "")) || "").trim();
+      if (!text) continue;
+      if (!options.includes(text)) options.push(text);
+    }
+    return options;
+  }
+
+  async searchSupervisorInOpenDropdown(searchText) {
+    const tooltip = await this.openSelectSupervisorDropdownInCreateDrawer();
+    const searchInput = tooltip
+      .getByRole("textbox", { name: /Search by name/i })
+      .first()
+      .or(tooltip.getByRole("textbox").first());
+    const hasSearch = await searchInput.isVisible().catch(() => false);
+    if (!hasSearch) {
+      return { hasSearch: false, results: await this.getSupervisorOptionsFromOpenDropdown() };
+    }
+    await searchInput.fill(searchText);
+    await this.page.waitForTimeout(600);
+    const results = await this.getSupervisorOptionsFromOpenDropdown();
+    return { hasSearch: true, results };
+  }
+
+  async selectSupervisorByNameInCreateDrawer(supervisorName) {
+    const tooltip = await this.openSelectSupervisorDropdownInCreateDrawer();
+    return this.selectSupervisorByNameFromVisibleDropdown(tooltip, supervisorName);
+  }
+
+  async selectSupervisorByNameFromVisibleDropdown(tooltip, supervisorName) {
+    const option = tooltip
+      .getByRole("heading", {
+        level: 4,
+        name: new RegExp(this.escapeRegex(supervisorName), "i"),
+      })
+      .first();
+    await option.waitFor({ state: "visible", timeout: 8_000 });
+    await option.click({ force: true });
+    await this.page.waitForTimeout(500);
+  }
+
+  async getSelectedSupervisorTextInCreateDrawer() {
+    const input = this.selectSupervisorInputInCreateDrawer();
+    const inputVisible = await input.isVisible().catch(() => false);
+    if (inputVisible) {
+      const value = ((await input.inputValue().catch(() => "")) || "").trim();
+      if (value) return value.replace(/\s+/g, " ");
+      const ariaLabel = ((await input.getAttribute("aria-label").catch(() => "")) || "").trim();
+      if (ariaLabel && !/select supervisor/i.test(ariaLabel)) {
+        return ariaLabel.replace(/\s+/g, " ");
+      }
+    }
+
+    const drawer = this.createPropertyDrawerRoot();
+    const selectedName = drawer.locator('label[for="supervisor"] + div h6').first();
+    const selectedNameVisible = await selectedName.isVisible().catch(() => false);
+    if (selectedNameVisible) {
+      const text = ((await selectedName.innerText().catch(() => "")) || "").trim();
+      if (text) return text.replace(/\s+/g, " ");
+    }
+
+    // Last-resort fallback for environments where selected value is not rendered in h6.
+    const selectedContainer = drawer.locator('label[for="supervisor"] + div').first();
+    await selectedContainer.waitFor({ state: "visible", timeout: 8_000 });
+    const text = ((await selectedContainer.innerText().catch(() => "")) || "").trim();
+    return text.replace(/\s+/g, " ");
+  }
+
+  async isAssignSupervisorDisabledInCreateDrawer() {
+    await this.scrollCreateDrawerToAssignSupervisor();
+    const checkbox = this.assignSupervisorCheckboxInCreateDrawer();
+    await checkbox.waitFor({ state: "visible", timeout: 8_000 });
+    return checkbox.isDisabled().catch(() => false);
+  }
+
+  async getAssigneeCardsFromOpenDropdown(limit = 80) {
+    const tooltip = await this.openAssigneeDropdown();
+    const nameNodes = tooltip.getByRole("heading", { level: 4 });
+    const total = await nameNodes.count();
+    const scanCount = Math.min(total, limit);
+    const cards = [];
+    for (let i = 0; i < scanCount; i++) {
+      const nameNode = nameNodes.nth(i);
+      const name = ((await nameNode.innerText().catch(() => "")) || "").trim();
+      if (!name) continue;
+      const roleText =
+        ((await nameNode
+          .locator("xpath=following-sibling::*[1]")
+          .innerText()
+          .catch(() => "")) || "").trim() ||
+        ((await nameNode
+          .locator("xpath=ancestor::*[self::div or self::li][1]")
+          .getByRole("paragraph")
+          .first()
+          .innerText()
+          .catch(() => "")) || "").trim();
+      cards.push({ name, role: roleText });
+    }
+    return cards;
+  }
+
+  async selectAssigneeByRoleInCreateDrawer({
+    includeRolePattern,
+    excludeRolePattern = null,
+    excludeNames = [],
+  }) {
+    const tooltip = await this.openAssigneeDropdown();
+    const assigneeCards = await this.getAssigneeCardsFromOpenDropdown();
+    const target = assigneeCards.find((card) => {
+      const role = (card.role || "").trim();
+      if (!includeRolePattern.test(role)) return false;
+      if (excludeRolePattern && excludeRolePattern.test(role)) return false;
+      if (excludeNames.includes(card.name)) return false;
+      return true;
+    });
+    if (!target) {
+      throw new Error(
+        `No assignee found for role pattern ${includeRolePattern}. Observed cards: ${assigneeCards
+          .map((x) => `${x.name} [${x.role || "no-role"}]`)
+          .join(", ")}`,
+      );
+    }
+    const option = tooltip
+      .getByRole("heading", {
+        level: 4,
+        name: new RegExp(this.escapeRegex(target.name), "i"),
+      })
+      .first();
+    await option.waitFor({ state: "visible", timeout: 8_000 });
+    await option.click({ force: true });
+    await this.page.waitForTimeout(500);
+    return target;
   }
 
   async selectPropertyAffiliations() {
