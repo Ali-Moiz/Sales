@@ -460,21 +460,23 @@ Expected result:
 
 ## Service Deletion Test Cases
 
-### TC-CONTRACT-DELETE-003 | Verify grand total updates after deleting first service
+### TC-CONTRACT-DELETE-003 | Verify deleting first service keeps remaining service total in footer
 Execution steps:
 - Navigate to Step 1 Services in the contract stepper.
-- Ensure the stepper is ready with at least one service already filled in.
-- Add another service
-- Fill service 2 details 
-- Record the current grand total value.
-- Click the Delete button on the first service.
-- Wait for the UI to update.
-- Record the new grand total value.
-- Verify the remaining service form is fully functional.
+- Fill Service 1 and Service 2 with distinct values.
+- Record footer grand total before deletion.
+- Delete Service 1 and confirm deletion.
+- Verify Service 1 is no longer visible.
+- Verify Service 2 is still visible and fields remain unchanged.
+- Verify footer total equals Service 2 total (expected 800.00 Weekly).
+- Verify footer total is not zero.
+- Verify form remains usable after deletion.
 
 Expected result:
-- The grand total decreases after service deletion.
-- The remaining service form elements (Service 1 input, Save & Next button) remain visible and enabled.
+- Deleted service is removed from UI.
+- Remaining service stays intact with correct values.
+- Footer total exactly matches remaining service price and is greater than zero.
+- Remaining service form is still editable and Save & Next remains enabled.
 
 ## Page Object Summary
 
@@ -802,15 +804,17 @@ Expected result:
 - Quantity increases correctly with each "+" click.
 - Total devices count updates in the heading.
 
-### TC-CONTRACT-DEVICE-003 | Device quantity cannot go below 0 (minus button disabled at zero)
+### TC-CONTRACT-DEVICE-003 | Device quantity cannot go below 0 and button controls keep numeric values
 Execution steps:
 - On Step 2 Devices section with NFC Tags at quantity 0.
 - Attempt to click the "-" button (if visible/enabled).
-- Verify the "-" button is disabled or quantity does not decrease below 0.
+- Verify quantity does not decrease below 0.
+- Verify increment/decrement interactions keep integer numeric values.
 
 Expected result:
-- The "-" button is disabled when quantity is 0, or click has no effect.
+- Decrement interaction at quantity 0 has no effect.
 - Quantity remains 0 (does not go negative).
+- Quantities remain valid integers for all devices.
 
 ### TC-CONTRACT-DEVICE-004 | Device quantity validation rejects non-numeric input
 **Note:** This test applies if devices support direct text input (currently they use +/- buttons)

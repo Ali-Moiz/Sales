@@ -1779,6 +1779,15 @@ test.describe.serial('Contract Module', () => {
 
       test('TC-CONTRACT-DELETE-003 | Verify that deleting a service card removes its price contribution from the footer total', async () => {
         test.setTimeout(120_000);
+        const deletedServiceName = 'Patrol Service';
+        const remainingServiceName = 'Dedicated Service';
+        const remainingServiceExpectedTotal = 800;
+        const extractCurrencyValue = (rawValue) => {
+          if (!rawValue) return 0;
+          const match = rawValue.match(/[\d,]+(?:\.\d{2})?/);
+          return match ? Number(match[0].replace(/,/g, '')) : 0;
+        };
+        const serviceTotals = page.getByText(/\$[\d,]+\.\d{2}\s*\/\s*Weekly/);
 
         await test.step('Navigate to Step 1 Services in the contract stepper', async () => {
           // Reuse unpublished proposal from E2E suite; only create fresh if published/closed/unrecoverable
@@ -1788,7 +1797,7 @@ test.describe.serial('Contract Module', () => {
 
         await test.step('Ensure the stepper is ready with at least one service already filled in', async () => {
           const service1Data = {
-            serviceName: 'Patrol Service',
+            serviceName: deletedServiceName,
             officerCount: '1',
             hourlyRate: '10',
             jobDays: ['Mon'],
@@ -1798,9 +1807,8 @@ test.describe.serial('Contract Module', () => {
           await cm.fillStep1Services(service1Data, 0);
           await page.waitForTimeout(1_000);
 
-          // Verify first service was filled
-          const service1Total = await page.getByText(/\$\d+\.\d{2}\s*\/\s*Weekly/).first().textContent();
-          console.log(`Service 1 total: ${service1Total}`);
+          const service1Total = await serviceTotals.first().textContent();
+          expect(extractCurrencyValue(service1Total)).toBeGreaterThan(0);
         });
 
         await test.step('Add another service', async () => {
@@ -1813,7 +1821,7 @@ test.describe.serial('Contract Module', () => {
 
         await test.step('Fill service 2 details', async () => {
           const service2Data = {
-            serviceName: 'Dedicated Service',
+            serviceName: remainingServiceName,
             officerCount: '1',
             hourlyRate: '20',
             jobDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
@@ -1831,9 +1839,8 @@ test.describe.serial('Contract Module', () => {
           await page.keyboard.press('Home');
           await page.waitForTimeout(800);
 
-          // Verify second service was filled
-          const service2Total = await page.getByText(/\$\d+\.\d{2}\s*\/\s*Weekly/).nth(1).textContent().catch(() => 'NOT FOUND');
-          console.log(`Service 2 total: ${service2Total}`);
+          const serviceTotalsCount = await serviceTotals.count();
+          expect(serviceTotalsCount).toBeGreaterThanOrEqual(1);
         });
 
         let grandTotalBeforeDelete;
@@ -1842,8 +1849,10 @@ test.describe.serial('Contract Module', () => {
           await page.waitForLoadState('domcontentloaded');
           await page.waitForTimeout(500);
           grandTotalBeforeDelete = await cm.getGrandTotal();
-          console.log(`Grand total before delete: ${grandTotalBeforeDelete}`);
           expect(grandTotalBeforeDelete).toBeTruthy();
+          expect(extractCurrencyValue(grandTotalBeforeDelete)).toBeGreaterThan(
+            remainingServiceExpectedTotal,
+          );
         });
 
         await test.step('Click the Delete button on the first service', async () => {
@@ -1865,27 +1874,32 @@ test.describe.serial('Contract Module', () => {
 
         await test.step('Record the new grand total value', async () => {
           grandTotalAfterDelete = await cm.getGrandTotal();
-          console.log(`Grand total after delete: ${grandTotalAfterDelete}`);
           expect(grandTotalAfterDelete).toBeTruthy();
-
-          // Extract numeric value from strings like "USD 1,800.00 Weekly" or "$90.00 / Weekly"
-          const extractValue = (val) => {
-            if (!val) return 0;
-            const match = val.match(/[\d,]+(?:\.\d{2})?/);
-            return match ? Number(match[0].replace(/,/g, '').split('.')[0]) : 0;
-          };
-          const beforeValue = extractValue(grandTotalBeforeDelete);
-          const afterValue = extractValue(grandTotalAfterDelete);
-
-          console.log(`Raw before: "${grandTotalBeforeDelete}", extracted: ${beforeValue}`);
-          console.log(`Raw after: "${grandTotalAfterDelete}", extracted: ${afterValue}`);
+          const beforeValue = extractCurrencyValue(grandTotalBeforeDelete);
+          const afterValue = extractCurrencyValue(grandTotalAfterDelete);
+          expect(afterValue).toBe(remainingServiceExpectedTotal);
+          expect(afterValue).toBeGreaterThan(0);
           expect(afterValue).toBeLessThan(beforeValue);
+        });
+
+        await test.step('Verify deleted service is removed and remaining service data is intact', async () => {
+          await expect(page.locator(`input[value="${deletedServiceName}"]`)).toHaveCount(0);
+          await expect(page.getByRole('textbox', { name: /Service/ }).first()).toHaveValue(
+            remainingServiceName,
+          );
+          await expect(page.getByRole('spinbutton', { name: /Officer|Guard/ }).first()).toHaveValue('1');
+          await expect(page.getByRole('spinbutton', { name: /Hourly Rate/ }).first()).toHaveValue('20');
+          await expect(page.getByText(/\$800\.00\s*\/\s*Weekly/).first()).toBeVisible();
         });
 
         await test.step('Verify the remaining service form is fully functional', async () => {
           const serviceNameInput = page.getByRole('textbox', { name: /Service/ }).first();
           await expect(serviceNameInput).toBeVisible();
           await expect(serviceNameInput).toBeEnabled();
+          await serviceNameInput.fill(`${remainingServiceName} Updated`);
+          await expect(serviceNameInput).toHaveValue(`${remainingServiceName} Updated`);
+          await serviceNameInput.fill(remainingServiceName);
+          await expect(serviceNameInput).toHaveValue(remainingServiceName);
           await expect(cm.saveAndNextBtn).toBeVisible({ timeout: 5_000 });
           await expect(cm.saveAndNextBtn).toBeEnabled();
         });
@@ -1896,11 +1910,11 @@ test.describe.serial('Contract Module', () => {
     // ══════════════════════════════════════════════════════════════════════════
 
     /**
-     * TC-CONTRACT-DEVICE-003 | Verify device quantity cannot go below 0 and cannot accept non-numeric input
+     * TC-CONTRACT-DEVICE-003 | Verify device quantity cannot go below 0 and button-based controls always keep numeric values
      *
-     * This is a comprehensive test that validates two critical device quantity constraints:
-     * 1. Minus button is disabled when quantity is 0 (prevents negative quantities)
-     * 2. Non-numeric input is impossible due to button-only interface (not direct text input)
+     * This test validates two critical device quantity constraints:
+     * 1. Quantity never goes below 0 when decrement is clicked at zero
+     * 2. Button-based quantity controls always keep integer numeric values
      *
      * Preconditions : Step 2 Devices section is visible
      * Steps         :
@@ -1911,19 +1925,19 @@ test.describe.serial('Contract Module', () => {
      *   5. Verify quantity is 1
      *   6. Decrement back to 0
      *   7. Verify quantity is exactly 0
-     *   8. Verify minus button is enabled (not disabled at 0)
+     *   8. Verify decrement interaction at 0 does not create negative values
      *   9. Attempt decrement again (verify quantity stays at 0, not -1)
      *   10. Verify all device quantities remain numeric and >= 0
      *
      * Expected results :
-     *   - Minus button is enabled at quantity 0 but clicking it has no effect
+     *   - Decrement interaction at quantity 0 has no effect
      *   - Quantity never goes below 0
      *   - All quantities remain numeric integers
-     *   - Non-numeric operations are impossible (button interface enforces this)
+     *   - Button-based controls preserve numeric integrity throughout
      *
      * Priority      : P0 — Critical (data integrity)
      */
-    test('TC-CONTRACT-DEVICE-003 | Verify device quantity cannot go below 0 and cannot accept non-numeric input', async () => {
+    test('TC-CONTRACT-DEVICE-003 | Verify device quantity cannot go below 0 and button-based controls always keep numeric values', async () => {
       await test.step('Navigate to Step 2 Devices section', async () => {
         await ensureE2EStep2Ready(cm);
         await cm.assertStep2Visible();

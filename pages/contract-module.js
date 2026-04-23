@@ -830,45 +830,39 @@ class ContractModule {
 
   /** Fill the Hourly Rate spinbutton (for specified service index) */
   async fillHourlyRate(rate, serviceIndex = 0) {
-    // Try multiple strategies to find Hourly Rate inputs across service cards
-    const strategies = [
-      // Strategy 1: spinbutton role with "Hourly Rate" or full name including suggested rate
-      () => this.page.getByRole('spinbutton', { name: /Hourly Rate/ }).nth(serviceIndex),
-      // Strategy 2: find inputs that are in a group/section containing "Hourly Rate" text
-      () => this.page.locator('div').filter({ has: this.page.getByText('Hourly Rate', { exact: false }) })
-        .locator('input[type="number"], input[type="text"]').nth(serviceIndex),
-      // Strategy 3: all spinbutton inputs, skip Officer/Guard ones
-      () => this.page.locator('input[type="number"]').nth(serviceIndex + 1),
-      // Strategy 4: locate by aria-label if it contains "Hourly"
-      () => this.page.locator('input[aria-label*="Hourly" i]').nth(serviceIndex),
-    ];
+    const primaryInputs = this.page.getByRole('spinbutton', { name: /Hourly Rate/ });
+    const fallbackInputs = this.page.locator('input[aria-label*="Hourly" i]');
+    const pairedSpinbuttons = this.page.getByRole('spinbutton');
 
-    let hourlyRateInput = null;
-    let usedStrategy = -1;
-    for (let i = 0; i < strategies.length; i++) {
-      try {
-        const el = strategies[i]();
-        const isVisible = await el.isVisible({ timeout: 4_000 }).catch(() => false);
-        if (isVisible) {
-          hourlyRateInput = el;
-          usedStrategy = i;
-          break;
+    let hourlyRateInput = primaryInputs.nth(serviceIndex);
+    let selectorLabel = 'role=spinbutton[name=/Hourly Rate/]';
+    const primaryCount = await primaryInputs.count().catch(() => 0);
+
+    if (primaryCount <= serviceIndex) {
+      const pairIndex = (serviceIndex * 2) + 1;
+      const pairedCount = await pairedSpinbuttons.count().catch(() => 0);
+      if (pairedCount > pairIndex) {
+        hourlyRateInput = pairedSpinbuttons.nth(pairIndex);
+        selectorLabel = 'role=spinbutton paired-index';
+      } else {
+        const fallbackCount = await fallbackInputs.count().catch(() => 0);
+        if (fallbackCount <= serviceIndex) {
+          throw new Error(`Hourly Rate input not found for service ${serviceIndex}`);
         }
-      } catch (e) {
-        // Try next strategy
+        hourlyRateInput = fallbackInputs.nth(serviceIndex);
+        selectorLabel = 'input[aria-label*="Hourly"]';
       }
     }
 
-    if (!hourlyRateInput) {
-      throw new Error(`Hourly Rate input not found for service ${serviceIndex}`);
-    }
-
+    await hourlyRateInput.waitFor({ state: 'visible', timeout: 8_000 });
     await hourlyRateInput.scrollIntoViewIfNeeded().catch(() => {});
     await hourlyRateInput.click({ clickCount: 3, force: true });
     await hourlyRateInput.fill(String(rate));
-    await hourlyRateInput.press('Tab'); // Trigger blur/validation
+    await hourlyRateInput.press('Tab');
     await this.page.waitForTimeout(200);
-    console.log(`[fillHourlyRate] service ${serviceIndex}: filled with "${rate}" (strategy ${usedStrategy + 1})`);
+    console.log(
+      `[fillHourlyRate] service ${serviceIndex}: filled with "${rate}" via ${selectorLabel}`,
+    );
   }
 
   /**
