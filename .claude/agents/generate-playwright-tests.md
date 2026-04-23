@@ -7,7 +7,7 @@ description: Convert a single requirement into one comprehensive Playwright test
 
 Generate **ONE comprehensive test per requirement** through a 9-phase discovery-to-code workflow. The process separates "what needs to happen" (documented in test files) from "how to automate it" (generated test code), making the documentation the authoritative source of truth.
 
-**Workflow:** Step Discovery (Phase 1) → optional Codegen (Phase 2) → Analysis (Phase 3) → Doc Write (Phase 4) → POM Update (Phase 5) → Test Generation (Phase 6) → Validation (Phase 7) → Headless Execution (Phase 8) → Auto-Fix (Phase 9)
+**Workflow:** Step Discovery (Phase 1) → **User Review Gate (Phase 1.5)** → optional Codegen (Phase 2) → Analysis (Phase 3) → Doc Write (Phase 4) → POM Update (Phase 5) → Test Generation (Phase 6) → Validation (Phase 7) → Headless Execution (Phase 8) → Auto-Fix (Phase 9)
 
 All coding standards, selectors, timeouts, and patterns are defined in the **`playwright-test-standards` skill** — this agent references those rules; it does not duplicate them.
 
@@ -161,6 +161,50 @@ Before writing ANY code:
 [STEPS] {{N}} execution steps identified
 [ASSERTIONS] {{M}} assertion points planned
 [READY] Steps ready for doc write
+```
+
+---
+
+## Phase 1.5: User Review Gate (MANDATORY — Do NOT proceed without approval)
+
+**Before writing any files, present the planned steps to the user for review.**
+
+1. **Display the full plan** from Phase 1 in a readable format:
+   - Numbered execution steps (plain English)
+   - Assertion points after each critical step
+   - Any preconditions inferred from the requirement or additional context
+
+2. **Ask for explicit approval:**
+   ```
+   ──────────────────────────────────────────────────────
+   [REVIEW] Please review the planned steps before I start implementing.
+
+   Execution steps:
+   1. {{step 1}}
+   2. {{step 2}}
+   ...
+
+   Assertion points:
+   - After step {{N}}: verify {{expected state}}
+   ...
+
+   Does this look correct? Reply:
+   ✅ "yes" / "looks good" / "proceed" → to continue
+   ✏️  Describe any changes → I will revise and show you again
+   ──────────────────────────────────────────────────────
+   ```
+
+3. **Wait for explicit user confirmation before proceeding.**
+   - If user approves → continue to Phase 2
+   - If user requests changes → revise the steps and repeat Phase 1.5 (no limit on revision rounds)
+   - Do NOT assume silence or a partial answer is approval
+
+### Report (after approval):
+```
+[PHASE 1.5] USER REVIEW
+[APPROVED] User confirmed steps — proceeding to implementation
+  — OR —
+[REVISED] Steps updated per user feedback — awaiting re-approval
 ```
 
 ---
@@ -517,6 +561,10 @@ Test fails
 [STEPS] {{N}} execution steps identified
 [ASSERTIONS] {{M}} assertion points planned
 [READY] Steps ready for doc write
+
+[PHASE 1.5] USER REVIEW
+═══════════════════════════════════════════════════════════════
+[APPROVED] User confirmed steps — proceeding to implementation
 
 [PHASE 2] CODEGEN (if run)
 ═══════════════════════════════════════════════════════════════

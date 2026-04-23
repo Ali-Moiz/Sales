@@ -355,6 +355,21 @@ Execution steps:
 Expected result:
 - All Step 4 sections are visible.
 
+### TC-CONTRACT-024 | Verify Dispatch Request billing type dropdown loads and can be set
+Execution steps:
+- Navigate to Step 4 Payment Terms.
+- Open Billing Type dropdown.
+- Verify billing type options can be selected (`Charge Per Alarm`, `Flat-rate`).
+- Select `Charge Per Alarm`.
+- Verify `Billing Type Rate ($)` and `Peak Hours ($)` inputs are visible.
+- Select `Flat-rate`.
+- Verify `Billing Type Rate($) /week` input is visible.
+
+Expected result:
+- Billing Type dropdown loads with expected options.
+- `Charge Per Alarm` selection shows hourly rate and peak hour fields.
+- `Flat-rate` selection shows rate per week field.
+
 ### TC-CONTRACT-E2E-009 | Fill Step 4 Payment Terms and advance to Step 5
 Execution steps:
 - Fill Annual Rate Increase.
@@ -930,6 +945,24 @@ Execution steps:
 Expected result:
 - Decimal quantities are rejected or auto-corrected to integer.
 - Only whole numbers (0, 1, 2, ...) are accepted.
+
+### TC-CONTRACT-DEVICE-014 | Unit price of device cannot accept negative value and uses numeric validation
+
+Execution steps:
+- On Step 2 Devices section with at least one device at quantity ≥ 1 (e.g., NFC Tags).
+- Locate the unit price input field for the device.
+- Attempt to type a negative value (e.g., `-5`, `-100`).
+- Verify the field rejects or clears the negative value.
+- Attempt to type non-numeric input (e.g., `abc`, `!@#`).
+- Verify non-numeric characters are prevented or cleared immediately.
+- Enter a valid positive numeric value (e.g., `25`).
+- Verify the value is accepted and the total updates accordingly.
+
+Expected result:
+- Negative values are rejected or the field shows a validation error; the value does not persist.
+- Non-numeric characters are prevented from being entered or are cleared immediately.
+- Only positive numeric values are accepted in the unit price field.
+- The device total updates correctly when a valid positive price is entered.
 
 ---
 

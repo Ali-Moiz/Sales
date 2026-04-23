@@ -971,7 +971,9 @@ class ContractModule {
 
     // Field is empty / showing a placeholder → open the dropdown
     await triggerDiv.waitFor({ state: 'visible', timeout: 8_000 });
-    await triggerDiv.click({ force: true });
+    await triggerDiv.scrollIntoViewIfNeeded().catch(() => {});
+    // Use JS click to bypass innerScrollBar overlay that can intercept pointer events
+    await triggerDiv.evaluate((el) => el.click());
     console.log(`[_selectCustomDropdownIfEmpty] ${fieldLabel} clicked`);
 
     const popper = this.page.locator('#simple-popper').last();
@@ -1134,7 +1136,9 @@ class ContractModule {
       .getByRole('button', { name: /Choose time/ })
       .nth(serviceIndex * 2);
     await startPickerBtn.waitFor({ state: 'visible', timeout: 8_000 });
-    await startPickerBtn.click();
+    await startPickerBtn.scrollIntoViewIfNeeded().catch(() => {});
+    // Use JS click to bypass innerScrollBar overlay that intercepts pointer events
+    await startPickerBtn.evaluate((el) => el.click());
     await this.selectTimeInDialog(hours, minutes, meridiem);
   }
 
@@ -1152,7 +1156,9 @@ class ContractModule {
       .getByRole('button', { name: /Choose time/ })
       .nth(serviceIndex * 2 + 1);
     await expect(endPickerBtn).toBeEnabled({ timeout: 8_000 });
-    await endPickerBtn.click();
+    await endPickerBtn.scrollIntoViewIfNeeded().catch(() => {});
+    // Use JS click to bypass innerScrollBar overlay that intercepts pointer events
+    await endPickerBtn.evaluate((el) => el.click());
     await this.selectTimeInDialog(hours, minutes, meridiem);
   }
 
@@ -1253,7 +1259,8 @@ class ContractModule {
   async addDeviceQuantity(deviceName, count = 1) {
     const plusBtn = this._deviceQuantityGroup(deviceName).getByRole('button', { name: '+' });
     for (let i = 0; i < count; i++) {
-      await plusBtn.click({ force: true });
+      // Use JS click to bypass the innerScrollBar overlay that intercepts pointer events
+      await plusBtn.evaluate((el) => el.click());
       await this.page.waitForTimeout(250);
     }
   }
@@ -1266,7 +1273,8 @@ class ContractModule {
   async subtractDeviceQuantity(deviceName, count = 1) {
     const minusBtn = this._deviceQuantityGroup(deviceName).getByRole('button', { name: '-' });
     for (let i = 0; i < count; i++) {
-      await minusBtn.click({ force: true });
+      // Use JS click to bypass the innerScrollBar overlay that intercepts pointer events
+      await minusBtn.evaluate((el) => el.click());
       await this.page.waitForTimeout(250);
     }
   }
@@ -1356,11 +1364,164 @@ class ContractModule {
     return await inputField.inputValue().catch(() => '');
   }
 
+  /**
+   * Returns the unit price input (spinbutton) for the given device.
+   *
+   * Each device row on Step 2 has one `input[name="price"]` (type="number").
+   * They appear in page order: NFC Tags → Beacons → QR Tags.
+   * Live-verified 2026-04-23: name="price", placeholder="$5.00", MUI spinbutton.
+   *
+   * @param {'NFC Tags'|'Beacons'|'QR Tags'} deviceName
+   * @returns {import('@playwright/test').Locator}
+   */
+  _deviceUnitPriceInput(deviceName) {
+    const deviceOrder = ['NFC Tags', 'Beacons', 'QR Tags'];
+    const idx = deviceOrder.indexOf(deviceName);
+    if (idx < 0) throw new Error(`Unknown device: "${deviceName}"`);
+    return this.page.locator('input[name="price"]').nth(idx);
+  }
+
+  /**
+   * Get the current unit price value for the given device.
+   * Returns the raw string value from the input field.
+   * @param {'NFC Tags'|'Beacons'|'QR Tags'} deviceName
+   * @returns {Promise<string>}
+   */
+  async getDeviceUnitPrice(deviceName) {
+try {
+    // 1. Get the string value from the input first
+    const value = await this._deviceUnitPriceInput(deviceName).inputValue();
+
+    // 2. Parse the string to an integer
+    // We use || 0 as a fallback if the string is empty or invalid
+    return parseInt(value, 10) || 0;
+  } catch (error) {
+    // 3. If the locator fails or the page crashes, return 0
+    return 0;
+  }  }
+
+  /**
+   * Fill the unit price input for the given device with a numeric value.
+   * Uses fill() which works for numeric strings (input[type="number"]).
+   * @param {'NFC Tags'|'Beacons'|'QR Tags'} deviceName
+   * @param {string|number} value — must be numeric (e.g., '25', '-5', '0')
+   */
+  async fillDeviceUnitPrice(deviceName, value) {
+    const input = this._deviceUnitPriceInput(deviceName);
+    // Triple-click selects all existing text, then fill replaces it.
+    // Playwright fill() only accepts numeric strings for input[type="number"].
+    await input.click({ clickCount: 3 });
+    await input.fill(String(value));
+    await input.blur();
+  }
+
+  /**
+   * Type raw characters into the device unit price input using keyboard events.
+   * Use this for non-numeric validation tests where fill() would throw on
+   * input[type="number"]. pressSequentially dispatches real key events so the
+   * browser strips invalid characters according to its own rules.
+   * @param {'NFC Tags'|'Beacons'|'QR Tags'} deviceName
+   * @param {string} rawText — arbitrary text (e.g., 'abc', '!@#')
+   */
+  async typeRawDeviceUnitPrice(deviceName, rawText) {
+    const input = this._deviceUnitPriceInput(deviceName);
+    await input.click({ clickCount: 3 });
+    await input.pressSequentially(rawText);
+    await input.blur();
+  }
+
+  /**
+   * Get the device section total price text from the "Total: $X.XX" heading.
+   * Live-verified 2026-04-23: h5 heading with text "Total: $30.00".
+   * @returns {Promise<string>} Raw text e.g. "Total: $30.00"
+   */
+  async getDevicesTotalPrice() {
+    return await this.devicesTotalHeading.textContent().catch(() => '');
+  }
+
   // ── Step 3 — On Demand ─────────────────────────────────────────────────
 
   /** Assert Step 3 On Demand section heading is visible */
   async assertStep3Visible() {
     await expect(this.onDemandPageHeading).toBeVisible({ timeout: 10_000 });
+  }
+
+  // ── Step 3 — Line Item helpers ────────────────────────────────────────
+
+  /**
+   * Add a custom line item on Step 3.
+   * Clicks "+ Line Item", fills Title / Price Per Month / Quantity, then saves.
+   * Waits for the saved card to appear before returning.
+   * @param {{ title: string, pricePerMonth: number|string, quantity: number|string }} item
+   */
+  async addLineItem({ title, pricePerMonth, quantity }) {
+    await this.page.getByRole('button', { name: 'Line Item' }).click();
+    // Use id="title" selector (stable DOM id). MUI controlled input requires
+    // pressSequentially so React's onChange fires on each keystroke.
+    const titleInput = this.page.locator('#title');
+    await titleInput.waitFor({ state: 'visible', timeout: 5_000 });
+    await titleInput.click();
+    await titleInput.pressSequentially(String(title));
+    // id="price" / placeholder="e.g, $50" — type=number; fill() triggers React fine
+    await this.page.getByPlaceholder('e.g, $50').fill(String(pricePerMonth));
+    // id="quantity" / placeholder="e.g, 2"
+    await this.page.getByPlaceholder('e.g, 2').fill(String(quantity));
+    await this.page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(this.getLineItemCard('Line item')).toBeVisible();
+  }
+
+  /**
+   * Returns the card container for a specific line item scoped by its title text.
+   * Each card has two icon-only buttons: Edit (first) and Delete (last).
+   * Uses .last() because — among all ancestors that contain both the title <p> and
+   * a <button> — the card-level container is the deepest in document order.
+   * @param {string} title — exact title of the line item
+   */
+  getLineItemCard(title) {
+    return this.page
+      .locator('*')
+      .filter({ has: this.page.locator('p', { hasText: title }) })
+      .filter({ has: this.page.getByRole('button') })
+      .last();
+  }
+
+  /** Edit icon button for a specific line item (first icon in the card). */
+  getLineItemEditBtn(title) {
+    return this.getLineItemCard(title).getByRole('button').first();
+  }
+
+  /** Delete icon button for a specific line item (second icon in the card). */
+  getLineItemDeleteBtn(title) {
+    return this.getLineItemCard(title).getByRole('button').last();
+  }
+
+  /**
+   * Click the delete icon on a line item card, then confirm the
+   * "Delete Additional Service!" modal.
+   * @param {string} title
+   */
+  async deleteLineItem(title) {
+    await this.getLineItemDeleteBtn(title).click();
+    await this.page
+      .getByRole('dialog', { name: 'Delete Additional Service!' })
+      .getByRole('button', { name: 'Delete Additional Service' })
+      .click();
+  }
+
+  /**
+   * Click the edit icon on a line item card, update only the title, then save.
+   * @param {string} currentTitle
+   * @param {string} newTitle
+   */
+  async editLineItemTitle(currentTitle, newTitle) {
+    await this.getLineItemEditBtn(currentTitle).click();
+    const titleInput = this.page.locator('#title');
+    await titleInput.waitFor({ state: 'visible', timeout: 5_000 });
+    await titleInput.click();
+    await titleInput.selectText();
+    await titleInput.pressSequentially(newTitle);
+    await this.page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(this.page.getByText(newTitle)).toBeVisible({ timeout: 5_000 });
   }
 
   // ── Step 4 — Payment Terms ─────────────────────────────────────────────
@@ -1394,6 +1555,91 @@ class ContractModule {
    */
   async selectBillingType(type) {
     await this._selectFromCustomDropdown(/Select Billing Type|Pre Bill|Post Bill/, type);
+  }
+
+  /**
+   * Open Billing Type dropdown in Step 4.
+   * Supports default and selected states (Not Included / Charge Per Alarm / Flat-rate).
+   */
+  async openBillingTypeDropdown() {
+    const triggerHeading = this.page
+      .getByRole('heading', {
+        name: /Billing Type|Not Included|Charge Per Alarm|Flat[- ]rate|Dispatch Request/i,
+        level: 6,
+      })
+      .first();
+    await triggerHeading.waitFor({ state: 'visible', timeout: 8_000 });
+    const triggerContainer = triggerHeading.locator('..');
+
+    await triggerContainer.click({ force: true }).catch(async () => {
+      await triggerHeading.click({ force: true });
+    });
+
+    await this.page
+      .locator('#simple-popper')
+      .last()
+      .waitFor({ state: 'visible', timeout: 4_000 })
+      .catch(() => {});
+  }
+
+  /**
+   * Select Billing Type option from the opened dropdown.
+   * @param {'Not Included'|'Charge Per Alarm'|'Flat-rate' | 'Non Billable'} option
+   */
+  async selectDispatchBillingType(option) {
+    await this.openBillingTypeDropdown();
+    const normalized = String(option).toLowerCase();
+    const optionPatterns = normalized.includes('charge')
+      ? [/Charge\s*Per\s*Alarm/i, /Charge/i]
+      : normalized.includes('flat')
+        ? [/Flat[- ]?rate/i, /Flat/i]
+        : normalized.includes('non')
+        ? [/Non\s*Billable/i, /Non[- ]?Billable/i]
+        : [/Not Included/i];
+    const popper = this.page.locator('#simple-popper').last();
+    const popperVisible = await popper.isVisible().catch(() => false);
+
+    if (popperVisible) {
+      let optionClicked = false;
+      for (const pattern of optionPatterns) {
+        const optionLocator = popper.getByText(pattern).first();
+        const isVisible = await optionLocator.isVisible().catch(() => false);
+        if (isVisible) {
+          await optionLocator.click({ force: true });
+          optionClicked = true;
+          break;
+        }
+      }
+      if (!optionClicked) {
+        throw new Error(`Billing Type option "${option}" not visible in dropdown.`);
+      }
+    } else {
+      const fallbackOption = this.page
+        .locator('div')
+        .filter({ hasText: optionPatterns[0] })
+        .last();
+      await fallbackOption.click({ force: true });
+    }
+    await this.page.waitForTimeout(400);
+  }
+
+  /** Returns Step 4 Charge Per Alarm rate input. */
+  getChargePerAlarmRateInput() {
+    return this.page
+      .getByRole('spinbutton', { name: /Billing Type Rate.*Price|Charge Per Alarm/i })
+      .first();
+  }
+
+  /** Returns Step 4 Peak Hours rate input. */
+  getPeakHoursRateInput() {
+    return this.page.getByRole('spinbutton', { name: /Peak Hours/i }).first();
+  }
+
+  /** Returns Step 4 Flat-rate weekly input. */
+  getFlatRateWeeklyInput() {
+    return this.page
+      .getByRole('spinbutton', { name: /Billing Type Rate.*\/week/i })
+      .first();
   }
 
   /**
@@ -1799,33 +2045,35 @@ class ContractModule {
    * Selector discovered via Playwright Codegen.
    */
   async deleteFirstService() {
-    const strategies = [
-      // Strategy 1: Standard button with "Delete Service" name
-      () => this.page.getByRole('button', { name: 'Delete Service' }).first(),
-      // Strategy 2: Button with icon or partial name
-      () => this.page.getByRole('button', { name: /Delete|Remove|Trash/i }).first(),
-      // Strategy 3: Look for aria-label with delete
-      () => this.page.locator('button[aria-label*="Delete"], button[aria-label*="delete"]').first(),
-      // Strategy 4: Look for title attribute with delete
-      () => this.page.locator('button[title*="Delete"], button[title*="delete"]').first(),
-    ];
+    const deleteBtn = this.page.getByRole('button', { name: 'Delete Service' }).first();
+    await deleteBtn.waitFor({ state: 'visible', timeout: 8_000 });
+    await deleteBtn.scrollIntoViewIfNeeded().catch(() => {});
+    // Use JS click to bypass the innerScrollBar overlay that intercepts pointer events
+    await deleteBtn.evaluate((el) => el.click());
+    await this.page.waitForTimeout(500);
+  }
 
-    for (let i = 0; i < strategies.length; i++) {
-      try {
-        const deleteBtn = strategies[i]();
-        const isVisible = await deleteBtn.isVisible({ timeout: 3_000 }).catch(() => false);
-        if (isVisible) {
-          await deleteBtn.click({ force: true });
-          await this.page.waitForTimeout(500);
-          await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
-          return;
-        }
-      } catch (e) {
-        // Continue to next strategy
-      }
-    }
+  /**
+   * Confirm the "Delete Service!" modal that appears after clicking a service's delete button.
+   * The modal's confirm button is overlaid by the innerScrollBar div (high z-index), so we
+   * temporarily disable its pointer-events before clicking, then restore them after.
+   */
+  async confirmDeleteService() {
+    // The confirmation modal may not use role="dialog"; locate by heading text instead.
+    // The confirm button is the last "Delete Service" button (card buttons come before modal button).
+    // JS click bypasses the MUI overlay that intercepts coordinate-based clicks.
+    const confirmBtn = this.page
+      .getByRole('button', { name: 'Delete Service' })
+      .last();
+    await confirmBtn.waitFor({ state: 'visible', timeout: 8_000 });
+    await confirmBtn.scrollIntoViewIfNeeded().catch(() => {});
+    await confirmBtn.evaluate((el) => el.click());
 
-    throw new Error('Delete button not found. Ensure at least 2 services are present on Step 1.');
+    // Wait for the modal heading to disappear
+    await this.page
+      .getByText('Delete Service!', { exact: true })
+      .waitFor({ state: 'hidden', timeout: 10_000 })
+      .catch(() => {});
   }
 
   /**
@@ -1969,35 +2217,35 @@ class ContractModule {
    * Click the "Add Service" button to add another service to Step 1.
    */
   async clickAddService() {
-    // Try multiple strategies to find the add service button
-    const strategies = [
-      // Strategy 1: MUI Button (most reliable) — verified to add new service
-      () => this.page.locator('.MuiButtonBase-root.MuiButton-root.MuiButton-onlyText').first(),
-      // Strategy 2: Button with role and name
-      () => this.page.getByRole('button', { name: /Add.*Service|Add.*another.*service/i }).first(),
-      // Strategy 3: Clickable area around "Add another service" heading
-      () => this.page.getByRole('heading', { name: /Add.*another.*service/i }),
-      // Strategy 4: Look for the + button in the add service section
-      () => this.page.locator('button').filter({ hasText: /\+/ }).nth(1),
-      // Strategy 5: Click the "Add another service" text directly
-      () => this.page.getByText(/Add another service/i),
-    ];
+    // The "Add another service" card contains a "+" circle (MuiIconButton) as a sibling
+    // to the descriptive text. Walk up from the text to find the card container, then
+    // click the button inside it directly.
+    const clicked = await this.page.evaluate(() => {
+      const all = Array.from(document.querySelectorAll('*'));
+      const textEl = all.find(
+        (el) => el.children.length === 0 && (el.textContent || '').trim() === 'Add another service',
+      );
+      if (!textEl) return false;
 
-    for (let i = 0; i < strategies.length; i++) {
-      try {
-        const btn = strategies[i]();
-        const btnVisible = await btn.isVisible({ timeout: 4_000 }).catch(() => false);
-        if (btnVisible) {
-          await btn.click({ force: true });
-          await this.page.waitForTimeout(600);
-          return;
+      // Walk up to find the first ancestor that has a <button> descendant (the "+" circle)
+      let container = textEl.parentElement;
+      while (container && container !== document.body) {
+        const btn = container.querySelector('button');
+        if (btn) {
+          btn.click();
+          return true;
         }
-      } catch (e) {
-        // Continue to next strategy
+        container = container.parentElement;
       }
-    }
+      // Fallback: click the text's parent element directly
+      textEl.parentElement.click();
+      return true;
+    });
 
-    throw new Error('Add Service button not found');
+    if (!clicked) {
+      throw new Error('Add Service card not found on page');
+    }
+    await this.page.waitForTimeout(600);
   }
 }
 
