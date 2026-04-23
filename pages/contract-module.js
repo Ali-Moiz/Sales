@@ -186,7 +186,10 @@ class ContractModule {
     // ── Step 2 — Devices ─────────────────────────────────────────────────
     // Live-verified: "Checkpoints & Devices" heading + table of NFC/Beacon/QR rows
     this.devicesPageHeading  = page.getByRole('heading', { name: 'Checkpoints & Devices', level: 3 });
-    this.devicesTotalHeading = page.getByRole('heading', { name: /^Total:/, level: 5 });
+    this.devicesTotalHeading = page
+      .getByRole('heading', { name: /^Total:/, level: 5 })
+      .or(page.getByRole('heading', { name: /Total:\s*\$?\s*[\d,]+(?:\.\d{1,2})?/i }).first())
+      .or(page.getByText(/^\s*Total:\s*\$?\s*[\d,]+(?:\.\d{1,2})?\s*$/i).first());
 
     // ── Step 3 — On Demand ────────────────────────────────────────────────
     // Live-verified: "Additional Services Pricing" heading
@@ -519,8 +522,20 @@ class ContractModule {
   /** Open the Time Zone dropdown by clicking the trigger */
   async openTimeZoneDropdown() {
     await this.timeZoneTrigger.waitFor({ state: 'visible', timeout: 5_000 });
-    await this.timeZoneTrigger.click();
-    await this.page.waitForTimeout(500);
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const clicked = await this.timeZoneTrigger
+        .click({ force: true })
+        .then(() => true)
+        .catch(() => false);
+      if (clicked) {
+        await this.page.waitForTimeout(250);
+        return;
+      }
+      await this.timeZoneTrigger.focus().catch(() => {});
+      await this.page.keyboard.press('Enter').catch(() => {});
+      await this.page.waitForTimeout(250);
+    }
+    throw new Error('Unable to open Time Zone dropdown in Create Proposal drawer.');
   }
 
   /** Select a timezone from the Create Proposal drawer */
@@ -686,7 +701,20 @@ class ContractModule {
    */
   async submitCreateProposal() {
     await this.submitCreateProposalBtn.waitFor({ state: 'visible', timeout: 10_000 });
-    await this.submitCreateProposalBtn.click();
+    let clicked = false;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      clicked = await this.submitCreateProposalBtn
+        .click({ force: true })
+        .then(() => true)
+        .catch(() => false);
+      if (clicked) break;
+      await this.submitCreateProposalBtn.focus().catch(() => {});
+      await this.page.keyboard.press('Enter').catch(() => {});
+      await this.page.waitForTimeout(200);
+    }
+    if (!clicked) {
+      throw new Error('Unable to submit Create Proposal drawer.');
+    }
     await this.page.waitForURL(/\/contract\/\d+/, { timeout: 30_000 });
     await this.page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
   }

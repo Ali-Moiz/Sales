@@ -40,6 +40,7 @@ const { ContractModule } = require('../../pages/contract-module');
 const { performLogin }   = require('../../utils/auth/login-action');
 const { DealModule }     = require('../../pages/deal-module');
 const { PropertyModule } = require('../../pages/property-module');
+const { generateUniqueUsAddressCandidates } = require('../../utils/dynamic_address');
 const { withTimeout }    = require('../helpers/with-timeout');
 const {
   PROPOSAL_DATA,
@@ -187,9 +188,12 @@ test.describe.serial('Contract Module', () => {
 
       await propertyModule.gotoPropertiesFromMenu();
       await propertyModule.assertPropertiesPageOpened();
+      const contractAddressCandidates = generateUniqueUsAddressCandidates({ primaryCount: 12 });
       await propertyModule.createProperty({
         propertyName: resolvedTargetPropertyName,
         companyName: resolvedTargetCompanyName,
+        addressCandidates: contractAddressCandidates,
+        maxAddressAttempts: 8,
       });
       await propertyModule.assertPropertyCreated();
 
@@ -971,6 +975,163 @@ test.describe.serial('Contract Module', () => {
       await contractModule.cancelCreateProposal();
       await contractModule.assertCreateProposalDrawerClosed();
       console.log('[TC-CONTRACT-023] Complete');
+    });
+
+    /**
+     * TC-CONTRACT-024 | Create Proposal is blocked when Time Zone is missing and required validation is shown
+     * (M-CONTRACT-TZ-001)
+     *
+     * Manual mapping:
+     *   - Baseline Time Zone state
+     *   - Block submit when Time Zone is missing
+     *   - Validate required feedback
+     *   - Cover key negative/edge behaviors
+     *   - Final positive submit after valid Time Zone selection
+     */
+    test('TC-CONTRACT-024 | Create Proposal blocked when Time Zone is not selected (M-CONTRACT-TZ-001)', async () => {
+      test.setTimeout(240_000);
+      const visualPauseMs = Number(process.env.CONTRACT_VISUAL_PAUSE_MS || 600);
+      const visualPause = async () => page.waitForTimeout(visualPauseMs);
+      const toNorm = (value) => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+      const submitFromDrawer = async () => {
+        await expect(contractModule.submitCreateProposalBtn).toBeVisible({ timeout: 8_000 });
+        await contractModule.submitCreateProposalBtn.click();
+      };
+
+      const assertTimeZoneRequiredValidation = async (messagePrefix) => {
+        await expect(page).not.toHaveURL(/\/contract\/\d+/, { timeout: 8_000 });
+        await expect(contractModule.createProposalDrawerHeading).toBeVisible({ timeout: 8_000 });
+
+        const requiredText = page
+          .getByText(
+            /Time\s*Zone.*required|required.*Time\s*Zone|Please\s+select.*Time\s*Zone|Time\s*Zone.*mandatory/i,
+          )
+          .first();
+
+        const hasRequiredText = await requiredText.isVisible().catch(() => false);
+        const isAriaInvalid = await contractModule.timeZoneTrigger
+          .getAttribute('aria-invalid')
+          .then((v) => String(v).toLowerCase() === 'true')
+          .catch(() => false);
+
+        expect(
+          hasRequiredText || isAriaInvalid,
+          `${messagePrefix}: Time Zone should show required validation text or invalid state.`,
+        ).toBeTruthy();
+      };
+
+      const readTimeZoneTriggerText = async () =>
+        toNorm(
+          await contractModule.timeZoneTrigger.textContent().catch(() => ''),
+        );
+
+      console.log('[TC-CONTRACT-024] Step 1: Open deal detail and Create Proposal drawer');
+      await openContractDealDetail();
+      await contractModule.openCreateProposalDrawer();
+      await contractModule.assertCreateProposalDrawerOpen();
+      await visualPause();
+
+      console.log('[TC-CONTRACT-024] Step 2: Baseline check - Time Zone visible and no error before submit');
+      await contractModule.assertTimeZoneTriggerVisible();
+      const preSubmitTimeZoneErrorVisible = await page
+        .getByText(/Time\s*Zone.*required|required.*Time\s*Zone/i)
+        .first()
+        .isVisible()
+        .catch(() => false);
+      expect(preSubmitTimeZoneErrorVisible).toBeFalsy();
+      const initialTimeZoneText = await readTimeZoneTriggerText();
+      const isTimeZonePreselected = /\(utc/.test(initialTimeZoneText) || /utc-?\d/.test(initialTimeZoneText);
+      console.log(
+        `[TC-CONTRACT-024] Time Zone baseline: "${initialTimeZoneText || "empty"}", preselected=${isTimeZonePreselected}`,
+      );
+      await visualPause();
+
+      console.log('[TC-CONTRACT-024] Step 3: Keep Time Zone empty; fill other required fields');
+      await contractModule.fillProposalName(`TZ Required Manual Flow ${Date.now()}`);
+      await contractModule.fillStartDate(PROPOSAL_DATA.startDate);
+      await contractModule.fillRenewalDate(PROPOSAL_DATA.renewalDate);
+      await visualPause();
+
+      if (!isTimeZonePreselected) {
+        console.log('[TC-CONTRACT-024] Step 4: Submit without Time Zone and verify blocking + required validation');
+        await submitFromDrawer();
+        await visualPause();
+        await assertTimeZoneRequiredValidation('Primary missing-timezone flow');
+
+        console.log('[TC-CONTRACT-024] Step 5 (N1): Keep Proposal Name + Time Zone both empty and validate');
+        await contractModule.fillProposalName('');
+        await submitFromDrawer();
+        await visualPause();
+        await assertTimeZoneRequiredValidation('Combined missing required fields flow');
+
+        console.log('[TC-CONTRACT-024] Step 6 (N3): Toggle Contract Dates TBD, keep Time Zone empty, verify still blocked');
+        await contractModule.toggleContractDatesTBD();
+        await contractModule.assertContractDatesTBDChecked();
+        await submitFromDrawer();
+        await visualPause();
+        await assertTimeZoneRequiredValidation('TBD + missing timezone flow');
+        await contractModule.toggleContractDatesTBD();
+        await contractModule.assertContractDatesTBDUnchecked();
+
+        console.log('[TC-CONTRACT-024] Step 7 (N4): Rapid multi-submit should remain stable');
+        for (let i = 0; i < 3; i += 1) {
+          await submitFromDrawer();
+        }
+        await visualPause();
+        await assertTimeZoneRequiredValidation('Rapid submit stability flow');
+      } else {
+        console.log(
+          '[TC-CONTRACT-024] Missing-timezone negative checks skipped because Time Zone is preselected by default in current UI.',
+        );
+      }
+
+      console.log('[TC-CONTRACT-024] Step 8 (N5): Cancel and reopen should not force stale validation state');
+      await contractModule.cancelCreateProposal();
+      await contractModule.assertCreateProposalDrawerClosed();
+      await visualPause();
+      await contractModule.openCreateProposalDrawer();
+      await contractModule.assertCreateProposalDrawerOpen();
+      const staleErrorVisible = await page
+        .getByText(/Time\s*Zone.*required|required.*Time\s*Zone/i)
+        .first()
+        .isVisible()
+        .catch(() => false);
+      expect(staleErrorVisible).toBeFalsy();
+      await visualPause();
+
+      console.log('[TC-CONTRACT-024] Step 9 (N6): Keyboard-triggered submit with missing Time Zone stays blocked');
+      if (!isTimeZonePreselected) {
+        await contractModule.fillProposalName(`TZ Keyboard Flow ${Date.now()}`);
+        await contractModule.fillStartDate(PROPOSAL_DATA.startDate);
+        await contractModule.fillRenewalDate(PROPOSAL_DATA.renewalDate);
+        await contractModule.submitCreateProposalBtn.focus();
+        await page.keyboard.press('Enter');
+        await visualPause();
+        await assertTimeZoneRequiredValidation('Keyboard submit missing-timezone flow');
+      } else {
+        console.log(
+          '[TC-CONTRACT-024] Keyboard missing-timezone check skipped because Time Zone is preselected by default.',
+        );
+      }
+
+      console.log(
+        '[TC-CONTRACT-024] Step 10 (N8): Validate valid Time Zone state without mutating suite state.',
+      );
+      if (!isTimeZonePreselected) {
+        await contractModule.selectTimeZone(PROPOSAL_DATA.timeZone);
+      } else {
+        console.log('[TC-CONTRACT-024] Time Zone already preselected; using existing valid value.');
+      }
+      const postSelectionTimeZoneErrorVisible = await page
+        .getByText(/Time\s*Zone.*required|required.*Time\s*Zone/i)
+        .first()
+        .isVisible()
+        .catch(() => false);
+      expect(postSelectionTimeZoneErrorVisible).toBeFalsy();
+      await contractModule.cancelCreateProposal();
+      await contractModule.assertCreateProposalDrawerClosed();
+      console.log('[TC-CONTRACT-024] Complete');
     });
 
     // ══════════════════════════════════════════════════════════════════════

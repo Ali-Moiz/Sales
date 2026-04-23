@@ -5,102 +5,24 @@
 
 const { expect } = require("@playwright/test");
 const { env } = require("../utils/env");
+const {
+  generateUniqueUsAddressCandidates,
+  selectAddressFromAutocomplete,
+  selectDynamicAddressWithRetry,
+} = require("../utils/dynamic_address");
+const ADDRESS_AUTOCOMPLETE_DEBUG =
+  String(process.env.ADDRESS_AUTOCOMPLETE_DEBUG || "false").toLowerCase() === "true";
 
 class PropertyModule {
   constructor(page) {
     this.page = page;
     this.createdPropertyName = null;
     this.lastCreatePropertyToastSeen = false;
+    this.lastCreatePropertySucceeded = false;
     this.lastEditPropertyToastSeen = false;
     this.lastSearchTerm = "";
-    // ── Omaha address strategy ────────────────────────────────────────────
-    // The app enforces unique addresses per property.  A hardcoded list of
-    // addresses is exhausted after N test runs.
-    //
-    // Strategy (tried in order):
-    //   1. PRIMARY  — generateTimestampAddress()
-    //      Uses Date.now() to embed a unique house number (1000–8999) on a
-    //      real Omaha street.  Gives ~8 000 × 8 streets = 64 000 unique
-    //      addresses. Google autocomplete resolves numbered Omaha addresses
-    //      just as reliably as intersection addresses.
-    //
-    //   2. FALLBACK — omahaAddressFallbackPool (intersection addresses)
-    //      The original 14 intersections + 36 additional = 50 total.
-    //      Shuffled randomly each run so the same address is not retried
-    //      first every time.  Used only when the timestamp address fails
-    //      autocomplete (e.g. no network, slow Google Maps response).
-    //
-    // ── Primary streets for timestamp-based generation ────────────────────
-    this._timestampStreets = [
-      { street: "Dodge St", zip: "68131", min: 1000, max: 8900 },
-      { street: "Farnam St", zip: "68131", min: 1000, max: 7400 },
-      { street: "Harney St", zip: "68102", min: 1000, max: 4900 },
-      { street: "Howard St", zip: "68102", min: 1000, max: 4900 },
-      { street: "N 42nd St", zip: "68131", min: 1000, max: 5900 },
-      { street: "N 72nd St", zip: "68114", min: 1000, max: 5900 },
-      { street: "N 90th St", zip: "68134", min: 1000, max: 5900 },
-      { street: "N 108th St", zip: "68154", min: 1000, max: 5900 },
-    ];
-
-    // ── Fallback intersection pool (50 addresses) ─────────────────────────
-    this.omahaAddressCandidates = [
-      // Original 14
-      "20th & Davenport St, Omaha, NE 68102",
-      "13th & Howard St, Omaha, NE 68102",
-      "24th & Cuming St, Omaha, NE 68107",
-      "42nd & Center St, Omaha, NE 68105",
-      "50th & Grover St, Omaha, NE 68106",
-      "72nd & Dodge St, Omaha, NE 68114",
-      "72nd & Maple St, Omaha, NE 68134",
-      "90th & Blondo St, Omaha, NE 68134",
-      "108th & Q St, Omaha, NE 68137",
-      "120th & L St, Omaha, NE 68137",
-      "132nd & Center Rd, Omaha, NE 68144",
-      "144th & F St, Omaha, NE 68137",
-      "156th & Dodge St, Omaha, NE 68118",
-      "168th & Maple Rd, Omaha, NE 68116",
-      // Additional 36
-      "16th & Dodge St, Omaha, NE 68102",
-      "24th & Dodge St, Omaha, NE 68131",
-      "33rd & Farnam St, Omaha, NE 68131",
-      "42nd & Dodge St, Omaha, NE 68131",
-      "50th & Dodge St, Omaha, NE 68132",
-      "60th & Dodge St, Omaha, NE 68132",
-      "84th & Dodge St, Omaha, NE 68114",
-      "96th & Dodge St, Omaha, NE 68114",
-      "114th & Dodge St, Omaha, NE 68154",
-      "126th & Dodge St, Omaha, NE 68154",
-      "140th & Dodge St, Omaha, NE 68154",
-      "152nd & Dodge St, Omaha, NE 68154",
-      "16th & Farnam St, Omaha, NE 68102",
-      "24th & Farnam St, Omaha, NE 68131",
-      "42nd & Farnam St, Omaha, NE 68131",
-      "60th & Farnam St, Omaha, NE 68132",
-      "78th & Cass St, Omaha, NE 68114",
-      "84th & Cass St, Omaha, NE 68114",
-      "96th & Pacific St, Omaha, NE 68114",
-      "108th & Pacific St, Omaha, NE 68154",
-      "120th & Pacific St, Omaha, NE 68154",
-      "72nd & Pacific St, Omaha, NE 68114",
-      "60th & Pacific St, Omaha, NE 68106",
-      "50th & Pacific St, Omaha, NE 68106",
-      "42nd & Pacific St, Omaha, NE 68105",
-      "33rd & Leavenworth St, Omaha, NE 68105",
-      "42nd & Leavenworth St, Omaha, NE 68105",
-      "50th & Leavenworth St, Omaha, NE 68106",
-      "60th & Leavenworth St, Omaha, NE 68106",
-      "78th & Leavenworth St, Omaha, NE 68114",
-      "30th & Cuming St, Omaha, NE 68131",
-      "42nd & Cuming St, Omaha, NE 68131",
-      "60th & Cuming St, Omaha, NE 68132",
-      "78th & Cuming St, Omaha, NE 68114",
-      "90th & Cuming St, Omaha, NE 68114",
-      "108th & Maple St, Omaha, NE 68164",
-      "120th & Maple St, Omaha, NE 68164",
-      "132nd & Maple St, Omaha, NE 68164",
-      "144th & Maple St, Omaha, NE 68116",
-      "156th & Maple St, Omaha, NE 68116",
-    ];
+    // Keep address generation generic (US-wide) to avoid location-specific
+    // exhaustion and reduce duplicate-lat/lng failures across long runs.
 
     // ── Sidebar navigation ──────────────────────────────────────────────────
     this.propertiesMenuLink = page
@@ -333,6 +255,12 @@ class PropertyModule {
     });
   }
 
+  logAddress(message, meta = {}) {
+    if (!ADDRESS_AUTOCOMPLETE_DEBUG) return;
+    // eslint-disable-next-line no-console
+    console.log(`[property_address] ${message}`, JSON.stringify(meta));
+  }
+
   // ── Data Generators ──────────────────────────────────────────────────────
 
   generateUniquePropertyName() {
@@ -344,85 +272,19 @@ class PropertyModule {
   }
 
   /**
-   * Generate a single unique Omaha address per run.
-   *
-   * Strategy: pick a street at random from _timestampStreets, then derive a
-   * house number from Date.now() within that street's valid range.
-   * Because Date.now() is millisecond-precision, two runs milliseconds apart
-   * will produce different house numbers, giving effectively unlimited unique
-   * addresses (8 streets × ~8 000 valid house numbers each = ~64 000 options).
-   *
-   * Example output: "3427 Dodge St, Omaha, NE 68131"
-   * Google Maps autocompletes numeric Omaha addresses reliably.
-   *
+   * Backward-compatible alias for a single dynamic US candidate.
    * @returns {string}
    */
   generateTimestampAddress() {
-    const now = Date.now();
-    const street = this._timestampStreets[now % this._timestampStreets.length];
-    const range = street.max - street.min; // e.g. 7900 for Dodge St
-    // Round to nearest 100 so the number looks realistic (1200, 2400, etc.)
-    const rawNum = street.min + (now % range);
-    const houseNum = Math.round(rawNum / 100) * 100 || street.min;
-    return `${houseNum} ${street.street}, Omaha, NE ${street.zip}`;
+    return generateUniqueUsAddressCandidates({ primaryCount: 1 })[0];
   }
 
   /**
-   * Generate a random Omaha address with a random house number.
-   * Used as fallback when timestamp addresses fail uniqueness validation.
-   *
-   * @returns {string}
-   */
-  generateRandomOmahaAddress() {
-    const street = this._timestampStreets[
-      Math.floor(Math.random() * this._timestampStreets.length)
-    ];
-    const range = street.max - street.min;
-    const houseNum = street.min + Math.round((Math.random() * range) / 100) * 100;
-    return `${houseNum} ${street.street}, Omaha, NE ${street.zip}`;
-  }
-
-  /**
-   * Return the candidate address list for createProperty retries.
-   *
-   * Order:
-   *   1. 3 × timestamp-generated addresses (different per run, virtually never collide)
-   *   2. 5 × dynamically generated random addresses (ensures no fallback pool exhaustion)
-   *
-   * If the timestamp address fails due to uniqueness validation or autocomplete issues,
-   * the test falls through to randomly generated addresses with different house numbers
-   * on real Omaha streets. This ensures unlimited retry candidates.
-   *
+   * Backward-compatible helper used by createProperty retries.
    * @returns {string[]}
    */
   getUniqueOmahaAddressCandidates() {
-    // Generate 3 timestamp-based addresses (slight time offset between each)
-    const primary = [
-      this.generateTimestampAddress(),
-      (() => {
-        const now = Date.now() + 500;
-        const street =
-          this._timestampStreets[(now + 1) % this._timestampStreets.length];
-        const rawNum = street.min + ((now + 1) % (street.max - street.min));
-        const num = Math.round(rawNum / 100) * 100 || street.min;
-        return `${num} ${street.street}, Omaha, NE ${street.zip}`;
-      })(),
-      (() => {
-        const now = Date.now() + 1000;
-        const street =
-          this._timestampStreets[(now + 2) % this._timestampStreets.length];
-        const rawNum = street.min + ((now + 2) % (street.max - street.min));
-        const num = Math.round(rawNum / 100) * 100 || street.min;
-        return `${num} ${street.street}, Omaha, NE ${street.zip}`;
-      })(),
-    ];
-
-    // Generate 5 random fallback addresses (dynamically generated, never exhausted)
-    const fallback = Array.from({ length: 5 }, () =>
-      this.generateRandomOmahaAddress()
-    );
-
-    return [...primary, ...fallback];
+    return generateUniqueUsAddressCandidates({ primaryCount: 10 });
   }
 
   // ── Navigation ───────────────────────────────────────────────────────────
@@ -2151,28 +2013,49 @@ class PropertyModule {
   }
 
   /**
-   * Fill Address field with a known test-environment address.
-   * Uses the same address as company module: "716 South 9th Street, Omaha NE".
-   * Waits for Google autocomplete and selects first suggestion.
+   * Fill Address via generic autocomplete strategy.
+   * - If suggestions are visible, select one.
+   * - Works with a specific address or dynamic generated candidates.
    */
   async fillAddress(addressText) {
-    await this.addressInput.click();
-    await this.addressInput.fill(addressText);
-    await this.page.waitForTimeout(1_500);
+    if (!addressText) {
+      const selectedAddress = await selectDynamicAddressWithRetry({
+        page: this.page,
+        addressInput: this.addressInput,
+        maxAttempts: 6,
+      }).catch(() => "");
+      return Boolean(selectedAddress);
+    }
 
-    const addressSuggestion = this.page
-      .getByRole("option", { name: new RegExp(addressText.split(",")[0], "i") })
-      .first();
-    const suggestionVisible = await addressSuggestion
-      .waitFor({ state: "visible", timeout: 8_000 })
-      .then(() => true)
-      .catch(() => false);
-    if (!suggestionVisible) {
+    if (Array.isArray(addressText)) {
+      for (const candidate of addressText) {
+        const picked = await selectAddressFromAutocomplete({
+          page: this.page,
+          addressInput: this.addressInput,
+          addressText: candidate,
+          optionTimeoutMs: 10_000,
+          attempts: 2,
+        });
+        if (picked) return true;
+      }
       return false;
     }
-    await addressSuggestion.click({ force: true });
-    await this.page.waitForTimeout(1_000);
-    return true;
+
+    return selectAddressFromAutocomplete({
+      page: this.page,
+      addressInput: this.addressInput,
+      addressText,
+      optionTimeoutMs: 10_000,
+      attempts: 2,
+    });
+  }
+
+  async clearAddressField() {
+    await this.addressInput.click().catch(() => {});
+    await this.addressInput.fill("").catch(() => {});
+    await this.addressInput.press("ControlOrMeta+a").catch(() => {});
+    await this.addressInput.press("Backspace").catch(() => {});
+    await this.page.waitForTimeout(200);
   }
 
   async selectContactAffiliation() {
@@ -2207,11 +2090,18 @@ class PropertyModule {
   async submitCreateProperty() {
     await this.submitCreateBtn.waitFor({ state: "visible", timeout: 10_000 });
     this.lastCreatePropertyToastSeen = false;
+    this.lastCreatePropertySucceeded = false;
+    let duplicateToastSeen = false;
     await Promise.allSettled([
       this.createPropertyToast
         .waitFor({ state: "visible", timeout: 15_000 })
         .then(() => {
           this.lastCreatePropertyToastSeen = true;
+        }),
+      this.duplicateAddressToast
+        .waitFor({ state: "visible", timeout: 15_000 })
+        .then(() => {
+          duplicateToastSeen = true;
         }),
       this.submitCreateBtn.click({ force: true }),
     ]);
@@ -2237,27 +2127,60 @@ class PropertyModule {
       }
     }
 
-    return drawerClosed;
+    const created = (drawerClosed || this.lastCreatePropertyToastSeen) && !duplicateToastSeen;
+    this.lastCreatePropertySucceeded = created;
+
+    return {
+      drawerClosed,
+      duplicateToastSeen,
+      created,
+    };
   }
 
   async attemptCreateWithAddress(addressText) {
+    this.logAddress("create_attempt_with_candidate", { candidate: addressText });
     const addressSelected = await this.fillAddress(addressText);
     if (!addressSelected) {
+      this.logAddress("retry_reason", {
+        candidate: addressText,
+        reason: "autocomplete_selection_failed",
+      });
       return false;
     }
 
-    const drawerClosed = await this.submitCreateProperty();
-    if (drawerClosed) {
+    const submitResult = await this.submitCreateProperty();
+    if (submitResult.drawerClosed) {
       await this.page
         .waitForLoadState("networkidle", { timeout: 15_000 })
         .catch(() => {});
+      this.logAddress("candidate_create_success", { candidate: addressText });
       return true;
     }
 
+    // Requirement-driven behavior: if selected location is already taken, retry.
+    if (submitResult.duplicateToastSeen) {
+      this.logAddress("retry_reason", {
+        candidate: addressText,
+        reason: "duplicate_location_toast",
+      });
+      await this.clearAddressField();
+      return false;
+    }
+
+    this.logAddress("retry_reason", {
+      candidate: addressText,
+      reason: "drawer_not_closed_without_duplicate",
+    });
     return false;
   }
 
-  async createProperty({ propertyName, companyName, relaxed = false }) {
+  async createProperty({
+    propertyName,
+    companyName,
+    relaxed = false,
+    addressCandidates = [],
+    maxAddressAttempts,
+  }) {
     await this.openCreatePropertyDrawer();
     await this.selectCompanyInCreateForm(companyName);
     await this.page.waitForTimeout(2_000);
@@ -2277,7 +2200,16 @@ class PropertyModule {
       await this.selectContactAffiliation();
     }
 
-    for (const addressText of this.getUniqueOmahaAddressCandidates()) {
+    const attemptLimit =
+      Number(maxAddressAttempts || process.env.PROPERTY_MAX_ADDRESS_ATTEMPTS || 8);
+    const candidateAddresses =
+      Array.isArray(addressCandidates) && addressCandidates.length
+        ? addressCandidates
+        : generateUniqueUsAddressCandidates({
+            primaryCount: Math.max(8, attemptLimit + 2),
+          });
+
+    for (const addressText of candidateAddresses.slice(0, attemptLimit)) {
       const created = await this.attemptCreateWithAddress(addressText);
       if (created) {
         return propertyName;
@@ -2285,12 +2217,12 @@ class PropertyModule {
     }
 
     throw new Error(
-      "Create Property drawer did not close after trying multiple unique Omaha addresses.",
+      "Create Property did not succeed after multiple dynamic US address retries.",
     );
   }
 
   async assertPropertyCreated() {
-    expect(this.lastCreatePropertyToastSeen).toBeTruthy();
+    expect(this.lastCreatePropertySucceeded || this.lastCreatePropertyToastSeen).toBeTruthy();
   }
 
   async cancelCreatePropertyDrawer() {

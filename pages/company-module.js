@@ -1,4 +1,8 @@
 const { expect } = require('@playwright/test');
+const {
+  selectAddressFromAutocomplete,
+  selectDynamicAddressWithRetry,
+} = require('../utils/dynamic_address');
 
 class CompanyModule {
   constructor(page) {
@@ -890,11 +894,26 @@ class CompanyModule {
   }
 
   async fillAddress(address) {
-    await this.addressInput.click();
-    await this.addressInput.fill(address);
-    await this.addressOption.waitFor({ state: 'visible', timeout: 10_000 });
-    await this.addressOption.click({ force: true });
-    await this.page.waitForTimeout(1_500);
+    const selected = address
+      ? await selectAddressFromAutocomplete({
+          page: this.page,
+          addressInput: this.addressInput,
+          addressText: address,
+          optionTimeoutMs: 10_000,
+          attempts: 2,
+        })
+      : await selectDynamicAddressWithRetry({
+          page: this.page,
+          addressInput: this.addressInput,
+          maxAttempts: 6,
+          optionTimeoutMs: 10_000,
+        }).then(() => true).catch(() => false);
+    if (!selected) {
+      throw new Error(
+        `Company address autocomplete selection failed for "${address || "dynamic candidate"}".`,
+      );
+    }
+    await this.page.waitForTimeout(400);
   }
 
   async submitCreateCompany() {
