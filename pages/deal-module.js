@@ -5,6 +5,7 @@
 
 const { expect } = require("@playwright/test");
 const { env } = require("../utils/env");
+const { buildSearchVariants } = require("../utils/dynamic_address");
 
 class DealModule {
   constructor(page) {
@@ -493,26 +494,55 @@ class DealModule {
     propertySearchText,
     propertyOptionText = propertySearchText,
   ) {
-    await this.propertySelector.waitFor({ state: "visible", timeout: 10_000 });
-    await this.propertySelector.click({ force: true });
-    // Wait for page to stabilize after click before looking for tooltip
-    await this.page.waitForTimeout(500);
-    const tooltip = this.page
-      .locator('#simple-popper[role="tooltip"]')
-      .last()
-      .or(this.page.getByRole("tooltip").last())
-      .or(this.page.locator('[role="listbox"]').last());
-    await tooltip.waitFor({ state: "visible", timeout: 12_000 });
-    const searchBox = tooltip.getByRole("textbox", { name: "Search" });
-    await searchBox.waitFor({ state: "visible", timeout: 5_000 });
-    await searchBox.click();
-    await searchBox.fill(propertySearchText);
-    await this.page
-      .waitForLoadState("networkidle", { timeout: 10_000 })
-      .catch(() => {});
-    await this.page.waitForTimeout(1_000);
-    await this.clickVisibleDropdownOption(tooltip, propertyOptionText, 10_000);
-    await this.page.waitForTimeout(500);
+    const resolvePropertyTrigger = () =>
+      this.propertySelector.or(
+        this.page
+          .locator("div")
+          .filter({
+            has: this.page.getByText("Property / Property Name", { exact: true }),
+          })
+          .getByRole("heading", { level: 6 })
+          .last(),
+      );
+
+    const trySelect = async (searchText) => {
+      const propertyTrigger = resolvePropertyTrigger();
+      await propertyTrigger.waitFor({ state: "visible", timeout: 10_000 });
+      await propertyTrigger.click({ force: true });
+      const tooltip = this.page
+        .locator('#simple-popper[role="tooltip"]')
+        .last()
+        .or(this.page.getByRole("tooltip").last())
+        .or(this.page.locator('[role="listbox"]').last());
+      await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+      const searchBox = tooltip.getByRole("textbox", { name: "Search" });
+      await searchBox.waitFor({ state: "visible", timeout: 5_000 });
+      await searchBox.click();
+      await searchBox.fill(searchText);
+      await this.page
+        .waitForLoadState("networkidle", { timeout: 10_000 })
+        .catch(() => {});
+      await this.page.waitForTimeout(1_000);
+      await this.clickVisibleDropdownOption(tooltip, propertyOptionText, 10_000);
+      await this.page.waitForTimeout(500);
+    };
+
+    const variants = [
+      propertySearchText,
+      ...buildSearchVariants(propertyOptionText || propertySearchText),
+    ].filter(Boolean);
+    const uniqueVariants = [...new Set(variants)];
+
+    let lastError;
+    for (const variant of uniqueVariants) {
+      try {
+        await trySelect(variant);
+        return;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError || new Error(`Property selection failed for "${propertyOptionText}".`);
   }
 
   async submitCreateDeal() {
