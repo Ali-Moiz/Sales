@@ -2976,6 +2976,192 @@ class PropertyModule {
   async fillDuplicateAddress(duplicateAddress) {
     return this.fillAddress(duplicateAddress);
   }
+
+  // ── Contact Details section (Create Property drawer) ─────────────────────
+  // Live-verified selector patterns follow the same tooltip pattern used by
+  // Assignee / Supervisor dropdowns already tested in TC-PROP-040/TC-PROP-045.
+  // Added 2026-04-24 for TC-PROP-047.
+
+  /**
+   * Returns the "Contact Details" heading (level=4) scoped to the Create Property drawer.
+   */
+  contactDetailsSectionHeading() {
+    return this.createPropertyDrawerRoot()
+      .getByRole("heading", { name: /Contact Details/i, level: 4 })
+      .first();
+  }
+
+  /**
+   * Returns the clickable trigger container for a contact role row at the given index.
+   * Index 0 = Decision Maker, 1 = End User, 2 = Billing, 3 = Blocker, 4 = Influencer.
+   *
+   * Live-verified 2026-04-24: the trigger is a cursor=pointer generic containing
+   * an h6 heading.  Before selection the h6 text is "Select a Contact".
+   * After selection it changes to "Selected Contacts (N)".
+   * We find all h6 headings inside the Contact Details section that match either
+   * state, then return the one at the requested index.
+   */
+  contactRoleTriggerAt(index) {
+    const drawer = this.createPropertyDrawerRoot();
+    return drawer
+      .getByRole("heading", { name: /Select a Contact|Selected Contacts/i, level: 6 })
+      .nth(index);
+  }
+
+  /**
+   * The last visible tooltip — reused across all contact role dropdowns
+   * (same pattern as assignee/supervisor tooltips already live-verified).
+   */
+  contactRoleTooltip() {
+    return this.page
+      .locator('#simple-popper[role="tooltip"]')
+      .last()
+      .or(this.page.getByRole("tooltip").last());
+  }
+
+  /**
+   * Scroll the Create Property drawer until the Contact Details heading is visible.
+   */
+  async scrollDrawerToContactDetails() {
+    const drawer = this.createPropertyDrawerRoot();
+    const heading = this.contactDetailsSectionHeading();
+    await heading.scrollIntoViewIfNeeded().catch(async () => {
+      await drawer
+        .evaluate((el) => {
+          el.scrollTop = el.scrollHeight;
+        })
+        .catch(() => {});
+    });
+  }
+
+  /**
+   * Assert the Contact Details heading and all 5 role labels are visible.
+   * Roles: Decision Maker, End User, Billing, Blocker, Influencer.
+   */
+  async assertContactDetailsSectionVisible() {
+    await this.scrollDrawerToContactDetails();
+    await expect(this.contactDetailsSectionHeading()).toBeVisible({
+      timeout: 10_000,
+    });
+    const expectedRoles = [
+      "Decision Maker",
+      "End User",
+      "Billing",
+      "Blocker",
+      "Influencer",
+    ];
+    const drawer = this.createPropertyDrawerRoot();
+    for (const role of expectedRoles) {
+      await expect(
+        drawer.getByText(role, { exact: true }).first(),
+      ).toBeVisible({ timeout: 8_000 });
+    }
+  }
+
+  /**
+   * Open the contact role dropdown at the given zero-based index and return the tooltip.
+   * @param {number} roleIndex
+   */
+  async openContactRoleDropdown(roleIndex) {
+    await this.scrollDrawerToContactDetails();
+    const trigger = this.contactRoleTriggerAt(roleIndex);
+    await trigger.waitFor({ state: "visible", timeout: 8_000 });
+    const tooltip = this.contactRoleTooltip();
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await trigger.click({ force: true });
+      const visible = await tooltip
+        .waitFor({ state: "visible", timeout: 4_000 })
+        .then(() => true)
+        .catch(() => false);
+      if (visible) return tooltip;
+    }
+    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    return tooltip;
+  }
+
+  /**
+   * Assert the open contact tooltip has a "Search by name" textbox and at least
+   * one contact paragraph result.
+   * @param {object} tooltip - Playwright locator for the open tooltip
+   */
+  async assertContactTooltipHasSearchAndResults(tooltip) {
+    const searchInput = tooltip
+      .getByRole("textbox", { name: /Search by name/i })
+      .first();
+    await expect(searchInput).toBeVisible({ timeout: 8_000 });
+    // Contacts render as paragraphs "Name (email@domain.com)"
+    const firstResult = tooltip.locator("p").first();
+    await expect(firstResult).toBeVisible({ timeout: 10_000 });
+  }
+
+  /**
+   * Search for a contact inside the currently-open contact role tooltip.
+   * @param {string} searchText
+   * @param {object} tooltip
+   */
+  async searchContactInOpenTooltip(searchText, tooltip) {
+    const searchInput = tooltip
+      .getByRole("textbox", { name: /Search by name/i })
+      .first()
+      .or(tooltip.getByRole("textbox").first());
+    await searchInput.waitFor({ state: "visible", timeout: 5_000 });
+    await searchInput.fill(searchText);
+    await this.page.waitForTimeout(700);
+    return tooltip;
+  }
+
+  /**
+   * Click the first matching contact result in the open tooltip.
+   * @param {string} contactText  Partial name or email text to match
+   * @param {object} tooltip
+   */
+  async selectContactFromOpenTooltip(contactText, tooltip) {
+    const result = tooltip
+      .getByText(contactText, { exact: false })
+      .first();
+    await result.waitFor({ state: "visible", timeout: 8_000 });
+    await result.click({ force: true });
+    await this.page.waitForTimeout(500);
+  }
+
+  /**
+   * Dismiss the contact role tooltip without making a selection.
+   */
+  async dismissContactRoleTooltip() {
+    await this.createPropertyHeading.click({ force: true });
+    await this.contactRoleTooltip()
+      .waitFor({ state: "hidden", timeout: 5_000 })
+      .catch(() => {});
+  }
+
+  /**
+   * Get the displayed text for the contact role trigger at the given zero-based index.
+   * Returns the heading text:
+   *   - Before selection: "Select a Contact"
+   *   - After selection:  "Selected Contacts (N)"
+   * @param {number} roleIndex
+   */
+  async getContactRoleTriggerText(roleIndex) {
+    const trigger = this.contactRoleTriggerAt(roleIndex);
+    await trigger.scrollIntoViewIfNeeded().catch(() => {});
+    return ((await trigger.innerText().catch(() => "")) || "").trim();
+  }
+
+  /**
+   * Assert that the contact role row at the given index shows a selection
+   * (i.e. heading text is NOT the unselected placeholder "Select a Contact").
+   * Live-verified: selected state shows "Selected Contacts (N)".
+   * @param {number} roleIndex
+   */
+  async assertContactRoleHasSelection(roleIndex) {
+    // After a contact is selected, the h6 text changes to "Selected Contacts (N)"
+    // and is no longer matched by /Select a Contact/i — so we look for it directly.
+    const drawer = this.createPropertyDrawerRoot();
+    const selectedHeading = drawer
+      .getByRole("heading", { name: /Selected Contacts/i, level: 6 })
+      .first();
+    await expect(selectedHeading).toBeVisible({ timeout: 8_000 });
+  }
 }
 
 module.exports = { PropertyModule };

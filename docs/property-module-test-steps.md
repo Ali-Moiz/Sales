@@ -427,3 +427,116 @@ Single reusable Notes/Tasks example:
 ```bash
 HEADLESS=false npx playwright test tests/e2e/property-module.spec.js --project=chrome --grep "NT-Property-T007"
 ```
+
+---
+
+## Verify that Select Supervisor dropdown opens and lists supervisors/users correctly, Verify that unchecking 'Assign Supervisor' hides the Supervisor field and clears its selected value (if any).
+
+### TC-PROP-046 | Supervisor dropdown opens with user list, uncheck hides field and clears selection
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Create Property drawer is accessible from the Properties list page.
+
+**Steps:**
+
+Step 1 — Open the Supervisor dropdown and verify it lists users:
+1. Navigate to `/app/sales/locations`.
+2. Click the `Create Property` button to open the Create Property drawer.
+3. Wait for the drawer heading "Create Property" to be visible.
+4. Click the `Assign Supervisor` checkbox to check it.
+5. Wait for the `Select Supervisor` trigger to appear.
+6. Click the `Select Supervisor` heading (level=6) trigger to open the tooltip dropdown.
+7. Observe the tooltip that opens.
+
+**Expected results (Step 1):**
+- The supervisor tooltip is visible.
+- The tooltip contains a `Search` textbox.
+- At least one user card (Avatar + name heading + role paragraph) is listed in the tooltip.
+
+Step 2 — Select a supervisor, then uncheck to hide the field and clear the selection:
+8. Type a known name (e.g. "Aaron") into the Search textbox inside the tooltip.
+9. Wait for filtered results to appear.
+10. Click the first matching user card (e.g. "Aaron Patterson").
+11. Verify the Select Supervisor trigger now displays the selected name.
+12. Click the `Assign Supervisor` checkbox again to uncheck it.
+13. Observe the Supervisor field area.
+
+**Expected results (Step 2):**
+- After unchecking, the `Select Supervisor` heading/trigger is no longer visible in the drawer.
+- The checkbox returns to unchecked state (Assign Supervisor is unchecked).
+
+---
+
+## Verify that Contact Details section is visible with correct contact roles (Decision Maker, End User, Billing, etc.)., Verify that each Contact role dropdown opens and lists contacts correctly., Verify that each Contact role dropdown supports search and returns matching contacts., Verify that user can select contacts for multiple roles and selections are displayed correctly., Verify that selecting the same contact in multiple roles is allowed only if permitted by business rules (handled correctly).
+
+### TC-PROP-047 | Contact Details section visible, dropdowns open and support search, multi-role selection works, same-contact rule handled
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Create Property drawer is accessible from the Properties list page.
+- The system has at least 2 contacts in the database.
+
+**Steps:**
+
+Step 1 — Verify the Contact Details section and role labels:
+1. Navigate to `/app/sales/locations`.
+2. Click the `Create Property` button.
+3. Wait for the "Create Property" drawer heading to be visible.
+4. Scroll down to the Contact Details section.
+5. Observe the "Contact Details" heading (level=4) and the section contents.
+
+**Expected results (Step 1):**
+- The `Contact Details` heading (level=4) is visible.
+- The section contains a two-column layout with headers "Contact Title" and "Users".
+- All 5 role labels are visible: `Decision Maker`, `End User`, `Billing`, `Blocker`, `Influencer`.
+- Each role row has a `Select a Contact` trigger (heading level=6) with a dropdown arrow.
+
+Step 2 — Open a Contact role dropdown and verify it lists contacts:
+6. Click the `Select a Contact` trigger for the `Decision Maker` row (first row).
+7. Wait for the contact tooltip to appear.
+8. Observe the tooltip contents.
+
+**Expected results (Step 2):**
+- The contact tooltip is visible.
+- The tooltip contains a `Search by name` textbox.
+- At least one contact paragraph (formatted as `Name (email@domain.com)`) is visible in the list.
+- A "Create new contact" option is visible at the top of the list.
+
+Step 3 — Verify search filters the contact list:
+9. Type a partial name (e.g. "Ali") into the `Search by name` field.
+10. Wait for the results to filter.
+11. Observe the filtered contact list.
+
+**Expected results (Step 3):**
+- The tooltip contact list updates to show only contacts whose name contains the search term.
+- At least one matching result (containing "Ali" in the name) is visible.
+
+Step 4 — Select contacts for multiple roles and verify selections are displayed:
+12. Click a matching contact result (e.g. "Ali Eng QA") to select it for `Decision Maker`.
+13. Verify the Decision Maker row now shows the selected contact name (no longer shows "Select a Contact").
+14. Click the `Select a Contact` trigger for the `End User` row (second row).
+15. Wait for the contact tooltip to appear.
+16. Click a different contact (e.g. "Margaret Demirs") to select it for `End User`.
+17. Verify the End User row now shows the selected contact name.
+
+**Expected results (Step 4):**
+- The Decision Maker row displays the selected contact name (e.g. "Ali Eng QA") instead of the placeholder.
+- The End User row displays the selected contact name (e.g. "Margaret Demirs") instead of the placeholder.
+- Both selections are shown simultaneously in the drawer.
+
+Step 5 — Attempt to select the same contact for a second role and verify handling:
+18. Click the `Select a Contact` trigger for the `Billing` row (third row).
+19. Wait for the contact tooltip to appear.
+20. Type the name of the contact already selected for Decision Maker (e.g. "Ali Eng QA") into the search.
+21. Click the same contact result.
+22. Observe the Billing row and any UI feedback.
+
+**Expected results (Step 5):**
+- The application either:
+  (a) Allows the same contact to be selected for a second role, and the Billing row displays the same contact name, OR
+  (b) Prevents the selection and shows an informational message/toast indicating the contact is already assigned to another role.
+- In either case, the drawer does not crash or produce an unhandled error.
+- The existing Decision Maker selection remains intact.
+
+---

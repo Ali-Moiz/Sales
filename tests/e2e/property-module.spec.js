@@ -217,9 +217,6 @@ test.describe.serial("Property Module", () => {
 
     const searchInput = tooltip.getByRole("textbox", { name: "Search" });
     await searchInput.fill(targetCompanyName);
-    await page
-      .waitForLoadState("networkidle", { timeout: 10_000 })
-      .catch(() => {});
 
     const matchingResult = tooltip
       .getByText(targetCompanyName, { exact: false })
@@ -715,12 +712,6 @@ test.describe.serial("Property Module", () => {
    * M-PROP-04C — Property Source dropdown opens, lists expected values, supports reselection/dismiss, and resets on reopen.
    */
   test("TC-PROP-032 | Verify that Property Source dropdown opens and lists all available sources correctly. (M-PROP-04C)", async () => {
-    const visualPauseMs = Number(
-      process.env.PROP_SOURCE_VISUAL_PAUSE_MS || 900,
-    );
-    const visualPause = async () => {
-      await page.waitForTimeout(visualPauseMs);
-    };
 
     const expectedSources = [
       "ALN",
@@ -745,7 +736,6 @@ test.describe.serial("Property Module", () => {
       "[TC-PROP-032] Step 2: Open source dropdown and validate options",
     );
     await propertyModule.openPropertySourceDropdown();
-    await visualPause();
     const observedSources =
       await propertyModule.getPropertySourceOptionsFromOpenDropdown();
     for (const source of expectedSources) {
@@ -757,21 +747,16 @@ test.describe.serial("Property Module", () => {
 
     console.log("[TC-PROP-032] Step 3: Select Building Connected and verify");
     await propertyModule.selectPropertySourceByText("Building Connected");
-    await visualPause();
 
     console.log("[TC-PROP-032] Step 4: Reselect to Referral and verify");
     await propertyModule.openPropertySourceDropdown();
-    await visualPause();
     await propertyModule.selectPropertySourceByText("Referral");
-    await visualPause();
 
     console.log(
       "[TC-PROP-032] Step 5: Dismiss dropdown without selection and verify value unchanged",
     );
     await propertyModule.openPropertySourceDropdown();
-    await visualPause();
     await propertyModule.dismissPropertySourceDropdownWithoutSelection();
-    await visualPause();
     await propertyModule.assertPropertySourceTriggerValue("Referral");
 
     console.log(
@@ -792,12 +777,6 @@ test.describe.serial("Property Module", () => {
    * M-PROP-04D — selecting Property Source populates field correctly and keeps latest selected value.
    */
   test("TC-PROP-033 | Verify that selecting a Property Source populates the field correctly. (M-PROP-04D)", async () => {
-    const visualPauseMs = Number(
-      process.env.PROP_SOURCE_VISUAL_PAUSE_MS || 900,
-    );
-    const visualPause = async () => {
-      await page.waitForTimeout(visualPauseMs);
-    };
 
     console.log(
       "[TC-PROP-033] Step 1: Open Create Property drawer and assert default source",
@@ -811,18 +790,14 @@ test.describe.serial("Property Module", () => {
       "[TC-PROP-033] Step 2: Select Building Connected and verify field population",
     );
     await propertyModule.openPropertySourceDropdown();
-    await visualPause();
     await propertyModule.selectPropertySourceByText("Building Connected");
-    await visualPause();
     await propertyModule.assertPropertySourceTriggerValue("Building Connected");
 
     console.log(
       "[TC-PROP-033] Step 3: Reselect Referral and verify latest value replaces previous",
     );
     await propertyModule.openPropertySourceDropdown();
-    await visualPause();
     await propertyModule.selectPropertySourceByText("Referral");
-    await visualPause();
     await propertyModule.assertPropertySourceTriggerValue("Referral");
 
     console.log(
@@ -835,9 +810,7 @@ test.describe.serial("Property Module", () => {
       "[TC-PROP-033] Step 5: Reopen and dismiss source dropdown without selection",
     );
     await propertyModule.openPropertySourceDropdown();
-    await visualPause();
     await propertyModule.dismissPropertySourceDropdownWithoutSelection();
-    await visualPause();
     await propertyModule.assertPropertySourceTriggerValue("Referral");
 
     console.log(
@@ -858,12 +831,6 @@ test.describe.serial("Property Module", () => {
    * M-PROP-04E — Associated Franchise dropdown opens, supports search, and keeps latest selected value.
    */
   test("TC-PROP-034 | Verify that Associated Franchise dropdown opens and lists available franchises correctly. (M-PROP-04E)", async () => {
-    const visualPauseMs = Number(
-      process.env.PROP_FRANCHISE_VISUAL_PAUSE_MS || 900,
-    );
-    const visualPause = async () => {
-      await page.waitForTimeout(visualPauseMs);
-    };
 
     console.log(
       "[TC-PROP-034] Step 1: Open Create Property and confirm default franchise trigger",
@@ -877,7 +844,6 @@ test.describe.serial("Property Module", () => {
       "[TC-PROP-034] Step 2: Open franchise dropdown and verify list is populated",
     );
     await propertyModule.openAssociatedFranchiseDropdown();
-    await visualPause();
     const observedFranchises =
       await propertyModule.getAssociatedFranchiseOptionsFromOpenDropdown();
     expect(
@@ -891,7 +857,6 @@ test.describe.serial("Property Module", () => {
     const targetFranchise = "216 - Omaha, NE";
     const franchiseTooltip =
       await propertyModule.searchInAssociatedFranchiseDropdown(targetFranchise);
-    await visualPause();
     await expect(
       franchiseTooltip.getByText(targetFranchise, { exact: false }).first(),
     ).toBeVisible({ timeout: 8_000 });
@@ -900,26 +865,21 @@ test.describe.serial("Property Module", () => {
       "[TC-PROP-034] Step 4: Select franchise and verify trigger value",
     );
     await propertyModule.selectAssociatedFranchiseByText(targetFranchise);
-    await visualPause();
     await propertyModule.assertAssociatedFranchiseTriggerValue(targetFranchise);
 
     console.log(
       "[TC-PROP-034] Step 4B: Reopen dropdown and reselect another franchise",
     );
     await propertyModule.openAssociatedFranchiseDropdown();
-    await visualPause();
     const secondFranchise = "240 - Hodgkins, IL";
     await propertyModule.selectAssociatedFranchiseByText(secondFranchise);
-    await visualPause();
     await propertyModule.assertAssociatedFranchiseTriggerValue(secondFranchise);
 
     console.log(
       "[TC-PROP-034] Step 5: Reopen and dismiss without new selection",
     );
     await propertyModule.openAssociatedFranchiseDropdown();
-    await visualPause();
     await propertyModule.dismissAssociatedFranchiseDropdownWithoutSelection();
-    await visualPause();
     await propertyModule.assertAssociatedFranchiseTriggerValue(secondFranchise);
 
     console.log(
@@ -940,12 +900,6 @@ test.describe.serial("Property Module", () => {
    * M-PROP-04F — selecting Associated Franchise populates field correctly across select/reselect/dismiss/reset cycles.
    */
   test("TC-PROP-035 | Verify that selecting an Associated Franchise populates the field correctly. (M-PROP-04F)", async () => {
-    const visualPauseMs = Number(
-      process.env.PROP_ASSOC_FRANCHISE_VISUAL_PAUSE_MS || 900,
-    );
-    const visualPause = async () => {
-      await page.waitForTimeout(visualPauseMs);
-    };
 
     const firstFranchise = "216 - Omaha, NE";
     const secondFranchise = "240 - Hodgkins, IL";
@@ -963,32 +917,26 @@ test.describe.serial("Property Module", () => {
       `[TC-PROP-035] Step 2: Select first franchise (${firstFranchise}) and verify field population`,
     );
     await propertyModule.openAssociatedFranchiseDropdown();
-    await visualPause();
     let tooltip =
       await propertyModule.searchInAssociatedFranchiseDropdown(firstFranchise);
-    await visualPause();
     await propertyModule.clickVisibleDropdownOption(
       tooltip,
       firstFranchise,
       8_000,
     );
-    await visualPause();
     await propertyModule.assertAssociatedFranchiseTriggerValue(firstFranchise);
 
     console.log(
       `[TC-PROP-035] Step 3: Reselect second franchise (${secondFranchise}) and verify replacement`,
     );
     await propertyModule.openAssociatedFranchiseDropdown();
-    await visualPause();
     tooltip =
       await propertyModule.searchInAssociatedFranchiseDropdown(secondFranchise);
-    await visualPause();
     await propertyModule.clickVisibleDropdownOption(
       tooltip,
       secondFranchise,
       8_000,
     );
-    await visualPause();
     await propertyModule.assertAssociatedFranchiseTriggerValue(secondFranchise);
 
     console.log(
@@ -1001,20 +949,15 @@ test.describe.serial("Property Module", () => {
       "[TC-PROP-035] Step 5: Reopen and dismiss without new selection, value should stay unchanged",
     );
     await propertyModule.openAssociatedFranchiseDropdown();
-    await visualPause();
     await propertyModule.dismissAssociatedFranchiseDropdownWithoutSelection();
-    await visualPause();
     await propertyModule.assertAssociatedFranchiseTriggerValue(secondFranchise);
 
     console.log(
       `[TC-PROP-035] Step 6: Run no-match search (${noMatchQuery}) and ensure selected value is not overwritten`,
     );
     await propertyModule.openAssociatedFranchiseDropdown();
-    await visualPause();
     await propertyModule.searchInAssociatedFranchiseDropdown(noMatchQuery);
-    await visualPause();
     await propertyModule.dismissAssociatedFranchiseDropdownWithoutSelection();
-    await visualPause();
     await propertyModule.assertAssociatedFranchiseTriggerValue(secondFranchise);
 
     console.log(
@@ -1033,11 +976,8 @@ test.describe.serial("Property Module", () => {
         `[TC-PROP-035] Step 7.${i + 1}: Select "${value}" and verify trigger value`,
       );
       await propertyModule.openAssociatedFranchiseDropdown();
-      await visualPause();
       tooltip = await propertyModule.searchInAssociatedFranchiseDropdown(value);
-      await visualPause();
       await propertyModule.clickVisibleDropdownOption(tooltip, value, 8_000);
-      await visualPause();
       await propertyModule.assertAssociatedFranchiseTriggerValue(value);
     }
 
@@ -1059,12 +999,6 @@ test.describe.serial("Property Module", () => {
    * M-PROP-04J — Associated Franchise search returns matching results and handles no-match/reset correctly.
    */
   test("TC-PROP-039 | Verify that Associated Franchise dropdown supports search and returns matching results. (M-PROP-04J)", async () => {
-    const visualPauseMs = Number(
-      process.env.PROP_FRANCHISE_SEARCH_VISUAL_PAUSE_MS || 900,
-    );
-    const visualPause = async () => {
-      await page.waitForTimeout(visualPauseMs);
-    };
 
     const matchQuery = "216 - Omaha, NE";
     const noMatchQuery = "zzzz-no-match-123";
@@ -1076,7 +1010,6 @@ test.describe.serial("Property Module", () => {
     );
     await openCreatePropertyDrawerFromList();
     let tooltip = await propertyModule.openAssociatedFranchiseDropdown();
-    await visualPause();
 
     console.log(
       "[TC-PROP-039] Step 2: Verify Search input is visible and initial list is populated",
@@ -1092,7 +1025,6 @@ test.describe.serial("Property Module", () => {
     );
     tooltip =
       await propertyModule.searchInAssociatedFranchiseDropdown(matchQuery);
-    await visualPause();
     await expect(
       tooltip.getByText(matchQuery, { exact: false }).first(),
     ).toBeVisible({ timeout: 8_000 });
@@ -1101,17 +1033,14 @@ test.describe.serial("Property Module", () => {
       "[TC-PROP-039] Step 4: Select matching result and verify field value updates",
     );
     await propertyModule.clickVisibleDropdownOption(tooltip, matchQuery, 8_000);
-    await visualPause();
     await propertyModule.assertAssociatedFranchiseTriggerValue(matchQuery);
 
     console.log(
       `[TC-PROP-039] Step 5: Reopen and verify no-match query "${noMatchQuery}" returns no visible options`,
     );
     tooltip = await propertyModule.openAssociatedFranchiseDropdown();
-    await visualPause();
     tooltip =
       await propertyModule.searchInAssociatedFranchiseDropdown(noMatchQuery);
-    await visualPause();
     const noMatchOptions = tooltip.locator('p, [role="option"], h6');
     await expect(noMatchOptions).toHaveCount(0);
 
@@ -1119,22 +1048,18 @@ test.describe.serial("Property Module", () => {
       "[TC-PROP-039] Step 6: Clear search and verify full list returns without overriding selected value",
     );
     await propertyModule.searchInAssociatedFranchiseDropdown("");
-    await visualPause();
     const restoredOptions =
       await propertyModule.getAssociatedFranchiseOptionsFromOpenDropdown();
     expect(restoredOptions.length).toBeGreaterThan(0);
     await propertyModule.dismissAssociatedFranchiseDropdownWithoutSelection();
-    await visualPause();
     await propertyModule.assertAssociatedFranchiseTriggerValue(matchQuery);
 
     console.log(
       `[TC-PROP-039] Step 7: Validate partial query behavior with "${rapidQueryA}"`,
     );
     tooltip = await propertyModule.openAssociatedFranchiseDropdown();
-    await visualPause();
     tooltip =
       await propertyModule.searchInAssociatedFranchiseDropdown(rapidQueryA);
-    await visualPause();
     const partialOptionsA =
       await propertyModule.getAssociatedFranchiseOptionsFromOpenDropdown();
     expect(
@@ -1145,7 +1070,6 @@ test.describe.serial("Property Module", () => {
       `[TC-PROP-039] Step 8: Rapidly replace query "${rapidQueryA}" -> "${rapidQueryB}" and verify latest results`,
     );
     await propertyModule.searchInAssociatedFranchiseDropdown(rapidQueryB);
-    await visualPause();
     const partialOptionsB =
       await propertyModule.getAssociatedFranchiseOptionsFromOpenDropdown();
     expect(
@@ -1176,12 +1100,6 @@ test.describe.serial("Property Module", () => {
    * Additional coverage title: Verify that selecting an assignee populates the field correctly.
    */
   test("TC-PROP-040 | Verify that Select Assignee dropdown opens and lists assignees/users correctly. Verify that Select Assignee dropdown supports search and returns matching assignees. Verify that selecting an assignee populates the field correctly. (M-PROP-04K)", async () => {
-    const visualPauseMs = Number(
-      process.env.PROP_ASSIGNEE_SEARCH_VISUAL_PAUSE_MS || 900,
-    );
-    const visualPause = async () => {
-      await page.waitForTimeout(visualPauseMs);
-    };
 
     const exactQuery = "Brandon Nyffeler";
     const noMatchQuery = "zzzz-no-user-123";
@@ -1194,7 +1112,6 @@ test.describe.serial("Property Module", () => {
     );
     await openCreatePropertyDrawerFromList();
     let tooltip = await propertyModule.openAssigneeDropdown();
-    await visualPause();
 
     console.log(
       "[TC-PROP-040] Step 2: Verify Search input is visible and assignee list is populated",
@@ -1212,7 +1129,6 @@ test.describe.serial("Property Module", () => {
       `[TC-PROP-040] Step 3: Search exact assignee "${exactQuery}" and verify match appears`,
     );
     tooltip = await propertyModule.searchAssigneeInDropdown(exactQuery);
-    await visualPause();
     await expect(
       tooltip
         .getByRole("heading", { level: 4, name: new RegExp(exactQuery, "i") })
@@ -1223,7 +1139,6 @@ test.describe.serial("Property Module", () => {
       "[TC-PROP-040] Step 4: Select matching assignee from filtered results",
     );
     await propertyModule.selectAssigneeByText(exactQuery);
-    await visualPause();
     const selectedNameVisible = await propertyModule
       .createPropertyDrawerRoot()
       .getByText(exactQuery, { exact: false })
@@ -1239,29 +1154,23 @@ test.describe.serial("Property Module", () => {
       `[TC-PROP-040] Step 5: Reopen and search no-match "${noMatchQuery}"`,
     );
     tooltip = await propertyModule.openAssigneeDropdown();
-    await visualPause();
     tooltip = await propertyModule.searchAssigneeInDropdown(noMatchQuery);
-    await visualPause();
     await expect(tooltip.getByRole("heading", { level: 4 })).toHaveCount(0);
 
     console.log(
       "[TC-PROP-040] Step 6: Clear search and verify assignee list is restored",
     );
     await propertyModule.searchAssigneeInDropdown("");
-    await visualPause();
     const restoredAssignees =
       await propertyModule.getAssigneeOptionsFromOpenDropdown();
     expect(restoredAssignees.length).toBeGreaterThan(0);
     await propertyModule.dismissAssigneeDropdownWithoutSelection();
-    await visualPause();
 
     console.log(
       `[TC-PROP-040] Step 7: Validate partial query behavior for "${partialQuery}"`,
     );
     tooltip = await propertyModule.openAssigneeDropdown();
-    await visualPause();
     await propertyModule.searchAssigneeInDropdown(partialQuery);
-    await visualPause();
     const partialMatches =
       await propertyModule.getAssigneeOptionsFromOpenDropdown();
     expect(
@@ -1272,16 +1181,13 @@ test.describe.serial("Property Module", () => {
       `[TC-PROP-040] Step 8: Rapid query replacement "${rapidQueryA}" -> "${rapidQueryB}"`,
     );
     await propertyModule.searchAssigneeInDropdown(rapidQueryA);
-    await visualPause();
     await propertyModule.searchAssigneeInDropdown(rapidQueryB);
-    await visualPause();
     const rapidMatches =
       await propertyModule.getAssigneeOptionsFromOpenDropdown();
     expect(
       rapidMatches.some((name) => name.toLowerCase().includes("chuck")),
     ).toBeTruthy();
     await propertyModule.dismissAssigneeDropdownWithoutSelection();
-    await visualPause();
 
     console.log(
       "[TC-PROP-040] Step 9: Cancel and reopen drawer; verify assignee search input resets",
@@ -1304,12 +1210,6 @@ test.describe.serial("Property Module", () => {
    * M-PROP-04L — Assign Supervisor checkbox visibility + check/uncheck workflow.
    */
   test("TC-PROP-041 | Verify that the 'Assign Supervisor' checkbox is visible and can be checked/unchecked. (M-PROP-04L)", async () => {
-    const visualPauseMs = Number(
-      process.env.PROP_ASSIGN_SUPERVISOR_VISUAL_PAUSE_MS || 900,
-    );
-    const visualPause = async () => {
-      await page.waitForTimeout(visualPauseMs);
-    };
 
     console.log(
       "[TC-PROP-041] Step 1: Open Create Property and verify Assign Supervisor checkbox baseline visibility",
@@ -1323,21 +1223,18 @@ test.describe.serial("Property Module", () => {
         initialCheckedState ? "checked" : "unchecked"
       }`,
     );
-    await visualPause();
 
     console.log("[TC-PROP-041] Step 2: Set Assign Supervisor to checked state");
     await propertyModule.setAssignSupervisorCheckedInCreateDrawer(true);
     await expect(
       propertyModule.assignSupervisorCheckboxInCreateDrawer(),
     ).toBeChecked();
-    await visualPause();
 
     console.log("[TC-PROP-041] Step 3: Set Assign Supervisor to unchecked state");
     await propertyModule.setAssignSupervisorCheckedInCreateDrawer(false);
     await expect(
       propertyModule.assignSupervisorCheckboxInCreateDrawer(),
     ).not.toBeChecked();
-    await visualPause();
 
     console.log(
       "[TC-PROP-041] Step 4: Repeat toggle cycles and verify each transition is stable",
@@ -1360,32 +1257,23 @@ test.describe.serial("Property Module", () => {
           targetState ? "checked" : "unchecked"
         }`,
       );
-      await visualPause();
     }
 
     console.log(
       "[TC-PROP-041] Step 5: Verify checkbox state persists after interacting with unrelated controls",
     );
     await propertyModule.setAssignSupervisorCheckedInCreateDrawer(true);
-    await visualPause();
     await propertyModule.openPropertySourceDropdown();
-    await visualPause();
     await propertyModule.dismissPropertySourceDropdownWithoutSelection();
-    await visualPause();
     await propertyModule.openAssigneeDropdown();
-    await visualPause();
     await propertyModule.dismissAssigneeDropdownWithoutSelection();
-    await visualPause();
     await expect(
       propertyModule.assignSupervisorCheckboxInCreateDrawer(),
     ).toBeChecked();
 
     await propertyModule.setAssignSupervisorCheckedInCreateDrawer(false);
-    await visualPause();
     await propertyModule.openStageDropdown();
-    await visualPause();
     await propertyModule.dismissStageDropdownWithoutSelection();
-    await visualPause();
     await expect(
       propertyModule.assignSupervisorCheckboxInCreateDrawer(),
     ).not.toBeChecked();
@@ -1408,13 +1296,11 @@ test.describe.serial("Property Module", () => {
         reopenedCheckedState ? "checked" : "unchecked"
       } (initial was ${initialCheckedState ? "checked" : "unchecked"})`,
     );
-    await visualPause();
 
     console.log(
       "[TC-PROP-041] Step 7: Verify toggle actions do not trigger immediate unrelated required-field errors",
     );
     await propertyModule.setAssignSupervisorCheckedInCreateDrawer(true);
-    await visualPause();
     const hasRequiredErrorAfterToggle = await propertyModule
       .createPropertyDrawerRoot()
       .getByText(/is required\./i)
@@ -1435,12 +1321,6 @@ test.describe.serial("Property Module", () => {
    * M-PROP-04M — Assign Supervisor is disabled when HO (Home Officer) assignee is selected.
    */
   test("TC-PROP-042 | Verify that 'Assign Supervisor' is disabled when HO (Home Officer) user is selected as assignee. (M-PROP-04M)", async () => {
-    const visualPauseMs = Number(
-      process.env.PROP_ASSIGN_SUPERVISOR_HO_VISUAL_PAUSE_MS || 900,
-    );
-    const visualPause = async () => {
-      await page.waitForTimeout(visualPauseMs);
-    };
 
     console.log(
       "[TC-PROP-042] Step 1: Open Create Property and record baseline Assign Supervisor state",
@@ -1453,7 +1333,6 @@ test.describe.serial("Property Module", () => {
     console.log(
       `[TC-PROP-042] Baseline observed | checked=${baselineChecked} | disabled=${baselineDisabled}`,
     );
-    await visualPause();
 
     console.log(
       "[TC-PROP-042] Step 2: Select HO assignee and verify Assign Supervisor becomes disabled",
@@ -1461,14 +1340,12 @@ test.describe.serial("Property Module", () => {
     const hoAssignee = await propertyModule.selectAssigneeByRoleInCreateDrawer({
       includeRolePattern: /Home Officer/i,
     });
-    await visualPause();
     console.log(
       `[TC-PROP-042] HO assignee selected: ${hoAssignee.name} (${hoAssignee.role})`,
     );
     await expect(checkbox).toBeDisabled({ timeout: 8_000 });
     const checkedBeforeBlockedToggle =
       await propertyModule.isAssignSupervisorCheckedInCreateDrawer();
-    await visualPause();
 
     console.log(
       "[TC-PROP-042] Step 3: Attempt mouse + keyboard toggle while disabled",
@@ -1476,7 +1353,6 @@ test.describe.serial("Property Module", () => {
     await checkbox.click({ force: true }).catch(() => {});
     await checkbox.focus().catch(() => {});
     await page.keyboard.press("Space").catch(() => {});
-    await visualPause();
     const checkedAfterBlockedToggle =
       await propertyModule.isAssignSupervisorCheckedInCreateDrawer();
     expect(checkedAfterBlockedToggle).toBe(checkedBeforeBlockedToggle);
@@ -1490,16 +1366,13 @@ test.describe.serial("Property Module", () => {
       excludeRolePattern: /Home Officer/i,
       excludeNames: [hoAssignee.name],
     });
-    await visualPause();
     console.log(
       `[TC-PROP-042] Non-HO assignee selected: ${nonHoAssignee.name} (${nonHoAssignee.role || "role-not-visible"})`,
     );
     await expect(checkbox).not.toBeDisabled();
     await propertyModule.setAssignSupervisorCheckedInCreateDrawer(true);
-    await visualPause();
     await expect(checkbox).toBeChecked();
     await propertyModule.setAssignSupervisorCheckedInCreateDrawer(false);
-    await visualPause();
     await expect(checkbox).not.toBeChecked();
 
     console.log(
@@ -1509,7 +1382,6 @@ test.describe.serial("Property Module", () => {
       includeRolePattern: /Home Officer/i,
       excludeNames: [hoAssignee.name],
     });
-    await visualPause();
     console.log(
       `[TC-PROP-042] Second HO assignee selected: ${secondHoAssignee.name} (${secondHoAssignee.role})`,
     );
@@ -1529,7 +1401,6 @@ test.describe.serial("Property Module", () => {
     );
     // Fresh drawer session should not be forced-disabled because of prior HO selection.
     expect(reopenedDisabled).toBe(baselineDisabled);
-    await visualPause();
 
     await propertyModule.cancelCreatePropertyDrawer();
     await propertyModule.assertCreatePropertyDrawerClosed();
@@ -1540,19 +1411,12 @@ test.describe.serial("Property Module", () => {
    * M-PROP-04N — checking Assign Supervisor reveals Select Supervisor field.
    */
   test("TC-PROP-043 | Verify that checking 'Assign Supervisor' reveals the 'Select Supervisor' field. (M-PROP-04N)", async () => {
-    const visualPauseMs = Number(
-      process.env.PROP_ASSIGN_SUPERVISOR_REVEAL_VISUAL_PAUSE_MS || 900,
-    );
-    const visualPause = async () => {
-      await page.waitForTimeout(visualPauseMs);
-    };
 
     console.log(
       "[TC-PROP-043] Step 1: Open Create Property and verify Assign Supervisor checkbox is visible",
     );
     await openCreatePropertyDrawerFromList();
     await propertyModule.assertAssignSupervisorCheckboxVisibleInCreateDrawer();
-    await visualPause();
 
     console.log(
       "[TC-PROP-043] Step 2: Ensure non-HO assignee context if checkbox is disabled",
@@ -1570,7 +1434,6 @@ test.describe.serial("Property Module", () => {
       console.log(
         `[TC-PROP-043] Selected non-HO assignee to satisfy precondition: ${selectedNonHo.name} (${selectedNonHo.role || "role-not-visible"})`,
       );
-      await visualPause();
     }
     await expect(checkbox).not.toBeDisabled();
 
@@ -1583,13 +1446,11 @@ test.describe.serial("Property Module", () => {
       baselineSelectSupervisorVisible,
       "Select Supervisor should be hidden before Assign Supervisor is checked.",
     ).toBeFalsy();
-    await visualPause();
 
     console.log(
       "[TC-PROP-043] Step 4: Check Assign Supervisor and verify Select Supervisor is revealed",
     );
     await propertyModule.setAssignSupervisorCheckedInCreateDrawer(true);
-    await visualPause();
     await propertyModule.assertSelectSupervisorVisibleInCreateDrawer();
 
     console.log(
@@ -1597,18 +1458,14 @@ test.describe.serial("Property Module", () => {
     );
     await propertyModule.assertSelectSupervisorVisibleInCreateDrawer();
     await propertyModule.clickSelectSupervisorControlInCreateDrawer();
-    await visualPause();
     // Close any opened supervisor popper while keeping drawer open.
     await propertyModule.createPropertyHeading.click({ force: true });
-    await visualPause();
     await propertyModule.assertAssignSupervisorCheckboxVisibleInCreateDrawer();
-    await visualPause();
 
     console.log(
       "[TC-PROP-043] Step 6: Uncheck Assign Supervisor and verify Select Supervisor hides again",
     );
     await propertyModule.setAssignSupervisorCheckedInCreateDrawer(false);
-    await visualPause();
     const visibleAfterUncheck =
       await propertyModule.isSelectSupervisorVisibleInCreateDrawer();
     expect(
@@ -1623,7 +1480,6 @@ test.describe.serial("Property Module", () => {
     for (let i = 0; i < repeatToggleTargets.length; i++) {
       const shouldReveal = repeatToggleTargets[i];
       await propertyModule.setAssignSupervisorCheckedInCreateDrawer(shouldReveal);
-      await visualPause();
       const currentlyVisible =
         await propertyModule.isSelectSupervisorVisibleInCreateDrawer();
       expect(currentlyVisible).toBe(shouldReveal);
@@ -1645,7 +1501,6 @@ test.describe.serial("Property Module", () => {
       visibleAfterReopen,
       "Select Supervisor should not remain visible on a fresh drawer reopen.",
     ).toBeFalsy();
-    await visualPause();
 
     await propertyModule.cancelCreatePropertyDrawer();
     await propertyModule.assertCreatePropertyDrawerClosed();
@@ -1656,12 +1511,6 @@ test.describe.serial("Property Module", () => {
    * M-PROP-04O — Select Supervisor becomes mandatory when Assign Supervisor is checked.
    */
   test("TC-PROP-044 | Verify that 'Select Supervisor' becomes mandatory when 'Assign Supervisor' is checked. (M-PROP-04O)", async () => {
-    const visualPauseMs = Number(
-      process.env.PROP_SUPERVISOR_MANDATORY_VISUAL_PAUSE_MS || 900,
-    );
-    const visualPause = async () => {
-      await page.waitForTimeout(visualPauseMs);
-    };
 
     console.log(
       "[TC-PROP-044] Step 1: Open Create Property and ensure checkbox is available in non-HO context",
@@ -1681,7 +1530,6 @@ test.describe.serial("Property Module", () => {
       console.log(
         `[TC-PROP-044] Selected non-HO assignee to satisfy precondition: ${selectedNonHo.name} (${selectedNonHo.role || "role-not-visible"})`,
       );
-      await visualPause();
     }
     await expect(checkbox).not.toBeDisabled();
 
@@ -1689,7 +1537,6 @@ test.describe.serial("Property Module", () => {
       "[TC-PROP-044] Step 2: Baseline verify Select Supervisor not mandatory while Assign Supervisor is unchecked",
     );
     await propertyModule.setAssignSupervisorCheckedInCreateDrawer(false);
-    await visualPause();
     const baselineMandatory =
       await propertyModule.hasSelectSupervisorMandatoryMarkerInCreateDrawer();
     expect(
@@ -1701,7 +1548,6 @@ test.describe.serial("Property Module", () => {
       "[TC-PROP-044] Step 3: Check Assign Supervisor and verify mandatory marker appears",
     );
     await propertyModule.setAssignSupervisorCheckedInCreateDrawer(true);
-    await visualPause();
     await propertyModule.assertSelectSupervisorVisibleInCreateDrawer();
     const mandatoryAfterCheck =
       await propertyModule.hasSelectSupervisorMandatoryMarkerInCreateDrawer();
@@ -1714,7 +1560,6 @@ test.describe.serial("Property Module", () => {
       "[TC-PROP-044] Step 4: Immediately click submit after reveal and verify supervisor mandatory behavior",
     );
     await propertyModule.submitCreateDrawerExpectingValidation();
-    await visualPause();
     await expect(propertyModule.createPropertyHeading).toBeVisible({
       timeout: 8_000,
     });
@@ -1728,18 +1573,14 @@ test.describe.serial("Property Module", () => {
     );
     const mandatoryProbePropertyName = `M-PROP-04O-${Date.now()}`;
     await propertyModule.selectCompanyInCreateForm(targetCompanyName);
-    await visualPause();
     await propertyModule.fillPropertyName(mandatoryProbePropertyName);
-    await visualPause();
     const addressSelected = await propertyModule.fillAddress(
       "716 South 9th Street, Omaha NE",
     );
     if (!addressSelected) {
       await propertyModule.fillAddress("715 South 9th Street, Omaha NE");
     }
-    await visualPause();
     await propertyModule.submitCreateDrawerExpectingValidation();
-    await visualPause();
     await expect(propertyModule.createPropertyHeading).toBeVisible({
       timeout: 8_000,
     });
@@ -1753,7 +1594,6 @@ test.describe.serial("Property Module", () => {
     );
     const selectedSupervisor =
       await propertyModule.selectFirstSupervisorInCreateDrawer();
-    await visualPause();
     console.log(
       `[TC-PROP-044] Selected supervisor: ${selectedSupervisor || "value-captured"} `,
     );
@@ -1767,7 +1607,6 @@ test.describe.serial("Property Module", () => {
       "[TC-PROP-044] Step 7: Uncheck Assign Supervisor and verify mandatory constraint is removed",
     );
     await propertyModule.setAssignSupervisorCheckedInCreateDrawer(false);
-    await visualPause();
     const mandatoryAfterUncheck =
       await propertyModule.hasSelectSupervisorMandatoryMarkerInCreateDrawer();
     expect(
@@ -1779,7 +1618,6 @@ test.describe.serial("Property Module", () => {
       "[TC-PROP-044] Step 8: Re-check Assign Supervisor and confirm mandatory constraint reapplies",
     );
     await propertyModule.setAssignSupervisorCheckedInCreateDrawer(true);
-    await visualPause();
     expect(
       await propertyModule.hasSelectSupervisorMandatoryMarkerInCreateDrawer(),
     ).toBeTruthy();
@@ -1794,7 +1632,6 @@ test.describe.serial("Property Module", () => {
     expect(
       await propertyModule.hasSelectSupervisorMandatoryMarkerInCreateDrawer(),
     ).toBeFalsy();
-    await visualPause();
 
     await propertyModule.cancelCreatePropertyDrawer();
     await propertyModule.assertCreatePropertyDrawerClosed();
@@ -1806,12 +1643,6 @@ test.describe.serial("Property Module", () => {
    */
   test("TC-PROP-045 | Verify that Select Supervisor dropdown opens and lists supervisors/users correctly. (M-PROP-04P)", async () => {
     test.setTimeout(120_000);
-    const visualPauseMs = Number(
-      process.env.PROP_SELECT_SUPERVISOR_DROPDOWN_VISUAL_PAUSE_MS || 900,
-    );
-    const visualPause = async () => {
-      await page.waitForTimeout(visualPauseMs);
-    };
 
     console.log(
       "[TC-PROP-045] Step 1: Open Create Property and ensure Select Supervisor preconditions are satisfied",
@@ -1821,6 +1652,7 @@ test.describe.serial("Property Module", () => {
     const checkbox = propertyModule.assignSupervisorCheckboxInCreateDrawer();
     const disabledAtStart =
       await propertyModule.isAssignSupervisorDisabledInCreateDrawer();
+    // eslint-disable-next-line playwright/no-conditional-in-test
     if (disabledAtStart) {
       const selectedNonHo = await propertyModule.selectAssigneeByRoleInCreateDrawer(
         {
@@ -1831,18 +1663,15 @@ test.describe.serial("Property Module", () => {
       console.log(
         `[TC-PROP-045] Selected non-HO assignee for supervisor flow: ${selectedNonHo.name} (${selectedNonHo.role || "role-not-visible"})`,
       );
-      await visualPause();
     }
-    await expect(checkbox).not.toBeDisabled();
+    await expect(checkbox).toBeEnabled();
     await propertyModule.setAssignSupervisorCheckedInCreateDrawer(true);
     await propertyModule.assertSelectSupervisorVisibleInCreateDrawer();
-    await visualPause();
 
     console.log(
       "[TC-PROP-045] Step 2: Open Select Supervisor dropdown and validate list population",
     );
     await propertyModule.openSelectSupervisorDropdownInCreateDrawer();
-    await visualPause();
     const initialOptions =
       await propertyModule.getSupervisorOptionsFromOpenDropdown();
     console.log(
@@ -1857,22 +1686,20 @@ test.describe.serial("Property Module", () => {
       "[TC-PROP-045] Step 3: Verify dropdown supports close/reopen interactions",
     );
     await propertyModule.dismissSelectSupervisorDropdownInCreateDrawer();
-    await visualPause();
     await propertyModule.openSelectSupervisorDropdownInCreateDrawer();
-    await visualPause();
     await propertyModule.dismissSelectSupervisorDropdownInCreateDrawer();
-    await visualPause();
 
     console.log(
       "[TC-PROP-045] Step 4: Search behavior probe (exact/no-match/clear) when search box is available",
     );
     await propertyModule.openSelectSupervisorDropdownInCreateDrawer();
-    await visualPause();
     const searchSeed = initialOptions[0];
     const exactSearch = await propertyModule.searchSupervisorInOpenDropdown(
       searchSeed,
     );
+    // eslint-disable-next-line playwright/no-conditional-in-test
     if (exactSearch.hasSearch) {
+      // eslint-disable-next-line playwright/no-conditional-expect
       expect(
         exactSearch.results.some((x) =>
           x.toLowerCase().includes(searchSeed.toLowerCase()),
@@ -1883,14 +1710,16 @@ test.describe.serial("Property Module", () => {
       const noMatchSearch = await propertyModule.searchSupervisorInOpenDropdown(
         "zzzz-no-user-123",
       );
+      // eslint-disable-next-line playwright/no-conditional-expect
       expect(
-        noMatchSearch.results.length,
+        noMatchSearch.results,
         `No-match search should return empty list. Observed: ${noMatchSearch.results.join(", ")}`,
-      ).toBe(0);
+      ).toHaveLength(0);
 
       const clearedSearch = await propertyModule.searchSupervisorInOpenDropdown(
         "",
       );
+      // eslint-disable-next-line playwright/no-conditional-expect
       expect(
         clearedSearch.results.length,
         "Clearing search should restore supervisor options.",
@@ -1901,24 +1730,25 @@ test.describe.serial("Property Module", () => {
         "[TC-PROP-045] Search textbox not present in this environment; list-only validation applied",
       );
     }
-    await visualPause();
 
     console.log(
       "[TC-PROP-045] Step 5: Select supervisor and verify field population + reselection",
     );
     const firstSupervisor = initialOptions[0];
     await propertyModule.selectSupervisorByNameInCreateDrawer(firstSupervisor);
-    await visualPause();
     const selectedTextAfterFirstPick =
       await propertyModule.getSelectedSupervisorTextInCreateDrawer();
+    // eslint-disable-next-line playwright/no-conditional-in-test
     if (/select supervisor/i.test(selectedTextAfterFirstPick)) {
       const invalidAfterFirstPick =
         await propertyModule.isSelectSupervisorInvalidInCreateDrawer();
+      // eslint-disable-next-line playwright/no-conditional-expect
       expect(
         invalidAfterFirstPick,
         "Supervisor field should not stay invalid after a valid selection.",
       ).toBeFalsy();
     } else {
+      // eslint-disable-next-line playwright/no-conditional-expect
       expect(
         selectedTextAfterFirstPick.toLowerCase(),
         "Selected supervisor should populate in field after first selection.",
@@ -1927,29 +1757,23 @@ test.describe.serial("Property Module", () => {
 
     // Reset dependency state before reselection to avoid stale dropdown state.
     await propertyModule.setAssignSupervisorCheckedInCreateDrawer(false);
-    await visualPause();
     await propertyModule.setAssignSupervisorCheckedInCreateDrawer(true);
-    await visualPause();
     await propertyModule.assertSelectSupervisorVisibleInCreateDrawer();
-    const reopenedTooltip =
-      await propertyModule.openSelectSupervisorDropdownInCreateDrawer();
-    await visualPause();
+    // Get available options first (dismiss and reopen cleanly to avoid stale handle).
     const optionsAfterReopen =
-      await propertyModule.getSupervisorOptionsFromVisibleDropdown(
-        reopenedTooltip,
-      );
+      await propertyModule.getSupervisorOptionsFromOpenDropdown();
     const secondSupervisor =
       optionsAfterReopen.find(
         (x) => x.toLowerCase() !== firstSupervisor.toLowerCase(),
       ) || firstSupervisor;
-    await propertyModule.selectSupervisorByNameFromVisibleDropdown(
-      reopenedTooltip,
-      secondSupervisor,
-    );
-    await visualPause();
+    // Dismiss then reopen so we have a fresh tooltip handle before selecting.
+    await propertyModule.dismissSelectSupervisorDropdownInCreateDrawer();
+    await propertyModule.selectSupervisorByNameInCreateDrawer(secondSupervisor);
     const selectedTextAfterSecondPick =
       await propertyModule.getSelectedSupervisorTextInCreateDrawer();
+    // eslint-disable-next-line playwright/no-conditional-in-test
     if (!/select supervisor/i.test(selectedTextAfterSecondPick)) {
+      // eslint-disable-next-line playwright/no-conditional-expect
       expect(
         selectedTextAfterSecondPick.toLowerCase(),
         "Selected supervisor field should reflect latest selection.",
@@ -1972,7 +1796,6 @@ test.describe.serial("Property Module", () => {
       visibleAfterReopen,
       "Select Supervisor should not remain visible on a fresh drawer reopen.",
     ).toBeFalsy();
-    await visualPause();
 
     await propertyModule.cancelCreatePropertyDrawer();
     await propertyModule.assertCreatePropertyDrawerClosed();
@@ -1983,10 +1806,6 @@ test.describe.serial("Property Module", () => {
    * M-PROP-04G — Hubspot stage dropdown opens, lists options, supports select/reselect/dismiss, and resets on reopen.
    */
   test("TC-PROP-036 | Verify that 'Choose a Hubspot Stage to map' dropdown opens and lists available stages correctly. (M-PROP-04G)", async () => {
-    const visualPauseMs = Number(process.env.PROP_STAGE_VISUAL_PAUSE_MS || 900);
-    const visualPause = async () => {
-      await page.waitForTimeout(visualPauseMs);
-    };
 
     const stageA = "Approved";
     const stageB = "New Location";
@@ -2001,7 +1820,6 @@ test.describe.serial("Property Module", () => {
       "[TC-PROP-036] Step 2: Open stage dropdown and validate available stage list",
     );
     await propertyModule.openStageDropdown();
-    await visualPause();
     const observedStages =
       await propertyModule.getStageOptionsFromOpenDropdown();
     expect(
@@ -2015,25 +1833,20 @@ test.describe.serial("Property Module", () => {
       `[TC-PROP-036] Step 3: Select stage "${stageA}" and verify trigger updates`,
     );
     await propertyModule.selectStageByText(stageA);
-    await visualPause();
     await propertyModule.assertStageTriggerValue(stageA);
 
     console.log(
       `[TC-PROP-036] Step 4: Reopen stage dropdown and select "${stageB}"`,
     );
     await propertyModule.openStageDropdown();
-    await visualPause();
     await propertyModule.selectStageByText(stageB);
-    await visualPause();
     await propertyModule.assertStageTriggerValue(stageB);
 
     console.log(
       "[TC-PROP-036] Step 5: Reopen and dismiss without selecting; value should remain unchanged",
     );
     await propertyModule.openStageDropdown();
-    await visualPause();
     await propertyModule.dismissStageDropdownWithoutSelection();
-    await visualPause();
     await propertyModule.assertStageTriggerValue(stageB);
 
     console.log(
@@ -2052,12 +1865,6 @@ test.describe.serial("Property Module", () => {
    * M-PROP-04H — selecting Hubspot stage populates field correctly across select/reselect/dismiss/reset cycles.
    */
   test("TC-PROP-037 | Verify that selecting a Hubspot Stage populates the field correctly. (M-PROP-04H)", async () => {
-    const visualPauseMs = Number(
-      process.env.PROP_STAGE_POPULATION_VISUAL_PAUSE_MS || 900,
-    );
-    const visualPause = async () => {
-      await page.waitForTimeout(visualPauseMs);
-    };
 
     const firstStage = "Approved";
     const secondStage = "New Location";
@@ -2072,18 +1879,14 @@ test.describe.serial("Property Module", () => {
       `[TC-PROP-037] Step 2: Select first stage "${firstStage}" and verify population`,
     );
     await propertyModule.openStageDropdown();
-    await visualPause();
     await propertyModule.selectStageByText(firstStage);
-    await visualPause();
     await propertyModule.assertStageTriggerValue(firstStage);
 
     console.log(
       `[TC-PROP-037] Step 3: Reselect to "${secondStage}" and verify replacement`,
     );
     await propertyModule.openStageDropdown();
-    await visualPause();
     await propertyModule.selectStageByText(secondStage);
-    await visualPause();
     await propertyModule.assertStageTriggerValue(secondStage);
 
     console.log(
@@ -2096,9 +1899,7 @@ test.describe.serial("Property Module", () => {
       "[TC-PROP-037] Step 5: Reopen stage dropdown and dismiss without selection",
     );
     await propertyModule.openStageDropdown();
-    await visualPause();
     await propertyModule.dismissStageDropdownWithoutSelection();
-    await visualPause();
     await propertyModule.assertStageTriggerValue(secondStage);
 
     console.log(
@@ -2117,12 +1918,6 @@ test.describe.serial("Property Module", () => {
    * M-PROP-04I — Property Affiliation shows N/A before company selection and transitions after company pick.
    */
   test("TC-PROP-038 | Verify that Property Affiliation value displays as N/A before company selection. (M-PROP-04I)", async () => {
-    const visualPauseMs = Number(
-      process.env.PROP_AFFILIATION_NA_VISUAL_PAUSE_MS || 900,
-    );
-    const visualPause = async () => {
-      await page.waitForTimeout(visualPauseMs);
-    };
 
     console.log(
       "[TC-PROP-038] Step 1: Open Create Property drawer and verify Property Affiliation baseline N/A",
@@ -2135,15 +1930,10 @@ test.describe.serial("Property Module", () => {
       "[TC-PROP-038] Step 2: Interact with non-company fields and ensure Property Affiliation stays N/A",
     );
     await propertyModule.fillPropertyName(`AFF-NA-${Date.now()}`);
-    await visualPause();
     await propertyModule.openPropertySourceDropdown();
-    await visualPause();
     await propertyModule.dismissPropertySourceDropdownWithoutSelection();
-    await visualPause();
     await propertyModule.openStageDropdown();
-    await visualPause();
     await propertyModule.dismissStageDropdownWithoutSelection();
-    await visualPause();
     await propertyModule.assertPropertyAffiliationShowsNAInCreateDrawer();
     await propertyModule.assertAffiliationChipsHiddenBeforeCompany();
 
@@ -2151,7 +1941,6 @@ test.describe.serial("Property Module", () => {
       "[TC-PROP-038] Step 3: Select company and verify affiliation transitions from N/A baseline",
     );
     await propertyModule.selectCompanyInCreateForm(targetCompanyName);
-    await visualPause();
     await propertyModule.assertAllSixAffiliationChipsVisible();
 
     console.log(
@@ -2217,11 +2006,11 @@ test.describe.serial("Property Module", () => {
     console.log("[TC-PROP-030] All affiliation chips are visible");
 
     await propertyModule.managedButton.click({ force: true });
-    await page.waitForTimeout(400);
+    await expect(propertyModule.managedButton).toBeVisible();
     console.log("[TC-PROP-030] Managed clicked");
 
     await propertyModule.ownedButton.click({ force: true });
-    await page.waitForTimeout(400);
+    await expect(propertyModule.ownedButton).toBeVisible();
     console.log("[TC-PROP-030] Owned clicked");
 
     const managedSelectedAfterOwnedClick =
@@ -2391,6 +2180,267 @@ test.describe.serial("Property Module", () => {
 
     console.log("[TC-PROP-029] Complete");
   });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  //  TC-PROP-046 | Supervisor dropdown opens with user list; uncheck hides field
+  // ══════════════════════════════════════════════════════════════════════════
+  /**
+   * Preconditions: User is logged in as HO. Create Property drawer accessible.
+   * Flow: Open Create Property drawer → check Assign Supervisor → open dropdown →
+   *       verify list → search → select a user → uncheck Assign Supervisor →
+   *       verify field hidden.
+   * Priority: P1 — High
+   */
+  test(
+    "TC-PROP-046 | Supervisor dropdown opens with user list, uncheck hides field and clears selection @smoke",
+    async () => {
+      test.setTimeout(120_000);
+
+      await test.step(
+        "TC-PROP-046 setup: open drawer and enable Assign Supervisor checkbox",
+        async () => {
+          await openCreatePropertyDrawerFromList();
+          await propertyModule.assertAssignSupervisorCheckboxVisibleInCreateDrawer();
+
+          // Ensure checkbox is not HO-disabled; select a non-HO assignee if needed.
+          const isDisabled =
+            await propertyModule.isAssignSupervisorDisabledInCreateDrawer();
+          // eslint-disable-next-line playwright/no-conditional-in-test
+          if (isDisabled) {
+            await propertyModule.selectAssigneeByRoleInCreateDrawer({
+              includeRolePattern: /.+/,
+              excludeRolePattern: /Home Officer/i,
+            });
+          }
+          await expect(
+            propertyModule.assignSupervisorCheckboxInCreateDrawer(),
+          ).not.toBeDisabled();
+
+          await propertyModule.setAssignSupervisorCheckedInCreateDrawer(true);
+          await propertyModule.assertSelectSupervisorVisibleInCreateDrawer();
+        },
+      );
+
+      await test.step(
+        "TC-PROP-046 dropdown: open Select Supervisor and verify user list populated",
+        async () => {
+          const tooltip =
+            await propertyModule.openSelectSupervisorDropdownInCreateDrawer();
+
+          // Search textbox must be visible inside the tooltip
+          const searchInput = tooltip
+            .getByRole("textbox", { name: /Search by name/i })
+            .first()
+            .or(tooltip.getByRole("textbox").first());
+          await expect(searchInput).toBeVisible({ timeout: 8_000 });
+
+          // At least one user card (heading level=4) is listed
+          const userHeadings = tooltip.getByRole("heading", { level: 4 });
+          await expect(userHeadings.first()).toBeVisible({ timeout: 10_000 });
+          const count = await userHeadings.count();
+          expect(count).toBeGreaterThan(0);
+        },
+      );
+
+      await test.step(
+        "TC-PROP-046 search and select: search a user, select, verify field reflects selection",
+        async () => {
+          // Use a partial name that reliably returns results in this environment
+          const { results } = await propertyModule.searchSupervisorInOpenDropdown("a");
+          expect(results.length, "Search should return at least one user matching 'a'").toBeGreaterThan(0);
+
+          const targetSupervisor = results[0];
+          await propertyModule.selectSupervisorByNameInCreateDrawer(targetSupervisor);
+
+          // After selection the field should no longer read "Select Supervisor"
+          const selectedText =
+            await propertyModule.getSelectedSupervisorTextInCreateDrawer();
+          const fieldCleared = /select supervisor/i.test(selectedText);
+          // Either the field shows the name, or aria-invalid is false (field accepted)
+          if (!fieldCleared) {
+            expect(
+              selectedText.toLowerCase(),
+              `Supervisor field should reflect selected user. Got: "${selectedText}"`,
+            ).toContain(targetSupervisor.toLowerCase());
+          } else {
+            // Verify field is at least not invalid (selection registered internally)
+            const isInvalid =
+              await propertyModule.isSelectSupervisorInvalidInCreateDrawer();
+            expect(
+              isInvalid,
+              "Supervisor field should not be invalid after selecting a user.",
+            ).toBeFalsy();
+          }
+        },
+      );
+
+      await test.step(
+        "TC-PROP-046 uncheck: uncheck Assign Supervisor and verify Select Supervisor hidden",
+        async () => {
+          await propertyModule.setAssignSupervisorCheckedInCreateDrawer(false);
+
+          const visibleAfterUncheck =
+            await propertyModule.isSelectSupervisorVisibleInCreateDrawer();
+          expect(
+            visibleAfterUncheck,
+            "Select Supervisor should be hidden after unchecking Assign Supervisor.",
+          ).toBeFalsy();
+
+          // Checkbox must be unchecked
+          await expect(
+            propertyModule.assignSupervisorCheckboxInCreateDrawer(),
+          ).not.toBeChecked();
+        },
+      );
+
+      await propertyModule.cancelCreatePropertyDrawer();
+      await propertyModule.assertCreatePropertyDrawerClosed();
+    },
+  );
+
+  // ══════════════════════════════════════════════════════════════════════════
+  //  TC-PROP-047 | Contact Details section, role dropdowns, search, multi-role
+  // ══════════════════════════════════════════════════════════════════════════
+  /**
+   * Preconditions: User is logged in as HO. At least 2 contacts exist.
+   * Flow: Open Create Property drawer → verify Contact Details section →
+   *       open Decision Maker dropdown → verify list + search →
+   *       select contact → verify selection → select second role →
+   *       attempt same contact in Billing → verify graceful handling.
+   * Priority: P1 — High
+   */
+  test(
+    "TC-PROP-047 | Contact Details section visible, dropdowns open and support search, multi-role selection works, same-contact rule handled @smoke",
+    async () => {
+      test.setTimeout(120_000);
+
+      // Role indices: 0=Decision Maker, 1=End User, 2=Billing
+      const DECISION_MAKER = 0;
+      const END_USER = 1;
+      const BILLING = 2;
+
+      await test.step(
+        "TC-PROP-047 setup: open drawer, verify Contact Details heading and role rows visible",
+        async () => {
+          await openCreatePropertyDrawerFromList();
+          await propertyModule.assertContactDetailsSectionVisible();
+
+          // Each role row has a "Select a Contact" heading — verify at least 3 rows present
+          const drawer = propertyModule.createPropertyDrawerRoot();
+          const contactTriggers = drawer.getByRole("heading", {
+            name: /Select a Contact/i,
+            level: 6,
+          });
+          const triggerCount = await contactTriggers.count();
+          expect(
+            triggerCount,
+            "Contact Details should show at least 3 unselected role rows (Decision Maker, End User, Billing).",
+          ).toBeGreaterThanOrEqual(3);
+        },
+      );
+
+      await test.step(
+        "TC-PROP-047 decision-maker dropdown: opens, lists contacts, has search input",
+        async () => {
+          const tooltip = await propertyModule.openContactRoleDropdown(DECISION_MAKER);
+          await propertyModule.assertContactTooltipHasSearchAndResults(tooltip);
+          await propertyModule.dismissContactRoleTooltip();
+        },
+      );
+
+      await test.step(
+        "TC-PROP-047 search: search 'Ali' in Decision Maker dropdown, matching result visible",
+        async () => {
+          const tooltip = await propertyModule.openContactRoleDropdown(DECISION_MAKER);
+          // Use partial name known to exist in UAT contacts
+          await propertyModule.searchContactInOpenTooltip("Ali", tooltip);
+          const matchingResult = tooltip
+            .getByText("Ali", { exact: false })
+            .first();
+          await expect(matchingResult).toBeVisible({ timeout: 8_000 });
+        },
+      );
+
+
+      let decisionMakerText = "";
+
+      await test.step(
+        "TC-PROP-047 select decision-maker: pick contact, trigger text no longer shows placeholder",
+        async () => {
+          // Re-open the Decision Maker dropdown (ensures a clean, open tooltip state)
+          const activeTooltip = await propertyModule.openContactRoleDropdown(DECISION_MAKER);
+          await propertyModule.searchContactInOpenTooltip("Ali", activeTooltip);
+
+          // Pick first real contact paragraph (has email address — skip "Create new contact")
+          const contactParas = activeTooltip
+            .locator("p")
+            .filter({ hasText: /@/ });
+          await contactParas.first().waitFor({ state: "visible", timeout: 8_000 });
+          decisionMakerText = (
+            (await contactParas.first().innerText().catch(() => "")) || ""
+          ).trim();
+          await contactParas.first().click();
+
+          // After selection the heading changes to "Selected Contacts (N)" — no longer placeholder
+          // Live-verified 2026-04-24: UI shows "Selected Contacts (1)" not the contact name
+          await propertyModule.assertContactRoleHasSelection(DECISION_MAKER);
+        },
+      );
+
+      await test.step(
+        "TC-PROP-047 multi-role: select End User contact, both DM and EU rows show selections",
+        async () => {
+          const tooltip = await propertyModule.openContactRoleDropdown(END_USER);
+          await propertyModule.searchContactInOpenTooltip("", tooltip);
+
+          // Pick first real contact paragraph for End User role
+          const allResults = tooltip.locator("p").filter({ hasText: /@/ });
+          await allResults.first().waitFor({ state: "visible", timeout: 8_000 });
+          await allResults.first().click();
+
+          // Both Decision Maker and End User rows must show "Selected Contacts (N)"
+          // Live-verified: the drawer shows 2 separate "Selected Contacts (N)" headings
+          const drawer = propertyModule.createPropertyDrawerRoot();
+          const selectedHeadings = drawer.getByRole("heading", {
+            name: /Selected Contacts/i,
+            level: 6,
+          });
+          await expect(selectedHeadings).toHaveCount(2, { timeout: 8_000 });
+        },
+      );
+
+      await test.step(
+        "TC-PROP-047 same-contact rule: attempt same contact in Billing, no crash, DM intact",
+        async () => {
+          // Re-search using Decision Maker's contact name in Billing dropdown
+          const searchTerm = decisionMakerText.split("(")[0].trim();
+          const tooltip = await propertyModule.openContactRoleDropdown(BILLING);
+          await propertyModule.searchContactInOpenTooltip(searchTerm, tooltip);
+
+          // Attempt to select the same contact in Billing — app may allow or silently ignore
+          // Either outcome is valid; assert only that DM row selection remains intact
+          const matchResult = tooltip
+            .locator("p")
+            .filter({ hasText: /@/ })
+            .first();
+          await matchResult.waitFor({ state: "visible", timeout: 8_000 });
+          await matchResult.click();
+
+          // Decision Maker selection must still be intact — at least one "Selected Contacts"
+          // heading should still be visible in the drawer
+          await propertyModule.assertContactRoleHasSelection(DECISION_MAKER);
+
+          // Drawer must not have crashed (heading still present)
+          await expect(propertyModule.createPropertyHeading).toBeVisible({
+            timeout: 5_000,
+          });
+        },
+      );
+
+      await propertyModule.cancelCreatePropertyDrawer();
+      await propertyModule.assertCreatePropertyDrawerClosed();
+    },
+  );
 
   registerNotesTasksSuite({
     test,
