@@ -639,11 +639,24 @@ class ContractModule {
    * @param {'end' | 'renewal'} type
    */
   async selectDateType(type) {
-    if (type === 'end') {
-      await this.endDateRadio.click({ force: true });
-    } else if (type === 'renewal') {
-      await this.renewalDateRadio.click({ force: true });
+    const targetRadio = type === 'end' ? this.endDateRadio : this.renewalDateRadio;
+    const otherRadio = type === 'end' ? this.renewalDateRadio : this.endDateRadio;
+
+    let selected = false;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      selected = await targetRadio
+        .click({ force: true })
+        .then(async () => targetRadio.isChecked().catch(() => false))
+        .catch(() => false);
+      if (selected) break;
+      await this.page.waitForTimeout(200);
     }
+
+    if (!selected) {
+      throw new Error(`Unable to select date type "${type}" in Create Proposal drawer.`);
+    }
+    await expect(targetRadio).toBeChecked({ timeout: 5_000 });
+    await expect(otherRadio).not.toBeChecked({ timeout: 5_000 });
     await this.page.waitForTimeout(300);
   }
 
