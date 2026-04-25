@@ -15,11 +15,13 @@ Convert manual test case documentation into automated Playwright tests.
 /generate-test
 ```
 
-Answer 4 input prompts:
+Answer 6 input prompts:
 1. **Requirement** — Feature to test (e.g., "Verify deleting a service updates totals")
 2. **Module** — Which module (e.g., "Contract Module")
 3. **Documentation file** — Where test cases are documented (e.g., `docs/contract-module-test-steps.md`)
 4. **Test output file** — Where to write automation (e.g., `tests/e2e/contract-module.spec.js`)
+5. **Additional context** *(optional)* — Extra clarity: user role, preconditions, dependencies, priority (e.g., "HO role only, requires existing contract in draft status")
+6. **Codegen recording** *(optional)* — Record the flow with Playwright Codegen first? Yes / No
 
 The agent will execute the full 8-phase workflow and report results.
 

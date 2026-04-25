@@ -784,21 +784,26 @@ class ContractModule {
   }
 
   /** Fill the service name field (placeholder "Service 1") */
-  async fillServiceName(name) {
-    await this.serviceNameInput.waitFor({ state: 'visible', timeout: 10_000 });
-    await this.serviceNameInput.click({ clickCount: 3 });
-    await this.serviceNameInput.fill('');
-    await this.serviceNameInput.type(name, { delay: 20 });
+  async fillServiceName(name, serviceIndex = 0) {
+    // Get the nth service name input (when multiple services exist)
+    // The label may vary (Service 1, Service 2, etc.) so match any "Service" placeholder
+    const serviceNameInput = this.page.getByRole('textbox', { name: /Service/ }).nth(serviceIndex);
+    await serviceNameInput.waitFor({ state: 'visible', timeout: 10_000 });
+    await serviceNameInput.scrollIntoViewIfNeeded().catch(() => {});
+    await serviceNameInput.click({ clickCount: 3, force: true });
+    await serviceNameInput.fill('');
+    await serviceNameInput.type(name, { delay: 20 });
+    console.log(`[fillServiceName] service ${serviceIndex}: filled with "${name}"`);
 
-    let currentValue = await this.serviceNameInput.inputValue().catch(() => '');
+    let currentValue = await serviceNameInput.inputValue().catch(() => '');
     if (currentValue.trim() !== String(name).trim()) {
-      await this.serviceNameInput.fill(name);
-      await this.serviceNameInput.press('Tab').catch(() => {});
-      currentValue = await this.serviceNameInput.inputValue().catch(() => '');
+      await serviceNameInput.fill(name);
+      await serviceNameInput.press('Tab').catch(() => {});
+      currentValue = await serviceNameInput.inputValue().catch(() => '');
     }
 
     if (currentValue.trim() !== String(name).trim()) {
-      await this.serviceNameInput.evaluate((el, value) => {
+      await serviceNameInput.evaluate((el, value) => {
         el.value = value;
         el.dispatchEvent(new Event('input', { bubbles: true }));
         el.dispatchEvent(new Event('change', { bubbles: true }));
@@ -806,21 +811,86 @@ class ContractModule {
       }, String(name));
     }
 
-    await expect(this.serviceNameInput).toHaveValue(String(name), { timeout: 3_000 });
+    await expect(serviceNameInput).toHaveValue(String(name), { timeout: 3_000 });
   }
 
-  /** Fill the Officer/Guard count spinbutton */
-  async fillOfficerCount(count) {
-    await this.officerCountInput.waitFor({ state: 'visible', timeout: 5_000 });
-    await this.officerCountInput.click({ clickCount: 3 });
-    await this.officerCountInput.fill(String(count));
+  /** Fill the Officer/Guard count spinbutton (for specified service index) */
+  async fillOfficerCount(count, serviceIndex = 0) {
+    // Try multiple strategies to find Officer/Guard inputs across service cards
+    const strategies = [
+      // Strategy 1: spinbutton role with "Officer/Guard" name
+      () => this.page.getByRole('spinbutton', { name: /Officer|Guard/ }).nth(serviceIndex),
+      // Strategy 2: text input (some forms use regular inputs not spinbuttons)
+      () => this.page.getByPlaceholder(/Officer|Guard|Enter Number/).nth(serviceIndex),
+      // Strategy 3: textbox by label context
+      () => this.page.locator('input[type="number"]').filter({ has: this.page.getByText('Officer/Guard') }).nth(serviceIndex),
+      // Strategy 4: all number inputs, filter by proximity to "Officer/Guard" label
+      () => this.page.locator('input[type="number"]').nth(serviceIndex),
+    ];
+
+    let officerCountInput = null;
+    let usedStrategy = -1;
+    for (let i = 0; i < strategies.length; i++) {
+      try {
+        const el = strategies[i]();
+        const isVisible = await el.isVisible({ timeout: 3_000 }).catch(() => false);
+        if (isVisible) {
+          officerCountInput = el;
+          usedStrategy = i;
+          break;
+        }
+      } catch (e) {
+        // Try next strategy
+      }
+    }
+
+    if (!officerCountInput) {
+      throw new Error(`Officer/Guard input not found for service ${serviceIndex}`);
+    }
+
+    await officerCountInput.scrollIntoViewIfNeeded().catch(() => {});
+    await officerCountInput.click({ clickCount: 3, force: true });
+    await officerCountInput.fill(String(count));
+    await officerCountInput.press('Tab'); // Trigger blur/validation
+    await this.page.waitForTimeout(200);
+    console.log(`[fillOfficerCount] service ${serviceIndex}: filled with "${count}" (strategy ${usedStrategy + 1})`);
   }
 
-  /** Fill the Hourly Rate spinbutton */
-  async fillHourlyRate(rate) {
-    await this.hourlyRateInput.waitFor({ state: 'visible', timeout: 5_000 });
-    await this.hourlyRateInput.click({ clickCount: 3 });
-    await this.hourlyRateInput.fill(String(rate));
+  /** Fill the Hourly Rate spinbutton (for specified service index) */
+  async fillHourlyRate(rate, serviceIndex = 0) {
+    const primaryInputs = this.page.getByRole('spinbutton', { name: /Hourly Rate/ });
+    const fallbackInputs = this.page.locator('input[aria-label*="Hourly" i]');
+    const pairedSpinbuttons = this.page.getByRole('spinbutton');
+
+    let hourlyRateInput = primaryInputs.nth(serviceIndex);
+    let selectorLabel = 'role=spinbutton[name=/Hourly Rate/]';
+    const primaryCount = await primaryInputs.count().catch(() => 0);
+
+    if (primaryCount <= serviceIndex) {
+      const pairIndex = (serviceIndex * 2) + 1;
+      const pairedCount = await pairedSpinbuttons.count().catch(() => 0);
+      if (pairedCount > pairIndex) {
+        hourlyRateInput = pairedSpinbuttons.nth(pairIndex);
+        selectorLabel = 'role=spinbutton paired-index';
+      } else {
+        const fallbackCount = await fallbackInputs.count().catch(() => 0);
+        if (fallbackCount <= serviceIndex) {
+          throw new Error(`Hourly Rate input not found for service ${serviceIndex}`);
+        }
+        hourlyRateInput = fallbackInputs.nth(serviceIndex);
+        selectorLabel = 'input[aria-label*="Hourly"]';
+      }
+    }
+
+    await hourlyRateInput.waitFor({ state: 'visible', timeout: 8_000 });
+    await hourlyRateInput.scrollIntoViewIfNeeded().catch(() => {});
+    await hourlyRateInput.click({ clickCount: 3, force: true });
+    await hourlyRateInput.fill(String(rate));
+    await hourlyRateInput.press('Tab');
+    await this.page.waitForTimeout(200);
+    console.log(
+      `[fillHourlyRate] service ${serviceIndex}: filled with "${rate}" via ${selectorLabel}`,
+    );
   }
 
   /**
@@ -841,9 +911,34 @@ class ContractModule {
    * New approach: anchor on the <label for="…"> attribute to find the correct trigger div,
    * then read the h6 value directly to determine whether a selection is still needed.
    */
-  async selectFirstAvailableLineItem() {
-    await this._selectCustomDropdownIfEmpty(this.resourceTypeTriggerDiv, 'Resource Type');
-    await this._selectCustomDropdownIfEmpty(this.lineItemTriggerDiv,     'Line Item');
+  async selectFirstAvailableLineItem(serviceIndex = 0) {
+    // For multiple services, get the nth occurrence of each trigger
+    const resourceTypeTriggers = this.page.locator('label[for="officerType"] + div');
+    const lineItemTriggers = this.page.locator('label[for="lineItem"] + div');
+
+    const rtCount = await resourceTypeTriggers.count().catch(() => 0);
+    const liCount = await lineItemTriggers.count().catch(() => 0);
+    console.log(`[selectFirstAvailableLineItem] serviceIndex=${serviceIndex}, resourceTypeTriggers count=${rtCount}, lineItemTriggers count=${liCount}`);
+
+    if (serviceIndex >= rtCount || serviceIndex >= liCount) {
+      console.log(`[selectFirstAvailableLineItem] Index out of range! Trying alternate approach...`);
+      // Fallback: use getByText to find by label text
+      const serviceNameInput = this.page.getByRole('textbox', { name: /Service/ }).nth(serviceIndex);
+      const serviceSection = serviceNameInput.locator('xpath=ancestor::div[@class[contains(., "service")] or @class[contains(., "Service")]][1]');
+
+      const rtTrigger = serviceSection.locator('[aria-describedby="simple-popper"]').first();
+      const liTrigger = serviceSection.locator('[aria-describedby="simple-popper"]').nth(1);
+
+      await this._selectCustomDropdownIfEmpty(rtTrigger, 'Resource Type (fallback)');
+      await this._selectCustomDropdownIfEmpty(liTrigger, 'Line Item (fallback)');
+      return;
+    }
+
+    const resourceTypeTrigger = resourceTypeTriggers.nth(serviceIndex);
+    const lineItemTrigger = lineItemTriggers.nth(serviceIndex);
+
+    await this._selectCustomDropdownIfEmpty(resourceTypeTrigger, 'Resource Type');
+    await this._selectCustomDropdownIfEmpty(lineItemTrigger, 'Line Item');
   }
 
   /**
@@ -856,27 +951,38 @@ class ContractModule {
    */
   async _selectCustomDropdownIfEmpty(triggerDiv, fieldLabel) {
     const visible = await triggerDiv.isVisible().catch(() => false);
-    if (!visible) return; // field not present on this form
+    if (!visible) {
+      console.log(`[_selectCustomDropdownIfEmpty] ${fieldLabel} not visible`);
+      return; // field not present on this form
+    }
 
     // Read the current display value from the h6 inside the trigger
     const currentValue = await triggerDiv.locator('h6').first().textContent().catch(() => '');
     const trimmed = currentValue?.trim() ?? '';
 
+    console.log(`[_selectCustomDropdownIfEmpty] ${fieldLabel} current value: "${trimmed}"`);
+
     // If the h6 is non-empty AND does NOT start with "Select" (i.e. a real value is shown),
     // the field is already filled — nothing to do.
     if (trimmed && !/^select\s/i.test(trimmed)) {
+      console.log(`[_selectCustomDropdownIfEmpty] ${fieldLabel} already filled with "${trimmed}", skipping`);
       return;
     }
 
     // Field is empty / showing a placeholder → open the dropdown
     await triggerDiv.waitFor({ state: 'visible', timeout: 8_000 });
-    await triggerDiv.click({ force: true });
+    await triggerDiv.scrollIntoViewIfNeeded().catch(() => {});
+    // Use JS click to bypass innerScrollBar overlay that can intercept pointer events
+    await triggerDiv.evaluate((el) => el.click());
+    console.log(`[_selectCustomDropdownIfEmpty] ${fieldLabel} clicked`);
 
     const popper = this.page.locator('#simple-popper').last();
     const popperVisible = await popper
       .waitFor({ state: 'visible', timeout: 8_000 })
       .then(() => true)
       .catch(() => false);
+
+    console.log(`[_selectCustomDropdownIfEmpty] ${fieldLabel} popper visible: ${popperVisible}`);
 
     if (!popperVisible) {
       if (fieldLabel === 'Line Item') {
@@ -906,6 +1012,7 @@ class ContractModule {
 
     const options = popper.locator('[role="option"], li, h6, p');
     const optionCount = await options.count().catch(() => 0);
+    console.log(`[_selectCustomDropdownIfEmpty] ${fieldLabel} found ${optionCount} options`);
 
     for (let i = 0; i < optionCount; i += 1) {
       const option = options.nth(i);
@@ -920,13 +1027,16 @@ class ContractModule {
         continue;
       }
 
+      console.log(`[_selectCustomDropdownIfEmpty] ${fieldLabel} selecting option: "${optionText}"`);
       await option.click({ force: true }).catch(async () => {
         await option.evaluate((el) => el.click());
       });
       await this.page.waitForTimeout(500);
 
       const updatedValue = await triggerDiv.locator('h6').first().textContent().catch(() => '');
+      console.log(`[_selectCustomDropdownIfEmpty] ${fieldLabel} updated value: "${updatedValue?.trim()}"`);
       if (updatedValue?.trim() && !/^select\s/i.test(updatedValue.trim())) {
+        console.log(`[_selectCustomDropdownIfEmpty] ${fieldLabel} selection successful`);
         return;
       }
     }
@@ -940,18 +1050,21 @@ class ContractModule {
    * Click a Job Day button (Mon/Tue/Wed/Thu/Fri/Sat/Sun).
    * @param {'Mon'|'Tue'|'Wed'|'Thu'|'Fri'|'Sat'|'Sun'} day
    */
-  async clickJobDay(day) {
+  async clickJobDay(day, serviceIndex = 0) {
     const validDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     if (!validDays.includes(day)) {
       throw new Error(`Invalid day "${day}". Must be one of: ${validDays.join(', ')}`);
     }
-    const jobDaysSection = this.page
-      .locator('div')
-      .filter({ has: this.page.getByText('Job Days', { exact: true }) })
-      .first();
-    const scopedDayChip = jobDaysSection.getByText(day, { exact: true }).first();
-    const fallbackChip = this.page.getByText(day, { exact: true }).first();
+
+    // Each service card renders its own full set of day chips, so the nth occurrence
+    // of the day text maps directly to the nth service card's chip.
+    // The previous div.filter approach returned many ancestor divs (not one per service),
+    // causing nth(serviceIndex) to miss the correct card and the fallback to always
+    // click service 0's chip.
+    const dayChip = this.page.getByText(day, { exact: true }).nth(serviceIndex);
     const requiredMsg = this.page.getByText('Job Days must have at least 1 item.', { exact: true });
+
+    console.log(`[clickJobDay] service ${serviceIndex}, day ${day}: targeting nth(${serviceIndex})`);
 
     const clickChip = async (chip) => {
       await chip.scrollIntoViewIfNeeded().catch(() => {});
@@ -968,11 +1081,10 @@ class ContractModule {
       await this.page.waitForTimeout(250);
     };
 
-    const scopedVisible = await scopedDayChip.isVisible().catch(() => false);
-    await clickChip(scopedVisible ? scopedDayChip : fallbackChip);
+    await clickChip(dayChip);
     const stillMissingAfterPrimary = await requiredMsg.isVisible().catch(() => false);
     if (stillMissingAfterPrimary) {
-      await clickChip(fallbackChip);
+      await clickChip(dayChip);
     }
   }
 
@@ -984,15 +1096,20 @@ class ContractModule {
    * @param {'AM'|'PM'}   meridiem
    */
   async selectTimeInDialog(hours, minutes, meridiem) {
-    await this.timeDialogHoursListbox.waitFor({ state: 'visible', timeout: 8_000 });
+    // Use .last() to target the current/most-recent dialog (when multiple time pickers exist)
+    const currentHoursListbox = this.page.getByRole('listbox', { name: 'Select hours' }).last();
+    const currentMinutesListbox = this.page.getByRole('listbox', { name: 'Select minutes' }).last();
+    const currentMeridiemListbox = this.page.getByRole('listbox', { name: 'Select meridiem' }).last();
+
+    await currentHoursListbox.waitFor({ state: 'visible', timeout: 8_000 });
     // Option names are e.g. "8 hours", "0 minutes", "AM"
-    await this.timeDialogHoursListbox
+    await currentHoursListbox
       .getByRole('option', { name: `${parseInt(hours, 10)} hours`, exact: true })
       .click();
-    await this.timeDialogMinutesListbox
+    await currentMinutesListbox
       .getByRole('option', { name: `${parseInt(minutes, 10)} minutes`, exact: true })
       .click();
-    await this.timeDialogMeridiemListbox
+    await currentMeridiemListbox
       .getByRole('option', { name: meridiem, exact: true })
       .click();
     const okBtn = this.page.getByRole('button', { name: 'OK' }).last();
@@ -1013,12 +1130,15 @@ class ContractModule {
    * @param {string}    minutes   — "00"–"59"
    * @param {'AM'|'PM'} meridiem
    */
-  async selectStartTime(hours, minutes, meridiem) {
+  async selectStartTime(hours, minutes, meridiem, serviceIndex = 0) {
+    // For serviceIndex 0: .nth(0), for serviceIndex 1: .nth(2), etc.
     const startPickerBtn = this.page
       .getByRole('button', { name: /Choose time/ })
-      .first();
+      .nth(serviceIndex * 2);
     await startPickerBtn.waitFor({ state: 'visible', timeout: 8_000 });
-    await startPickerBtn.click();
+    await startPickerBtn.scrollIntoViewIfNeeded().catch(() => {});
+    // Use JS click to bypass innerScrollBar overlay that intercepts pointer events
+    await startPickerBtn.evaluate((el) => el.click());
     await this.selectTimeInDialog(hours, minutes, meridiem);
   }
 
@@ -1028,13 +1148,17 @@ class ContractModule {
    * @param {string}    hours     — "01"–"12"
    * @param {string}    minutes   — "00"–"59"
    * @param {'AM'|'PM'} meridiem
+   * @param {number}    serviceIndex — 0 for first service, 1 for second, etc.
    */
-  async selectEndTime(hours, minutes, meridiem) {
+  async selectEndTime(hours, minutes, meridiem, serviceIndex = 0) {
+    // For serviceIndex 0: .nth(1), for serviceIndex 1: .nth(3), etc.
     const endPickerBtn = this.page
       .getByRole('button', { name: /Choose time/ })
-      .nth(1);
+      .nth(serviceIndex * 2 + 1);
     await expect(endPickerBtn).toBeEnabled({ timeout: 8_000 });
-    await endPickerBtn.click();
+    await endPickerBtn.scrollIntoViewIfNeeded().catch(() => {});
+    // Use JS click to bypass innerScrollBar overlay that intercepts pointer events
+    await endPickerBtn.evaluate((el) => el.click());
     await this.selectTimeInDialog(hours, minutes, meridiem);
   }
 
@@ -1047,14 +1171,15 @@ class ContractModule {
    * @param {string[]} opts.jobDays               — days to click, e.g. ['Mon', 'Wed']
    * @param {{hours:string, minutes:string, meridiem:string}} opts.startTime
    * @param {{hours:string, minutes:string, meridiem:string}} opts.endTime
+   * @param {number}   serviceIndex              — which service to fill (0 for first, 1 for second, etc.)
    */
-  async fillStep1Services({ serviceName, officerCount, hourlyRate, jobDays, startTime, endTime }) {
-    await this.fillServiceName(serviceName);
-    await this.selectFirstAvailableLineItem();
-    await this.fillOfficerCount(officerCount);
-    await this.fillHourlyRate(hourlyRate);
+  async fillStep1Services({ serviceName, officerCount, hourlyRate, jobDays, startTime, endTime }, serviceIndex = 0) {
+    await this.fillServiceName(serviceName, serviceIndex);
+    await this.selectFirstAvailableLineItem(serviceIndex);
+    await this.fillOfficerCount(officerCount, serviceIndex);
+    await this.fillHourlyRate(hourlyRate, serviceIndex);
     for (const day of jobDays) {
-      await this.clickJobDay(day);
+      await this.clickJobDay(day, serviceIndex);
     }
 
     const jobDaysRequiredMsg = this.page.getByText(
@@ -1066,7 +1191,7 @@ class ContractModule {
       .catch(() => false);
     if (needsJobDayRecovery && jobDays.length > 0) {
       for (const day of jobDays) {
-        await this.clickJobDay(day);
+        await this.clickJobDay(day, serviceIndex);
         const stillMissingJobDay = await jobDaysRequiredMsg.isVisible().catch(() => false);
         if (!stillMissingJobDay) {
           break;
@@ -1074,8 +1199,8 @@ class ContractModule {
       }
     }
 
-    await this.selectStartTime(startTime.hours, startTime.minutes, startTime.meridiem);
-    await this.selectEndTime(endTime.hours, endTime.minutes, endTime.meridiem);
+    await this.selectStartTime(startTime.hours, startTime.minutes, startTime.meridiem, serviceIndex);
+    await this.selectEndTime(endTime.hours, endTime.minutes, endTime.meridiem, serviceIndex);
 
     // Allow React to reconcile all field updates so form validation runs
     // and enables the "Save & Next" button before the test asserts on it.
@@ -1083,8 +1208,8 @@ class ContractModule {
 
     const saveEnabled = await this.saveAndNextBtn.isEnabled().catch(() => false);
     if (!saveEnabled) {
-      await this.fillServiceName(serviceName);
-      await this.selectFirstAvailableLineItem();
+      await this.fillServiceName(serviceName, serviceIndex);
+      await this.selectFirstAvailableLineItem(serviceIndex);
       await this.page.waitForTimeout(400);
     }
   }
@@ -1101,73 +1226,71 @@ class ContractModule {
   }
 
   /**
+   * Internal helper — returns the quantity-control group for the given device.
+   *
+   * Each device row on Step 2 renders: [button "-", button "{qty}"[disabled], button "+"]
+   * inside a `group` role element. There are exactly 3 such groups (one per device),
+   * appearing in page order: NFC Tags → Beacons → QR Tags.
+   *
+   * Using device order index avoids unreliable DOM ancestor traversal (../.. etc.)
+   * whose depth depends on internal MUI wrapper count and breaks across versions.
+   *
+   * @param {'NFC Tags'|'Beacons'|'QR Tags'} deviceName
+   * @returns {import('@playwright/test').Locator}
+   */
+  _deviceQuantityGroup(deviceName) {
+    const deviceOrder = ['NFC Tags', 'Beacons', 'QR Tags'];
+    const idx = deviceOrder.indexOf(deviceName);
+    if (idx < 0) throw new Error(`Unknown device: "${deviceName}"`);
+    // Filter to groups that contain BOTH "-" and "+" buttons — these are the quantity
+    // controls, not spinbutton increment/decrement arrows.
+    return this.page
+      .getByRole('group')
+      .filter({ has: this.page.getByRole('button', { name: '-' }) })
+      .filter({ has: this.page.getByRole('button', { name: '+' }) })
+      .nth(idx);
+  }
+
+  /**
    * Increment the quantity for a named device by clicking its "+" button.
-   * Navigates from the device's heading to the ancestor row, then finds "+".
    * @param {'NFC Tags'|'Beacons'|'QR Tags'} deviceName
    * @param {number} count — how many times to click "+"
    */
   async addDeviceQuantity(deviceName, count = 1) {
-    const plusBtn = this.page
-      .locator('div')
-      .filter({ has: this.page.getByRole('heading', { name: deviceName, level: 6 }) })
-      .getByRole('button', { name: '+' })
-      .first();
+    const plusBtn = this._deviceQuantityGroup(deviceName).getByRole('button', { name: '+' });
     for (let i = 0; i < count; i++) {
-      await plusBtn.click({ force: true });
+      // Use JS click to bypass the innerScrollBar overlay that intercepts pointer events
+      await plusBtn.evaluate((el) => el.click());
       await this.page.waitForTimeout(250);
     }
   }
 
   /**
    * Decrement the quantity for a named device by clicking its "-" button.
-   * Navigates from the device's heading to the ancestor row, then finds "-".
-   * Attempts multiple selector strategies for resilience.
    * @param {'NFC Tags'|'Beacons'|'QR Tags'} deviceName
    * @param {number} count — how many times to click "-"
    */
   async subtractDeviceQuantity(deviceName, count = 1) {
-    const heading = this.page.getByRole('heading', { name: deviceName, level: 6 });
-    // Try multiple selector strategies for finding the minus button
-    const minusBtn = heading
-      .locator('..')  // Go to parent
-      .locator('button', { hasText: '-' })  // Find button with text "-"
-      .or(heading.locator('xpath=following::button[normalize-space()="-"][1]'));  // Fallback to XPath
-
+    const minusBtn = this._deviceQuantityGroup(deviceName).getByRole('button', { name: '-' });
     for (let i = 0; i < count; i++) {
-      await minusBtn.click({ force: true });
+      // Use JS click to bypass the innerScrollBar overlay that intercepts pointer events
+      await minusBtn.evaluate((el) => el.click());
       await this.page.waitForTimeout(250);
     }
   }
 
   /**
    * Get the current quantity for a named device.
-   * Locates the quantity display text between +/- buttons.
-   * Attempts multiple selector strategies for resilience.
+   * The quantity is the disabled middle button in the group: ["-", "{qty}", "+"].
    * @param {'NFC Tags'|'Beacons'|'QR Tags'} deviceName
-   * @returns {Promise<number>} The current quantity
+   * @returns {Promise<number>}
    */
   async getDeviceQuantity(deviceName) {
-    const heading = this.page.getByRole('heading', { name: deviceName, level: 6 });
-    // Try to find quantity text in the parent row/container
-    let quantityText;
-    try {
-      // Strategy 1: Look for text between +/- buttons in parent
-      quantityText = await heading
-        .locator('..')
-        .locator('span')
-        .first()
-        .textContent();
-    } catch {
-      // Strategy 2: Try XPath fallback
-      try {
-        quantityText = await heading
-          .locator('xpath=following::span[1]')
-          .textContent();
-      } catch {
-        quantityText = '0';
-      }
-    }
-    return parseInt(quantityText?.trim() || '0', 10);
+    const group = this._deviceQuantityGroup(deviceName);
+    // Buttons in order: ['-', '{qty}'(disabled), '+']. Middle button = quantity.
+    const qtyBtn = group.getByRole('button').nth(1);
+    const text = await qtyBtn.textContent().catch(() => '0');
+    return /^\d+$/.test(text.trim()) ? parseInt(text.trim(), 10) : 0;
   }
 
   /**
@@ -1182,17 +1305,13 @@ class ContractModule {
   }
 
   /**
-   * Check if the minus button for a device is disabled (cannot go below 0).
+   * Check if the minus button for a device is disabled.
    * @param {'NFC Tags'|'Beacons'|'QR Tags'} deviceName
-   * @returns {Promise<boolean>} True if button is disabled, false if enabled
+   * @returns {Promise<boolean>}
    */
   async isDeviceMinusButtonDisabled(deviceName) {
-    const heading = this.page.getByRole('heading', { name: deviceName, level: 6 });
-    const minusBtn = heading
-      .locator('..')
-      .locator('button', { hasText: '-' })
-      .or(heading.locator('xpath=following::button[normalize-space()="-"][1]'));
-    return await minusBtn.isDisabled().catch(() => true);  // If selector fails, assume disabled
+    const minusBtn = this._deviceQuantityGroup(deviceName).getByRole('button', { name: '-' });
+    return await minusBtn.isDisabled().catch(() => false);
   }
 
   /**
@@ -1245,11 +1364,164 @@ class ContractModule {
     return await inputField.inputValue().catch(() => '');
   }
 
+  /**
+   * Returns the unit price input (spinbutton) for the given device.
+   *
+   * Each device row on Step 2 has one `input[name="price"]` (type="number").
+   * They appear in page order: NFC Tags → Beacons → QR Tags.
+   * Live-verified 2026-04-23: name="price", placeholder="$5.00", MUI spinbutton.
+   *
+   * @param {'NFC Tags'|'Beacons'|'QR Tags'} deviceName
+   * @returns {import('@playwright/test').Locator}
+   */
+  _deviceUnitPriceInput(deviceName) {
+    const deviceOrder = ['NFC Tags', 'Beacons', 'QR Tags'];
+    const idx = deviceOrder.indexOf(deviceName);
+    if (idx < 0) throw new Error(`Unknown device: "${deviceName}"`);
+    return this.page.locator('input[name="price"]').nth(idx);
+  }
+
+  /**
+   * Get the current unit price value for the given device.
+   * Returns the raw string value from the input field.
+   * @param {'NFC Tags'|'Beacons'|'QR Tags'} deviceName
+   * @returns {Promise<string>}
+   */
+  async getDeviceUnitPrice(deviceName) {
+try {
+    // 1. Get the string value from the input first
+    const value = await this._deviceUnitPriceInput(deviceName).inputValue();
+
+    // 2. Parse the string to an integer
+    // We use || 0 as a fallback if the string is empty or invalid
+    return parseInt(value, 10) || 0;
+  } catch (error) {
+    // 3. If the locator fails or the page crashes, return 0
+    return 0;
+  }  }
+
+  /**
+   * Fill the unit price input for the given device with a numeric value.
+   * Uses fill() which works for numeric strings (input[type="number"]).
+   * @param {'NFC Tags'|'Beacons'|'QR Tags'} deviceName
+   * @param {string|number} value — must be numeric (e.g., '25', '-5', '0')
+   */
+  async fillDeviceUnitPrice(deviceName, value) {
+    const input = this._deviceUnitPriceInput(deviceName);
+    // Triple-click selects all existing text, then fill replaces it.
+    // Playwright fill() only accepts numeric strings for input[type="number"].
+    await input.click({ clickCount: 3 });
+    await input.fill(String(value));
+    await input.blur();
+  }
+
+  /**
+   * Type raw characters into the device unit price input using keyboard events.
+   * Use this for non-numeric validation tests where fill() would throw on
+   * input[type="number"]. pressSequentially dispatches real key events so the
+   * browser strips invalid characters according to its own rules.
+   * @param {'NFC Tags'|'Beacons'|'QR Tags'} deviceName
+   * @param {string} rawText — arbitrary text (e.g., 'abc', '!@#')
+   */
+  async typeRawDeviceUnitPrice(deviceName, rawText) {
+    const input = this._deviceUnitPriceInput(deviceName);
+    await input.click({ clickCount: 3 });
+    await input.pressSequentially(rawText);
+    await input.blur();
+  }
+
+  /**
+   * Get the device section total price text from the "Total: $X.XX" heading.
+   * Live-verified 2026-04-23: h5 heading with text "Total: $30.00".
+   * @returns {Promise<string>} Raw text e.g. "Total: $30.00"
+   */
+  async getDevicesTotalPrice() {
+    return await this.devicesTotalHeading.textContent().catch(() => '');
+  }
+
   // ── Step 3 — On Demand ─────────────────────────────────────────────────
 
   /** Assert Step 3 On Demand section heading is visible */
   async assertStep3Visible() {
     await expect(this.onDemandPageHeading).toBeVisible({ timeout: 10_000 });
+  }
+
+  // ── Step 3 — Line Item helpers ────────────────────────────────────────
+
+  /**
+   * Add a custom line item on Step 3.
+   * Clicks "+ Line Item", fills Title / Price Per Month / Quantity, then saves.
+   * Waits for the saved card to appear before returning.
+   * @param {{ title: string, pricePerMonth: number|string, quantity: number|string }} item
+   */
+  async addLineItem({ title, pricePerMonth, quantity }) {
+    await this.page.getByRole('button', { name: 'Line Item' }).click();
+    // Use id="title" selector (stable DOM id). MUI controlled input requires
+    // pressSequentially so React's onChange fires on each keystroke.
+    const titleInput = this.page.locator('#title');
+    await titleInput.waitFor({ state: 'visible', timeout: 5_000 });
+    await titleInput.click();
+    await titleInput.pressSequentially(String(title));
+    // id="price" / placeholder="e.g, $50" — type=number; fill() triggers React fine
+    await this.page.getByPlaceholder('e.g, $50').fill(String(pricePerMonth));
+    // id="quantity" / placeholder="e.g, 2"
+    await this.page.getByPlaceholder('e.g, 2').fill(String(quantity));
+    await this.page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(this.getLineItemCard('Line item')).toBeVisible();
+  }
+
+  /**
+   * Returns the card container for a specific line item scoped by its title text.
+   * Each card has two icon-only buttons: Edit (first) and Delete (last).
+   * Uses .last() because — among all ancestors that contain both the title <p> and
+   * a <button> — the card-level container is the deepest in document order.
+   * @param {string} title — exact title of the line item
+   */
+  getLineItemCard(title) {
+    return this.page
+      .locator('*')
+      .filter({ has: this.page.locator('p', { hasText: title }) })
+      .filter({ has: this.page.getByRole('button') })
+      .last();
+  }
+
+  /** Edit icon button for a specific line item (first icon in the card). */
+  getLineItemEditBtn(title) {
+    return this.getLineItemCard(title).getByRole('button').first();
+  }
+
+  /** Delete icon button for a specific line item (second icon in the card). */
+  getLineItemDeleteBtn(title) {
+    return this.getLineItemCard(title).getByRole('button').last();
+  }
+
+  /**
+   * Click the delete icon on a line item card, then confirm the
+   * "Delete Additional Service!" modal.
+   * @param {string} title
+   */
+  async deleteLineItem(title) {
+    await this.getLineItemDeleteBtn(title).click();
+    await this.page
+      .getByRole('dialog', { name: 'Delete Additional Service!' })
+      .getByRole('button', { name: 'Delete Additional Service' })
+      .click();
+  }
+
+  /**
+   * Click the edit icon on a line item card, update only the title, then save.
+   * @param {string} currentTitle
+   * @param {string} newTitle
+   */
+  async editLineItemTitle(currentTitle, newTitle) {
+    await this.getLineItemEditBtn(currentTitle).click();
+    const titleInput = this.page.locator('#title');
+    await titleInput.waitFor({ state: 'visible', timeout: 5_000 });
+    await titleInput.click();
+    await titleInput.selectText();
+    await titleInput.pressSequentially(newTitle);
+    await this.page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(this.page.getByText(newTitle)).toBeVisible({ timeout: 5_000 });
   }
 
   // ── Step 4 — Payment Terms ─────────────────────────────────────────────
@@ -1283,6 +1555,91 @@ class ContractModule {
    */
   async selectBillingType(type) {
     await this._selectFromCustomDropdown(/Select Billing Type|Pre Bill|Post Bill/, type);
+  }
+
+  /**
+   * Open Billing Type dropdown in Step 4.
+   * Supports default and selected states (Not Included / Charge Per Alarm / Flat-rate).
+   */
+  async openBillingTypeDropdown() {
+    const triggerHeading = this.page
+      .getByRole('heading', {
+        name: /Billing Type|Not Included|Charge Per Alarm|Flat[- ]rate|Dispatch Request/i,
+        level: 6,
+      })
+      .first();
+    await triggerHeading.waitFor({ state: 'visible', timeout: 8_000 });
+    const triggerContainer = triggerHeading.locator('..');
+
+    await triggerContainer.click({ force: true }).catch(async () => {
+      await triggerHeading.click({ force: true });
+    });
+
+    await this.page
+      .locator('#simple-popper')
+      .last()
+      .waitFor({ state: 'visible', timeout: 4_000 })
+      .catch(() => {});
+  }
+
+  /**
+   * Select Billing Type option from the opened dropdown.
+   * @param {'Not Included'|'Charge Per Alarm'|'Flat-rate' | 'Non Billable'} option
+   */
+  async selectDispatchBillingType(option) {
+    await this.openBillingTypeDropdown();
+    const normalized = String(option).toLowerCase();
+    const optionPatterns = normalized.includes('charge')
+      ? [/Charge\s*Per\s*Alarm/i, /Charge/i]
+      : normalized.includes('flat')
+        ? [/Flat[- ]?rate/i, /Flat/i]
+        : normalized.includes('non')
+        ? [/Non\s*Billable/i, /Non[- ]?Billable/i]
+        : [/Not Included/i];
+    const popper = this.page.locator('#simple-popper').last();
+    const popperVisible = await popper.isVisible().catch(() => false);
+
+    if (popperVisible) {
+      let optionClicked = false;
+      for (const pattern of optionPatterns) {
+        const optionLocator = popper.getByText(pattern).first();
+        const isVisible = await optionLocator.isVisible().catch(() => false);
+        if (isVisible) {
+          await optionLocator.click({ force: true });
+          optionClicked = true;
+          break;
+        }
+      }
+      if (!optionClicked) {
+        throw new Error(`Billing Type option "${option}" not visible in dropdown.`);
+      }
+    } else {
+      const fallbackOption = this.page
+        .locator('div')
+        .filter({ hasText: optionPatterns[0] })
+        .last();
+      await fallbackOption.click({ force: true });
+    }
+    await this.page.waitForTimeout(400);
+  }
+
+  /** Returns Step 4 Charge Per Alarm rate input. */
+  getChargePerAlarmRateInput() {
+    return this.page
+      .getByRole('spinbutton', { name: /Billing Type Rate.*Price|Charge Per Alarm/i })
+      .first();
+  }
+
+  /** Returns Step 4 Peak Hours rate input. */
+  getPeakHoursRateInput() {
+    return this.page.getByRole('spinbutton', { name: /Peak Hours/i }).first();
+  }
+
+  /** Returns Step 4 Flat-rate weekly input. */
+  getFlatRateWeeklyInput() {
+    return this.page
+      .getByRole('spinbutton', { name: /Billing Type Rate.*\/week/i })
+      .first();
   }
 
   /**
@@ -1684,72 +2041,39 @@ class ContractModule {
 
   /**
    * Click the delete button for the first service on Step 1.
-   * Tries multiple selector patterns to find the delete button.
-   * TODO: Requires DOM inspection to identify the exact delete button selector.
-   *       Run codegen to capture the actual selector: npx playwright codegen [url]
+   * Note: Delete button only appears when there are 2+ services.
+   * Selector discovered via Playwright Codegen.
    */
   async deleteFirstService() {
-    // Try multiple selector strategies in order of preference
-    const selectors = [
-      // Strategy 1: Button with exact name match (via codegen discovery)
-      () => this.page.getByRole('button', { name: 'Delete Service' }).first(),
+    const deleteBtn = this.page.getByRole('button', { name: 'Delete Service' }).first();
+    await deleteBtn.waitFor({ state: 'visible', timeout: 8_000 });
+    await deleteBtn.scrollIntoViewIfNeeded().catch(() => {});
+    // Use JS click to bypass the innerScrollBar overlay that intercepts pointer events
+    await deleteBtn.evaluate((el) => el.click());
+    await this.page.waitForTimeout(500);
+  }
 
-      // Strategy 2: Button with partial name match
-      () => this.page.getByRole('button', { name: /Delete|Remove/ }).first(),
+  /**
+   * Confirm the "Delete Service!" modal that appears after clicking a service's delete button.
+   * The modal's confirm button is overlaid by the innerScrollBar div (high z-index), so we
+   * temporarily disable its pointer-events before clicking, then restore them after.
+   */
+  async confirmDeleteService() {
+    // The confirmation modal may not use role="dialog"; locate by heading text instead.
+    // The confirm button is the last "Delete Service" button (card buttons come before modal button).
+    // JS click bypasses the MUI overlay that intercepts coordinate-based clicks.
+    const confirmBtn = this.page
+      .getByRole('button', { name: 'Delete Service' })
+      .last();
+    await confirmBtn.waitFor({ state: 'visible', timeout: 8_000 });
+    await confirmBtn.scrollIntoViewIfNeeded().catch(() => {});
+    await confirmBtn.evaluate((el) => el.click());
 
-      // Strategy 3: SVG icon or child element within delete button
-      () => this.page.locator('button:has-text("Delete"), button svg[aria-label*="Delete"]').first(),
-
-      // Strategy 4: Button with data attributes commonly used for delete
-      () => this.page.locator('button[data-testid*="delete"], button[aria-label*="delete"]').first(),
-
-      // Strategy 5: Within service container, find trash/delete icon button
-      () => this.page.locator('[class*="service"]:first-child button[type="button"]').last()
-    ];
-
-    for (let i = 0; i < selectors.length; i++) {
-      try {
-        const btn = selectors[i]();
-        const visible = await btn.isVisible({ timeout: 4_000 }).catch(() => false);
-
-        if (visible) {
-          console.log(`[DELETE] Found delete button using strategy ${i + 1}`);
-          await btn.click({ force: true });
-          await this.page.waitForTimeout(500);
-          await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
-          return;
-        }
-      } catch (e) {
-        // Continue to next strategy
-      }
-    }
-
-    // Last resort: Try to find any button that looks like a delete action
-    const allButtons = this.page.locator('button');
-    const count = await allButtons.count().catch(() => 0);
-
-    for (let j = 0; j < count; j++) {
-      try {
-        const btn = allButtons.nth(j);
-        const text = await btn.textContent().catch(() => '');
-        const ariaLabel = await btn.getAttribute('aria-label').catch(() => '');
-
-        if (text.toLowerCase().includes('delete') || ariaLabel.toLowerCase().includes('delete')) {
-          const visible = await btn.isVisible({ timeout: 2_000 }).catch(() => false);
-          if (visible) {
-            console.log(`[DELETE] Found delete button as button #${j}`);
-            await btn.click({ force: true });
-            await this.page.waitForTimeout(500);
-            await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
-            return;
-          }
-        }
-      } catch (e) {
-        // Continue searching
-      }
-    }
-
-    throw new Error('Delete button not found for first service');
+    // Wait for the modal heading to disappear
+    await this.page
+      .getByText('Delete Service!', { exact: true })
+      .waitFor({ state: 'hidden', timeout: 10_000 })
+      .catch(() => {});
   }
 
   /**
@@ -1854,36 +2178,74 @@ class ContractModule {
    * Returns null if not found or visible.
    */
   async getGrandTotal() {
-    const grandTotalLabel = this.page.getByText(/Grand Total|Total:/i, { exact: false });
-    const grandTotalField = grandTotalLabel
+    // Trigger form recalculation by scrolling and waiting
+    await this.page.evaluate(() => window.scrollBy(0, 10)).catch(() => {});
+    await this.page.waitForTimeout(300);
+
+    // Try to find the grand total by label first (Grand Total: or Total:)
+    let grandTotalField = this.page.getByText(/Grand Total|Total:/i, { exact: false })
       .locator('xpath=following-sibling::input[1], xpath=following-sibling::div[1], xpath=following-sibling::span[1]')
       .first();
 
-    const isVisible = await grandTotalField.isVisible({ timeout: 5_000 }).catch(() => false);
-    if (!isVisible) {
-      return null;
+    let isVisible = await grandTotalField.isVisible({ timeout: 5_000 }).catch(() => false);
+    if (isVisible) {
+      const value = await grandTotalField.textContent().catch(() => null);
+      console.log(`[getGrandTotal] Found via label: "${value}"`);
+      return value;
     }
 
-    const value = await grandTotalField.textContent().catch(() => null);
-    return value;
+    // Fallback: look for USD total text (e.g., "USD 135.00 Weekly" on Step 1)
+    // Look for the LAST occurrence since it's usually in the footer
+    const usdTotalTexts = this.page.getByText(/USD\s*[\d,]+\.\d{2}/);
+    const count = await usdTotalTexts.count().catch(() => 0);
+    const usdTotalText = usdTotalTexts.last();
+
+    console.log(`[getGrandTotal] Found ${count} USD matches, using last one`);
+
+    isVisible = await usdTotalText.isVisible({ timeout: 5_000 }).catch(() => false);
+    if (isVisible) {
+      const value = await usdTotalText.textContent().catch(() => null);
+      console.log(`[getGrandTotal] Found via USD text: "${value}"`);
+      return value;
+    }
+
+    console.log(`[getGrandTotal] No grand total found!`);
+    return null;
   }
 
   /**
    * Click the "Add Service" button to add another service to Step 1.
    */
   async clickAddService() {
-    const addServiceBtn = this.page
-      .getByRole('button', { name: /Add Service|Add Another Service/i })
-      .or(this.page.locator('button[title*="Add Service"]'))
-      .first();
+    // The "Add another service" card contains a "+" circle (MuiIconButton) as a sibling
+    // to the descriptive text. Walk up from the text to find the card container, then
+    // click the button inside it directly.
+    const clicked = await this.page.evaluate(() => {
+      const all = Array.from(document.querySelectorAll('*'));
+      const textEl = all.find(
+        (el) => el.children.length === 0 && (el.textContent || '').trim() === 'Add another service',
+      );
+      if (!textEl) return false;
 
-    const btnVisible = await addServiceBtn.isVisible({ timeout: 8_000 }).catch(() => false);
-    if (btnVisible) {
-      await addServiceBtn.click({ force: true });
-      await this.page.waitForTimeout(600);
-    } else {
-      throw new Error('Add Service button not found');
+      // Walk up to find the first ancestor that has a <button> descendant (the "+" circle)
+      let container = textEl.parentElement;
+      while (container && container !== document.body) {
+        const btn = container.querySelector('button');
+        if (btn) {
+          btn.click();
+          return true;
+        }
+        container = container.parentElement;
+      }
+      // Fallback: click the text's parent element directly
+      textEl.parentElement.click();
+      return true;
+    });
+
+    if (!clicked) {
+      throw new Error('Add Service card not found on page');
     }
+    await this.page.waitForTimeout(600);
   }
 }
 
