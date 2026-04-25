@@ -550,7 +550,85 @@ Run only smoke: `npx playwright test --grep @smoke`
 
 ---
 
-## 10. Auto-Fix Methodology
+## 10. Test Data: env vars vs local constants
+
+Static test-fixture values (names, labels, search strings) must **never** come from `process.env.*`. They are test data, not configuration. This section defines the boundary.
+
+### 10.1 The rule in one sentence
+
+> `process.env.*` is for **runtime configuration**. Named constants at the top of the file are for **static test fixture data**. Dynamically created records use a `PAT {timestamp}` value pattern so they are identifiable as test-generated.
+
+### 10.2 What belongs in `process.env.*`
+
+Three categories only:
+
+| Category | Examples | How to access |
+|---|---|---|
+| **Secrets / credentials** | passwords, API tokens, auth keys | Via `utils/env.js` — never raw `process.env` |
+| **CI / runtime toggles** | `CI`, `HEADLESS`, `DEBUG`, retry-count overrides | `process.env.CI`, `process.env.HEADLESS` |
+| **Cross-suite handoff state** | `CREATED_PROPERTY_NAME` passed between suites | Prefer `utils/shared-run-state.js` helpers over direct writes |
+
+Everything else — user names, franchise labels, contact names, search strings, assignee labels, numeric limits — lives in named constants at the top of the file.
+
+### 10.3 Static fixture constants — naming and placement
+
+- **Placement:** top of the Page Object file, before the class declaration, in a clearly commented block.
+- **Naming pattern:** `<DOMAIN>_<FIELD>_<ENV>` where `<ENV>` is `PROD` or `NONPROD` (omit if env-invariant).
+- **Default numeric fallbacks** (retry limits, attempt counts) are also named constants — no magic numbers in expressions like `|| 8`.
+
+### 10.4 Dynamic test data — the `PAT {timestamp}` value pattern
+
+When a test **creates** a new record (property, deal, contact, etc.), the value itself should carry a `PAT` prefix so the record is clearly identifiable as test-generated and easy to clean up:
+
+```javascript
+// Value contains "PAT" + timestamp — the constant name has no special prefix
+const propertyName = `PAT ${Date.now()}`;
+const dealName     = `PAT ${Date.now()}`;
+```
+
+The `PAT` is in the **value**, not the variable name. This makes test-created records greppable in the database and distinguishable from real data.
+
+### 10.5 Before / after example
+
+```javascript
+// ── BEFORE (avoid) ──────────────────────────────────────────────────────────
+// Buried literals, impossible to grep, misleading if a header says "no hardcoded names"
+const franchiseLabel = env.envName === 'prod' ? 'Tkxel Test Franchise' : '216 - Omaha, NE';
+for (let i = 0; i < (process.env.MAX_ATTEMPTS || 8); i++) { ... }
+
+// ── AFTER (preferred) ────────────────────────────────────────────────────────
+// At top of file:
+const FRANCHISE_PROD    = 'Tkxel Test Franchise';
+const FRANCHISE_NONPROD = '216 - Omaha, NE';
+const MAX_SEARCH_ATTEMPTS = 8;
+
+// In method body:
+const franchiseLabel = env.envName === 'prod' ? FRANCHISE_PROD : FRANCHISE_NONPROD;
+for (let i = 0; i < MAX_SEARCH_ATTEMPTS; i++) { ... }
+
+// For records created during the test:
+const propertyName = `PAT ${Date.now()}`;
+```
+
+The `env.envName` switch is fine; only the string literals move into named constants.
+
+### 10.6 Header comment accuracy
+
+If a file header says **"Fully dynamic — no hardcoded names"** but the file contains hardcoded prod/non-prod name literals, fix one or the other:
+
+- Move the literals into named constants and update the header to reflect that, **or**
+- Remove the misleading claim from the header.
+
+Prefer accurate comments over aspirational ones.
+
+### 10.7 Applying these rules when editing
+
+- **New page objects / spec files:** apply from the start — no exceptions.
+- **Existing files (editing or reviewing):** flag every violation found **within the scope of your current task**. Before refactoring code outside the immediate task, ask the user first.
+
+---
+
+## 11. Auto-Fix Methodology
 
 When a test fails in Phase 7, the agent enters Phase 8 auto-fix. **Hard cap: 3 attempts total per failing test.**
 
@@ -662,10 +740,15 @@ test('TC-CONTRACT-002 | ...', async () => {
 | **POM APPEND-ONLY** | Never modify existing POM. | Only add new methods |
 | **SHARED DESCRIBE FOR MULTI-REQ** | All comma-separated requirements → one describe. | No multiple describes per run |
 | **2 ATTEMPTS → PAUSE** | Auto-fix pauses after 2 attempts, asks user. | Cap at 3 total; no further asks after 3 |
+| **NO `process.env` FOR TEST DATA** | Names, labels, search strings → named constants at top of file. | Flag and refactor before merging |
+| **STATIC FIXTURE CONSTANTS** | Inline string literals buried in expressions → named `DOMAIN_FIELD_ENV` const block. | Unnamed literals are a review blocker |
+| **NO MAGIC NUMERIC FALLBACKS** | `\|\| 8` style defaults → named constant (e.g. `MAX_SEARCH_ATTEMPTS`). | Makes limits greppable and reviewable |
+| **`PAT {timestamp}` FOR CREATED RECORDS** | Plain names for test-created records → `\`PAT ${Date.now()}\``. | Identifies test-generated data in DB |
+| **ACCURATE HEADER COMMENTS** | Header must not claim "no hardcoded names" if static literals exist. | Fix comment or extract constants |
 
 ---
 
-## 12. Quick Reference — Patterns
+## 13. Quick Reference — Patterns
 
 | Situation | Avoid | Prefer |
 |-----------|-------|--------|
@@ -682,3 +765,6 @@ test('TC-CONTRACT-002 | ...', async () => {
 | Describe block | `'Module — Feature'` | User's exact requirement string |
 | Multi-requirement run | Multiple describe blocks | ONE describe with `test.step()` groups or separate tests |
 | Selector source | Memory/guessing | Playwright MCP DOM snapshot or user codegen paste |
+| Static fixture string | `env.envName === 'prod' ? 'Name A' : 'Name B'` | Named const at top: `const FRANCHISE_PROD = 'Name A'` |
+| Dynamically created record name | `'My Test Property'` | `` `PAT ${Date.now()}` `` |
+| Numeric retry/attempt limit | `\|\| 8` inline | `const MAX_SEARCH_ATTEMPTS = 8` at top of file |

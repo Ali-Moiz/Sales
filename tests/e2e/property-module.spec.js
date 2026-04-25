@@ -32,6 +32,9 @@ const {
   registerNotesTasksSuite,
 } = require("../helpers/register-notes-tasks-suite");
 
+// ── Test data constants ──────────────────────────────────────────────────────
+const ASSIGNMENT_OPTION = "Moiz SM UAT";
+
 test.describe.serial("Property Module", () => {
   // Runtime-selected company name used across the full property suite.
   let targetCompanyName = "";
@@ -2098,8 +2101,7 @@ test.describe.serial("Property Module", () => {
     const smUsername = (process.env.SM_USERNAME || "").trim();
     const configuredSmAssigneeText = (
       process.env.PROPERTY_ASSIGNMENT_OPTION_SM ||
-      process.env.PROPERTY_ASSIGNMENT_OPTION ||
-      ""
+      ASSIGNMENT_OPTION
     ).trim();
 
     test.skip(
@@ -2108,11 +2110,11 @@ test.describe.serial("Property Module", () => {
     );
     test.skip(
       !smUsername && !configuredSmAssigneeText && !smEmail,
-      "Set SM_USERNAME, PROPERTY_ASSIGNMENT_OPTION_SM, PROPERTY_ASSIGNMENT_OPTION, or SIGNAL_EMAIL_SM for assignment target.",
+      "Set SM_USERNAME, PROPERTY_ASSIGNMENT_OPTION_SM, or SIGNAL_EMAIL_SM for assignment target.",
     );
     console.log("[TC-PROP-029] Preconditions validated");
 
-    // Default assignee target comes from PROPERTY_ASSIGNMENT_OPTION(_SM).
+    // Default assignee target: ASSIGNMENT_OPTION constant (overridable via PROPERTY_ASSIGNMENT_OPTION_SM).
     // Search still prefers SM_USERNAME for quicker filtering.
     const smAssignmentOptionText =
       configuredSmAssigneeText || smUsername || smEmail;
