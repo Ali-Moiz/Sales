@@ -4,7 +4,7 @@
   "contract": {
     "_comment": "All date fields use offset-in-days from TODAY — no hardcoded date strings",
 
-    "e2eDealName": "Regression Phase 2",
+    "e2eDealName": "PAT",
 
     "proposal": {
       "startDateOffsetDays":   1,

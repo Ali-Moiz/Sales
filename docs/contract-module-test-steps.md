@@ -40,7 +40,7 @@ It is based on:
   1. Search for existing company with "PAT_" prefix
   2. If found → reuse it
   3. If not found → create `PAT_{timestamp}`
-  
+
 - **Property Resolution**:
   1. Search for existing property with "PAT_" prefix
   2. If found (and matches company) → reuse it
@@ -355,6 +355,21 @@ Execution steps:
 Expected result:
 - All Step 4 sections are visible.
 
+### TC-CONTRACT-024 | Verify Dispatch Request billing type dropdown loads and can be set
+Execution steps:
+- Navigate to Step 4 Payment Terms.
+- Open Billing Type dropdown.
+- Verify billing type options can be selected (`Charge Per Alarm`, `Flat-rate`).
+- Select `Charge Per Alarm`.
+- Verify `Billing Type Rate ($)` and `Peak Hours ($)` inputs are visible.
+- Select `Flat-rate`.
+- Verify `Billing Type Rate($) /week` input is visible.
+
+Expected result:
+- Billing Type dropdown loads with expected options.
+- `Charge Per Alarm` selection shows hourly rate and peak hour fields.
+- `Flat-rate` selection shows rate per week field.
+
 ### TC-CONTRACT-E2E-009 | Fill Step 4 Payment Terms and advance to Step 5
 Execution steps:
 - Fill Annual Rate Increase.
@@ -458,6 +473,26 @@ Expected result:
 - `Publish Contract` button disappears.
 - `Terminate` action appears in place of `Delete`.
 
+## Service Deletion Test Cases
+
+### TC-CONTRACT-DELETE-003 | Verify deleting first service keeps remaining service total in footer
+Execution steps:
+- Navigate to Step 1 Services in the contract stepper.
+- Fill Service 1 and Service 2 with distinct values.
+- Record footer grand total before deletion.
+- Delete Service 1 and confirm deletion.
+- Verify Service 1 is no longer visible.
+- Verify Service 2 is still visible and fields remain unchanged.
+- Verify footer total equals Service 2 total (expected 800.00 Weekly).
+- Verify footer total is not zero.
+- Verify form remains usable after deletion.
+
+Expected result:
+- Deleted service is removed from UI.
+- Remaining service stays intact with correct values.
+- Footer total exactly matches remaining service price and is greater than zero.
+- Remaining service form is still editable and Save & Next remains enabled.
+
 ## Page Object Summary
 
 The page object in [contract-module.js](/Users/tk-lpt-1156/Desktop/Automations/SignalSalesAutomation/pages/contract-module.js) handles:
@@ -507,13 +542,13 @@ All previously blocked tests are now **ACTIVE** and ready to run.
    ```html
    <!-- Pattern 1: Button with aria-label -->
    <button aria-label="Delete Service" ...>×</button>
-   
+
    <!-- Pattern 2: Button with title attribute -->
    <button title="Delete Service" ...>×</button>
-   
+
    <!-- Pattern 3: Icon-based button -->
    <button><svg data-testid="DeleteIcon" /></button>
-   
+
    <!-- Pattern 4: CSS class-based -->
    <button class="service-delete-btn">Remove</button>
    ```
@@ -784,15 +819,17 @@ Expected result:
 - Quantity increases correctly with each "+" click.
 - Total devices count updates in the heading.
 
-### TC-CONTRACT-DEVICE-003 | Device quantity cannot go below 0 (minus button disabled at zero)
+### TC-CONTRACT-DEVICE-003 | Device quantity cannot go below 0 and button controls keep numeric values
 Execution steps:
 - On Step 2 Devices section with NFC Tags at quantity 0.
 - Attempt to click the "-" button (if visible/enabled).
-- Verify the "-" button is disabled or quantity does not decrease below 0.
+- Verify quantity does not decrease below 0.
+- Verify increment/decrement interactions keep integer numeric values.
 
 Expected result:
-- The "-" button is disabled when quantity is 0, or click has no effect.
+- Decrement interaction at quantity 0 has no effect.
 - Quantity remains 0 (does not go negative).
+- Quantities remain valid integers for all devices.
 
 ### TC-CONTRACT-DEVICE-004 | Device quantity validation rejects non-numeric input
 **Note:** This test applies if devices support direct text input (currently they use +/- buttons)
@@ -908,6 +945,24 @@ Execution steps:
 Expected result:
 - Decimal quantities are rejected or auto-corrected to integer.
 - Only whole numbers (0, 1, 2, ...) are accepted.
+
+### TC-CONTRACT-DEVICE-014 | Unit price of device cannot accept negative value and uses numeric validation
+
+Execution steps:
+- On Step 2 Devices section with at least one device at quantity ≥ 1 (e.g., NFC Tags).
+- Locate the unit price input field for the device.
+- Attempt to type a negative value (e.g., `-5`, `-100`).
+- Verify the field rejects or clears the negative value.
+- Attempt to type non-numeric input (e.g., `abc`, `!@#`).
+- Verify non-numeric characters are prevented or cleared immediately.
+- Enter a valid positive numeric value (e.g., `25`).
+- Verify the value is accepted and the total updates accordingly.
+
+Expected result:
+- Negative values are rejected or the field shows a validation error; the value does not persist.
+- Non-numeric characters are prevented from being entered or are cleared immediately.
+- Only positive numeric values are accepted in the unit price field.
+- The device total updates correctly when a valid positive price is entered.
 
 ---
 

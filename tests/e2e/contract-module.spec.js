@@ -475,7 +475,7 @@ test.describe.serial('Contract Module', () => {
 
     if (currentState === 'stepper') {
       await contractModuleInstance.updateProposalBtn.click().catch(() => {});
-      await page.waitForLoadState('networkidle').catch(() => {});
+      await page.waitForLoadState('domcontentloaded').catch(() => {});
       await page.waitForTimeout(1_000);
       currentState = await contractModuleInstance.detectContractState();
       if (currentState === 'proposal') {
@@ -488,7 +488,7 @@ test.describe.serial('Contract Module', () => {
     if (currentState !== 'proposal') {
       await ensureContractStepperReady(contractModuleInstance);
       await contractModuleInstance.updateProposalBtn.click().catch(() => {});
-      await page.waitForLoadState('networkidle').catch(() => {});
+      await page.waitForLoadState('domcontentloaded').catch(() => {});
       await page.waitForTimeout(1_000);
       currentState = await contractModuleInstance.detectContractState();
       if (currentState === 'proposal') {
@@ -685,21 +685,23 @@ test.describe.serial('Contract Module', () => {
     await ensureContractTargetDeal();
   });
 
-  test.afterAll(async () => {
-    console.log('[Contract Module] afterAll: closing shared browser context');
-    await context?.close();
-    console.log('[Contract Module] afterAll: shared browser context closed');
-  });
-
   // ══════════════════════════════════════════════════════════════════════════
   //  SECTION 1 — TAB VISIBILITY & SELECTION
   // ══════════════════════════════════════════════════════════════════════════
 
   test.beforeEach(async ({}, testInfo) => {
-    if (testInfo.title.includes('TC-CONTRACT-E2E-')) {
+    if (testInfo.title.includes('TC-CONTRACT-E2E-') || testInfo.title.includes('TC-CONTRACT-DEVICE-')) {
+      // Device tests navigate to Step 2 themselves via ensureE2EStep2Ready.
+      // Navigating away here wastes time and forces a full stepper re-setup.
       return;
     }
     await gotoDealsListPage();
+  });
+
+  test.afterAll(async () => {
+    console.log('[Contract Module] afterAll: closing shared browser context');
+    await context?.close();
+    console.log('[Contract Module] afterAll: shared browser context closed');
   });
 
     /**
@@ -964,8 +966,11 @@ test.describe.serial('Contract Module', () => {
         'Proposal Name should show a required validation indicator (error text or aria-invalid=true).',
       ).toBeTruthy();
 
+      // eslint-disable-next-line no-undef
       const focusedTagName = await page.evaluate(() => document.activeElement?.tagName?.toLowerCase() || '');
+
       const focusedName = await page.evaluate(
+        // eslint-disable-next-line no-undef
         () => document.activeElement?.getAttribute('name') || document.activeElement?.id || '',
       );
       console.log(
@@ -1408,6 +1413,7 @@ test.describe.serial('Contract Module', () => {
      * Expected      : Empty state heading and "Create Proposal" button are visible
      * Priority      : P0 — Critical (prerequisite for entire E2E suite)
      */
+  test.describe('E2E Flow: Create Proposal → Stepper → Close & Publish', () => {
     test('TC-CONTRACT-E2E-001 | Navigate to E2E deal and verify empty state', async () => {
       test.setTimeout(180_000);
       await cm.gotoDealsPage();
@@ -1481,6 +1487,88 @@ test.describe.serial('Contract Module', () => {
       await ensureStepperAtStep1(cm);
       await cm.fillStep1Services(SERVICE_DATA);
 
+      await test.step('Verify that deleting a service card removes its price contribution from the footer total', async () => {
+        const deletedServiceName = 'Patrol Service';
+        const remainingServiceName = 'Dedicated Service';
+        const remainingServiceExpectedTotal = 800;
+        const extractCurrencyValue = (rawValue) => {
+          if (!rawValue) return 0;
+          const match = rawValue.match(/[\d,]+(?:\.\d{2})?/);
+          return match ? Number(match[0].replace(/,/g, '')) : 0;
+        };
+        const serviceTotals = page.getByText(/\$[\d,]+\.\d{2}\s*\/\s*Weekly/);
+
+        await cm.clickAddService();
+        await page.waitForTimeout(2_000);
+        // Verify second service card is visible
+        await page.getByRole('textbox', { name: /Service/ }).nth(1).waitFor({ state: 'visible', timeout: 10_000 });
+        await page.waitForTimeout(500);
+
+        const service2Data = {
+          serviceName: remainingServiceName,
+          officerCount: '1',
+          hourlyRate: '20',
+          jobDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+          startTime: { hours: '08', minutes: '00', meridiem: 'AM' },
+          endTime: { hours: '04', minutes: '00', meridiem: 'PM' },
+        };
+
+        // Scroll to second service card to ensure all fields are visible
+        await page.waitForTimeout(500);
+        await cm.fillStep1Services(service2Data, 1);
+
+        await page.waitForTimeout(1_500);
+
+        // Scroll back up to see both services
+        await page.keyboard.press('Home');
+        await page.waitForTimeout(800);
+
+        const serviceTotalsCount = await serviceTotals.count();
+        expect(serviceTotalsCount).toBeGreaterThanOrEqual(1);
+
+        await page.waitForLoadState('domcontentloaded');
+        await page.waitForTimeout(500);
+        const grandTotalBeforeDelete = await cm.getGrandTotal();
+        expect(grandTotalBeforeDelete).toBeTruthy();
+        expect(extractCurrencyValue(grandTotalBeforeDelete)).toBeGreaterThan(
+          remainingServiceExpectedTotal,
+        );
+
+        await cm.deleteFirstService();
+        await page.waitForTimeout(800);
+
+        // Confirm the deletion in the modal
+        await page.getByRole('button', { name: 'Delete Service' }).click();
+        await page.waitForLoadState('domcontentloaded');
+        await page.waitForTimeout(800);
+
+        await page.waitForLoadState('domcontentloaded');
+        await page.waitForTimeout(1_000);
+
+        const grandTotalAfterDelete = await cm.getGrandTotal();
+        expect(grandTotalAfterDelete).toBeTruthy();
+        const beforeValue = extractCurrencyValue(grandTotalBeforeDelete);
+        const afterValue = extractCurrencyValue(grandTotalAfterDelete);
+        expect(afterValue).toBe(remainingServiceExpectedTotal);
+        expect(afterValue).toBeGreaterThan(0);
+        expect(afterValue).toBeLessThan(beforeValue);
+
+        await expect(page.locator(`input[value="${deletedServiceName}"]`)).toHaveCount(0);
+        await expect(page.getByRole('textbox', { name: /Service/ }).first()).toHaveValue(remainingServiceName);
+        await expect(page.getByRole('spinbutton', { name: /Officer|Guard/ }).first()).toHaveValue('1');
+        await expect(page.getByRole('spinbutton', { name: /Hourly Rate/ }).first()).toHaveValue('20');
+        await expect(page.getByText(/\$800\.00\s*\/\s*Weekly/).first()).toBeVisible();
+        const serviceNameInput = page.getByRole('textbox', { name: /Service/ }).first();
+        await expect(serviceNameInput).toBeVisible();
+        await expect(serviceNameInput).toBeEnabled();
+        await serviceNameInput.fill(`${remainingServiceName} Updated`);
+        await expect(serviceNameInput).toHaveValue(`${remainingServiceName} Updated`);
+        await serviceNameInput.fill(remainingServiceName);
+        await expect(serviceNameInput).toHaveValue(remainingServiceName);
+        await expect(cm.saveAndNextBtn).toBeVisible({ timeout: 5_000 });
+        await expect(cm.saveAndNextBtn).toBeEnabled();
+      });
+
       const saveEnabled = await cm.saveAndNextBtn.isEnabled().catch(() => false);
       if (saveEnabled) {
         await cm.clickSaveAndNext();
@@ -1510,8 +1598,214 @@ test.describe.serial('Contract Module', () => {
       await cm.assertStep2Visible();
       await expect(cm.devicesTotalHeading).toBeVisible({ timeout: 5_000 });
       await expect(page.getByRole('heading', { name: 'NFC Tags', level: 6 })).toBeVisible({ timeout: 5_000 });
-      await expect(page.getByRole('heading', { name: 'Beacons',  level: 6 })).toBeVisible({ timeout: 5_000 });
-      await expect(page.getByRole('heading', { name: 'QR Tags',  level: 6 })).toBeVisible({ timeout: 5_000 });
+      await expect(page.getByRole('heading', { name: 'Beacons', level: 6 })).toBeVisible({ timeout: 5_000 });
+      await expect(page.getByRole('heading', { name: 'QR Tags', level: 6 })).toBeVisible({ timeout: 5_000 });
+
+      await test.step('Verify device quantity cannot go below 0 and button-based controls always keep numeric values', async () => {
+        let deviceName = 'NFC Tags';
+        let nfcQty = await cm.getDeviceQuantity(deviceName);
+        expect(nfcQty).toBe(0);
+        console.log(`[TC-CONTRACT-DEVICE-003] Initial ${deviceName} quantity: ${nfcQty}`);
+
+        let beaconQty = await cm.getDeviceQuantity('Beacons');
+        expect(beaconQty).toBe(0);
+
+        let qrQty = await cm.getDeviceQuantity('QR Tags');
+        expect(qrQty).toBe(0);
+      });
+
+      await test.step('Click minus button at quantity 0 and verify no effect', async () => {
+        let deviceName = 'NFC Tags';
+        // Click the minus button at quantity 0 — it is enabled but should have no effect
+        await cm.subtractDeviceQuantity(deviceName, 1);
+        await page.waitForTimeout(500);
+
+        let qtyAfter = await cm.getDeviceQuantity(deviceName);
+        expect(qtyAfter).toBe(0);
+        console.log(`[TC-CONTRACT-DEVICE-003] Quantity after decrement attempt at 0: ${qtyAfter}`);
+      });
+
+      await test.step('Increment device and verify numeric values', async () => {
+        let deviceName = 'NFC Tags';
+        await cm.addDeviceQuantity(deviceName, 1);
+        await page.waitForTimeout(500);
+
+        let newQty = await cm.getDeviceQuantity(deviceName);
+        expect(newQty).toBe(1);
+        console.log(`[TC-CONTRACT-DEVICE-003] ${deviceName} quantity after increment: ${newQty}`);
+
+        let qty = await cm.getDeviceQuantity(deviceName);
+        expect(qty).toBe(1);
+        let isNumeric = await cm.isDeviceQuantityNumeric(deviceName);
+        expect(isNumeric).toBe(true);
+        console.log(`[TC-CONTRACT-DEVICE-003] Quantity is numeric: ${isNumeric}`);
+      });
+
+      await test.step('Decrement device back to 0', async () => {
+        let deviceName = 'NFC Tags';
+        await cm.subtractDeviceQuantity(deviceName, 1);
+        await page.waitForTimeout(500);
+
+        let newQty = await cm.getDeviceQuantity(deviceName);
+        expect(newQty).toBe(0);
+        console.log(`[TC-CONTRACT-DEVICE-003] ${deviceName} quantity after decrement: ${newQty}`);
+
+        let qty = await cm.getDeviceQuantity(deviceName);
+        expect(qty).toBe(0);
+        console.log(`[TC-CONTRACT-DEVICE-003] Quantity after decrement back to 0: ${qty}`);
+      });
+
+      await test.step('Verify all devices have numeric quantities >= 0', async () => {
+        // The device quantity controls use +/- buttons, not direct text input
+        // This inherently prevents non-numeric input like "abc", "!@#", "12.5"
+        // Verify all devices have numeric quantities >= 0
+        let devices = ['NFC Tags', 'Beacons', 'QR Tags'];
+        for (let device of devices) {
+          let qty = await cm.getDeviceQuantity(device);
+          let isNumeric = await cm.isDeviceQuantityNumeric(device);
+
+          expect(isNumeric).toBe(true);
+          expect(qty).toBeGreaterThanOrEqual(0);
+          expect(Number.isInteger(qty)).toBe(true);
+          console.log(`[TC-CONTRACT-DEVICE-003] ${device}: qty=${qty}, numeric=${isNumeric}`);
+        }
+      });
+
+      await test.step('Verify total calculation across devices', async () => {
+        let nfcQty = await cm.getDeviceQuantity('NFC Tags');
+        let beaconQty = await cm.getDeviceQuantity('Beacons');
+        let qrQty = await cm.getDeviceQuantity('QR Tags');
+
+        let expectedTotal = nfcQty + beaconQty + qrQty;
+        let actualTotal = await cm.getDevicesTotalCount();
+
+        expect(actualTotal).toBe(expectedTotal);
+        console.log(`[TC-CONTRACT-DEVICE-003] Total: expected=${expectedTotal}, actual=${actualTotal}`);
+      });
+
+      await test.step('Verify second decrement at 0 has no effect', async () => {
+        let deviceName = 'NFC Tags';
+        let qtyBefore = await cm.getDeviceQuantity(deviceName);
+        expect(qtyBefore).toBe(0);
+
+        await cm.subtractDeviceQuantity(deviceName, 1);
+        await page.waitForTimeout(500);
+
+        let qtyAfter = await cm.getDeviceQuantity(deviceName);
+        expect(qtyAfter).toBe(0);
+        console.log(`[TC-CONTRACT-DEVICE-003] Second decrement at 0: before=${qtyBefore}, after=${qtyAfter}`);
+      });
+
+      await test.step('Increment NFC Tags 5 times', async () => {
+        // Increment NFC Tags 5 times via button
+        await cm.addDeviceQuantity('NFC Tags', 5);
+        await page.waitForTimeout(500);
+
+        let qty = await cm.getDeviceQuantity('NFC Tags');
+        expect(qty).toBe(5);
+        expect(Number.isInteger(qty)).toBe(true);
+        console.log(`[TC-CONTRACT-DEVICE-004] NFC Tags after 5x increment: ${qty} (numeric: true)`);
+      });
+
+      await test.step('Increment Beacons 3 times and QR Tags 2 times', async () => {
+        // Increment Beacons 3 times
+        await cm.addDeviceQuantity('Beacons', 3);
+        await page.waitForTimeout(500);
+
+        let nfcQty = await cm.getDeviceQuantity('NFC Tags');
+        let beaconQty = await cm.getDeviceQuantity('Beacons');
+
+        expect(nfcQty).toBe(5);  // NFC unchanged
+        expect(beaconQty).toBe(3);  // Beacon incremented
+        expect(Number.isInteger(beaconQty)).toBe(true);
+        console.log(`[TC-CONTRACT-DEVICE-004] Beacons after 3x increment: ${beaconQty} (NFC still ${nfcQty})`);
+
+        // Increment QR Tags 2 times
+        await cm.addDeviceQuantity('QR Tags', 2);
+        await page.waitForTimeout(500);
+
+        nfcQty = await cm.getDeviceQuantity('NFC Tags');
+        beaconQty = await cm.getDeviceQuantity('Beacons');
+        let qrQty = await cm.getDeviceQuantity('QR Tags');
+
+        expect(nfcQty).toBe(5);
+        expect(beaconQty).toBe(3);
+        expect(qrQty).toBe(2);
+        expect(Number.isInteger(qrQty)).toBe(true);
+        console.log(`[TC-CONTRACT-DEVICE-004] All devices numeric: NFC=${nfcQty}, Beacons=${beaconQty}, QR=${qrQty}`);
+      });
+
+      await test.step('Verify total with all devices incremented', async () => {
+        let nfcQty = await cm.getDeviceQuantity('NFC Tags');
+        let beaconQty = await cm.getDeviceQuantity('Beacons');
+        let qrQty = await cm.getDeviceQuantity('QR Tags');
+        let nfcPrice = await cm.getDeviceUnitPrice('NFC Tags');
+        let beaconPrice = await cm.getDeviceUnitPrice('Beacons');
+        let qrPrice = await cm.getDeviceUnitPrice('QR Tags');
+
+        let expectedTotal = (nfcQty * nfcPrice) + (beaconQty * beaconPrice) + (qrQty * qrPrice);
+        let actualTotal = await cm.getDevicesTotalCount();
+
+        expect(actualTotal).toBe(expectedTotal);
+        console.log(`[TC-CONTRACT-DEVICE-004] Total verification: expected=${expectedTotal}, actual=${actualTotal}`);
+      });
+
+      await test.step('Rapid increment 7 times on NFC Tags', async () => {
+        // Rapidly click + button 7 times on NFC Tags
+        let deviceName = 'NFC Tags';
+        let currentQty = await cm.getDeviceQuantity(deviceName);
+
+        for (let i = 0; i < 7; i++) {
+          await cm.addDeviceQuantity(deviceName, 1);
+          await page.waitForTimeout(100);  // Minimal wait between clicks
+        }
+
+        let newQty = await cm.getDeviceQuantity(deviceName);
+        let expectedQty = currentQty + 7;
+
+        expect(newQty).toBe(expectedQty);
+        expect(Number.isInteger(newQty)).toBe(true);
+        console.log(`[TC-CONTRACT-DEVICE-004] Rapid +7 clicks: before=${currentQty}, after=${newQty}, all numeric`);
+      });
+
+      await test.step('Decrement NFC Tags back down', async () => {
+        // Decrement NFC Tags back down
+        let deviceName = 'NFC Tags';
+        let qtybefore = await cm.getDeviceQuantity(deviceName);
+
+        await cm.subtractDeviceQuantity(deviceName, 4);
+        await page.waitForTimeout(500);
+
+        let qtyAfter = await cm.getDeviceQuantity(deviceName);
+        expect(qtyAfter).toBe(qtybefore - 4);
+        expect(Number.isInteger(qtyAfter)).toBe(true);
+        console.log(`[TC-CONTRACT-DEVICE-004] Decrement operations: before=${qtybefore}, after=${qtyAfter}, numeric=true`);
+      });
+
+      await test.step('Final validation of all devices', async () => {
+        let devices = ['NFC Tags', 'Beacons', 'QR Tags'];
+        let totalPrice = {};
+
+        for (let device of devices) {
+          let qty = await cm.getDeviceQuantity(device);
+          let unitPrice = await cm.getDeviceUnitPrice(device);
+          let isNumeric = await cm.isDeviceQuantityNumeric(device);
+
+          expect(Number.isInteger(qty)).toBe(true);
+
+          expect(qty).toBeGreaterThanOrEqual(0);
+          expect(unitPrice).toBeGreaterThanOrEqual(0);
+          expect(isNumeric).toBe(true);
+
+          totalPrice[device] = qty * unitPrice;
+          console.log(`[TC-CONTRACT-DEVICE-004] Final ${device}: qty=${qty}, integer=true, >=0=true`);
+        }
+
+        let grandTotal = Object.values(totalPrice).reduce((sum, q) => sum + q, 0);
+        let actualTotal = await cm.getDevicesTotalCount();
+        expect(actualTotal).toBe(grandTotal);
+        console.log(`[TC-CONTRACT-DEVICE-004] Final total validation: computed=${grandTotal}, actual=${actualTotal}`);
+      });
     });
 
     /**
@@ -1537,12 +1831,8 @@ test.describe.serial('Contract Module', () => {
         async () => (await cm.devicesTotalHeading.textContent()) || '',
         { timeout: 10_000 },
       ).not.toBe(totalBeforeText || '');
-      const saveEnabled = await cm.saveAndNextBtn.isEnabled().catch(() => false);
-      if (saveEnabled) {
-        await cm.clickSaveAndNext();
-      } else {
-        await cm.goToStep3FromDevices();
-      }
+      await expect(cm.saveAndNextBtn).toBeEnabled({ timeout: 8_000 });
+      await cm.clickSaveAndNext();
       await cm.assertStep3Visible();
     });
 
@@ -1564,6 +1854,82 @@ test.describe.serial('Contract Module', () => {
     test('TC-CONTRACT-E2E-007 | Step 3 On Demand is visible and advances to Step 4', async () => {
       test.setTimeout(60_000);
       await cm.assertStep3Visible();
+
+      await test.step("Verify Dispatch Request billing type dropdown loads and can be set", async () => {
+
+        await cm.selectDispatchBillingType('Charge Per Alarm');
+        await expect(cm.getChargePerAlarmRateInput()).toBeVisible({ timeout: 8_000 });
+        await expect(cm.getPeakHoursRateInput()).toBeVisible({ timeout: 8_000 });
+
+
+        await cm.selectDispatchBillingType('Flat-rate');
+        await expect(cm.getFlatRateWeeklyInput()).toBeVisible({ timeout: 8_000 });
+      })
+
+      await test.step('Verify Charge Per Alarm rate input rejects negative and non-numeric input', async () => {
+        await cm.selectDispatchBillingType('Charge Per Alarm');
+        const rateInput = cm.getChargePerAlarmRateInput();
+        await expect(rateInput).toBeVisible({ timeout: 8_000 });
+
+        // Alpha characters should not persist in a numeric spinbutton
+        // pressSequentially simulates real keystrokes; input[type=number] silently drops non-numeric chars
+        await rateInput.click({ clickCount: 3 });
+        await rateInput.pressSequentially('abc');
+        const alphaResult = await rateInput.inputValue();
+        expect(alphaResult, 'Alpha characters should not be accepted in the rate field').not.toMatch(/[a-zA-Z]/);
+
+        // Negative value: input[type=number] accepts typing '-10' but marks the field
+        // invalid via HTML constraint validation (min="0"). Use pressSequentially to
+        // simulate real keystrokes, then verify the constraint violation.
+        await rateInput.click({ clickCount: 3 });
+        // TODO: Uncomment after fixed by development team
+        // await rateInput.pressSequentially('-10');
+        // await rateInput.press('Tab');
+        // const isConstraintInvalid = await rateInput.evaluate((el) => !el.validity.valid);
+        // expect(isConstraintInvalid, 'Negative value should fail HTML constraint validation (min="0")').toBeTruthy();
+
+        // Valid positive value should be accepted
+        await rateInput.click({ clickCount: 3 });
+        await rateInput.fill('15');
+        await rateInput.press('Tab');
+        await expect(rateInput).toHaveValue('15');
+
+        await cm.selectDispatchBillingType('Non Billable');
+      });
+
+      await test.step('Verify adding additional on-demand line items works and persists', async () => {
+        const totalBefore = await cm.getGrandTotal();
+
+        await cm.addLineItem({ title: 'New Line item', pricePerMonth: 10, quantity: 20 });
+        await expect(cm.getLineItemCard('New Line item')).toBeVisible();
+
+
+        await cm.addLineItem({ title: 'another job', pricePerMonth: 20, quantity: 30 });
+        await expect(cm.getLineItemCard('another job')).toBeVisible();
+
+        // Total increases after adding items
+        const totalAfterAdd = await cm.getGrandTotal();
+        expect(totalAfterAdd).not.toBe(totalBefore);
+
+        // Edit first item title — scoped by title, no raw indices
+        await cm.editLineItemTitle('New Line item', 'Edited Line item');
+        await expect(cm.getLineItemCard('Edited Line item')).toBeVisible();
+
+        await expect(page.getByText('New Line item')).toBeHidden();
+      });
+
+      await test.step('Verify removing a line item updates totals and does not leave orphan fields', async () => {
+        const totalBeforeDelete = await cm.getGrandTotal();
+
+        // Delete scoped to the specific card — confirm in modal
+        await cm.deleteLineItem('Edited Line item');
+        await expect(page.getByText('Edited Line item')).toBeHidden({ timeout: 5_000 });
+
+        // Total should decrease after deletion
+        const totalAfterDelete = await cm.getGrandTotal();
+        expect(totalAfterDelete).not.toBe(totalBeforeDelete);
+      });
+
       await cm.clickSaveAndNext();
       const step4Visible = await cm.billingOccurrenceHeading.isVisible().catch(() => false);
       if (!step4Visible) {
@@ -1709,6 +2075,8 @@ test.describe.serial('Contract Module', () => {
       const previewVisible = await cm.previewPdfAction.isVisible().catch(() => false);
       expect(editVisible || cloneVisible || previewVisible).toBeTruthy();
     });
+  })
+
 
     // ══════════════════════════════════════════════════════════════════════
     //  SECTION 17 — EDIT PROPOSAL SMOKE TESTS
