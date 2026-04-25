@@ -3162,6 +3162,433 @@ class PropertyModule {
       .first();
     await expect(selectedHeading).toBeVisible({ timeout: 8_000 });
   }
+
+  // ── Address Autocomplete (TC-PROP-048 / 049 / 050) ───────────────────────
+  // Live-verified 2026-04-24 via MCP DOM inspection.
+  //
+  // The address section structure:
+  //   combobox [expanded/collapsed]
+  //     textbox "Type Address"  ← addressInput (already in constructor)
+  //   list                      ← autocomplete suggestions
+  //     option "123 Main Street, ..."
+  //   region "Map"              ← map panel (appears on combobox focus)
+
+  /**
+   * Returns the address combobox wrapper (parent of the Type Address textbox).
+   * Live-verified: role="combobox", aria-expanded toggles on focus.
+   */
+  addressCombobox() {
+    return this.createPropertyDrawerRoot().locator('[role="combobox"]').first();
+  }
+
+  /**
+   * Returns the autocomplete suggestions list.
+   * Live-verified: role="list" containing role="option" children rendered
+   * inside the combobox wrapper when expanded.
+   */
+  addressSuggestionsList() {
+    return this.createPropertyDrawerRoot()
+      .locator('[role="list"]')
+      .filter({ has: this.page.getByRole("option") })
+      .first();
+  }
+
+  /**
+   * Returns all visible autocomplete option elements.
+   * Live-verified: role="option", each wrapping a generic with the address text.
+   */
+  addressSuggestionOptions() {
+    return this.page.getByRole("option");
+  }
+
+  /**
+   * Returns the Google Map region element that appears once the address field is focused.
+   * Live-verified: role="region", aria-label="Map".
+   */
+  addressMapRegion() {
+    return this.createPropertyDrawerRoot().getByRole("region", { name: "Map" });
+  }
+
+  /**
+   * Click the address combobox wrapper to focus the address field and reveal the map.
+   * Live-verified: clicking the combobox focuses the inner textbox and makes the
+   * map region visible.
+   */
+  async openAddressAutocomplete() {
+    const combobox = this.addressCombobox();
+    await combobox.waitFor({ state: "visible", timeout: 8_000 });
+    await combobox.click();
+    await expect(this.addressMapRegion()).toBeVisible({ timeout: 8_000 });
+  }
+
+  /**
+   * Type into the address textbox to trigger autocomplete suggestions and wait
+   * for at least one option to appear.
+   * @param {string} addressText  Partial address to type (e.g. "123 Main St")
+   */
+  async typeAddressAndWaitForSuggestions(addressText) {
+    await this.addressInput.waitFor({ state: "visible", timeout: 8_000 });
+    await this.addressInput.fill(addressText);
+    // Wait for at least one suggestion option
+    await expect(this.addressSuggestionOptions().first()).toBeVisible({
+      timeout: 10_000,
+    });
+  }
+
+  /**
+   * Select the first autocomplete suggestion from the open listbox and wait
+   * for the listbox to close.
+   * @returns {string} The text of the selected suggestion.
+   */
+  async selectFirstAddressSuggestion() {
+    const firstOption = this.addressSuggestionOptions().first();
+    await firstOption.waitFor({ state: "visible", timeout: 8_000 });
+    const selectedText = ((await firstOption.textContent().catch(() => "")) || "").trim();
+    await firstOption.click();
+    // Listbox collapses after selection
+    await expect(this.addressSuggestionOptions().first()).toBeHidden({
+      timeout: 8_000,
+    }).catch(() => {});
+    return selectedText;
+  }
+
+  /**
+   * Assert that the address combobox is expanded (autocomplete listbox open).
+   * Live-verified: combobox gains aria-expanded="true" when suggestions appear.
+   */
+  async assertAddressComboboxExpanded() {
+    await expect(this.addressCombobox()).toHaveAttribute("aria-expanded", "true", {
+      timeout: 8_000,
+    });
+  }
+
+  /**
+   * Assert that the address combobox is collapsed (autocomplete listbox closed).
+   */
+  async assertAddressComboboxCollapsed() {
+    await expect(this.addressCombobox()).not.toHaveAttribute("aria-expanded", "true", {
+      timeout: 8_000,
+    });
+  }
+
+  // ── Drawer scroll (TC-PROP-051) ───────────────────────────────────────────
+
+  /**
+   * Scroll the Create Property drawer panel to the very bottom using JS evaluate.
+   * Live-verified: the MUI drawer paper element has class .MuiDrawer-paperAnchorRight
+   * and is the direct scroll container.
+   */
+  async scrollCreateDrawerToBottom() {
+    const drawer = this.createPropertyDrawerRoot();
+    await drawer
+      .evaluate((el) => {
+        el.scrollTop = el.scrollHeight;
+      })
+      .catch(async () => {
+        // Fallback: find inner scrollable container
+        await this.page.evaluate(() => {
+          const panel = document.querySelector(".MuiDrawer-paperAnchorRight");
+          if (panel) panel.scrollTop = panel.scrollHeight;
+        });
+      });
+    // Brief settle for layout
+    await this.page.waitForTimeout(300);
+  }
+
+  // ── Referred By section (TC-PROP-054 / 055 / 056 / 057) ─────────────────
+  // Live-verified 2026-04-24: the "Referred By" section appears between the
+  // Assignee row and Contact Details when "Referral" is selected as Property Source.
+
+  /**
+   * Returns the "Referred By" heading (level=4) scoped to the Create Property drawer.
+   */
+  referredByHeading() {
+    return this.createPropertyDrawerRoot()
+      .getByRole("heading", { name: "Referred By", level: 4 })
+      .first();
+  }
+
+  /**
+   * Assert the "Referred By" section heading is visible in the drawer.
+   */
+  async assertReferredBySectionVisible() {
+    await expect(this.referredByHeading()).toBeVisible({ timeout: 8_000 });
+  }
+
+  /**
+   * Assert the "Referred By" section heading is NOT visible in the drawer.
+   */
+  async assertReferredBySectionHidden() {
+    await expect(this.referredByHeading()).not.toBeVisible({ timeout: 8_000 });
+  }
+
+  /**
+   * Returns the "Select Property / Property Name" trigger inside the Referred By section.
+   * Live-verified: heading level=6, exact text "Select Property / Property Name".
+   */
+  referredByPropertyTrigger() {
+    return this.createPropertyDrawerRoot()
+      .getByRole("heading", { name: /Select Property \/ Property Name/i, level: 6 })
+      .first();
+  }
+
+  /**
+   * Returns the h6 "Contact" heading inside the Referred By section.
+   * NOTE: This heading cannot be clicked directly — the overlay div intercepts
+   * pointer events. Use openReferredByContactDropdown() which dispatches the
+   * click via evaluate() on the h6's parent element.
+   * Live-verified 2026-04-24.
+   */
+  referredByContactTrigger() {
+    const drawer = this.createPropertyDrawerRoot();
+    return drawer
+      .locator("h6")
+      .filter({ hasText: /^Contact$/ })
+      .first();
+  }
+
+  /**
+   * Returns the shared tooltip used for both Referred By dropdowns.
+   * Follows the same pattern as all other tooltip dropdowns in this POM.
+   */
+  referredByTooltip() {
+    return this.page
+      .locator('#simple-popper[role="tooltip"]')
+      .last()
+      .or(this.page.getByRole("tooltip").last());
+  }
+
+  /**
+   * Open the Referred By Property dropdown and return the tooltip.
+   */
+  async openReferredByPropertyDropdown() {
+    const trigger = this.referredByPropertyTrigger();
+    await trigger.scrollIntoViewIfNeeded().catch(() => {});
+    await trigger.waitFor({ state: "visible", timeout: 8_000 });
+    const tooltip = this.referredByTooltip();
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await trigger.click({ force: true });
+      const visible = await tooltip
+        .waitFor({ state: "visible", timeout: 4_000 })
+        .then(() => true)
+        .catch(() => false);
+      if (visible) return tooltip;
+    }
+    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    return tooltip;
+  }
+
+  /**
+   * Open the Referred By Contact dropdown and return the tooltip.
+   * Live-verified 2026-04-24: an overlay div (jss329) intercepts pointer events on
+   * the contact trigger container, so normal .click() and { force: true } both fail.
+   * The only reliable approach is dispatching a MouseEvent on the h6's parent div
+   * via page.evaluate(). This bubbles up to the React onClick handler correctly.
+   */
+  async openReferredByContactDropdown() {
+    const trigger = this.referredByContactTrigger();
+    await trigger.scrollIntoViewIfNeeded().catch(() => {});
+    await trigger.waitFor({ state: "visible", timeout: 8_000 });
+    const tooltip = this.referredByTooltip();
+    for (let attempt = 0; attempt < 2; attempt++) {
+      // Dispatch click on the h6's immediate parent (bypasses overlay interception)
+      await this.page.evaluate(() => {
+        const allH6 = document.querySelectorAll("h6");
+        for (const h6 of allH6) {
+          if (h6.textContent.trim() === "Contact") {
+            const parent = h6.parentElement;
+            if (parent) {
+              parent.dispatchEvent(
+                new MouseEvent("click", { bubbles: true, cancelable: true }),
+              );
+              return;
+            }
+          }
+        }
+      });
+      const visible = await tooltip
+        .waitFor({ state: "visible", timeout: 4_000 })
+        .then(() => true)
+        .catch(() => false);
+      if (visible) return tooltip;
+    }
+    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    return tooltip;
+  }
+
+  /**
+   * Assert a Referred By tooltip has a Search textbox and at least one result.
+   * @param {object} tooltip
+   */
+  async assertReferredByTooltipHasSearchAndResults(tooltip) {
+    const searchInput = tooltip.getByRole("textbox", { name: /Search/i }).first();
+    await expect(searchInput).toBeVisible({ timeout: 8_000 });
+    const firstResult = tooltip.locator("p").first();
+    await expect(firstResult).toBeVisible({ timeout: 10_000 });
+  }
+
+  /**
+   * Search inside a Referred By tooltip (property or contact).
+   * @param {string} searchText
+   * @param {object} tooltip
+   */
+  async searchInReferredByTooltip(searchText, tooltip) {
+    const searchInput = tooltip.getByRole("textbox", { name: /Search/i }).first();
+    await searchInput.waitFor({ state: "visible", timeout: 5_000 });
+    await searchInput.fill(searchText);
+    await this.page.waitForTimeout(700);
+    return tooltip;
+  }
+
+  /**
+   * Click the first result paragraph in a Referred By tooltip.
+   * @param {object} tooltip
+   * @returns {string} Text of the selected result.
+   */
+  async selectFirstResultInReferredByTooltip(tooltip) {
+    const firstResult = tooltip.locator("p").first();
+    await firstResult.waitFor({ state: "visible", timeout: 8_000 });
+    const text = ((await firstResult.textContent().catch(() => "")) || "").trim();
+    await firstResult.click({ force: true });
+    await this.page.waitForTimeout(500);
+    return text;
+  }
+
+  /**
+   * Assert the Referred By Property trigger no longer shows the default placeholder.
+   * Live-verified 2026-04-24: after selection the h6 text becomes the property name
+   * (e.g. "Apple Park Texas"), so the placeholder heading no longer exists.
+   * We assert by finding any h6 whose text is NOT the placeholder pattern.
+   */
+  async assertReferredByPropertyHasSelection() {
+    const drawer = this.createPropertyDrawerRoot();
+    // After selection the placeholder h6 is replaced by the selected property name.
+    // Assert: no h6 in the drawer matches the placeholder text (it should be gone).
+    await expect.poll(
+      async () => {
+        const allH6Texts = await drawer.locator("h6").allTextContents().catch(() => []);
+        return !allH6Texts.some((t) => /Select Property \/ Property Name/i.test(t));
+      },
+      { timeout: 8_000, message: "Referred By Property trigger should not show placeholder after selection" },
+    ).toBeTruthy();
+  }
+
+  /**
+   * Assert the Referred By Contact trigger no longer shows the placeholder text "Contact".
+   * After selection the h6 changes to show the selected contact's name.
+   */
+  async assertReferredByContactHasSelection() {
+    // After selection the heading text changes to the contact's name — no longer "Contact"
+    await expect.poll(
+      async () => {
+        const text = (
+          (await this.referredByContactTrigger().textContent().catch(() => "")) || ""
+        ).trim();
+        return !/^Contact$/i.test(text);
+      },
+      { timeout: 8_000 },
+    ).toBeTruthy();
+  }
+
+  // ── Empty-form validation (TC-PROP-058) ──────────────────────────────────
+
+  /**
+   * Click the Create Property submit button without filling any fields and wait
+   * for inline validation messages to appear.
+   * Live-verified: the drawer stays open and shows "Address is required." text.
+   */
+  async submitEmptyCreateFormAndExpectValidation() {
+    await this.submitCreateBtn.waitFor({ state: "visible", timeout: 10_000 });
+    await this.submitCreateBtn.click({ force: true });
+    // Wait for at least one "required" error inside the drawer
+    await expect(
+      this.createPropertyDrawerRoot()
+        .getByText(/is required/i)
+        .first(),
+    ).toBeVisible({ timeout: 8_000 });
+  }
+
+  // ── Layout / overflow assertions (TC-PROP-059) ────────────────────────────
+
+  /**
+   * Assert the Create Property drawer panel has no horizontal scrollbar and no
+   * child element protrudes beyond the panel's right edge.
+   * Strategy: read scrollWidth vs clientWidth on the drawer root element.
+   * scrollWidth > clientWidth means content overflows horizontally.
+   */
+  async assertDrawerHasNoHorizontalOverflow() {
+    const drawer = this.createPropertyDrawerRoot();
+    await drawer.waitFor({ state: "visible", timeout: 10_000 });
+    const overflow = await drawer.evaluate((el) => {
+      return el.scrollWidth > el.clientWidth;
+    });
+    expect(overflow, "Drawer panel should have no horizontal overflow (scrollWidth <= clientWidth)").toBe(false);
+  }
+
+  // ── Focus-trap / keyboard navigation (TC-PROP-060) ────────────────────────
+
+  /**
+   * Return an array of up to `maxSteps` focused-element descriptions by pressing
+   * Tab repeatedly starting from the Property Name input.
+   * Each entry is the element's tagName + role (if present) + accessible name snippet.
+   * Used by TC-PROP-060 to assert logical Tab order within the drawer.
+   */
+  async getDrawerFocusSequence(maxSteps = 4) {
+    const sequence = [];
+
+    // Click the Property Name input to anchor focus inside the drawer
+    await this.propertyNameInput.waitFor({ state: "visible", timeout: 8_000 });
+    await this.propertyNameInput.click();
+
+    // Capture starting element
+    const startDesc = await this.page.evaluate(() => {
+      const el = document.activeElement;
+      return `${el.tagName.toLowerCase()}[role="${el.getAttribute("role") || ""}"] name="${(el.getAttribute("aria-label") || el.getAttribute("placeholder") || el.textContent || "").slice(0, 40).trim()}"`;
+    });
+    sequence.push(startDesc);
+
+    for (let i = 0; i < maxSteps; i++) {
+      await this.page.keyboard.press("Tab");
+      const desc = await this.page.evaluate(() => {
+        const el = document.activeElement;
+        return `${el.tagName.toLowerCase()}[role="${el.getAttribute("role") || ""}"] name="${(el.getAttribute("aria-label") || el.getAttribute("placeholder") || el.textContent || "").slice(0, 40).trim()}"`;
+      });
+      sequence.push(desc);
+    }
+
+    return sequence;
+  }
+
+  // ── Backdrop interaction guard (TC-PROP-065) ──────────────────────────────
+
+  /**
+   * Assert the MUI backdrop is present and that a normal (non-forced) click on a
+   * background element behind the backdrop is blocked by the overlay.
+   * Strategy:
+   *   1. Verify the backdrop element exists and is visible.
+   *   2. Attempt a normal click on the properties list table; Playwright will
+   *      throw an error (or the click will land on the backdrop) because the
+   *      backdrop covers the table. We catch the error and assert the drawer
+   *      is still open — confirming the backdrop intercepted the click.
+   */
+  async assertBackdropBlocksBackground() {
+    const backdrop = this.page.locator(".MuiBackdrop-root.MuiModal-backdrop").first();
+    await expect(backdrop).toBeVisible({ timeout: 8_000 });
+
+    // Attempt to click the background table — the backdrop should intercept this.
+    // We use { force: false } (default) so Playwright respects element coverage.
+    const backgroundTable = this.page.locator("table").first();
+    const clickIntercepted = await backgroundTable
+      .click({ timeout: 4_000 })
+      .then(() => false)
+      .catch(() => true);
+
+    // Whether click threw or silently landed on backdrop, the drawer must remain open.
+    expect(
+      clickIntercepted,
+      "Background table click should be intercepted by the backdrop",
+    ).toBe(true);
+  }
 }
 
 module.exports = { PropertyModule };

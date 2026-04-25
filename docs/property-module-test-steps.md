@@ -540,3 +540,562 @@ Step 5 — Attempt to select the same contact for a second role and verify handl
 - The existing Decision Maker selection remains intact.
 
 ---
+
+## Verify that typing in the address field triggers autocomplete suggestions, Verify that the map element appears when the address section is focused, Verify that selecting an autocomplete suggestion populates the address field and updates the map
+
+### TC-PROP-048 | Address autocomplete triggers suggestions and map appears on focus; selecting a suggestion populates the field
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Create Property drawer is accessible from the Properties list page.
+- Google Maps API is reachable from the test environment.
+
+**Steps:**
+
+Step 1 — Focus the address field and verify the map appears:
+1. Navigate to `/app/sales/locations`.
+2. Click `Create Property` to open the drawer.
+3. Wait for the "Create Property" heading (level=3) to be visible.
+4. Click the address combobox (wrapper around the `Type Address` textbox).
+5. Observe the drawer below the address section.
+
+**Expected results (Step 1):**
+- The `region[aria-label="Map"]` element becomes visible below the address input.
+
+Step 2 — Type a partial address and verify autocomplete suggestions appear:
+6. Type `123 Main St` into the `Type Address` textbox (`id="googleAddress"`).
+7. Wait for the autocomplete listbox to appear.
+
+**Expected results (Step 2):**
+- The combobox `aria-expanded` attribute becomes `true`.
+- A listbox (`role="listbox"`) is visible below the input.
+- At least one option (`role="option"`) is visible in the listbox.
+- Each suggestion contains the typed text or a related address string.
+
+Step 3 — Select a suggestion and verify the address field is populated:
+8. Click the first autocomplete option in the listbox.
+9. Observe the address input value and the listbox state.
+
+**Expected results (Step 3):**
+- The address textbox value is populated with the selected address string (non-empty).
+- The autocomplete listbox is no longer visible (collapsed after selection).
+- The map region remains visible and reflects the selected location.
+
+---
+
+## Verify that autocomplete suggestions can be navigated with keyboard arrow keys, Verify that pressing Enter on a highlighted suggestion selects it
+
+### TC-PROP-049 | Keyboard navigation through autocomplete suggestions works and Enter selects the highlighted option
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Create Property drawer is open.
+
+**Steps:**
+
+Step 1 — Open autocomplete and navigate with arrow keys:
+1. Navigate to `/app/sales/locations`.
+2. Click `Create Property` to open the drawer.
+3. Wait for the "Create Property" heading (level=3) to be visible.
+4. Click the `Type Address` textbox to focus it.
+5. Type `123 Main` to trigger autocomplete suggestions.
+6. Wait for the listbox with at least one option to appear.
+7. Press the `ArrowDown` key once.
+8. Observe which option receives focus/highlight.
+
+**Expected results (Step 1):**
+- The listbox is open with at least two options visible.
+- After pressing `ArrowDown`, the first option in the list is highlighted (aria-selected or visually focused).
+
+Step 2 — Press Enter to confirm selection:
+9. Press `Enter`.
+10. Observe the address input value and listbox state.
+
+**Expected results (Step 2):**
+- The address textbox is populated with the text of the highlighted suggestion (non-empty string).
+- The autocomplete listbox closes after selection.
+
+---
+
+## Verify that pressing Escape while the autocomplete dropdown is open closes the dropdown without selecting a suggestion
+
+### TC-PROP-050 | Pressing Escape while autocomplete is open closes the dropdown without selecting
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Create Property drawer is open.
+
+**Steps:**
+1. Navigate to `/app/sales/locations`.
+2. Click `Create Property` to open the drawer.
+3. Wait for the "Create Property" heading (level=3) to be visible.
+4. Type `456 Oak` into the `Type Address` textbox.
+5. Wait for the autocomplete listbox to appear.
+6. Press `Escape`.
+7. Observe the listbox state and the address input value.
+
+**Expected results:**
+- The autocomplete listbox is no longer visible after pressing Escape.
+- The address textbox still contains the typed text `456 Oak` (partial input is preserved, not cleared).
+- The Create Property drawer itself remains open.
+
+---
+
+## Verify that the Create Property drawer can be scrolled to reveal all form sections below the fold (Property Affiliation, Assignee, Contact Details, Address)
+
+### TC-PROP-051 | Drawer is scrollable and all form sections are reachable by scrolling
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Create Property drawer is open.
+
+**Steps:**
+1. Navigate to `/app/sales/locations`.
+2. Click `Create Property` to open the drawer.
+3. Wait for the "Create Property" heading (level=3) to be visible.
+4. Without scrolling, observe which sections are visible.
+5. Scroll the drawer container (`.MuiDrawer-paperAnchorRight`) to the bottom using JavaScript `scrollTop = scrollHeight`.
+6. Wait briefly for layout to settle.
+7. Observe the sections visible at the bottom of the drawer.
+
+**Expected results:**
+- Before scrolling: Company, Property Name, Property Source, Associated Franchise, and Stage sections are visible near the top.
+- After scrolling: The `Property Affiliation` heading (level=5), `Select Assignee` trigger, `Assign Supervisor` checkbox, `Contact Details` heading (level=4), `Address` heading (level=5), and the `Create Property` submit button are all visible.
+
+---
+
+## Verify that pressing the Escape key while the Create Property drawer is open (and no dropdown is active) closes the drawer
+
+### TC-PROP-052 | Pressing Escape with no active dropdown closes the Create Property drawer
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Create Property drawer is open.
+- No tooltip or dropdown is currently open inside the drawer.
+
+**Steps:**
+1. Navigate to `/app/sales/locations`.
+2. Click `Create Property` to open the drawer.
+3. Wait for the "Create Property" heading (level=3) to be visible.
+4. Confirm no tooltip is open (snapshot confirms no `tooltip` role element present).
+5. Press `Escape`.
+6. Observe whether the drawer is still present.
+
+**Expected results:**
+- The "Create Property" heading (level=3) is no longer visible.
+- The drawer panel (`.MuiDrawer-paperAnchorRight`) is hidden or removed from the DOM.
+
+---
+
+## Verify that clicking the modal backdrop (outside the Create Property drawer) closes the drawer
+
+### TC-PROP-053 | Clicking the backdrop outside the drawer closes it
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Create Property drawer is open.
+
+**Steps:**
+1. Navigate to `/app/sales/locations`.
+2. Click `Create Property` to open the drawer.
+3. Wait for the "Create Property" heading (level=3) to be visible.
+4. Locate the `.MuiBackdrop-root.MuiModal-backdrop` overlay element (semi-transparent area to the left of the drawer).
+5. Click the backdrop.
+6. Observe whether the drawer closes.
+
+**Expected results:**
+- The "Create Property" heading (level=3) is no longer visible after the backdrop click.
+- The user is returned to the Properties list page with the drawer closed.
+
+---
+
+## Verify that selecting 'Referral' as the Property Source reveals the Referred By section with Property and Contact dropdowns
+
+### TC-PROP-054 | Selecting Referral as Property Source reveals the Referred By section
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Create Property drawer is open.
+
+**Steps:**
+
+Step 1 — Confirm Referred By is absent before any source is selected:
+1. Navigate to `/app/sales/locations`.
+2. Click `Create Property` to open the drawer.
+3. Wait for the "Create Property" heading (level=3) to be visible.
+4. Observe whether a `Referred By` heading (level=4) is present in the drawer.
+
+**Expected results (Step 1):**
+- The `Referred By` heading is NOT visible.
+
+Step 2 — Select Referral and verify the section appears:
+5. Click the `Add Property Source` heading (level=6) trigger to open the source tooltip.
+6. Wait for the tooltip to appear.
+7. Click the `Referral` paragraph option.
+8. Observe the drawer below the Assignee section.
+
+**Expected results (Step 2):**
+- The Property Source trigger now shows `Referral` as the selected value.
+- The `Referred By` heading (level=4) is now visible.
+- A `Select Property / Property Name` heading (level=6) trigger is visible inside the Referred By section.
+- A `Contact` heading (level=6) trigger is visible inside the Referred By section.
+
+---
+
+## Verify that selecting a non-Referral Property Source does not show the Referred By section, Verify that switching from Referral to another source hides the Referred By section
+
+### TC-PROP-055 | Non-Referral source hides Referred By; switching from Referral to another source also hides it
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Create Property drawer is open.
+
+**Steps:**
+
+Step 1 — Select a non-Referral source and verify Referred By is absent:
+1. Navigate to `/app/sales/locations`.
+2. Click `Create Property` to open the drawer.
+3. Wait for the "Create Property" heading (level=3) to be visible.
+4. Click the `Add Property Source` trigger.
+5. Click `ALN` in the tooltip.
+6. Observe the drawer for the `Referred By` heading.
+
+**Expected results (Step 1):**
+- The `Referred By` heading (level=4) is NOT visible when ALN is selected.
+
+Step 2 — Switch to Referral then back to ALN:
+7. Click the Property Source trigger (now showing "ALN").
+8. Click `Referral` in the tooltip.
+9. Verify `Referred By` heading becomes visible.
+10. Click the Property Source trigger again (showing "Referral").
+11. Click `ALN` in the tooltip.
+12. Observe the drawer for the `Referred By` heading.
+
+**Expected results (Step 2):**
+- After switching to Referral: `Referred By` heading is visible.
+- After switching back to ALN: `Referred By` heading is no longer visible.
+
+---
+
+## Verify that the Referred By Property dropdown opens and lists properties, Verify that the Referred By Property dropdown supports search and returns matching results, Verify that selecting a property in the Referred By dropdown displays the selection
+
+### TC-PROP-056 | Referred By Property dropdown opens, supports search, and displays the selected property
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Create Property drawer is open and `Referral` is selected as the Property Source.
+- The system has at least one property in the database.
+
+**Steps:**
+
+Step 1 — Open the Referred By Property dropdown and verify it lists properties:
+1. Navigate to `/app/sales/locations`.
+2. Click `Create Property`, wait for the drawer heading.
+3. Open the Property Source tooltip and click `Referral`.
+4. Wait for the `Referred By` section to appear.
+5. Click the `Select Property / Property Name` heading (level=6) trigger inside the Referred By section.
+6. Wait for the property tooltip to open.
+
+**Expected results (Step 1):**
+- The tooltip is visible with a `Search` textbox.
+- At least one property name paragraph is listed in the tooltip.
+
+Step 2 — Search and verify filtered results:
+7. Type a partial property name (e.g. `Apple`) into the Search textbox inside the tooltip.
+8. Wait for the filtered list.
+
+**Expected results (Step 2):**
+- The list updates to show only properties matching the search term.
+- At least one result matching `Apple` is visible.
+
+Step 3 — Select a property and verify it appears in the trigger:
+9. Click the first matching property paragraph.
+10. Observe the `Select Property / Property Name` trigger.
+
+**Expected results (Step 3):**
+- The trigger no longer shows the placeholder text; it now displays the selected property name.
+
+---
+
+## Verify that the Referred By Contact dropdown opens and lists contacts, Verify that the Referred By Contact dropdown supports search and returns matching results, Verify that selecting a contact in the Referred By dropdown displays the selection
+
+### TC-PROP-057 | Referred By Contact dropdown opens, supports search, and displays the selected contact
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Create Property drawer is open and `Referral` is selected as the Property Source.
+- The system has at least one contact in the database.
+
+**Steps:**
+
+Step 1 — Open the Referred By Contact dropdown and verify it lists contacts:
+1. Navigate to `/app/sales/locations`.
+2. Click `Create Property`, wait for the drawer heading.
+3. Open the Property Source tooltip and click `Referral`.
+4. Wait for the `Referred By` section to appear.
+5. Click the `Contact` heading (level=6) trigger inside the Referred By section.
+6. Wait for the contact tooltip to open.
+
+**Expected results (Step 1):**
+- The tooltip is visible.
+- A search textbox is present inside the tooltip.
+- At least one contact entry is listed.
+
+Step 2 — Search and select a contact:
+7. Type a partial name (e.g. `Aaron`) into the search field inside the tooltip.
+8. Wait for filtered results.
+9. Click the first matching contact.
+10. Observe the `Contact` trigger in the Referred By section.
+
+**Expected results (Step 2):**
+- The contact list filters to show matching results.
+- After selection, the `Contact` trigger displays the selected contact's name instead of the placeholder.
+
+---
+
+## Verify that submitting the Create Property form with all required fields empty shows validation errors and the drawer remains open
+
+### TC-PROP-058 | Submitting empty Create Property form shows validation errors and drawer stays open
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Create Property drawer is open.
+- No fields have been filled.
+
+**Steps:**
+1. Navigate to `/app/sales/locations`.
+2. Click `Create Property` to open the drawer.
+3. Wait for the "Create Property" heading (level=3) to be visible.
+4. Without filling any field, click the `Create Property` submit button (the last button in the drawer footer).
+5. Observe the drawer state and any validation feedback.
+
+**Expected results:**
+- The drawer remains open (the "Create Property" heading is still visible).
+- At least one required-field error message is visible in the drawer (e.g. `Address is required.` text).
+- No success toast appears.
+
+---
+
+## Verify that long dropdown values (company/property/address) truncate or wrap without UI break., Verify that keyboard navigation (Tab/Shift+Tab) moves focus through fields in a logical order., Verify that changing the Referred By Property refreshes the Referred By Contact list accordingly., Verify that clearing the Referred By Property clears the Referred By Contact selection (if any)., Verify that required-field validation messages are cleared once the user enters valid values., Verify that previously entered values remain intact when user opens/closes dropdowns repeatedly., Verify that the modal backdrop prevents interaction with the background page while modal is open., Verify that the modal handles slow loading of dropdown data by showing a loader/state (if applicable).
+
+### TC-PROP-059 | Long dropdown values truncate or wrap without UI break
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Create Property drawer is accessible from the Properties list page.
+
+**Steps:**
+1. Navigate to `/app/sales/locations`.
+2. Click `Create Property` to open the drawer.
+3. Wait for the "Create Property" heading (level=3) to be visible.
+4. Open the Property Source dropdown (click the `Add Property Source` trigger).
+5. Click `Inbound Lead - National` (the longest source option) to select it.
+6. Observe the Property Source trigger row — verify the text fits within its container without overlapping adjacent elements.
+7. Open the Associated Franchise dropdown, search for a franchise with a long name (e.g. `9001- Collin Franchise, NE`), select it.
+8. Observe the Associated Franchise trigger row — verify the text is contained within the drawer without horizontal overflow.
+9. Open the Company dropdown, type a partial name with many characters (e.g. `Regression Phase`) to search, observe the result list items for any layout overflow.
+10. Verify the drawer panel itself has no horizontal scrollbar and no elements protrude outside its bounds.
+
+**Expected results:**
+- The Property Source trigger displays the selected long value (`Inbound Lead - National`) clipped or truncated within its row — the drawer does not break or scroll horizontally.
+- The Associated Franchise trigger displays the long franchise name within its bounded row — no overflow outside the 796px drawer panel.
+- The Company search result items are contained within the tooltip without breaking the layout.
+- No horizontal scrollbar appears on the drawer panel.
+
+---
+
+### TC-PROP-060 | Keyboard Tab/Shift+Tab navigation moves focus through fields in logical order
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Create Property drawer is open.
+
+**Steps:**
+1. Navigate to `/app/sales/locations`.
+2. Click `Create Property` to open the drawer.
+3. Wait for the "Create Property" heading (level=3) to be visible.
+4. Click the `Property / Property Name` text input to place focus on it.
+5. Press `Tab` once — observe which element receives focus next.
+6. Press `Tab` again — observe the next focused element.
+7. Press `Tab` again — observe the next focused element.
+8. Press `Shift+Tab` once — observe that focus moves back to the previous element.
+9. Observe that focus never jumps outside the drawer to the background page while the drawer is open.
+
+**Expected results:**
+- After step 5: Focus moves from the Property Name input forward to the next logical field (Assign Supervisor checkbox or Address input).
+- After step 6: Focus continues forward in a logical top-to-bottom order.
+- After step 7: Focus continues to the next field (Cancel or Create Property button).
+- After Shift+Tab (step 8): Focus returns to the previous element in the sequence.
+- Focus never leaves the drawer and lands on a background element (focus is trapped within the drawer while open).
+
+---
+
+### TC-PROP-061 | Changing the Referred By Property refreshes the Referred By Contact list
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Create Property drawer is open.
+- `Referral` is selected as Property Source (so the Referred By section is visible).
+- The system has at least two distinct properties with associated contacts.
+
+**Steps:**
+
+Step 1 — Select an initial Referred By Property and then select a Contact:
+1. Navigate to `/app/sales/locations`.
+2. Click `Create Property`, wait for the drawer heading.
+3. Open the Property Source dropdown and click `Referral`.
+4. Wait for the `Referred By` section (heading level=4) to appear.
+5. Open the Referred By Property dropdown (click the `Select Property / Property Name` h6 trigger).
+6. Wait for the tooltip to open with a Search textbox and at least one property result.
+7. Click the first available property result to select it.
+8. Verify the Property trigger no longer shows the placeholder text.
+9. Open the Referred By Contact dropdown (dispatch click on the Contact h6 trigger's parent).
+10. Wait for the contact tooltip to open.
+11. Click the first available contact result to select it.
+12. Verify the Contact trigger no longer shows "Contact" as placeholder.
+
+**Expected results (Step 1):**
+- A property is selected and displayed in the Property trigger.
+- A contact is selected and displayed in the Contact trigger.
+
+Step 2 — Change the Referred By Property and verify Contact list refreshes:
+13. Open the Referred By Property dropdown again.
+14. Type a different search term (e.g. `Hamza`) to find a different property.
+15. Select the different property from the results.
+16. Observe the Referred By Contact trigger immediately after the property change.
+
+**Expected results (Step 2):**
+- The Referred By Property trigger now displays the newly selected property.
+- The Referred By Contact trigger either resets to its placeholder state (`Contact`) OR shows contacts associated with the new property — in either case the previous contact selection from the first property is no longer shown (the list has refreshed).
+
+---
+
+### TC-PROP-062 | Clearing the Referred By Property clears the Referred By Contact selection
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Create Property drawer is open.
+- `Referral` is selected as Property Source.
+- A Referred By Property has already been selected and a Referred By Contact has been selected.
+
+**Steps:**
+1. Navigate to `/app/sales/locations`.
+2. Click `Create Property`, wait for the drawer heading.
+3. Open the Property Source dropdown and click `Referral`.
+4. Wait for the `Referred By` section (heading level=4) to appear.
+5. Open the Referred By Property dropdown and select any property result.
+6. Verify the Property trigger shows the selected property name.
+7. Open the Referred By Contact dropdown and select any contact result.
+8. Verify the Contact trigger shows the selected contact name (not the placeholder "Contact").
+9. Now change the Property Source away from Referral — click the Property Source trigger (showing "Referral") and select `ALN`.
+10. Verify the `Referred By` section (heading level=4) is no longer visible.
+11. Now switch back to `Referral` — open the Property Source dropdown and click `Referral`.
+12. Wait for the `Referred By` section to reappear.
+13. Observe the Referred By Property trigger and the Referred By Contact trigger.
+
+**Expected results:**
+- After switching away from Referral and back: the Referred By Property trigger shows the placeholder `Select Property / Property Name` (previous selection cleared).
+- The Referred By Contact trigger shows the placeholder `Contact` (previous selection cleared — not the previously chosen contact).
+
+---
+
+### TC-PROP-063 | Required-field validation messages are cleared once the user enters valid values
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Create Property drawer is open.
+- No fields have been filled.
+
+**Steps:**
+1. Navigate to `/app/sales/locations`.
+2. Click `Create Property` to open the drawer.
+3. Wait for the "Create Property" heading (level=3) to be visible.
+4. Without filling any field, click the `Create Property` submit button.
+5. Wait for at least one validation error message to appear in the drawer (e.g. `Address is required.`).
+6. Verify the validation errors are visible.
+7. Fill the `Property / Property Name` textbox with a valid value (e.g. `Test Property 123`).
+8. Type a valid address into the `Type Address` field (e.g. `123 Main St, Omaha`) and wait for autocomplete.
+9. Select the first autocomplete suggestion to populate the address field.
+10. Observe the `Address is required.` error message.
+
+**Expected results:**
+- After step 5: At least one `is required` error message is visible inside the drawer.
+- After step 9: The address-required error message is no longer visible (cleared once the address field has a valid value).
+- The drawer remains open throughout.
+- No "Address is required." text is visible once a valid address is selected.
+
+---
+
+### TC-PROP-064 | Previously entered values remain intact when user opens/closes dropdowns repeatedly
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Create Property drawer is open.
+
+**Steps:**
+1. Navigate to `/app/sales/locations`.
+2. Click `Create Property` to open the drawer.
+3. Wait for the "Create Property" heading (level=3) to be visible.
+4. Fill the `Property / Property Name` textbox with `Persist-Test-Value`.
+5. Open the Property Source dropdown and select `ALN`.
+6. Verify the Property Name input still shows `Persist-Test-Value` after the dropdown closed.
+7. Open the Property Source dropdown a second time and close it with `Escape` (without selecting anything).
+8. Verify the Property Name input still shows `Persist-Test-Value`.
+9. Verify the Property Source trigger still shows `ALN` (the previously selected value is unchanged).
+10. Open the Associated Franchise dropdown and close it with `Escape` (without selecting anything).
+11. Verify the Property Name input still shows `Persist-Test-Value`.
+12. Verify the Property Source trigger still shows `ALN`.
+
+**Expected results:**
+- After each dropdown open/close cycle, the Property Name text field retains `Persist-Test-Value`.
+- The Property Source selection (`ALN`) is retained after opening and closing the franchise dropdown.
+- No previously entered or selected value is wiped by opening or closing a different dropdown.
+
+---
+
+### TC-PROP-065 | Modal backdrop prevents interaction with the background page while modal is open
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Create Property drawer is open.
+
+**Steps:**
+1. Navigate to `/app/sales/locations`.
+2. Click `Create Property` to open the drawer.
+3. Wait for the "Create Property" heading (level=3) to be visible.
+4. Verify the `.MuiBackdrop-root.MuiModal-backdrop` overlay element is present and covers the background.
+5. Attempt to click the Properties list table (a background element behind the backdrop) using `{ force: false }` (normal pointer interaction).
+6. Observe whether the click is intercepted by the backdrop.
+
+**Expected results:**
+- The `.MuiBackdrop-root.MuiModal-backdrop` element is visible in the DOM and covers the background content.
+- The background table is not interactable while the backdrop is present — Playwright confirms the element is covered by the backdrop (`element is outside of the viewport` or intercept error confirms backdrop is blocking).
+- The drawer remains open after the attempted background click.
+- The "Create Property" heading is still visible.
+
+---
+
+### TC-PROP-066 | Modal handles slow loading of dropdown data by showing a loader/state (if applicable)
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Create Property drawer is open.
+
+**Steps:**
+1. Navigate to `/app/sales/locations`.
+2. Click `Create Property` to open the drawer.
+3. Wait for the "Create Property" heading (level=3) to be visible.
+4. Click the `Search Company` trigger to open the company dropdown.
+5. Observe the tooltip immediately after it opens — before any search is typed.
+6. Note whether a loading spinner, skeleton, or "Loading..." text appears while the initial list loads.
+7. Close the tooltip (press `Escape`).
+8. Click the `Select Assignee` trigger to open the assignee dropdown.
+9. Observe the tooltip immediately after it opens for any loader state.
+10. Note the result.
+
+**Expected results:**
+- NOTE: This test may not be verifiable in UAT because the dropdown data loads instantly over a fast connection. If no loader state is observed, the test is marked `test.fail()` with a TODO indicating the feature is untestable in this environment.
+- If a loader IS observed: a spinner element (e.g. `[role="progressbar"]` or `.MuiCircularProgress-root`) is visible briefly inside the tooltip before results appear.
+- In either case, the drawer does not crash and both dropdowns eventually display results.
+
+---
