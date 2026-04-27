@@ -1,79 +1,113 @@
 ---
 name: generate-test
-description: Claude Code version — Generate automated Playwright tests from manual test case documentation. For Cursor IDE users, use /generate-tests (see @.cursor/commands/generate-tests.md).
+description: Generate Playwright tests from comma-separated requirements. Writes manual steps to a doc file first, pauses for user review, then generates passing test code based on the edited doc. Uses Playwright MCP for discovery and headless execution.
 ---
 
-# Generate Test Plan for Sales CRM (Claude Code)
+# Generate Test (Claude Code)
 
-Convert manual test case documentation into automated Playwright tests.
+Thin router that invokes the `generate-playwright-tests` agent. All logic lives in the agent + skill.
 
 ---
 
-## Quick Start
+## Usage
 
 ```
 /generate-test
 ```
 
-Answer 6 input prompts:
-1. **Requirement** — Feature to test (e.g., "Verify deleting a service updates totals")
-2. **Module** — Which module (e.g., "Contract Module")
-3. **Documentation file** — Where test cases are documented (e.g., `docs/contract-module-test-steps.md`)
-4. **Test output file** — Where to write automation (e.g., `tests/e2e/contract-module.spec.js`)
-5. **Additional context** *(optional)* — Extra clarity: user role, preconditions, dependencies, priority (e.g., "HO role only, requires existing contract in draft status")
-6. **Codegen recording** *(optional)* — Record the flow with Playwright Codegen first? Yes / No
+The agent asks for **3 inputs** in one batched prompt:
 
-The agent will execute the full 8-phase workflow and report results.
+1. **Requirements** — comma-separated string. Example: `"Verify deleting a service updates totals, Verify remaining service forms work after deletion"`
+2. **Documentation file** — where manual steps are added under each requirement heading. Example: `docs/contract-module-test-steps.md`
+3. **Test output file** — where the `.spec.js` is written. Example: `tests/e2e/contract-module.spec.js`
+
+The **module** is inferred from the spec file path (e.g., `contract-module.spec.js` → `pages/contract-module.js`). Agent asks only if the pattern doesn't match.
 
 ---
 
-## Important Notes
+## Workflow
 
-(CRITICAL) All test case names (TC codes) **MUST** be defined in your documentation file FIRST. Never invent TC codes during test generation.
+| Phase | Purpose | Interactive? |
+|---|---|---|
+| 0    | Pre-flight (verify Playwright MCP, parse requirements, infer module) | Halts if MCP missing |
+| 1    | Selector discovery via Playwright MCP | — |
+| 2    | Analyze & plan POM methods, test structure, assertion points | May ask about missing POM |
+| 3    | Write manual steps to doc → **STOP** | **Waits for user review** |
+| 3.5  | Re-read doc after user says "proceed" — edits override original plan | — |
+| 4    | Append new methods to POM (never modifies existing) | — |
+| 5    | Generate test code (shared describe block with `test.step()` or separate tests) | — |
+| 6    | Validate syntax and standards compliance | — |
+| 7    | Execute tests headless via Playwright MCP | — |
+| 8    | Auto-fix failures (attempt 1 → attempt 2 → **pause & ask** → optional attempt 3 → `test.fail()`) | Pauses after 2 attempts |
 
 ---
 
-## Authoritative References
+## Critical Rules
+
+From `.claude/skills/playwright-test-standards/SKILL.md`:
+
+- **Playwright MCP is REQUIRED.** Agent halts at Phase 0 if not connected.
+- **Multiple comma-separated requirements → ONE shared `test.describe()` block.** Shared flow → one test with `test.step()` groups. Independent flows → separate tests.
+- **`test.describe()` title = user's exact input string** (comma-separated as passed).
+- **Doc-review pause is mandatory** between manual-steps generation and test generation. User edits to the doc are the source of truth on resume.
+- **TC codes come from the doc, never invented** during test generation.
+- **Auto-fix bounded**: 2 attempts → pause with rich context → user chooses [a] try attempt 3 / [b] mark `test.fail()` / [c] stop. After attempt 3 fails, auto-marks `test.fail()` without asking again.
+- **All tests must pass headless via MCP before delivery.**
+
+---
+
+## Doc Review Pause
+
+After Phase 3, the agent writes manual steps and STOPS. You can edit:
+
+- Manual steps (add/remove/reorder)
+- TC codes (renumber, rename)
+- Expected results / assertion points
+- TC names (the part after the ` | ` in test titles)
+
+Reply **"proceed"** (or "continue" / "go ahead") to resume. The agent re-reads the doc and uses your edited version as the source of truth. Reply **"cancel"** to abort.
+
+---
+
+## Auto-Fix Pause Example
+
+After 2 failed attempts on a test:
+
+```
+[AUTO-FIX PAUSED] TC-CONTRACT-002 still failing after 2 attempts.
+
+Attempt 1 (selector investigation):
+  Tried: [data-testid="service-row"], .service-row, getByRole('row')
+  Result: Element not found after dialog opens
+
+Attempt 2 (wait investigation):
+  Added: waitForResponse for /api/services
+  Result: API returns 200 but UI still shows loading state
+
+Error: TimeoutError: locator.click: Timeout 5000ms exceeded
+Hypothesis: Client-side state transition not tied to a network response.
+
+What should I do?
+  [a] Try attempt 3 — logic/import/typo check
+  [b] Mark this test as test.fail() with TODO and continue
+  [c] Stop workflow for manual debugging
+```
+
+---
+
+## References
 
 | File | Purpose |
-|------|---------|
-| `@.cursor/commands/generate-tests.md` | **AUTHORITATIVE** — Full workflow for all users |
-| `@.claude/agents/generate-playwright-tests.md` | 8-phase workflow orchestration (shared by both commands) |
-| `@.claude/skills/playwright-test-standards/SKILL.md` | All coding standards and constraints |
+|---|---|
+| `.claude/agents/generate-playwright-tests.md` | Workflow orchestration (9 phases) |
+| `.claude/skills/playwright-test-standards/SKILL.md` | All standards, rules, patterns |
 
 ---
 
-## For Claude Code Users
+## Prerequisites (Project-Level)
 
-When you run `/generate-test` in Claude Code:
-
-1. The command collects your 4 inputs
-2. It invokes the `generate-playwright-tests` agent
-3. The agent loads the `playwright-test-standards` skill
-4. The agent executes phases 0-8 and reports results
-
-The workflow is identical to Cursor's `/generate-tests` command — both invoke the same agent and skill.
-
----
-
-## Workflow (8 Phases)
-
-See `@.claude/agents/generate-playwright-tests.md` for complete phase details:
-
-1. Pre-flight checks (parse docs, validate env)
-2. Codegen (optional)
-3. Analyze selectors, map to POM
-4. Update documentation
-5. Update Page Object Model
-6. Generate tests (DELTA workflow)
-7. Validate syntax & standards
-8. Execute tests + auto-fix failures
-
----
-
-## See Also
-
-- `@.cursor/commands/generate-tests.md` — Main documentation (all users)
-- `@.claude/agents/generate-playwright-tests.md` — Agent implementation
-- `@.claude/skills/playwright-test-standards/SKILL.md` — All standards and rules
-- `CLAUDE.md` — Project overview and guidelines
+- Playwright MCP server connected in Claude Code
+- `.env.uat` (or `.env`) with `BASE_URL`
+- `playwright.config.js` configured
+- `pages/` directory for Page Object Models (agent creates POM file on ask if missing)
+- Doc file is optional — agent creates it in Phase 3 if missing

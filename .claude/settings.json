@@ -1,9 +1,9 @@
-
 {
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Edit|Write|Bash",
+        "matcher": "Edit|Write",
+        "pathPattern": "(tests/|pages/|docs/).*\\.(js|md)$",
         "command": "code-review-graph update --skip-flows",
         "timeout": 5000,
         "hooks": []

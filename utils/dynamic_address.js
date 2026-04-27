@@ -32,8 +32,6 @@ const STREET_NAME_POOL = [
 ];
 
 const STREET_SUFFIX_POOL = ["St", "Ave", "Blvd", "Rd", "Dr", "Ln", "Way"];
-const ADDRESS_AUTOCOMPLETE_DEBUG =
-  String(process.env.ADDRESS_AUTOCOMPLETE_DEBUG || "false").toLowerCase() === "true";
 
 function toUniqueAddress(seedOffset = 0) {
   const now = Date.now() + seedOffset;
@@ -63,8 +61,6 @@ function normalizeText(value) {
 }
 
 function debugLog(message, meta = {}) {
-  if (!ADDRESS_AUTOCOMPLETE_DEBUG) return;
-  // Structured log for CI/parsing.
   // eslint-disable-next-line no-console
   console.log(`[dynamic_address] ${message}`, JSON.stringify(meta));
 }

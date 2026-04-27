@@ -1,84 +1,108 @@
 ---
 name: playwright-test-standards
-description: Standards, rules, and patterns for writing fast, reliable Playwright tests for the Sales CRM. Use this skill whenever generating, refactoring, or fixing Playwright tests (.spec.js files), Page Object Models (pages/*.js), or resolving test flakiness and timeout issues. Covers selector strategy, timeout configuration, wait patterns, assertion rules, POM conventions, test isolation, and auto-fix methodology. Do NOT use this skill for non-Playwright testing frameworks (Cypress, Jest, Selenium) or for unit tests.
+description: Authoritative standards for writing fast, reliable Playwright tests for the Sales CRM. Use whenever generating new Playwright tests (.spec.js), creating or appending Page Object Models (pages/*.js), or fixing a failing/flaky test. Covers selector strategy, timeouts, wait patterns, assertion rules, POM conventions, test structure for multi-requirement describe blocks, codegen handoff via Playwright MCP, and bounded auto-fix methodology. Do NOT use for Cypress, Jest, Selenium, or unit tests.
 ---
 
 # Playwright Test Standards — Sales CRM
 
-Reference document for writing fast, reliable Playwright tests. Every rule here exists to prevent a specific failure mode we've hit in production test runs.
+Single source of truth for Playwright test rules. Every rule here prevents a specific, observed failure mode. If the `generate-playwright-tests` agent or any command appears to contradict this file, **this file wins**.
 
 ---
 
-## 1. Core Philosophy
+## 0. Core Philosophy
 
-**Tests should fail fast, not wait forever.** Every timeout is a ceiling, not a target. A 30-second timeout does NOT mean tests take 30 seconds — it means tests fail at 30 seconds if something is wrong. If tests are slow, the fix is **smarter waits**, not **longer timeouts**.
+**Tests should fail fast, not wait forever.** A 30s timeout is a ceiling, not a target. If tests are slow, the fix is *smarter waits*, not *longer timeouts*.
 
 **The single biggest cause of slow Playwright suites is AI-generated tests that stack redundant waits and bump timeouts to mask flakiness.** Do not do this.
+
+**Multiple user requirements → ONE shared `test.describe()` block → one test per requirement, grouped by `test.step()` when they share a flow.** See Section 1 and Section 8 for the exact structure.
+
+---
+
+## 1. The Unit of Testing
+
+### 1.1 Single requirement → one describe, one happy-path test
+
+One user requirement maps to **one `test.describe()` block** containing **one happy-path test + 0–N edge-case tests**.
+
+- **Happy-path test** (always required): walks the flow, asserts at every critical point (Section 6.1).
+- **Edge-case tests** (only if the requirement explicitly covers them): one small test per distinct edge case.
+
+### 1.2 Multiple requirements in one run → ONE shared describe block
+
+When the user passes multiple comma-separated requirements in one invocation:
+
+- **ALL requirements share ONE `test.describe()` block.**
+- The describe title joins the requirements (e.g., `"Verify X | Verify Y | Verify Z"` or the user's exact comma-separated string).
+- Inside the describe block, use `test.step()` to group assertions by requirement **when they share a flow** (e.g., "create service" and "delete service updates totals" are one flow).
+- Use **separate `test()` blocks** when requirements are independent flows (e.g., "create proposal" and "reject negative quantity" can't be one test).
+
+**Decision rule:**
+
+```
+Do the requirements share setup and a continuous UI flow?
+  YES → one test() with test.step() per requirement
+  NO  → separate test() blocks inside the same describe()
+```
+
+### 1.3 Rule of thumb
+
+| Requirement phrasing | Expected output |
+|---|---|
+| "Verify user can create a proposal" | 1 describe, 1 test (happy path) |
+| "Verify deleting a service updates totals" | 1 describe, 1 test with 3–5 assertions |
+| "Verify quantity cannot go below 0 and cannot accept non-numeric input" | 1 describe, 3 tests (happy + 2 edges) |
+| "Verify X, Verify Y" (comma-separated, shared flow) | 1 describe, 1 test with 2 `test.step()` groups |
+| "Verify X, Verify Y" (comma-separated, independent flows) | 1 describe, 2 tests |
+
+**Do not generate 10+ tests per requirement.** Pack assertions into tests, not tests into describe blocks.
 
 ---
 
 ## 2. Selector Strategy (NO XPATH)
 
-**Discovering selectors?** Use the `/codegen-workflow` skill to launch Playwright's codegen inspector and record actual DOM interactions.
+Use `page.locator()` as the primary approach. Fall back to `getByRole()` / `getByLabel()` only when `page.locator()` is awkward.
 
-Use `page.locator()` as the primary approach. Fall back to `getByRole()` / `getByLabel()` only when `page.locator()` doesn't fit cleanly.
-
-### Priority 1: `page.locator()` — Default for Everything
-
-Use for CSS, testids, text selectors, and attribute selectors.
+### Priority 1: `page.locator()` — Default
 
 ```javascript
 // Test IDs (preferred when available)
 page.locator('[data-testid="save-btn"]')
-page.locator('[data-testid="service-name-input"]')
 
 // Text-based
 page.locator('text=Action')
 page.locator('text="Feature Name"')      // Exact match
-page.locator('text=/action/i')                 // Regex
+page.locator('text=/action/i')            // Regex
 
 // CSS
 page.locator('.row-item')
 page.locator('input[name="field"]')
-page.locator('button.primary')
 
-// Chained locators (narrowing scope)
+// Chained (narrowing scope)
 page.locator('.service-row').locator('text=Delete')
-page.locator('[data-testid="modal"]').locator('button:has-text("Confirm")')
 
-// Filter patterns
+// Filters
 page.locator('.row').filter({ hasText: 'Expected Name' })
 page.locator('button').filter({ has: page.locator('svg.icon-action') })
-
-// Nth element
-page.locator('.service-row').first()
-page.locator('.service-row').nth(2)
 ```
 
-### Priority 2: `getByRole()` / `getByLabel()` — Fallback
-
-Use when `page.locator()` would be awkward or when accessibility-based selection is clearer.
+### Priority 2: `getByRole()` / `getByLabel()` — Accessibility Fallback
 
 ```javascript
-// When form labels are stable but inputs lack testids
-page.getByLabel('Input Label')
-page.getByLabel('Form Field')
-
-// When role+name is more readable than a CSS chain
-page.getByRole('button', { name: 'Action Button' })
-page.getByRole('tab', { name: 'Feature Tab' })
-page.getByRole('dialog', { name: 'Confirmation Dialog' })
+page.getByLabel('Email')
+page.getByRole('button', { name: 'Save Changes' })
+page.getByRole('dialog', { name: 'Confirm Delete' })
 ```
 
 ### Priority 3: NEVER USE XPATH
 
 ```javascript
-// (FORBIDDEN) ABSOLUTELY FORBIDDEN
+// FORBIDDEN
 page.locator('xpath=//button[contains(text(), "Save")]')
 page.locator('//div[@class="service"]')
 ```
 
-If codegen produces XPath, convert it to one of the approved patterns. If no equivalent exists, mark with `test.fail()` and leave a TODO — do not keep the XPath.
+If codegen produces XPath, convert it. If no equivalent exists, mark with `test.fail()` and a TODO — do not keep the XPath.
 
 ### Decision Flow
 
@@ -94,128 +118,174 @@ Need to select an element?
 
 ---
 
+## 2.5 Selector Discovery via Playwright MCP (REQUIRED)
+
+The agent uses the **Playwright MCP server** for all browser automation: selector discovery, DOM inspection, and test execution. If Playwright MCP is not connected, the agent halts at Phase 0.
+
+### What MCP provides
+
+- Live browser session Claude can drive directly (navigate, click, fill, snapshot DOM)
+- DOM/accessibility tree inspection without leaving the chat
+- Headless test execution with structured results
+- Ability to iterate on selectors against the real app in real time
+
+### How to use it during discovery (Phase 1)
+
+1. Launch browser via MCP against `process.env.BASE_URL`.
+2. Navigate to the feature under test.
+3. Snapshot the DOM / accessibility tree.
+4. Identify selectors using Section 2 priority order.
+5. Record selectors + interaction steps for use in Phase 4 (POM) and Phase 5 (tests).
+
+### How to use it during execution (Phase 7)
+
+1. Run tests in headless mode via MCP.
+2. Capture structured pass/fail results per test.
+3. On failure, MCP provides stack trace + failed selector + DOM snapshot for root-cause analysis in Phase 8.
+
+### What the agent must NOT do
+
+- Must not fabricate selectors from memory. Every selector must be verified via MCP DOM inspection or user-provided codegen paste.
+- Must not skip MCP execution in Phase 7. Tests that have not been verified passing in a real browser session cannot be delivered.
+
+---
+
 ## 3. Timeout Standards
 
-### Config-level defaults (in `playwright.config.js`)
+### Config defaults (`playwright.config.js`)
 
 ```javascript
 export default {
   timeout: 30_000,              // Overall test timeout
-  expect: {
-    timeout: 5_000,             // Assertion timeout
-  },
+  expect: { timeout: 5_000 },   // Assertion timeout
   use: {
-    navigationTimeout: 10_000,  // Page navigation (NOT 20s)
-    actionTimeout: 5_000,       // Click, fill, etc.
+    navigationTimeout: 10_000,
+    actionTimeout: 5_000,
   },
-  fullyParallel: true,          // Run tests in parallel
+  fullyParallel: true,
   retries: process.env.CI ? 2 : 0,
 };
 ```
 
-### Per-scenario timeout ceilings
+### Per-scenario ceilings
 
 | Scenario | Timeout | Notes |
 |----------|---------|-------|
-| Navigation | 10,000 ms | Reduced from legacy 20s |
+| Navigation | 10,000 ms | |
 | Element visibility | 5,000 ms | Default `expect` timeout |
 | API response | 10,000 ms | Use `waitForResponse`, not arbitrary waits |
 | Assertion | 5,000 ms | Web-first assertions auto-wait |
-| Arbitrary pause (`waitForTimeout`) | **Banned** | Use event-based waits instead |
+| Arbitrary pause | **Banned** | Use event-based waits instead |
 
 ### The Timeout Rule
 
-> **Never increase a timeout to "fix" a flaky test.** If a test times out, investigate *why*. Raising the ceiling hides bugs and multiplies suite runtime.
+> **Never increase a timeout to "fix" a flaky test.** Investigate why it's slow. Raising the ceiling hides bugs and multiplies suite runtime.
 
-Acceptable reason to exceed defaults: a genuinely long-running backend operation (file upload, report generation) where you've **measured** the actual duration.
+**Acceptable**: a genuinely long backend operation (file upload, report generation) where you've **measured** the duration. Target the specific assertion, not the test-level timeout.
 
-Unacceptable reason: "the test passes when I bump it to 15s" — that means the test is racing a condition you haven't made explicit. Find the real condition and wait for it.
+**Unacceptable**: "it passes when I bump it to 15s" — the test races a condition you haven't made explicit. Find the real condition.
 
 ---
 
-## 4. Wait Strategy (The Biggest Speed Win)
+## 4. Wait Strategy
 
-### (AVOID) Avoid `networkidle`
+### Avoid `networkidle`
 
-`networkidle` waits for 500ms of no network activity. On modern apps with analytics, polling, or websockets, this rarely happens — so it waits the full timeout. The Playwright team officially discourages it.
+`networkidle` waits for 500ms of zero network activity. On modern apps with analytics/polling/websockets this rarely happens.
 
 ```javascript
-// (AVOID) SLOW AND FLAKY
+// AVOID
 await page.goto(url, { waitUntil: 'networkidle' });
 
-// (PREFERRED) FAST AND RELIABLE
+// PREFER
 await page.goto(url, { waitUntil: 'domcontentloaded' });
 ```
 
-### (RECOMMENDED) Use event-based waits for specific conditions
+### Use event-based waits
 
 ```javascript
-// Waiting for an API response (BEST for API-driven UIs)
+// Wait for API response
 await Promise.all([
   page.waitForResponse(r => r.url().includes('/api/services') && r.status() === 200),
   page.locator('[data-testid="save-btn"]').click(),
 ]);
 
-// Waiting for an element (web-first assertion auto-waits)
+// Wait for element (web-first assertion auto-waits)
 await expect(page.locator('[data-testid="success-toast"]')).toBeVisible();
 
-// Waiting for navigation
+// Wait for navigation
 await Promise.all([
   page.waitForURL(/\/deals\/\d+/),
   page.locator('[data-testid="create-btn"]').click(),
 ]);
 
-// Waiting for a loading spinner to disappear
+// Wait for spinner to disappear
 await expect(page.locator('[data-testid="spinner"]')).toBeHidden();
 ```
 
-### (AVOID) Do NOT double-wait
-
-Web-first assertions already retry until the timeout. Adding `waitFor()` before `expect()` doubles the wait.
+### Do NOT double-wait
 
 ```javascript
-// (AVOID) REDUNDANT — waits up to 10s + 5s = 15s
+// REDUNDANT — up to 10s + 5s = 15s
 await locator.waitFor({ state: 'visible', timeout: 10_000 });
 await expect(locator).toBeVisible({ timeout: 5_000 });
 
-// (PREFERRED) CLEAN — expect auto-waits up to 5s
+// CLEAN — expect auto-waits
 await expect(locator).toBeVisible();
 ```
 
-### (AVOID) Never use `page.waitForTimeout()`
+### Never use `page.waitForTimeout()`
+
+If you think you need it, you've missed the real wait condition.
+
+### Animation-aware patterns (MUI, drawers, modals)
+
+For animated components, wait for settled state, not just existence:
 
 ```javascript
-// (BANNED) arbitrary pause, always waits full duration
-await page.waitForTimeout(3000);
+// Drawer animates in → wait for it to be fully open before interacting
+const drawer = page.locator('[role="dialog"]');
+await expect(drawer).toBeVisible();
+await expect(drawer).toHaveAttribute('aria-hidden', 'false');
 
-// (PREFERRED) Use a condition-based wait instead
-await expect(page.locator('text=Loaded')).toBeVisible();
+// MUI input — wait for the input inside, not the wrapper
+const input = page.locator('.MuiInputBase-root').locator('input').first();
+await expect(input).toBeEnabled();
+await input.fill('value');
 ```
-
-Exception: **never**. If you think you need it, you've missed the real wait condition.
 
 ---
 
-## 5. Test Isolation (Enables Parallel Execution)
+## 5. Test Isolation
 
-For `fullyParallel: true` to work safely, every test must be independent.
+For `fullyParallel: true` to work:
 
-### Rules
+- Each test creates its own test data.
+- No shared state between tests.
+- Each test cleans up after itself (or uses unique IDs).
+- Tests pass in any order.
 
-- **Each test creates its own test data.** Don't rely on data created by a previous test.
-- **No shared state between tests.** Module-level variables that mutate across tests = parallelization bug.
-- **Each test cleans up after itself** (or uses unique identifiers so cleanup is unnecessary).
-- **Tests must pass in any order.** If test B depends on test A running first, they should be one test.
-
-### Unique test data pattern
+### Unique data pattern
 
 ```javascript
 test('create item', async ({ page }) => {
-  const itemName = `Item-${Date.now()}`;  // Unique per run
+  const itemName = `Item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   await featureModule.fillInput(itemName);
   await expect(page.locator(`text=${itemName}`)).toBeVisible();
 });
 ```
+
+### API-based cleanup (preferred over UI cleanup)
+
+```javascript
+test.afterEach(async ({ request }) => {
+  if (createdId) {
+    await request.delete(`/api/items/${createdId}`);
+  }
+});
+```
+
+Avoid UI-based cleanup (clicking Delete → Confirm) — it's slow, flaky, and doubles the surface area of each test.
 
 ---
 
@@ -223,22 +293,20 @@ test('create item', async ({ page }) => {
 
 Every test MUST have meaningful assertions. Existence checks alone are not assertions.
 
-### (INSUFFICIENT)
+### Insufficient
 
 ```javascript
-const total = await cm.getGrandTotal();
-expect(total).toBeDefined();  // Passes even if total is "undefined" string
+expect(total).toBeDefined();  // Passes even if total is the string "undefined"
 ```
 
-### (SUFFICIENT)
+### Sufficient
 
 ```javascript
-const total = await cm.getGrandTotal();
-expect(total).toMatch(/\$[\d,]+\.\d{2}/);                    // Validates format
-expect(Number(total.replace(/[$,]/g, ''))).toBeGreaterThan(0);  // Validates value
+expect(total).toMatch(/\$[\d,]+\.\d{2}/);
+expect(Number(total.replace(/[$,]/g, ''))).toBeGreaterThan(0);
 ```
 
-### Preferred: Web-First Assertions
+### Prefer web-first assertions
 
 ```javascript
 await expect(page.locator('[data-testid="toast"]')).toHaveText(/saved successfully/i);
@@ -247,41 +315,54 @@ await expect(page.locator('[data-testid="next-btn"]')).toBeEnabled();
 await expect(page.locator('.service-row')).toHaveCount(3);
 ```
 
-### Assertion Checklist
+### 6.1 Definition: "Critical Assertion Point"
 
-Every test should validate at least one of:
-- A value changed to the expected value (`toHaveText`, `toHaveValue`)
-- A state changed (`toBeEnabled`, `toBeChecked`, `toBeVisible`)
-- A count changed (`toHaveCount`)
-- A URL changed (`toHaveURL`)
+A step deserves an assertion **if and only if** one of the following is true:
+
+| # | Condition | Assertion type |
+|---|---|---|
+| 1 | Server state is expected to change | `waitForResponse` + UI reflection via `toHaveText` / `toHaveCount` |
+| 2 | URL changes | `await expect(page).toHaveURL(...)` |
+| 3 | A calculated/derived value updates | `toHaveText` / `toHaveValue` with **exact expected value** |
+| 4 | A modal/dialog/drawer opens or closes | `toBeVisible` / `toBeHidden` on the container |
+| 5 | A form validation triggers | `toHaveText` on the error message (exact text or regex) |
+| 6 | An element's enabled/disabled state changes | `toBeEnabled` / `toBeDisabled` |
+
+**If a step matches none of these, do not add an assertion for it.** Don't assert that a button is visible immediately after clicking it — that's noise.
+
+### Target: 3–6 assertions per happy-path test
+
+Fewer than 3 → you're probably missing critical points. More than 6 → you're asserting noise or the test is doing too much.
+
+For multi-requirement tests using `test.step()` groups, target **2–4 assertions per `test.step()` group**.
 
 ---
 
-## 7. POM (Page Object Model) Rules
+## 7. Page Object Model (POM) Rules
 
 ### File discovery
 
 - Pattern: `pages/{{module}}-module.js` (e.g., `pages/contract-module.js`)
-- If missing, ask user before creating
+- Module is inferred from the test output file path (e.g., `tests/e2e/contract-module.spec.js` → `contract` → `pages/contract-module.js`).
+- If missing, the agent MUST ask the user before creating.
 
 ### Append-only
 
-- Never modify existing POM methods
-- Never rename existing selectors
-- Never delete existing code
-- Only ADD new selectors and methods
+- Never modify existing POM methods.
+- Never rename existing selectors.
+- Never delete existing code.
+- Only ADD new selectors and methods.
 
-### Selector definition in POM
+### POM structure
 
 ```javascript
 class FeatureModule {
   constructor(page) {
     this.page = page;
-    // Locator-first, defined once, reused across methods
+    // Locators defined once, reused across methods
     this.saveButton = page.locator('[data-testid="save-btn"]');
     this.primaryInput = page.locator('[data-testid="primary-input"]');
     this.featureTab = page.getByRole('tab', { name: 'Feature' });
-    // Fallback to getByRole when locator is awkward
     this.confirmDialog = page.getByRole('dialog', { name: 'Confirm Action' });
   }
 
@@ -292,120 +373,147 @@ class FeatureModule {
   async clickSave() {
     await this.saveButton.click();
   }
+
+  // Waits belong in the POM, not in tests — encapsulate the wait condition
+  async saveAndWaitForConfirmation() {
+    await Promise.all([
+      this.page.waitForResponse(r => r.url().includes('/api/save') && r.status() === 200),
+      this.saveButton.click(),
+    ]);
+  }
 }
+
+module.exports = { FeatureModule };
 ```
 
 ---
 
-## 8. Test Structure
+## 8. Test Structure (Canonical Templates)
+
+### 8.1 Single requirement
 
 ```javascript
 const { test, expect } = require('@playwright/test');
 const { FeatureModule } = require('../../pages/feature-module.js');
 require('dotenv').config();
 
-test.describe('{{MODULE_NAME}} — {{REQUIREMENT_DESCRIPTION}}', () => {
+// Describe title = user requirement verbatim. No prefix, no paraphrasing.
+test.describe('Verify deleting a service updates totals correctly', () => {
   let featureModule;
 
   test.beforeEach(async ({ page }) => {
     featureModule = new FeatureModule(page);
-    const baseUrl = process.env.BASE_URL;
-    if (!baseUrl) throw new Error('BASE_URL missing from .env');
-
-    await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
-    // TODO: implement login based on your auth flow
+    await page.goto('/feature-path', { waitUntil: 'domcontentloaded' });
   });
 
-  test('TC-{{PREFIX}}-001 | exact name from documentation', async ({ page }) => {
-    await test.step('Navigate to feature', async () => {
-      // Navigate to the feature under test
-      await page.goto(`${baseUrl}/{{feature-path}}`);
-    });
-
-    await test.step('Perform feature action', async () => {
-      // Execute the feature action
-      await page.locator('[data-testid="action-btn"]').click();
-    });
-
-    await test.step('Verify expected result', async () => {
-      await expect(page.locator('[data-testid="result"]')).toBeVisible();
+  test('TC-CONTRACT-001 | Delete service updates grand total @smoke', async ({ page }) => {
+    await test.step('Setup: create contract with two services', async () => { /* ... */ });
+    await test.step('Delete one service', async () => { /* ... */ });
+    await test.step('Verify total recalculated', async () => {
+      await expect(page.locator('[data-testid="grand-total"]')).toHaveText('$150.00');
     });
   });
 });
 ```
 
-### Test Naming Rule
-
-(CRITICAL) Test names (TC codes) must be defined in documentation FIRST, never invented during test generation.
+### 8.2 Multiple requirements — shared describe, shared flow → one test with `test.step()` groups
 
 ```javascript
-// (INCORRECT) — TC code invented without documentation
-test('TC-{{PREFIX}}-006 | some feature', async () => { /* ... */ });
+// User input: "Verify deleting a service updates totals, Verify remaining service forms work after deletion"
+// Shared flow → ONE test, grouped by test.step()
 
-// (CORRECT) — TC code comes from documentation
-// After documenting: "TC-{{PREFIX}}-006 | Verify feature updates correctly..."
-test('TC-{{PREFIX}}-006 | Verify feature updates correctly', async () => { /* ... */ });
-```
+test.describe('Verify deleting a service updates totals, Verify remaining service forms work after deletion', () => {
+  let featureModule;
 
-**Workflow:**
-1. Document test cases in `docs/{{module}}-test-steps.md` with TC codes
-2. Document expected steps and assertions
-3. Generate automation tests using the documented TC codes only
-4. Skip any tests not in documentation
+  test.beforeEach(async ({ page }) => {
+    featureModule = new FeatureModule(page);
+    await page.goto('/contract/new', { waitUntil: 'domcontentloaded' });
+  });
 
-**Rationale:** Documentation drives test generation, not the reverse. TC codes are identifiers for documented behavior.
+  test('TC-CONTRACT-001 | Delete service flow — totals update and remaining forms stay functional @smoke', async ({ page }) => {
+    // Shared setup
+    await test.step('Setup: create contract with three services', async () => {
+      await featureModule.addService('Service A', 100);
+      await featureModule.addService('Service B', 50);
+      await featureModule.addService('Service C', 25);
+    });
 
-### (CRITICAL) Test Describe Block Title — EXACT User Requirement Match
+    // Requirement 1: totals update
+    await test.step('Requirement 1: Verify deleting a service updates totals correctly', async () => {
+      await featureModule.deleteService('Service B');
+      await expect(page.locator('[data-testid="grand-total"]')).toHaveText('$125.00');
+      await expect(page.locator('.service-row')).toHaveCount(2);
+    });
 
-When generating tests from a user requirement, the `test.describe()` block title **MUST be exactly the user's requirement description**, with no variations or modifications.
-
-```javascript
-// User requirement: "Verify devices quantity cannot go below 0 and cannot accept non-numeric input"
-
-// (CORRECT) — Exactly matches user requirement
-test.describe('Verify feature behavior with edge cases and validation', () => {
-  test('TC-{{PREFIX}}-001 | ...', async () => { /* ... */ });
-  test('TC-{{PREFIX}}-002 | ...', async () => { /* ... */ });
+    // Requirement 2: remaining forms work
+    await test.step('Requirement 2: Verify remaining service forms work after deletion', async () => {
+      await featureModule.editServiceName('Service A', 'Service A Updated');
+      await expect(page.locator('text=Service A Updated')).toBeVisible();
+      await expect(page.locator('[data-testid="save-btn"]')).toBeEnabled();
+    });
+  });
 });
-
-// (INCORRECT) — Does NOT match user requirement
-test.describe('Validation Tests', () => { /* ... */ });
-test.describe('Module — Feature', () => { /* ... */ });
-test.describe('Verify feature works correctly', () => { /* ... */ });
 ```
 
-**Why:** The describe block title serves as the explicit contract between user intent and test implementation. It appears in test reports and must faithfully represent what the user asked for, making test reports self-documenting.
+### 8.3 Multiple requirements — independent flows → separate tests in same describe
 
-### (CRITICAL) Mandatory Headless Mode Verification Before Delivery
+```javascript
+// User input: "Verify creating a proposal, Verify rejecting negative quantity"
+// Independent flows (different entry points, different setup) → SEPARATE tests, same describe
 
-All generated tests **MUST** pass in headless mode before delivery. This is a verification requirement, not optional.
+test.describe('Verify creating a proposal, Verify rejecting negative quantity', () => {
+  let featureModule;
 
-**Verification checklist:**
-- [ ] Tests run successfully in headless mode (default CI/CD environment)
-- [ ] No tests fail or time out
-- [ ] All generated tests pass ({{N}} total)
-- [ ] Exit code = 0 (success)
+  test.beforeEach(async ({ page }) => {
+    featureModule = new FeatureModule(page);
+  });
 
-```bash
-# Mandatory verification before delivery
-npm run test:uat:{{module}} -- --grep "TC-{{PREFIX}}" --reporter=list
+  test('TC-CONTRACT-001 | Create proposal with valid inputs @smoke', async ({ page }) => {
+    await page.goto('/proposals/new', { waitUntil: 'domcontentloaded' });
+    /* ... */
+  });
 
-# Must output: "X passed" with exit code 0
+  test('TC-CONTRACT-002 | Reject negative quantity on device form @regression', async ({ page }) => {
+    await page.goto('/devices', { waitUntil: 'domcontentloaded' });
+    /* ... */
+  });
+});
 ```
 
-**If any test fails in headless mode:**
-1. Do NOT deliver
-2. Run Phase 8 auto-fix (max 3 attempts per failing test)
-3. Re-verify in headless mode
-4. Only then deliver
+### 8.4 Describe title rule — EXACT user input
 
-### Key patterns
+The `test.describe()` title MUST be the user's requirement string verbatim.
 
-- **Use `{ page }` from test context** — don't create `browser.newContext()` manually; Playwright handles isolation
-- **Use `test.step()` for logical sections** — better than `console.log`, shows in trace viewer
-- **Screenshots and traces belong in `playwright.config.js`**, not in `afterEach`:
+- **Single requirement:** describe title = the requirement exactly.
+- **Multiple requirements (comma-separated):** describe title = the comma-separated string exactly as passed, OR the requirements joined with ` | ` if the agent deems that more readable. **Ask the user in Phase 3 if unsure.**
+
+```javascript
+// User input: "Verify creating a proposal, Verify rejecting negative quantity"
+
+// CORRECT
+test.describe('Verify creating a proposal, Verify rejecting negative quantity', () => { });
+
+// ALSO ACCEPTABLE (if confirmed with user)
+test.describe('Verify creating a proposal | Verify rejecting negative quantity', () => { });
+
+// INCORRECT
+test.describe('Contract Module — Proposals', () => { });
+test.describe('Verify proposal tests', () => { });
+```
+
+### 8.5 TC code naming
+
+TC codes must be written into `docs/{{module}}-test-steps.md` **before** test generation (Phase 3). After the doc-review pause, the agent re-reads the doc and uses the TC codes found there.
+
+- Never invent TC codes at test-write time.
+- If the user edits TC codes during the doc-review pause, the agent uses the edited codes.
+
+### 8.6 Key patterns
+
+- Use `{ page }` from test context — don't create `browser.newContext()` manually.
+- Use `test.step()` for logical sections — shows in trace viewer and groups multi-requirement assertions.
+- Screenshots/traces go in `playwright.config.js`, not in `afterEach`:
   ```javascript
-  // playwright.config.js
   use: {
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
@@ -413,12 +521,27 @@ npm run test:uat:{{module}} -- --grep "TC-{{PREFIX}}" --reporter=list
   }
   ```
 
+### 8.7 Test tagging
+
+Tags enable suite slicing:
+
+```javascript
+test('TC-CONTRACT-001 | Create contract @smoke @critical', async ({ page }) => { });
+test('TC-CONTRACT-005 | Reject negative quantity @regression', async ({ page }) => { });
+```
+
+- `@smoke` — the happy path for each flow
+- `@regression` — edge cases and validations
+- `@critical` — blocking business flows
+
+Run only smoke: `npx playwright test --grep @smoke`
+
 ---
 
 ## 9. Environment Safety
 
-- All credentials, URLs, and secrets come from `.env` (loaded via `dotenv`)
-- Never hardcode `BASE_URL`, usernames, passwords, API keys
+- All URLs and secrets come from `.env` (loaded via `dotenv`).
+- Never hardcode `BASE_URL`, usernames, passwords, API keys.
 - Validate env vars at test setup:
   ```javascript
   const baseUrl = process.env.BASE_URL;
@@ -427,42 +550,173 @@ npm run test:uat:{{module}} -- --grep "TC-{{PREFIX}}" --reporter=list
 
 ---
 
-## 10. Auto-Fix Methodology
+## 10. Test Data: env vars vs local constants
 
-When a test fails, **investigate before mutating**. The fix priority has changed from the legacy approach.
+Static test-fixture values (names, labels, search strings) must **never** come from `process.env.*`. They are test data, not configuration. This section defines the boundary.
 
-### Attempt 1: Selector Investigation
+### 10.1 The rule in one sentence
 
-- Is the element actually in the DOM when the selector runs?
+> `process.env.*` is for **runtime configuration**. Named constants at the top of the file are for **static test fixture data**. Dynamically created records use a `PAT {timestamp}` value pattern so they are identifiable as test-generated.
+
+### 10.2 What belongs in `process.env.*`
+
+Three categories only:
+
+| Category | Examples | How to access |
+|---|---|---|
+| **Secrets / credentials** | passwords, API tokens, auth keys | Via `utils/env.js` — never raw `process.env` |
+| **CI / runtime toggles** | `CI`, `HEADLESS`, `DEBUG`, retry-count overrides | `process.env.CI`, `process.env.HEADLESS` |
+| **Cross-suite handoff state** | `CREATED_PROPERTY_NAME` passed between suites | Prefer `utils/shared-run-state.js` helpers over direct writes |
+
+Everything else — user names, franchise labels, contact names, search strings, assignee labels, numeric limits — lives in named constants at the top of the file.
+
+### 10.3 Static fixture constants — naming and placement
+
+- **Placement:** top of the Page Object file, before the class declaration, in a clearly commented block.
+- **Naming pattern:** `<DOMAIN>_<FIELD>_<ENV>` where `<ENV>` is `PROD` or `NONPROD` (omit if env-invariant).
+- **Default numeric fallbacks** (retry limits, attempt counts) are also named constants — no magic numbers in expressions like `|| 8`.
+
+### 10.4 Dynamic test data — the `PAT {timestamp}` value pattern
+
+When a test **creates** a new record (property, deal, contact, etc.), the value itself should carry a `PAT` prefix so the record is clearly identifiable as test-generated and easy to clean up:
+
+```javascript
+// Value contains "PAT" + timestamp — the constant name has no special prefix
+const propertyName = `PAT ${Date.now()}`;
+const dealName     = `PAT ${Date.now()}`;
+```
+
+The `PAT` is in the **value**, not the variable name. This makes test-created records greppable in the database and distinguishable from real data.
+
+### 10.5 Before / after example
+
+```javascript
+// ── BEFORE (avoid) ──────────────────────────────────────────────────────────
+// Buried literals, impossible to grep, misleading if a header says "no hardcoded names"
+const franchiseLabel = env.envName === 'prod' ? 'Tkxel Test Franchise' : '216 - Omaha, NE';
+for (let i = 0; i < (process.env.MAX_ATTEMPTS || 8); i++) { ... }
+
+// ── AFTER (preferred) ────────────────────────────────────────────────────────
+// At top of file:
+const FRANCHISE_PROD    = 'Tkxel Test Franchise';
+const FRANCHISE_NONPROD = '216 - Omaha, NE';
+const MAX_SEARCH_ATTEMPTS = 8;
+
+// In method body:
+const franchiseLabel = env.envName === 'prod' ? FRANCHISE_PROD : FRANCHISE_NONPROD;
+for (let i = 0; i < MAX_SEARCH_ATTEMPTS; i++) { ... }
+
+// For records created during the test:
+const propertyName = `PAT ${Date.now()}`;
+```
+
+The `env.envName` switch is fine; only the string literals move into named constants.
+
+### 10.6 Header comment accuracy
+
+If a file header says **"Fully dynamic — no hardcoded names"** but the file contains hardcoded prod/non-prod name literals, fix one or the other:
+
+- Move the literals into named constants and update the header to reflect that, **or**
+- Remove the misleading claim from the header.
+
+Prefer accurate comments over aspirational ones.
+
+### 10.7 Applying these rules when editing
+
+- **New page objects / spec files:** apply from the start — no exceptions.
+- **Existing files (editing or reviewing):** flag every violation found **within the scope of your current task**. Before refactoring code outside the immediate task, ask the user first.
+
+---
+
+## 11. Auto-Fix Methodology
+
+When a test fails in Phase 7, the agent enters Phase 8 auto-fix. **Hard cap: 3 attempts total per failing test.**
+
+### The escalation flow
+
+```
+Test fails in Phase 7
+  ↓
+Attempt 1 — Selector investigation (skill Section 2)
+  ↓ still failing?
+Attempt 2 — Wait root-cause investigation (NOT timeout bumps)
+  ↓ still failing?
+[PAUSE] — Agent stops and asks user what to do next
+  ↓ user picks:
+    [a] Try attempt 3 (logic/import/typo check)
+    [b] Mark test.fail() with TODO and continue
+    [c] Stop workflow for manual debugging
+  ↓
+If [a] and attempt 3 fails → auto-mark test.fail() (no further asking)
+```
+
+### Attempt 1: Selector investigation
+
+- Is the element in the DOM when the selector runs?
 - Try alternatives in order: `[data-testid]` → CSS → `text=` → `getByLabel` → `getByRole`
-- Inspect live DOM via headed mode if MCP available
+- Use Playwright MCP to snapshot DOM at failure point.
 
-### Attempt 2: Root-Cause Wait Investigation (NOT timeout bumps)
+### Attempt 2: Wait root-cause investigation
 
-Before touching timeouts, check:
-- Is there an API response the test should wait for? → Add `page.waitForResponse()`
-- Is there a loading spinner the test ignores? → Wait for it to disappear
-- Is the element inside a modal/drawer that animates in? → Wait for the container first
-- Is there a race condition with form validation? → Wait for the button to be enabled
+**No timeout bumps.** Investigate:
 
-**Only if investigation reveals a genuinely slow backend operation** (measured, not guessed) may timeouts be increased — and even then, target the specific assertion, not the test-level timeout.
+- Missing `waitForResponse` for an API call?
+- Loading spinner being ignored?
+- Modal/drawer animation not awaited?
+- Form validation race (button enables async)?
 
-### Attempt 3: Logic & Import Fixes
+Timeout increase only if investigation reveals a **measured** slow backend op. Target the specific assertion, never the test-level timeout.
 
+### PAUSE — Agent asks user
+
+After attempt 2 fails, the agent STOPS and presents rich context:
+
+```
+[AUTO-FIX PAUSED] TC-CONTRACT-002 still failing after 2 attempts.
+
+Attempt 1 (selector investigation):
+  Tried: [data-testid="service-row"], .service-row, getByRole('row')
+  Result: Element not found after dialog opens
+  DOM snapshot at failure: <captured via MCP>
+
+Attempt 2 (wait investigation):
+  Added: waitForResponse for /api/services
+  Result: API returns 200 but UI still shows loading state
+
+Error: TimeoutError: locator.click: Timeout 5000ms exceeded
+Failed at: await featureModule.clickServiceRow('Test Service')
+
+Hypothesis: The list renders after a second, client-side state transition
+that isn't tied to a network response.
+
+What should I do?
+  [a] Try attempt 3 — logic/import/typo check
+  [b] Mark this test as test.fail() with TODO and continue
+  [c] Stop workflow for manual debugging
+```
+
+The agent waits for the user's answer before doing anything else.
+
+### Attempt 3 (only if user picks [a])
+
+Logic-level fixes:
 - Missing imports
 - Undeclared variables
 - Missing `await` keywords
 - Typos in method/variable names
+- Wrong module/POM reference
 
-### Attempt 4 (only if 1–3 fail): Mark as Unresolvable
+If attempt 3 fails, auto-mark `test.fail()` with TODO. **Do NOT ask again.**
 
 ```javascript
-test('TC-{{PREFIX}}-005 | feature description', async () => {
+test('TC-CONTRACT-002 | ...', async () => {
   test.fail();
-  // TODO: Selector [data-testid="element"] not found in DOM
-  // Expected behavior: element appears after precondition
-  // Tried: testid, text=, getByRole
-  // Recommendation: Run in headed mode to inspect live DOM
+  // TODO: Unresolved after 3 auto-fix attempts
+  // Attempt 1: Selector alternatives — element not found
+  // Attempt 2: Wait investigation — UI state not tied to API response
+  // Attempt 3: Logic check — no import/typo issues found
+  // Hypothesis: Client-side state transition not captured
+  // Recommendation: HEADLESS=false npx playwright test <file> --debug
 });
 ```
 
@@ -472,29 +726,45 @@ test('TC-{{PREFIX}}-005 | feature description', async () => {
 
 | Constraint | Detail | Consequence |
 |---|---|---|
-| **NO XPATH** | Zero tolerance. Use `page.locator()` or `getByRole`/`getByLabel`. | Unresolvable → `test.fail()` + TODO |
-| **NO `waitForTimeout`** | Arbitrary pauses banned. Use event-based waits. | Refactor required |
+| **NO XPATH** | Use `page.locator()` or `getByRole`/`getByLabel`. | Unresolvable → `test.fail()` + TODO |
+| **NO `waitForTimeout`** | Arbitrary pauses banned. | Refactor required |
 | **NO `networkidle`** | Use `domcontentloaded` + explicit waits. | Refactor required |
 | **NO DOUBLE-WAITS** | `waitFor()` + `expect()` is redundant. | Remove the `waitFor()` |
-| **NO TIMEOUT BUMPS** | Don't raise timeouts to fix flakiness. | Must investigate root cause |
+| **NO TIMEOUT BUMPS** | Don't raise timeouts to fix flakiness. | Investigate root cause |
 | **NO HARDCODED ENV** | All URLs/credentials from `.env`. | Test fails with clear error |
-| **NO SHARED STATE** | Tests must pass in any order, run in parallel. | Breaks `fullyParallel` |
-| **ASSERTIONS REQUIRED** | `toBeDefined()` alone is insufficient. | Pair with value/format checks |
-| **POM APPEND-ONLY** | Never modify existing POM code. | Only add new methods |
-| **TEST NAMES FROM DOCS** | TC codes must exist in `docs/*.md` before automation. Never invent TC codes. | Tests not in docs are skipped |
+| **NO SHARED STATE** | Tests pass in any order. | Breaks `fullyParallel` |
+| **NO INVENTED TC CODES** | TC codes come from docs. | Tests not in docs are skipped |
+| **NO FABRICATED SELECTORS** | Must verify via Playwright MCP or user paste. | Selectors must be verifiable |
+| **ASSERTIONS REQUIRED** | Match one of the 6 critical-point conditions. | `toBeDefined()` alone insufficient |
+| **DESCRIBE = REQUIREMENT VERBATIM** | Single: exact. Multiple: comma-separated string. | Agent MUST enforce |
+| **POM APPEND-ONLY** | Never modify existing POM. | Only add new methods |
+| **SHARED DESCRIBE FOR MULTI-REQ** | All comma-separated requirements → one describe. | No multiple describes per run |
+| **2 ATTEMPTS → PAUSE** | Auto-fix pauses after 2 attempts, asks user. | Cap at 3 total; no further asks after 3 |
+| **NO `process.env` FOR TEST DATA** | Names, labels, search strings → named constants at top of file. | Flag and refactor before merging |
+| **STATIC FIXTURE CONSTANTS** | Inline string literals buried in expressions → named `DOMAIN_FIELD_ENV` const block. | Unnamed literals are a review blocker |
+| **NO MAGIC NUMERIC FALLBACKS** | `\|\| 8` style defaults → named constant (e.g. `MAX_SEARCH_ATTEMPTS`). | Makes limits greppable and reviewable |
+| **`PAT {timestamp}` FOR CREATED RECORDS** | Plain names for test-created records → `\`PAT ${Date.now()}\``. | Identifies test-generated data in DB |
+| **ACCURATE HEADER COMMENTS** | Header must not claim "no hardcoded names" if static literals exist. | Fix comment or extract constants |
 
 ---
 
-## 12. Quick Reference — Good vs Bad Patterns
+## 13. Quick Reference — Patterns
 
-| Situation | (Avoid) | (Preferred) |
-|-----------|---------|-------|
+| Situation | Avoid | Prefer |
+|-----------|-------|--------|
 | Page load | `waitUntil: 'networkidle'` | `waitUntil: 'domcontentloaded'` |
 | Wait for element | `waitForTimeout(3000)` | `await expect(el).toBeVisible()` |
 | Wait for API | `waitForTimeout(2000)` | `waitForResponse(r => r.url().includes('/api/'))` |
 | Select button | `xpath=//button[text()="Save"]` | `page.locator('[data-testid="save"]')` |
 | Select by label | `page.locator('input').nth(3)` | `page.getByLabel('Email')` |
 | Assert existence | `expect(val).toBeDefined()` | `expect(val).toMatch(/regex/)` |
-| Before each test | Create `browser.newContext()` manually | Use `{ page }` from test args |
-| Flaky test | Bump timeout to 15s | Investigate the missed wait condition |
-| Test naming | Invent TC codes during generation | Document TC codes first in docs/*.md |
+| Before each test | Create `browser.newContext()` | Use `{ page }` from test args |
+| Flaky test | Bump timeout to 15s | Investigate missed wait condition |
+| Test data cleanup | Navigate → click → confirm | `request.delete('/api/...')` in `afterEach` |
+| Test naming | Invent TC codes | Document TC codes first in `docs/*.md` |
+| Describe block | `'Module — Feature'` | User's exact requirement string |
+| Multi-requirement run | Multiple describe blocks | ONE describe with `test.step()` groups or separate tests |
+| Selector source | Memory/guessing | Playwright MCP DOM snapshot or user codegen paste |
+| Static fixture string | `env.envName === 'prod' ? 'Name A' : 'Name B'` | Named const at top: `const FRANCHISE_PROD = 'Name A'` |
+| Dynamically created record name | `'My Test Property'` | `` `PAT ${Date.now()}` `` |
+| Numeric retry/attempt limit | `\|\| 8` inline | `const MAX_SEARCH_ATTEMPTS = 8` at top of file |

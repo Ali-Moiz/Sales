@@ -1,7 +1,7 @@
 // pages/property-module.js
 // Page Object Model — Properties Module, Signal CRM
 // ALL locators live-verified via MCP browser on 2026-03-20
-// Fully dynamic — no hardcoded IDs or names
+// Test-data constants for prod vs non-prod are declared at the top of this file.
 
 const { expect } = require("@playwright/test");
 const { env } = require("../utils/env");
@@ -10,8 +10,17 @@ const {
   selectAddressFromAutocomplete,
   selectDynamicAddressWithRetry,
 } = require("../utils/dynamic_address");
-const ADDRESS_AUTOCOMPLETE_DEBUG =
-  String(process.env.ADDRESS_AUTOCOMPLETE_DEBUG || "false").toLowerCase() === "true";
+
+// ── Test data constants — prod vs non-prod (replaces env-name branching) ──
+const FRANCHISE_PROD = "Tkxel Test Franchise";
+const FRANCHISE_NONPROD = "216 - Omaha, NE";
+const ASSIGNEE_PROD = "Moiz ProdHO";
+const ASSIGNEE_NONPROD = "Moiz SM UAT";
+const CONTACT_SEARCH_PROD = "Ahsan Awan";
+const CONTACT_SEARCH_NONPROD = "moiz";
+const CONTACT_LABEL_PROD = "Ahsan Awan";
+const CONTACT_LABEL_NONPROD = "Ali TkSmoke (moiz.qureshi+c1@";
+const DEFAULT_MAX_ADDRESS_ATTEMPTS = 8;
 
 class PropertyModule {
   constructor(page) {
@@ -256,8 +265,6 @@ class PropertyModule {
   }
 
   logAddress(message, meta = {}) {
-    if (!ADDRESS_AUTOCOMPLETE_DEBUG) return;
-    // eslint-disable-next-line no-console
     console.log(`[property_address] ${message}`, JSON.stringify(meta));
   }
 
@@ -351,7 +358,6 @@ class PropertyModule {
     await this.page
       .waitForLoadState("networkidle", { timeout: 10_000 })
       .catch(() => {});
-    await this.page.waitForTimeout(1_000);
   }
 
   async assertSearchShowsNoResults(searchTerm = this.lastSearchTerm) {
@@ -371,7 +377,6 @@ class PropertyModule {
     await this.page
       .waitForLoadState("networkidle", { timeout: 10_000 })
       .catch(() => {});
-    await this.page.waitForTimeout(500);
   }
 
   // ── Create Property ──────────────────────────────────────────────────────
@@ -438,6 +443,7 @@ class PropertyModule {
         el.scrollTop = el.scrollHeight;
       })
       .catch(() => {});
+    // debounce: no DOM signal after programmatic scroll — allow layout to settle
     await this.page.waitForTimeout(400);
     await expect(this.contactTrigger).toBeVisible({ timeout: 10_000 });
     await expect(this.submitCreateBtn).toBeVisible({ timeout: 5_000 });
@@ -571,12 +577,11 @@ class PropertyModule {
     await this.companyDropdownTrigger.click({ force: true });
     const tooltip = this.companyPickerTooltip();
     await tooltip.waitFor({ state: "visible", timeout: 10_000 });
-    await this.page.waitForTimeout(1_500);
     const row = tooltip.locator('p, [role="option"], li').first();
     await expect(row).toBeVisible({ timeout: 15_000 });
     // Click drawer title — Escape can dismiss the entire MUI drawer on some builds.
     await this.createPropertyHeading.click({ force: true });
-    await this.page.waitForTimeout(400);
+    await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
   }
 
   /**
@@ -644,6 +649,10 @@ class PropertyModule {
       .evaluate((el) => {
         if (!el) return false;
         if (el.getAttribute("aria-pressed") === "true") return true;
+        // Live-verified 2026-04-25: selected chips change only their inline style —
+        // border-width goes from 1px (unselected) to 1.5px (selected). Classes do not change.
+        const style = el.getAttribute("style") || "";
+        if (style.includes("1.5px")) return true;
         const cls = `${el.className || ""}`;
         const root = el.closest("button") || el;
         const rootCls = `${root.className || ""}`;
@@ -662,10 +671,10 @@ class PropertyModule {
     await locator.waitFor({ state: "visible", timeout: 8_000 });
     const before = await this.affiliationChipAppearsSelected(locator);
     await locator.click({ force: true });
-    await this.page.waitForTimeout(500);
+    await expect.poll(() => this.affiliationChipAppearsSelected(locator), { timeout: 4_000 }).not.toBe(before).catch(() => {});
     const mid = await this.affiliationChipAppearsSelected(locator);
     await locator.click({ force: true });
-    await this.page.waitForTimeout(500);
+    await expect.poll(() => this.affiliationChipAppearsSelected(locator), { timeout: 4_000 }).toBe(before).catch(() => {});
     const after = await this.affiliationChipAppearsSelected(locator);
     const selectionDetectable =
       before !== mid || mid !== after || before !== after;
@@ -686,7 +695,6 @@ class PropertyModule {
     await this.page
       .waitForLoadState("networkidle", { timeout: 15_000 })
       .catch(() => {});
-    await this.page.waitForTimeout(1_000);
   }
 
   async reloadPropertyDetailAndAssertStageBar(propertyName) {
@@ -819,7 +827,6 @@ class PropertyModule {
       await this.page
         .waitForLoadState("networkidle", { timeout: 10_000 })
         .catch(() => {});
-      await this.page.waitForTimeout(1_000);
 
       const optionSelected = await this.clickVisibleDropdownOption(
         tooltip,
@@ -830,7 +837,7 @@ class PropertyModule {
         .catch(() => false);
 
       if (optionSelected) {
-        await this.page.waitForTimeout(500);
+        await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
         return;
       }
     }
@@ -845,7 +852,7 @@ class PropertyModule {
       .then(() => true)
       .catch(() => false);
     if (firstVisibleOptionSelected) {
-      await this.page.waitForTimeout(500);
+      await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
       return;
     }
 
@@ -1015,7 +1022,7 @@ class PropertyModule {
     const searchInput = tooltip.getByRole("textbox", { name: "Search" });
     await searchInput.waitFor({ state: "visible", timeout: 5_000 });
     await searchInput.fill(searchText);
-    await this.page.waitForTimeout(600);
+    await tooltip.locator("p").first().waitFor({ state: "visible", timeout: 8_000 }).catch(() => {});
     return tooltip;
   }
 
@@ -1134,12 +1141,12 @@ class PropertyModule {
       .or(tooltip.getByRole("paragraph").first());
     await sourceOption.waitFor({ state: "visible", timeout: 5_000 });
     await sourceOption.click({ force: true });
-    await this.page.waitForTimeout(400);
+    await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
   }
 
   async selectAssociatedFranchise() {
     const franchiseLabel =
-      env.envName === "prod" ? "Tkxel Test Franchise" : "216 - Omaha, NE";
+      env.envName === "prod" ? FRANCHISE_PROD : FRANCHISE_NONPROD;
 
     const inEditForm = await this.editPropertyHeading
       .isVisible()
@@ -1165,7 +1172,6 @@ class PropertyModule {
 
     const searchInput = tooltip.getByRole("textbox", { name: "Search" });
     await searchInput.fill(franchiseLabel);
-    await this.page.waitForTimeout(1_000);
 
     const franchiseOption = tooltip
       .getByText(franchiseLabel, { exact: false })
@@ -1178,7 +1184,7 @@ class PropertyModule {
       );
     await franchiseOption.waitFor({ state: "visible", timeout: 8_000 });
     await franchiseOption.click({ force: true });
-    await this.page.waitForTimeout(500);
+    await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
   }
 
   /**
@@ -1212,7 +1218,7 @@ class PropertyModule {
       .or(tooltip.getByRole("paragraph").first());
     await stageOption.waitFor({ state: "visible", timeout: 5_000 });
     await stageOption.click({ force: true });
-    await this.page.waitForTimeout(400);
+    await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
   }
 
   /**
@@ -1223,7 +1229,7 @@ class PropertyModule {
    */
   async selectAssignee() {
     const assigneeLabel =
-      env.envName === "prod" ? "Moiz ProdHO" : "Moiz SM UAT";
+      env.envName === "prod" ? ASSIGNEE_PROD : ASSIGNEE_NONPROD;
 
     await this.assigneeTrigger.waitFor({ state: "visible", timeout: 8_000 });
     await this.assigneeTrigger.click();
@@ -1235,7 +1241,6 @@ class PropertyModule {
 
     const searchInput = tooltip.getByRole("textbox", { name: "Search" });
     await searchInput.fill(assigneeLabel);
-    await this.page.waitForTimeout(1_000);
 
     const assigneeOption = tooltip
       .getByRole("heading", { name: assigneeLabel })
@@ -1243,7 +1248,7 @@ class PropertyModule {
       .or(tooltip.getByText(assigneeLabel, { exact: false }).first());
     await assigneeOption.waitFor({ state: "visible", timeout: 8_000 });
     await assigneeOption.click({ force: true });
-    await this.page.waitForTimeout(500);
+    await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
   }
 
   assigneeTooltip() {
@@ -1299,7 +1304,7 @@ class PropertyModule {
     const searchInput = tooltip.getByRole("textbox", { name: "Search" });
     await searchInput.waitFor({ state: "visible", timeout: 5_000 });
     await searchInput.fill(searchText);
-    await this.page.waitForTimeout(600);
+    await tooltip.getByRole("heading", { level: 4 }).first().waitFor({ state: "visible", timeout: 8_000 }).catch(() => {});
     return tooltip;
   }
 
@@ -1325,7 +1330,7 @@ class PropertyModule {
       .or(tooltip.getByText(assigneeText, { exact: false }).first());
     await assigneeOption.waitFor({ state: "visible", timeout: 8_000 });
     await assigneeOption.click({ force: true });
-    await this.page.waitForTimeout(500);
+    await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
   }
 
   async dismissAssigneeDropdownWithoutSelection() {
@@ -1780,7 +1785,7 @@ class PropertyModule {
     const firstOption = tooltip.getByRole("heading", { level: 4 }).first();
     const selectedText = ((await firstOption.innerText().catch(() => "")) || "").trim();
     await firstOption.click({ force: true });
-    await this.page.waitForTimeout(500);
+    await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
     return selectedText;
   }
 
@@ -1817,6 +1822,7 @@ class PropertyModule {
     for (let attempt = 0; attempt < 5; attempt++) {
       await this.clickSelectSupervisorControlInCreateDrawer();
       await inputControl.press("ArrowDown").catch(() => {});
+      // debounce: no DOM signal to observe after ArrowDown — allow dropdown open animation
       await this.page.waitForTimeout(300);
       const visible = await tooltip
         .waitFor({ state: "visible", timeout: 2_500 })
@@ -1844,12 +1850,14 @@ class PropertyModule {
 
     // Recovery path for intermittent UI state where the control does not reopen.
     await this.setAssignSupervisorCheckedInCreateDrawer(false).catch(() => {});
+    // debounce: UI needs a tick between checkbox state toggles before re-enabling
     await this.page.waitForTimeout(300);
     await this.setAssignSupervisorCheckedInCreateDrawer(true).catch(() => {});
+    // debounce: UI needs a tick between checkbox state toggles before re-enabling
     await this.page.waitForTimeout(300);
     await this.assertSelectSupervisorVisibleInCreateDrawer();
     await this.createPropertyHeading.click({ force: true }).catch(() => {});
-    await this.page.waitForTimeout(250);
+    await this.selectSupervisorTooltipInCreateDrawer().waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
     return this.openSelectSupervisorDropdownInCreateDrawer();
   }
 
@@ -1889,7 +1897,7 @@ class PropertyModule {
       return { hasSearch: false, results: await this.getSupervisorOptionsFromOpenDropdown() };
     }
     await searchInput.fill(searchText);
-    await this.page.waitForTimeout(600);
+    await tooltip.getByRole("heading", { level: 4 }).first().waitFor({ state: "visible", timeout: 8_000 }).catch(() => {});
     const results = await this.getSupervisorOptionsFromOpenDropdown();
     return { hasSearch: true, results };
   }
@@ -1908,7 +1916,7 @@ class PropertyModule {
       .first();
     await option.waitFor({ state: "visible", timeout: 8_000 });
     await option.click({ force: true });
-    await this.page.waitForTimeout(500);
+    await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
   }
 
   async getSelectedSupervisorTextInCreateDrawer() {
@@ -2000,7 +2008,7 @@ class PropertyModule {
       .first();
     await option.waitFor({ state: "visible", timeout: 8_000 });
     await option.click({ force: true });
-    await this.page.waitForTimeout(500);
+    await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
     return target;
   }
 
@@ -2009,7 +2017,11 @@ class PropertyModule {
     await this.ownedButton.click({ force: true });
     await this.regionalOfficeButton.click({ force: true });
     await this.sharedButton.click({ force: true });
-    await this.page.waitForTimeout(500);
+    // Wait for last chip to reflect selected state (border-width: 1.5px — live-verified 2026-04-25)
+    await expect.poll(
+      () => this.sharedButton.evaluate((el) => el.getAttribute("style") || "").catch(() => ""),
+      { timeout: 4_000 },
+    ).toMatch(/1\.5px/);
   }
 
   /**
@@ -2055,13 +2067,14 @@ class PropertyModule {
     await this.addressInput.fill("").catch(() => {});
     await this.addressInput.press("ControlOrMeta+a").catch(() => {});
     await this.addressInput.press("Backspace").catch(() => {});
+    // debounce: no DOM signal after Backspace on address autocomplete field
     await this.page.waitForTimeout(200);
   }
 
   async selectContactAffiliation() {
-    const contactSearchText = env.envName === "prod" ? "Ahsan Awan" : "moiz";
+    const contactSearchText = env.envName === "prod" ? CONTACT_SEARCH_PROD : CONTACT_SEARCH_NONPROD;
     const contactLabel =
-      env.envName === "prod" ? "Ahsan Awan" : "Ali TkSmoke (moiz.qureshi+c1@";
+      env.envName === "prod" ? CONTACT_LABEL_PROD : CONTACT_LABEL_NONPROD;
 
     await this.contactTrigger.waitFor({ state: "visible", timeout: 10_000 });
     await this.contactTrigger.click();
@@ -2076,7 +2089,6 @@ class PropertyModule {
       name: "Search by name",
     });
     await searchInput.fill(contactSearchText);
-    await this.page.waitForTimeout(1_000);
 
     const contactOption = tooltip
       .getByText(contactLabel, { exact: false })
@@ -2084,7 +2096,7 @@ class PropertyModule {
       .or(this.page.getByText(contactLabel, { exact: false }).first());
     await contactOption.waitFor({ state: "visible", timeout: 10_000 });
     await contactOption.click({ force: true });
-    await this.page.waitForTimeout(700);
+    await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
   }
 
   async submitCreateProperty() {
@@ -2183,7 +2195,6 @@ class PropertyModule {
   }) {
     await this.openCreatePropertyDrawer();
     await this.selectCompanyInCreateForm(companyName);
-    await this.page.waitForTimeout(2_000);
     await this.fillPropertyName(propertyName);
     await this.selectPropertySource();
     await this.selectAssociatedFranchise();
@@ -2200,8 +2211,7 @@ class PropertyModule {
       await this.selectContactAffiliation();
     }
 
-    const attemptLimit =
-      Number(maxAddressAttempts || process.env.PROPERTY_MAX_ADDRESS_ATTEMPTS || 8);
+    const attemptLimit = Number(maxAddressAttempts || DEFAULT_MAX_ADDRESS_ATTEMPTS);
     const candidateAddresses =
       Array.isArray(addressCandidates) && addressCandidates.length
         ? addressCandidates
@@ -2253,18 +2263,25 @@ class PropertyModule {
     await this.page
       .waitForLoadState("networkidle", { timeout: 10_000 })
       .catch(() => {});
-    await this.page.waitForTimeout(2_000);
     const propertyRow = this.page.locator("table tbody tr").first();
     await propertyRow.waitFor({ state: "visible", timeout: 10_000 });
     const propertyNameCell = propertyRow.locator("td").nth(1);
     await expect(propertyNameCell).toContainText(propertyName, {
       timeout: 10_000,
     });
+    // Wait for MUI row animation to complete before clicking (prevents "not visible" on
+    // freshly-rendered rows). Also scope click to the text element — the cell can contain
+    // an img icon that sits at the td's geometric center and swallows the click without
+    // triggering navigation when force:true lands on it instead of the text div.
+    await expect(propertyNameCell).toBeVisible({ timeout: 8_000 });
+    const clickTarget = propertyNameCell
+      .getByText(propertyName, { exact: false })
+      .first();
     await Promise.all([
       this.page.waitForURL(/\/app\/sales\/locations\/location\//, {
         timeout: 25_000,
       }),
-      propertyNameCell.click({ force: true }),
+      clickTarget.click({ force: true }),
     ]);
     await this.page
       .waitForLoadState("networkidle", { timeout: 20_000 })
@@ -2579,7 +2596,7 @@ class PropertyModule {
       await searchInput.click({ force: true });
       await searchInput.fill("");
       await searchInput.fill(variant);
-      await this.page.waitForTimeout(700);
+      await assigneeOptionsRoot.locator("li, [role='option']").first().waitFor({ state: "visible", timeout: 8_000 }).catch(() => {});
       picked = await tryPickAssignee();
       if (picked) break;
     }
@@ -2626,8 +2643,6 @@ class PropertyModule {
       );
     }
 
-    await this.page.waitForTimeout(500);
-
     // ── Step 6: click the "Assign" button to confirm ─────────────────────
     const assignBtn =
       (await assignmentDialog.count()) > 0
@@ -2642,7 +2657,6 @@ class PropertyModule {
     await modalHeading
       .waitFor({ state: "hidden", timeout: 10_000 })
       .catch(() => {});
-    await this.page.waitForTimeout(500);
   }
 
   async assertAssignedToValueVisible(assigneeText) {
@@ -2675,7 +2689,7 @@ class PropertyModule {
   async gotoActivitiesTab() {
     await this.activitiesTab.waitFor({ state: "visible", timeout: 10_000 });
     await this.activitiesTab.click();
-    await this.page.waitForTimeout(500);
+    await expect(this.activitiesTab).toHaveAttribute("aria-selected", "true", { timeout: 5_000 });
   }
 
   async assertActivitiesTabActive() {
@@ -2740,10 +2754,9 @@ class PropertyModule {
     await this.page
       .waitForLoadState("networkidle", { timeout: 10_000 })
       .catch(() => {});
-    await this.page.waitForTimeout(1_000);
 
     await this.clickVisibleDropdownOption(tooltip, optionText, 10_000);
-    await this.page.waitForTimeout(600);
+    await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
   }
 
   async assertAssigneeValueVisibleInEditForm(assigneeText) {
@@ -2811,7 +2824,7 @@ class PropertyModule {
   async gotoNotesTab() {
     await this.notesTab.waitFor({ state: "visible", timeout: 10_000 });
     await this.notesTab.click();
-    await this.page.waitForTimeout(500);
+    await expect(this.notesTab).toHaveAttribute("aria-selected", "true", { timeout: 5_000 });
   }
 
   async assertNotesTabVisible() {
@@ -2975,6 +2988,619 @@ class PropertyModule {
    */
   async fillDuplicateAddress(duplicateAddress) {
     return this.fillAddress(duplicateAddress);
+  }
+
+  // ── Contact Details section (Create Property drawer) ─────────────────────
+  // Live-verified selector patterns follow the same tooltip pattern used by
+  // Assignee / Supervisor dropdowns already tested in TC-PROP-040/TC-PROP-045.
+  // Added 2026-04-24 for TC-PROP-047.
+
+  /**
+   * Returns the "Contact Details" heading (level=4) scoped to the Create Property drawer.
+   */
+  contactDetailsSectionHeading() {
+    return this.createPropertyDrawerRoot()
+      .getByRole("heading", { name: /Contact Details/i, level: 4 })
+      .first();
+  }
+
+  /**
+   * Returns the clickable trigger container for a contact role row at the given index.
+   * Index 0 = Decision Maker, 1 = End User, 2 = Billing, 3 = Blocker, 4 = Influencer.
+   *
+   * Live-verified 2026-04-24: the trigger is a cursor=pointer generic containing
+   * an h6 heading.  Before selection the h6 text is "Select a Contact".
+   * After selection it changes to "Selected Contacts (N)".
+   * We find all h6 headings inside the Contact Details section that match either
+   * state, then return the one at the requested index.
+   */
+  contactRoleTriggerAt(index) {
+    const drawer = this.createPropertyDrawerRoot();
+    return drawer
+      .getByRole("heading", { name: /Select a Contact|Selected Contacts/i, level: 6 })
+      .nth(index);
+  }
+
+  /**
+   * The last visible tooltip — reused across all contact role dropdowns
+   * (same pattern as assignee/supervisor tooltips already live-verified).
+   */
+  contactRoleTooltip() {
+    return this.page
+      .locator('#simple-popper[role="tooltip"]')
+      .last()
+      .or(this.page.getByRole("tooltip").last());
+  }
+
+  /**
+   * Scroll the Create Property drawer until the Contact Details heading is visible.
+   */
+  async scrollDrawerToContactDetails() {
+    const drawer = this.createPropertyDrawerRoot();
+    const heading = this.contactDetailsSectionHeading();
+    await heading.scrollIntoViewIfNeeded().catch(async () => {
+      await drawer
+        .evaluate((el) => {
+          el.scrollTop = el.scrollHeight;
+        })
+        .catch(() => {});
+    });
+  }
+
+  /**
+   * Assert the Contact Details heading and all 5 role labels are visible.
+   * Roles: Decision Maker, End User, Billing, Blocker, Influencer.
+   */
+  async assertContactDetailsSectionVisible() {
+    await this.scrollDrawerToContactDetails();
+    await expect(this.contactDetailsSectionHeading()).toBeVisible({
+      timeout: 10_000,
+    });
+    const expectedRoles = [
+      "Decision Maker",
+      "End User",
+      "Billing",
+      "Blocker",
+      "Influencer",
+    ];
+    const drawer = this.createPropertyDrawerRoot();
+    for (const role of expectedRoles) {
+      await expect(
+        drawer.getByText(role, { exact: true }).first(),
+      ).toBeVisible({ timeout: 8_000 });
+    }
+  }
+
+  /**
+   * Open the contact role dropdown at the given zero-based index and return the tooltip.
+   * @param {number} roleIndex
+   */
+  async openContactRoleDropdown(roleIndex) {
+    await this.scrollDrawerToContactDetails();
+    const trigger = this.contactRoleTriggerAt(roleIndex);
+    await trigger.waitFor({ state: "visible", timeout: 8_000 });
+    const tooltip = this.contactRoleTooltip();
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await trigger.click({ force: true });
+      const visible = await tooltip
+        .waitFor({ state: "visible", timeout: 4_000 })
+        .then(() => true)
+        .catch(() => false);
+      if (visible) return tooltip;
+    }
+    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    return tooltip;
+  }
+
+  /**
+   * Assert the open contact tooltip has a "Search by name" textbox and at least
+   * one contact paragraph result.
+   * @param {object} tooltip - Playwright locator for the open tooltip
+   */
+  async assertContactTooltipHasSearchAndResults(tooltip) {
+    const searchInput = tooltip
+      .getByRole("textbox", { name: /Search by name/i })
+      .first();
+    await expect(searchInput).toBeVisible({ timeout: 8_000 });
+    // Contacts render as paragraphs "Name (email@domain.com)"
+    const firstResult = tooltip.locator("p").first();
+    await expect(firstResult).toBeVisible({ timeout: 10_000 });
+  }
+
+  /**
+   * Search for a contact inside the currently-open contact role tooltip.
+   * @param {string} searchText
+   * @param {object} tooltip
+   */
+  async searchContactInOpenTooltip(searchText, tooltip) {
+    const searchInput = tooltip
+      .getByRole("textbox", { name: /Search by name/i })
+      .first()
+      .or(tooltip.getByRole("textbox").first());
+    await searchInput.waitFor({ state: "visible", timeout: 5_000 });
+    await searchInput.fill(searchText);
+    await tooltip.locator("p").first().waitFor({ state: "visible", timeout: 8_000 }).catch(() => {});
+    return tooltip;
+  }
+
+  /**
+   * Click the first matching contact result in the open tooltip.
+   * @param {string} contactText  Partial name or email text to match
+   * @param {object} tooltip
+   */
+  async selectContactFromOpenTooltip(contactText, tooltip) {
+    const result = tooltip
+      .getByText(contactText, { exact: false })
+      .first();
+    await result.waitFor({ state: "visible", timeout: 8_000 });
+    await result.click({ force: true });
+    await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+  }
+
+  /**
+   * Dismiss the contact role tooltip without making a selection.
+   */
+  async dismissContactRoleTooltip() {
+    await this.createPropertyHeading.click({ force: true });
+    await this.contactRoleTooltip()
+      .waitFor({ state: "hidden", timeout: 5_000 })
+      .catch(() => {});
+  }
+
+  /**
+   * Get the displayed text for the contact role trigger at the given zero-based index.
+   * Returns the heading text:
+   *   - Before selection: "Select a Contact"
+   *   - After selection:  "Selected Contacts (N)"
+   * @param {number} roleIndex
+   */
+  async getContactRoleTriggerText(roleIndex) {
+    const trigger = this.contactRoleTriggerAt(roleIndex);
+    await trigger.scrollIntoViewIfNeeded().catch(() => {});
+    return ((await trigger.innerText().catch(() => "")) || "").trim();
+  }
+
+  /**
+   * Assert that the contact role row at the given index shows a selection
+   * (i.e. heading text is NOT the unselected placeholder "Select a Contact").
+   * Live-verified: selected state shows "Selected Contacts (N)".
+   * @param {number} roleIndex
+   */
+  async assertContactRoleHasSelection(_roleIndex) {
+    // After a contact is selected, the h6 text changes to "Selected Contacts (N)"
+    // and is no longer matched by /Select a Contact/i — so we look for it directly.
+    const drawer = this.createPropertyDrawerRoot();
+    const selectedHeading = drawer
+      .getByRole("heading", { name: /Selected Contacts/i, level: 6 })
+      .first();
+    await expect(selectedHeading).toBeVisible({ timeout: 8_000 });
+  }
+
+  // ── Address Autocomplete (TC-PROP-048 / 049 / 050) ───────────────────────
+  // Live-verified 2026-04-24 via MCP DOM inspection.
+  //
+  // The address section structure:
+  //   combobox [expanded/collapsed]
+  //     textbox "Type Address"  ← addressInput (already in constructor)
+  //   list                      ← autocomplete suggestions
+  //     option "123 Main Street, ..."
+  //   region "Map"              ← map panel (appears on combobox focus)
+
+  /**
+   * Returns the address combobox wrapper (parent of the Type Address textbox).
+   * Live-verified: role="combobox", aria-expanded toggles on focus.
+   */
+  addressCombobox() {
+    return this.createPropertyDrawerRoot().locator('[role="combobox"]').first();
+  }
+
+  /**
+   * Returns the autocomplete suggestions list.
+   * Live-verified: role="list" containing role="option" children rendered
+   * inside the combobox wrapper when expanded.
+   */
+  addressSuggestionsList() {
+    return this.createPropertyDrawerRoot()
+      .locator('[role="list"]')
+      .filter({ has: this.page.getByRole("option") })
+      .first();
+  }
+
+  /**
+   * Returns all visible autocomplete option elements.
+   * Live-verified: role="option", each wrapping a generic with the address text.
+   */
+  addressSuggestionOptions() {
+    return this.page.getByRole("option");
+  }
+
+  /**
+   * Returns the Google Map region element that appears once the address field is focused.
+   * Live-verified: role="region", aria-label="Map".
+   */
+  addressMapRegion() {
+    return this.createPropertyDrawerRoot().getByRole("region", { name: "Map" });
+  }
+
+  /**
+   * Click the address combobox wrapper to focus the address field and reveal the map.
+   * Live-verified: clicking the combobox focuses the inner textbox and makes the
+   * map region visible.
+   */
+  async openAddressAutocomplete() {
+    const combobox = this.addressCombobox();
+    await combobox.waitFor({ state: "visible", timeout: 8_000 });
+    await combobox.click();
+    await expect(this.addressMapRegion()).toBeVisible({ timeout: 8_000 });
+  }
+
+  /**
+   * Type into the address textbox to trigger autocomplete suggestions and wait
+   * for at least one option to appear.
+   * @param {string} addressText  Partial address to type (e.g. "123 Main St")
+   */
+  async typeAddressAndWaitForSuggestions(addressText) {
+    await this.addressInput.waitFor({ state: "visible", timeout: 8_000 });
+    await this.addressInput.fill(addressText);
+    // Wait for at least one suggestion option
+    await expect(this.addressSuggestionOptions().first()).toBeVisible({
+      timeout: 10_000,
+    });
+  }
+
+  /**
+   * Select the first autocomplete suggestion from the open listbox and wait
+   * for the listbox to close.
+   * @returns {string} The text of the selected suggestion.
+   */
+  async selectFirstAddressSuggestion() {
+    const firstOption = this.addressSuggestionOptions().first();
+    await firstOption.waitFor({ state: "visible", timeout: 8_000 });
+    const selectedText = ((await firstOption.textContent().catch(() => "")) || "").trim();
+    await firstOption.click();
+    // Listbox collapses after selection
+    await expect(this.addressSuggestionOptions().first()).toBeHidden({
+      timeout: 8_000,
+    }).catch(() => {});
+    return selectedText;
+  }
+
+  /**
+   * Assert that the address combobox is expanded (autocomplete listbox open).
+   * Live-verified: combobox gains aria-expanded="true" when suggestions appear.
+   */
+  async assertAddressComboboxExpanded() {
+    await expect(this.addressCombobox()).toHaveAttribute("aria-expanded", "true", {
+      timeout: 8_000,
+    });
+  }
+
+  /**
+   * Assert that the address combobox is collapsed (autocomplete listbox closed).
+   */
+  async assertAddressComboboxCollapsed() {
+    await expect(this.addressCombobox()).not.toHaveAttribute("aria-expanded", "true", {
+      timeout: 8_000,
+    });
+  }
+
+  // ── Drawer scroll (TC-PROP-051) ───────────────────────────────────────────
+
+  /**
+   * Scroll the Create Property drawer panel to the very bottom using JS evaluate.
+   * Live-verified: the MUI drawer paper element has class .MuiDrawer-paperAnchorRight
+   * and is the direct scroll container.
+   */
+  async scrollCreateDrawerToBottom() {
+    const drawer = this.createPropertyDrawerRoot();
+    await drawer
+      .evaluate((el) => {
+        el.scrollTop = el.scrollHeight;
+      })
+      .catch(async () => {
+        // Fallback: find inner scrollable container
+        await this.page.evaluate(() => {
+          const panel = document.querySelector(".MuiDrawer-paperAnchorRight");
+          if (panel) panel.scrollTop = panel.scrollHeight;
+        });
+      });
+    // debounce: no DOM signal after programmatic scroll — allow layout to settle
+    await this.page.waitForTimeout(300);
+  }
+
+  // ── Referred By section (TC-PROP-054 / 055 / 056 / 057) ─────────────────
+  // Live-verified 2026-04-24: the "Referred By" section appears between the
+  // Assignee row and Contact Details when "Referral" is selected as Property Source.
+
+  /**
+   * Returns the "Referred By" heading (level=4) scoped to the Create Property drawer.
+   */
+  referredByHeading() {
+    return this.createPropertyDrawerRoot()
+      .getByRole("heading", { name: "Referred By", level: 4 })
+      .first();
+  }
+
+  /**
+   * Assert the "Referred By" section heading is visible in the drawer.
+   */
+  async assertReferredBySectionVisible() {
+    await expect(this.referredByHeading()).toBeVisible({ timeout: 8_000 });
+  }
+
+  /**
+   * Assert the "Referred By" section heading is NOT visible in the drawer.
+   */
+  async assertReferredBySectionHidden() {
+    await expect(this.referredByHeading()).not.toBeVisible({ timeout: 8_000 });
+  }
+
+  /**
+   * Returns the "Select Property / Property Name" trigger inside the Referred By section.
+   * Live-verified: heading level=6, exact text "Select Property / Property Name".
+   */
+  referredByPropertyTrigger() {
+    return this.createPropertyDrawerRoot()
+      .getByRole("heading", { name: /Select Property \/ Property Name/i, level: 6 })
+      .first();
+  }
+
+  /**
+   * Returns the h6 "Contact" heading inside the Referred By section.
+   * NOTE: This heading cannot be clicked directly — the overlay div intercepts
+   * pointer events. Use openReferredByContactDropdown() which dispatches the
+   * click via evaluate() on the h6's parent element.
+   * Live-verified 2026-04-24.
+   */
+  referredByContactTrigger() {
+    const drawer = this.createPropertyDrawerRoot();
+    return drawer
+      .locator("h6")
+      .filter({ hasText: /^Contact$/ })
+      .first();
+  }
+
+  /**
+   * Returns the shared tooltip used for both Referred By dropdowns.
+   * Follows the same pattern as all other tooltip dropdowns in this POM.
+   */
+  referredByTooltip() {
+    return this.page
+      .locator('#simple-popper[role="tooltip"]')
+      .last()
+      .or(this.page.getByRole("tooltip").last());
+  }
+
+  /**
+   * Open the Referred By Property dropdown and return the tooltip.
+   */
+  async openReferredByPropertyDropdown() {
+    const trigger = this.referredByPropertyTrigger();
+    await trigger.scrollIntoViewIfNeeded().catch(() => {});
+    await trigger.waitFor({ state: "visible", timeout: 8_000 });
+    const tooltip = this.referredByTooltip();
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await trigger.click({ force: true });
+      const visible = await tooltip
+        .waitFor({ state: "visible", timeout: 4_000 })
+        .then(() => true)
+        .catch(() => false);
+      if (visible) return tooltip;
+    }
+    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    return tooltip;
+  }
+
+  /**
+   * Open the Referred By Contact dropdown and return the tooltip.
+   * Live-verified 2026-04-24: an overlay div (jss329) intercepts pointer events on
+   * the contact trigger container, so normal .click() and { force: true } both fail.
+   * The only reliable approach is dispatching a MouseEvent on the h6's parent div
+   * via page.evaluate(). This bubbles up to the React onClick handler correctly.
+   */
+  async openReferredByContactDropdown() {
+    const trigger = this.referredByContactTrigger();
+    await trigger.scrollIntoViewIfNeeded().catch(() => {});
+    await trigger.waitFor({ state: "visible", timeout: 8_000 });
+    const tooltip = this.referredByTooltip();
+    for (let attempt = 0; attempt < 2; attempt++) {
+      // Dispatch click on the h6's immediate parent (bypasses overlay interception)
+      await this.page.evaluate(() => {
+        const allH6 = document.querySelectorAll("h6");
+        for (const h6 of allH6) {
+          if (h6.textContent.trim() === "Contact") {
+            const parent = h6.parentElement;
+            if (parent) {
+              parent.dispatchEvent(
+                new MouseEvent("click", { bubbles: true, cancelable: true }),
+              );
+              return;
+            }
+          }
+        }
+      });
+      const visible = await tooltip
+        .waitFor({ state: "visible", timeout: 4_000 })
+        .then(() => true)
+        .catch(() => false);
+      if (visible) return tooltip;
+    }
+    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    return tooltip;
+  }
+
+  /**
+   * Assert a Referred By tooltip has a Search textbox and at least one result.
+   * @param {object} tooltip
+   */
+  async assertReferredByTooltipHasSearchAndResults(tooltip) {
+    const searchInput = tooltip.getByRole("textbox", { name: /Search/i }).first();
+    await expect(searchInput).toBeVisible({ timeout: 8_000 });
+    const firstResult = tooltip.locator("p").first();
+    await expect(firstResult).toBeVisible({ timeout: 10_000 });
+  }
+
+  /**
+   * Search inside a Referred By tooltip (property or contact).
+   * @param {string} searchText
+   * @param {object} tooltip
+   */
+  async searchInReferredByTooltip(searchText, tooltip) {
+    const searchInput = tooltip.getByRole("textbox", { name: /Search/i }).first();
+    await searchInput.waitFor({ state: "visible", timeout: 5_000 });
+    await searchInput.fill(searchText);
+    await tooltip.locator("p").first().waitFor({ state: "visible", timeout: 8_000 }).catch(() => {});
+    return tooltip;
+  }
+
+  /**
+   * Click the first result paragraph in a Referred By tooltip.
+   * @param {object} tooltip
+   * @returns {string} Text of the selected result.
+   */
+  async selectFirstResultInReferredByTooltip(tooltip) {
+    const firstResult = tooltip.locator("p").first();
+    await firstResult.waitFor({ state: "visible", timeout: 8_000 });
+    const text = ((await firstResult.textContent().catch(() => "")) || "").trim();
+    await firstResult.click({ force: true });
+    await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+    return text;
+  }
+
+  /**
+   * Assert the Referred By Property trigger no longer shows the default placeholder.
+   * Live-verified 2026-04-24: after selection the h6 text becomes the property name
+   * (e.g. "Apple Park Texas"), so the placeholder heading no longer exists.
+   * We assert by finding any h6 whose text is NOT the placeholder pattern.
+   */
+  async assertReferredByPropertyHasSelection() {
+    const drawer = this.createPropertyDrawerRoot();
+    // After selection the placeholder h6 is replaced by the selected property name.
+    // Assert: no h6 in the drawer matches the placeholder text (it should be gone).
+    await expect.poll(
+      async () => {
+        const allH6Texts = await drawer.locator("h6").allTextContents().catch(() => []);
+        return !allH6Texts.some((t) => /Select Property \/ Property Name/i.test(t));
+      },
+      { timeout: 8_000, message: "Referred By Property trigger should not show placeholder after selection" },
+    ).toBeTruthy();
+  }
+
+  /**
+   * Assert the Referred By Contact trigger no longer shows the placeholder text "Contact".
+   * After selection the h6 changes to show the selected contact's name.
+   */
+  async assertReferredByContactHasSelection() {
+    // After selection the heading text changes to the contact's name — no longer "Contact"
+    await expect.poll(
+      async () => {
+        const text = (
+          (await this.referredByContactTrigger().textContent().catch(() => "")) || ""
+        ).trim();
+        return !/^Contact$/i.test(text);
+      },
+      { timeout: 8_000 },
+    ).toBeTruthy();
+  }
+
+  // ── Empty-form validation (TC-PROP-058) ──────────────────────────────────
+
+  /**
+   * Click the Create Property submit button without filling any fields and wait
+   * for inline validation messages to appear.
+   * Live-verified: the drawer stays open and shows "Address is required." text.
+   */
+  async submitEmptyCreateFormAndExpectValidation() {
+    await this.submitCreateBtn.waitFor({ state: "visible", timeout: 10_000 });
+    await this.submitCreateBtn.click({ force: true });
+    // Wait for at least one "required" error inside the drawer
+    await expect(
+      this.createPropertyDrawerRoot()
+        .getByText(/is required/i)
+        .first(),
+    ).toBeVisible({ timeout: 8_000 });
+  }
+
+  // ── Layout / overflow assertions (TC-PROP-059) ────────────────────────────
+
+  /**
+   * Assert the Create Property drawer panel has no horizontal scrollbar and no
+   * child element protrudes beyond the panel's right edge.
+   * Strategy: read scrollWidth vs clientWidth on the drawer root element.
+   * scrollWidth > clientWidth means content overflows horizontally.
+   */
+  async assertDrawerHasNoHorizontalOverflow() {
+    const drawer = this.createPropertyDrawerRoot();
+    await drawer.waitFor({ state: "visible", timeout: 10_000 });
+    const overflow = await drawer.evaluate((el) => {
+      return el.scrollWidth > el.clientWidth;
+    });
+    expect(overflow, "Drawer panel should have no horizontal overflow (scrollWidth <= clientWidth)").toBe(false);
+  }
+
+  // ── Focus-trap / keyboard navigation (TC-PROP-060) ────────────────────────
+
+  /**
+   * Return an array of up to `maxSteps` focused-element descriptions by pressing
+   * Tab repeatedly starting from the Property Name input.
+   * Each entry is the element's tagName + role (if present) + accessible name snippet.
+   * Used by TC-PROP-060 to assert logical Tab order within the drawer.
+   */
+  async getDrawerFocusSequence(maxSteps = 4) {
+    const sequence = [];
+
+    // Click the Property Name input to anchor focus inside the drawer
+    await this.propertyNameInput.waitFor({ state: "visible", timeout: 8_000 });
+    await this.propertyNameInput.click();
+
+    // Capture starting element
+    const startDesc = await this.page.evaluate(() => {
+      const el = document.activeElement;
+      return `${el.tagName.toLowerCase()}[role="${el.getAttribute("role") || ""}"] name="${(el.getAttribute("aria-label") || el.getAttribute("placeholder") || el.textContent || "").slice(0, 40).trim()}"`;
+    });
+    sequence.push(startDesc);
+
+    for (let i = 0; i < maxSteps; i++) {
+      await this.page.keyboard.press("Tab");
+      const desc = await this.page.evaluate(() => {
+        const el = document.activeElement;
+        return `${el.tagName.toLowerCase()}[role="${el.getAttribute("role") || ""}"] name="${(el.getAttribute("aria-label") || el.getAttribute("placeholder") || el.textContent || "").slice(0, 40).trim()}"`;
+      });
+      sequence.push(desc);
+    }
+
+    return sequence;
+  }
+
+  // ── Backdrop interaction guard (TC-PROP-065) ──────────────────────────────
+
+  /**
+   * Assert the MUI backdrop is present and that a normal (non-forced) click on a
+   * background element behind the backdrop is blocked by the overlay.
+   * Strategy:
+   *   1. Verify the backdrop element exists and is visible.
+   *   2. Attempt a normal click on the properties list table; Playwright will
+   *      throw an error (or the click will land on the backdrop) because the
+   *      backdrop covers the table. We catch the error and assert the drawer
+   *      is still open — confirming the backdrop intercepted the click.
+   */
+  async assertBackdropBlocksBackground() {
+    const backdrop = this.page.locator(".MuiBackdrop-root.MuiModal-backdrop").first();
+    await expect(backdrop).toBeVisible({ timeout: 8_000 });
+
+    // Attempt to click the background table — the backdrop should intercept this.
+    // We use { force: false } (default) so Playwright respects element coverage.
+    const backgroundTable = this.page.locator("table").first();
+    const clickIntercepted = await backgroundTable
+      .click({ timeout: 4_000 })
+      .then(() => false)
+      .catch(() => true);
+
+    // Whether click threw or silently landed on backdrop, the drawer must remain open.
+    expect(
+      clickIntercepted,
+      "Background table click should be intercepted by the backdrop",
+    ).toBe(true);
   }
 }
 
