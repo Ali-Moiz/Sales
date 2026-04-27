@@ -67,6 +67,559 @@ Quick reference:
 
 When documenting test cases below, the "Expected result" field MUST describe what assertion validates the outcome.
 
+## Manual QA Focus: Create Proposal blocked when Time Zone is not selected
+
+Scope:
+- This section covers only the Create Proposal drawer behavior for Time Zone required validation.
+- Goal: verify user cannot proceed when Time Zone is missing, and required feedback is shown clearly.
+- Do not use this section for stepper/device/payment flow validation.
+
+Preconditions for all below cases:
+- User is logged in.
+- User is on Deal Detail page.
+- `Contract & Terms` tab is open.
+- A deal state is available where `Create Proposal` drawer can be opened.
+
+### M-CONTRACT-TZ-001 | Create Proposal must be blocked when Time Zone is missing (complete validation coverage)
+
+#### Detailed execution steps
+1. Navigate to `BASE_URL` and login using valid HO credentials from `.env.uat`.
+2. Open `Deals` list and open a deal where `Contract & Terms` is accessible.
+3. Go to `Contract & Terms` tab and click `Create Proposal`.
+4. Verify baseline drawer state:
+   - Time Zone control is visible and interactive.
+   - No validation error is shown before submit.
+   - Current Time Zone state (pre-filled or empty) is noted.
+5. Keep Time Zone empty/unselected.
+6. Fill all other mandatory fields with valid data (Proposal Name, Start Date, Renewal/End Date as applicable).
+7. Click `Create Proposal`.
+8. Verify blocking behavior and required validation:
+   - Submit is blocked.
+   - Drawer remains open.
+   - User does not enter stepper flow.
+   - Time Zone required feedback appears near the field.
+9. Verify error quality:
+   - Error text clearly indicates Time Zone is required.
+   - Invalid styling is visible on field/control.
+10. Select a valid Time Zone option (any valid `(UTC...)` item) and submit again.
+11. Verify recovery:
+    - Required error clears.
+    - Submit succeeds when all required inputs are valid.
+12. Reopen the drawer and repeat key variants below (negative and edge scenarios).
+
+#### Expected result
+- Create Proposal cannot proceed when Time Zone is missing.
+- User gets clear, field-level required validation for Time Zone.
+- After valid Time Zone selection, validation clears and submit can proceed.
+
+#### Negative and edge scenarios to execute under same ID
+- **N1 - Time Zone + Proposal Name both missing**
+  - Keep both fields empty and submit.
+  - Expected: form blocked; both validation states discoverable or focus moves consistently to first invalid field.
+
+- **N2 - Toggle clear after valid selection**
+  - Select Time Zone, then clear/reset it, then submit.
+  - Expected: Time Zone treated empty again; required validation reappears; submit blocked.
+
+- **N3 - Contract Dates checkbox interaction**
+  - Check `Contract Dates to be decided` (date fields hidden), keep Time Zone missing, submit.
+  - Expected: submit still blocked due to missing Time Zone.
+
+- **N4 - Multiple rapid submits**
+  - Click `Create Proposal` repeatedly with missing Time Zone.
+  - Expected: no duplicate stacked errors; no UI freeze; stable single validation state.
+
+- **N5 - Cancel and reopen after error**
+  - Trigger Time Zone error, click `Cancel`, reopen drawer.
+  - Expected: stale error not persisted incorrectly; validation appears only after new invalid submit.
+
+- **N6 - Keyboard-only interaction**
+  - Use only keyboard (Tab/Shift+Tab/Enter) to trigger validation with missing Time Zone.
+  - Expected: blocking behavior matches mouse flow; focus/error remains accessible.
+
+- **N7 - Time Zone list usability and persistence**
+  - Open Time Zone list, choose non-default option, close/reopen selector before submit.
+  - Expected: chosen value remains until user changes/clears it.
+
+- **N8 - False positive protection**
+  - Fill all required fields including valid Time Zone and submit.
+  - Expected: no false `Time Zone required` error.
+
+## Manual QA Focus: Verify Start Date is required when 'Contract Dates to be decided' is unchecked
+
+Scope:
+- This section covers only Start Date required validation behavior in the Create Proposal drawer.
+- Goal: verify Start Date is mandatory only when `Contract Dates to be decided` is unchecked.
+- Do not use this section for Time Zone, Stepper, Payment Terms, or publish flow validation.
+
+Preconditions for all below cases:
+- User is logged in to `BASE_URL` using valid `.env` credentials.
+- User opens a deal where `Contract & Terms` is accessible.
+- `Create Proposal` drawer is open.
+- `Contract Dates to be decided` is visible.
+
+### M-CONTRACT-SD-001 | Verify Start Date is required when 'Contract Dates to be decided' is unchecked
+
+#### Detailed execution steps
+1. Navigate to `BASE_URL`, log in, open `Deals`, and open a target deal.
+2. Go to `Contract & Terms` and click `Create Proposal`.
+3. Verify baseline state:
+   - `Contract Dates to be decided` is unchecked.
+   - `Start Date` field is visible.
+   - No Start Date error is shown before submit.
+4. Keep `Contract Dates to be decided` unchecked.
+5. Fill other mandatory fields with valid values (except Start Date):
+   - Proposal Name
+   - Time Zone (if not already preselected in current UI)
+6. Leave `Start Date` empty.
+7. Click `Create Proposal`.
+8. Verify blocking behavior:
+   - Submission is blocked.
+   - Drawer stays open.
+   - User does not navigate to contract stepper.
+9. Verify validation quality:
+   - Start Date required message appears near Start Date field.
+   - Start Date field shows invalid/error state (inline text, border, aria-invalid, or equivalent).
+10. Keep Start Date empty and Proposal Name empty together, then submit again.
+11. Verify form remains blocked with deterministic required-state behavior.
+12. If Time Zone is NOT preselected in current UI, keep Start Date + Time Zone empty and submit again.
+13. Verify form remains blocked and Start Date required validation remains visible.
+14. Cancel drawer, reopen, check `Contract Dates to be decided`, and submit with Start Date hidden.
+15. Verify:
+    - Date fields stay hidden/non-applicable in checked mode.
+    - No navigation to stepper occurs in this validation run.
+16. Uncheck `Contract Dates to be decided` again (date fields visible), keep Start Date empty, submit.
+17. Verify Start Date required validation reappears.
+18. Enter malformed Start Date (example: `13/55/9999`) and submit.
+19. Verify submission remains blocked and drawer stays open.
+20. Use keyboard-only submit path (`focus submit + Enter`) with Start Date empty.
+21. Verify blocking behavior is same as mouse submit.
+22. Perform rapid repeated submits (3-4 clicks) with Start Date empty.
+23. Verify stable single validation state (no freeze/duplicate stacked errors).
+24. Cancel and reopen drawer.
+25. Verify stale Start Date error is not shown before next submit.
+26. Fill valid Start Date while keeping other mandatory fields valid.
+27. Verify Start Date required error clears in-field state.
+28. End this scenario by cancelling drawer (non-mutating close), not by entering stepper.
+
+#### Expected result
+- Start Date behaves as a required field only when `Contract Dates to be decided` is unchecked.
+- Missing Start Date blocks submission with clear validation feedback.
+- Toggling `Contract Dates to be decided` ON makes date fields non-applicable; toggling OFF restores Start Date required validation.
+- Providing valid Start Date clears Start Date required error state.
+- In this non-mutating validation workflow, drawer is closed via `Cancel` after validations instead of proceeding to stepper.
+
+#### Negative and edge scenarios to execute under same ID
+- **N1 - Start Date + Proposal Name both missing**
+  - Keep both empty; keep checkbox unchecked; submit.
+  - Expected: form blocked; both validations discoverable (or focus moves to first invalid consistently).
+
+- **N2 - Start Date + Time Zone missing (checkbox unchecked)**
+  - Leave both empty and submit (only when Time Zone is not preselected in current UI).
+  - Expected: submission blocked; validation behavior remains deterministic and clear.
+
+- **N3 - Toggle checkbox ON (hide dates) and submit without Start Date**
+  - Check `Contract Dates to be decided`, then submit without Start Date.
+  - Expected: Start Date is hidden/non-applicable and no stepper navigation occurs in this validation run.
+
+- **N4 - Toggle checkbox OFF again (show dates) with Start Date still empty**
+  - Uncheck checkbox and submit.
+  - Expected: Start Date required validation reappears and blocks submit.
+
+- **N5 - Invalid date format input**
+  - Enter malformed Start Date (if input allows manual typing), submit.
+  - Expected: validation blocks submit and shows format/required guidance per product rules.
+
+- **N6 - Keyboard-only submit path**
+  - Use Tab/Shift+Tab/Enter only, with Start Date empty and checkbox unchecked.
+  - Expected: same required blocking behavior as mouse path.
+
+- **N7 - Rapid repeated submit clicks**
+  - Click `Create Proposal` 3-5 times quickly with missing Start Date.
+  - Expected: no duplicate stacked errors; no freeze; stable single validation state.
+
+- **N8 - Cancel/reopen after Start Date error**
+  - Trigger error, cancel drawer, reopen.
+  - Expected: stale Start Date error should not persist incorrectly before next submit.
+
+## Manual QA Focus: Verify selecting 'Contract Dates to be decided' allows proceeding without Start/End/Renewal dates and contract still created.
+
+Scope:
+- This section covers only the checkbox-driven date-optional behavior in the Create Proposal drawer.
+- Goal: verify that when `Contract Dates to be decided` is checked, the user can proceed without Start Date / End Date / Renewal Date and contract creation still succeeds.
+- Do not use this section for Step 1+ stepper field validation, payment terms, or publish flow.
+
+Preconditions for all below cases:
+- User is logged in to `BASE_URL` with valid `.env` credentials.
+- User opens a deal where `Contract & Terms` is accessible.
+- Deal is in a state where `Create Proposal` can be opened.
+- User can identify proposal-creation success via stepper URL/state (`/contract/{id}`) or equivalent success transition.
+
+### M-CONTRACT-TBD-001 | Verify selecting 'Contract Dates to be decided' allows proceeding without Start/End/Renewal dates and contract still created.
+
+#### Detailed execution steps
+1. Navigate to `BASE_URL`, login, open `Deals`, and open a target deal.
+2. Go to `Contract & Terms` and click `Create Proposal`.
+3. Verify baseline drawer state:
+   - `Contract Dates to be decided` is visible.
+   - It is unchecked by default.
+   - Start Date and date-type controls are visible in default state.
+4. Fill all mandatory non-date fields with valid values:
+   - Proposal Name
+   - Time Zone (if not preselected)
+   - Service Type remains valid default or explicitly selected
+5. Check `Contract Dates to be decided`.
+6. Verify immediate UI behavior after checking:
+   - Start Date field is hidden/disabled for input.
+   - End Date / Renewal Date controls are hidden or non-applicable.
+   - No date-required validation is shown at this point.
+7. Without entering Start/End/Renewal dates, click `Create Proposal`.
+8. Verify successful progression:
+   - Submission is not blocked.
+   - User proceeds to contract stepper (or equivalent created-contract state).
+   - URL/state indicates contract instance created.
+9. Return/reopen as needed and repeat key variants below for deterministic validation.
+
+#### Expected result
+- With `Contract Dates to be decided` checked, the user can create the proposal without Start Date / End Date / Renewal Date.
+- Date-field required validation does not block submission in this mode.
+- Contract/proposal creation succeeds and transitions to created state.
+
+#### Negative and edge scenarios to execute under same ID
+- **N1 - Checkbox unchecked with missing dates**
+  - Keep checkbox unchecked and submit without Start Date.
+  - Expected: submission blocked with date-required validation (confirms mode-switch behavior is correct).
+
+- **N2 - Toggle ON after initial date validation error**
+  - First trigger missing Start Date error while unchecked, then check checkbox and resubmit without dates.
+  - Expected: prior date error clears/does not block; submit succeeds in checked mode.
+
+- **N3 - Toggle ON then OFF before submit**
+  - Check checkbox (dates optional), then uncheck before submit and keep Start Date empty.
+  - Expected: required date validation reappears; submit blocked.
+
+- **N4 - Time Zone missing while checkbox checked**
+  - Keep checkbox checked, leave Time Zone missing, submit.
+  - Expected: submit blocked for Time Zone only; no false date-required error should be primary blocker.
+
+- **N5 - Proposal Name missing while checkbox checked**
+  - Keep checkbox checked, leave Proposal Name empty, submit.
+  - Expected: submit blocked for Proposal Name; no false date-required block.
+
+- **N6 - Rapid repeated submit with checkbox checked**
+  - Click `Create Proposal` rapidly 3-5 times in valid date-less checked mode.
+  - Expected: one stable transition, no duplicate submissions/modals/toasts, no freeze.
+
+- **N7 - Cancel and reopen persistence behavior**
+  - Check checkbox, cancel drawer, reopen.
+  - Expected: checkbox default behavior matches product expectation (default unchecked unless explicitly designed to persist); date controls render consistently.
+
+- **N8 - Keyboard-only flow**
+  - Use Tab/Shift+Tab/Space/Enter to check checkbox and submit without dates.
+  - Expected: same success behavior as mouse flow; accessibility semantics remain consistent.
+
+- **N9 - Existing prefilled Time Zone / deal-specific defaults**
+  - Execute main flow on deals where Time Zone is preselected vs not preselected.
+  - Expected: date-less creation behavior remains consistent regardless of Time Zone default state, provided required non-date inputs are valid.
+
+- **N10 - Edit/reopen created proposal sanity**
+  - After successful date-less creation, reopen proposal editor (if supported).
+  - Expected: no broken state caused by missing contract dates; UI remains operable and consistent with product rules.
+
+## Manual QA Focus: Verify End Date and Renewal Date are mutually exclusive (radio behavior) and proper field becomes required accordingly.
+
+Scope:
+- This section covers only date-type radio behavior inside `Create Proposal` drawer.
+- Goal: verify `End Date` and `Renewal Date` behave as mutually exclusive options and only the selected date field is required.
+- Do not use this section for Time Zone-only validation, stepper field details, payment terms, or publish flow.
+
+Preconditions for all below cases:
+- User is logged in to `BASE_URL` with valid `.env` credentials.
+- User opens a deal where `Contract & Terms` is accessible.
+- `Create Proposal` drawer can be opened.
+- `Contract Dates to be decided` is unchecked (date controls visible).
+
+### M-CONTRACT-DR-001 | Verify End Date and Renewal Date are mutually exclusive (radio behavior) and proper field becomes required accordingly.
+
+#### Detailed execution steps
+1. Navigate to `BASE_URL`, login, open `Deals`, and open a target deal.
+2. Open `Contract & Terms` and click `Create Proposal`.
+3. Verify baseline date state:
+   - Date section is visible.
+   - `Renewal Date` is selected by default.
+   - `End Date` is not selected.
+   - Renewal date input is visible/enabled.
+4. Fill mandatory non-date fields with valid values:
+   - Proposal Name
+   - Time Zone (if not preselected)
+   - Start Date
+5. Keep default `Renewal Date` selected and leave Renewal Date empty.
+6. Click `Create Proposal`.
+7. Verify required behavior:
+   - Submission is blocked.
+   - Drawer remains open.
+   - Renewal Date required validation appears.
+   - End Date required validation is not shown at the same time.
+8. Enter valid Renewal Date and submit again.
+9. Verify successful progression (if all required inputs are valid):
+   - Submission proceeds to contract stepper/created state.
+   - URL/state indicates contract instance created.
+10. Return/reopen drawer and switch to `End Date` radio.
+11. Verify mutual exclusivity:
+    - `End Date` becomes selected.
+    - `Renewal Date` becomes unselected.
+    - End Date input is visible/enabled as active required field.
+12. Leave End Date empty and submit.
+13. Verify required behavior for End Date mode:
+    - Submission is blocked.
+    - End Date required validation appears.
+    - Renewal Date required validation is not shown as active blocker.
+14. Enter valid End Date and submit.
+15. Verify submission succeeds when selected date-type field is valid.
+
+#### Expected result
+- `End Date` and `Renewal Date` work as mutually exclusive radios.
+- Only the selected date-type field is required at submit time.
+- Missing selected date blocks submit with clear field-level validation.
+- Providing valid value for selected date-type clears validation and allows progress.
+
+#### Negative and edge scenarios to execute under same ID
+- **N1 - Rapid radio switching before submit**
+  - Toggle Renewal/End multiple times, then submit with both date inputs empty.
+  - Expected: only currently selected radio’s field is validated as required.
+
+- **N2 - Switch radio after one field already has value**
+  - Fill Renewal Date, switch to End Date, keep End Date empty, submit.
+  - Expected: End Date becomes required; prior Renewal value does not satisfy End Date requirement.
+
+- **N3 - Switch back and verify value persistence/reset behavior**
+  - Fill End Date, switch to Renewal, then back to End Date.
+  - Expected: behavior follows product rule consistently (value persists or resets), but required logic always follows currently selected radio.
+
+- **N4 - Keyboard-only radio interaction**
+  - Use Tab/Arrow/Space to change radio selection and submit with missing selected date field.
+  - Expected: same required validation behavior as mouse flow.
+
+- **N5 - Contract Dates TBD interaction with radios**
+  - Trigger required date validation, then check `Contract Dates to be decided`.
+  - Expected: date radios/inputs become non-applicable; date-required validation should not block while checkbox remains checked.
+
+- **N6 - Toggle TBD back OFF**
+  - Uncheck `Contract Dates to be decided` after Step N5 and submit with selected date field empty.
+  - Expected: required validation returns according to active radio selection.
+
+- **N7 - Invalid date format/value on selected radio field**
+  - Enter malformed or invalid date for currently selected mode and submit.
+  - Expected: submission blocked with appropriate invalid-date/required feedback per product rules.
+
+- **N8 - Combined missing fields**
+  - Keep Proposal Name (or Time Zone) missing along with selected date field.
+  - Expected: form remains blocked; validation order/focus is deterministic and no false validation appears on unselected date field.
+
+- **N9 - Cancel and reopen after date validation**
+  - Trigger selected-date required error, cancel drawer, reopen.
+  - Expected: stale validation not shown before new submit; default radio selection is consistent.
+
+- **N10 - Repeated submit clicks**
+  - Click `Create Proposal` 3-5 times quickly with selected date field empty.
+  - Expected: no duplicate error stacking, no freeze, stable single validation behavior.
+
+## Manual QA Focus: Verify Renewal Date cannot be earlier than Start Date; show validation/error.
+
+Scope:
+- This section covers only chronological date validation for `Start Date` and `Renewal Date` in the `Create Proposal` drawer.
+- Goal: verify system blocks submission when Renewal Date is earlier than Start Date and shows clear validation feedback.
+- Do not use this section for End Date-only validation, Time Zone-only validation, stepper details, payment terms, or publish flow.
+
+Preconditions for all below cases:
+- User is logged in to `BASE_URL` with valid `.env` credentials.
+- User opens a deal where `Contract & Terms` is accessible.
+- `Create Proposal` drawer can be opened.
+- `Contract Dates to be decided` is unchecked.
+- `Renewal Date` mode is selected (default unless changed).
+
+### M-CONTRACT-RD-001 | Verify Renewal Date cannot be earlier than Start Date; show validation/error.
+
+#### Detailed execution steps
+1. Navigate to `BASE_URL`, login, open `Deals`, and open a target deal.
+2. Go to `Contract & Terms` and click `Create Proposal`.
+3. Verify baseline state:
+   - `Contract Dates to be decided` is unchecked.
+   - `Start Date` field is visible.
+   - `Renewal Date` radio is selected by default.
+   - `Renewal Date` field is visible/enabled.
+4. Fill mandatory non-date fields with valid values:
+   - Proposal Name
+   - Time Zone (if not preselected)
+5. Enter valid `Start Date` (e.g., today or future date).
+6. Enter `Renewal Date` that is earlier than `Start Date`.
+7. Click `Create Proposal`.
+8. Verify blocking behavior:
+   - Submission is blocked.
+   - Drawer remains open.
+   - User does not navigate to stepper.
+9. Verify validation quality:
+   - Renewal Date field shows clear error/invalid state.
+   - Validation text is visible near date controls and clearly states that Renewal Date cannot be earlier than Start Date (or equivalent chronological rule wording).
+   - Focus or visual emphasis points user to the invalid date field.
+10. Correct Renewal Date to valid value (same day or later than Start Date, based on product rule).
+11. Verify the chronological validation text/error state clears before re-submit.
+12. Click `Create Proposal` again.
+13. Verify recovery:
+   - No chronological date-order error is shown.
+   - Submission proceeds successfully when all required inputs are valid.
+
+#### Expected result
+- Renewal Date earlier than Start Date is rejected with clear validation.
+- User cannot proceed until Renewal Date is corrected.
+- After correction, the validation text/error state clears and submission can proceed.
+
+#### Negative and edge scenarios to execute under same ID
+- **N1 - Renewal Date exactly equal to Start Date**
+  - Set both dates equal and submit.
+  - Expected: behavior matches product rule (allowed if equal is valid; otherwise clear equal-date error message).
+
+- **N2 - Start Date changed after valid Renewal Date**
+  - Set valid Start/Renewal, then move Start Date forward so Renewal becomes earlier.
+  - Expected: form re-validates; submit blocked until Renewal Date is adjusted.
+
+- **N3 - Renewal Date initially valid then edited to invalid**
+  - Enter valid pair, then change Renewal Date to earlier than Start Date.
+  - Expected: validation reappears and blocks submit.
+
+- **N4 - Missing Start Date with Renewal Date filled**
+  - Leave Start Date empty, fill Renewal Date, submit.
+  - Expected: Start Date required validation appears; chronological validation should remain deterministic.
+
+- **N5 - End Date mode switch sanity**
+  - Trigger Renewal<Date validation, then switch radio to End Date.
+  - Expected: Renewal-specific error is no longer active blocker in End mode; validation follows selected mode.
+
+- **N6 - Contract Dates TBD interaction**
+  - Trigger Renewal<Date error, then check `Contract Dates to be decided`.
+  - Expected: date fields become non-applicable and date-order error no longer blocks while checkbox remains checked.
+
+- **N7 - Keyboard-only date entry/submission**
+  - Use keyboard navigation/input only to set invalid date order and submit.
+  - Expected: same chronological validation behavior as mouse flow.
+
+- **N8 - Rapid repeated submits with invalid date order**
+  - Click `Create Proposal` repeatedly (3-5 times) with Renewal<Date invalid pair.
+  - Expected: stable single error state, no duplicate stacked errors, no UI freeze.
+
+- **N9 - Cancel and reopen after chronological error**
+  - Trigger error, cancel drawer, reopen.
+  - Expected: stale error does not persist before new submit; default field states load consistently.
+
+- **N10 - Cross-month/year boundary**
+  - Use Start Date near month/year boundary and set Renewal Date to an earlier calendar date across boundary.
+  - Expected: chronological comparison still enforced correctly regardless of month/year change.
+
+## Manual QA Focus: Verify End Date cannot be earlier than Start Date; show validation/error.
+
+Scope:
+- This section covers only chronological date validation for `Start Date` and `End Date` in the `Create Proposal` drawer.
+- Goal: verify system blocks submission when End Date is earlier than Start Date and shows clear validation feedback.
+- Do not use this section for Renewal Date-only validation, Time Zone-only validation, stepper detail validations, payment terms, or publish flow.
+
+Preconditions for all below cases:
+- User is logged in to `BASE_URL` with valid `.env` credentials.
+- User opens a deal where `Contract & Terms` is accessible.
+- `Create Proposal` drawer can be opened.
+- `Contract Dates to be decided` is unchecked.
+- Date type is switched to `End Date`.
+
+### M-CONTRACT-ED-001 | Verify End Date cannot be earlier than Start Date; show validation/error.
+
+#### Detailed execution steps
+1. Navigate to `BASE_URL`, login, open `Deals`, and open a target deal.
+2. Go to `Contract & Terms` and click `Create Proposal`.
+3. Verify baseline state:
+   - `Contract Dates to be decided` is unchecked.
+   - `Start Date` is visible.
+   - Date type controls are visible.
+   - Switch date type from `Renewal Date` to `End Date`.
+4. Confirm radio behavior in this mode:
+   - `End Date` is selected.
+   - `Renewal Date` is unselected.
+   - End Date input is visible/enabled as active date-type field.
+5. Fill mandatory non-date fields with valid values:
+   - Proposal Name
+   - Time Zone (if not preselected)
+6. Enter valid `Start Date` (today or future date).
+7. Enter `End Date` that is earlier than `Start Date`.
+8. Click `Create Proposal`.
+9. Verify blocking behavior:
+   - Submission is blocked.
+   - Drawer remains open.
+   - User does not navigate to contract stepper.
+10. Verify validation quality:
+    - End Date field shows invalid/error state (text, style, aria-invalid, or equivalent).
+    - Validation text indicates chronological rule (End Date cannot be earlier than Start Date, or equivalent wording).
+    - Field focus/visual cue guides user to correct End Date.
+11. Correct End Date to valid value (same day or later than Start Date, per product rule).
+12. Verify date-order validation clears after correction.
+13. Click `Create Proposal` again.
+14. Verify successful recovery:
+    - No date-order error remains active.
+    - Submission proceeds to created contract state/stepper when all required inputs are valid.
+
+#### Expected result
+- End Date earlier than Start Date is rejected with clear validation.
+- User cannot proceed until End Date is corrected.
+- After correction, date-order validation clears and submission can proceed.
+
+#### Negative and edge scenarios to execute under same ID
+- **N1 - End Date equals Start Date**
+  - Set End Date equal to Start Date and submit.
+  - Expected: behavior matches product rule (allowed if equality is valid; otherwise clear equal-date validation message).
+
+- **N2 - Start Date changed after valid End Date**
+  - Set valid Start/End, then move Start Date forward so End Date becomes earlier.
+  - Expected: chronological validation re-triggers and blocks submit until End Date is updated.
+
+- **N3 - End Date initially valid then edited to invalid**
+  - Enter valid pair, then edit End Date to earlier than Start Date.
+  - Expected: date-order validation appears and submit is blocked.
+
+- **N4 - Missing Start Date with End Date filled**
+  - Keep Start Date empty, fill End Date, submit.
+  - Expected: Start Date required validation appears; chronology handling remains deterministic.
+
+- **N5 - Switch from End Date to Renewal Date after End<Date error**
+  - Trigger End<Date validation, then switch date type to Renewal.
+  - Expected: End Date-specific validation is no longer active blocker in Renewal mode; validation follows selected mode.
+
+- **N6 - Contract Dates TBD interaction**
+  - Trigger End<Date validation, then check `Contract Dates to be decided`.
+  - Expected: date fields become non-applicable and date-order validation no longer blocks while TBD remains checked.
+
+- **N7 - Toggle TBD back OFF**
+  - Uncheck TBD after N6 and keep selected date field invalid/empty.
+  - Expected: relevant date validation returns according to current selected date mode.
+
+- **N8 - Keyboard-only interaction**
+  - Use keyboard to switch to End Date mode, enter invalid date order, and submit.
+  - Expected: same blocking/validation behavior as mouse interaction.
+
+- **N9 - Rapid repeated submits with invalid End<Date**
+  - Click `Create Proposal` 3-5 times quickly while End Date < Start Date.
+  - Expected: stable single validation state; no duplicate stacked errors; no UI freeze.
+
+- **N10 - Cancel and reopen after End<Date validation**
+  - Trigger date-order error, cancel drawer, reopen.
+  - Expected: stale error does not persist before new submit; default field states render consistently.
+
+## Coverage Gaps to Track
+
+- Clarify product decision: Is Time Zone intentionally preselected by default, or must user explicitly choose?
+- Confirm exact required error copy for Time Zone (standardized content across modules).
+- Define expected behavior for clear/reset action on Time Zone if control supports clear.
+- Confirm validation order standard when multiple required fields fail together.
+- Confirm exact Start Date required/error copy and field-level indicator behavior across all environments.
+- Confirm whether Start Date format validation is strict (date picker only) or allows manual typed dates.
+- Confirm expected validation priority when Start Date and other mandatory fields fail together.
+
 ## Smoke Test Cases
 
 ### TC-CONTRACT-001 | Contract & Terms tab is visible on deal detail page
@@ -232,12 +785,90 @@ Expected result:
 - The default value is `10`.
 
 ### TC-CONTRACT-019 | Notify for Renewal field is visible in default drawer state
+### Verify Notify for Renewal Before (Days) is required (when renewal is enabled) and only accepts valid numeric range (no letters/negative).
+
 Execution steps:
-- Open the `Create Proposal` drawer.
-- Check the notify-days field.
+1. Navigate to `BASE_URL`.
+2. Log in using valid credentials from `.env` (or `.env.uat` for UAT runs).
+3. Open `Deals` and open a deal where `Contract & Terms` is available.
+4. Click `Create Proposal` to open the drawer.
+5. Verify baseline state:
+   - `Renewal Date` is selected in date type radio (default mode).
+   - `Notify for Renewal Before (Days)` field is visible and enabled.
+   - Current value is captured (default expected is `10`).
+6. Fill other required fields with valid data to isolate Notify validation:
+   - Proposal Name
+   - Time Zone (if not preselected)
+   - Start Date
+   - Renewal Date (valid date after Start Date)
+7. Clear `Notify for Renewal Before (Days)` value and attempt submit (`Create Proposal`).
+8. Verify required behavior in renewal-enabled mode:
+   - Submit is blocked.
+   - Drawer remains open.
+   - User does not navigate to stepper.
+   - Notify field shows required/invalid state (error text, invalid border, aria-invalid, or equivalent).
+9. Enter letters (example: `abc`) in Notify field and attempt submit.
+10. Verify letters are rejected by product rule:
+    - Either letters are not retained in field OR submit is blocked with numeric validation.
+11. Enter mixed value (example: `1a`) and submit.
+12. Verify non-numeric characters are not accepted as valid input.
+13. Enter negative value (example: `-1`) and submit.
+14. Verify negative value is rejected:
+    - Submit blocked or value normalized per product rule (must not be saved as negative).
+15. Enter `0` and submit.
+16. Record behavior (accepted/rejected) as per product range rule and ensure behavior is consistent.
+17. Enter minimum valid positive value (if rule is shown in UI, use that exact minimum; otherwise test `1`) and submit.
+18. Verify valid lower-bound value allows progression when all required fields are valid.
+19. Reopen drawer and test upper bound:
+    - Enter large boundary candidate values (example: `365`, `999`, `1000`) one by one.
+    - Capture first value treated as invalid (if any) and first accepted max boundary.
+20. Verify only values within product-valid numeric range are accepted.
+21. Use keyboard-only flow on Notify field:
+    - Focus with `Tab`, update value, submit with `Enter`.
+22. Verify keyboard path behavior matches mouse path for validation and submission.
+23. Cancel and reopen drawer after triggering invalid Notify value.
+24. Verify stale validation does not incorrectly persist before next submit.
 
 Expected result:
-- The notify-days field is visible and enabled.
+- Notify field is visible and enabled in default drawer state.
+- When renewal is enabled, Notify field enforces required behavior according to product validation.
+- Letters and mixed non-numeric values are rejected.
+- Negative values are rejected (not persisted as valid saved values).
+- Only valid numeric range values allow successful progression to stepper.
+- Validation behavior is consistent across mouse and keyboard interactions.
+
+Negative and edge scenarios under same test ID:
+- **N1 - Required field missing**
+  - Keep Notify empty with all other required fields valid.
+  - Expected: submit blocked with Notify required/invalid signal.
+
+- **N2 - Letters-only input**
+  - Input `abc`.
+  - Expected: non-numeric rejected; no successful submit.
+
+- **N3 - Mixed alphanumeric**
+  - Input `10x`.
+  - Expected: rejected or sanitized to numeric only; if invalid remains, submit blocked.
+
+- **N4 - Negative numeric**
+  - Input `-5`.
+  - Expected: rejected; cannot proceed as valid.
+
+- **N5 - Decimal input**
+  - Input `1.5`.
+  - Expected: if only integers are allowed, reject/block; otherwise enforce documented rule consistently.
+
+- **N6 - Zero boundary**
+  - Input `0`.
+  - Expected: outcome follows product min rule; must be consistent and clearly validated.
+
+- **N7 - Large out-of-range value**
+  - Input very large number (example `9999`).
+  - Expected: blocked if outside allowed max; accepted only if within defined range.
+
+- **N8 - Rapid edits + submit**
+  - Quickly change values (`abc` -> `-1` -> `10`) then submit.
+  - Expected: final accepted value determines behavior; no stale error overlays.
 
 ### TC-CONTRACT-020 | Cancel button closes the Create Proposal drawer
 Execution steps:
@@ -268,6 +899,292 @@ Expected result:
 - The drawer can be reopened successfully.
 
 ## E2E Full Create and Publish Test Cases
+
+## Manual QA Focus: Step 1 Save & Next, Required Validation, and Service Type Behavior (Combined)
+
+### Verify Save & Next progresses to next step and preserves entered data when navigating back.
+### Verify Save & Next is blocked when mandatory fields on current step are missing.
+### Verify Service Name is required; leaving blank shows 'Service Name is required'.
+### Verify user can select Dedicated Service vs Patrol Service and relevant fields display accordingly.
+### Verify Step 1 required validations for:
+- Resource Type
+- Line Item
+- Service Start Date
+- Officer/Guard count
+- Hourly Rate format
+- Job Day selection
+- Start Time / End Time chronology
+### Verify Include Fuel Surcharge and Include Vehicle toggles can be enabled and reflected in pricing/totals where applicable.
+### Verify Add Instructions rich text supports formatting (bold/italic/list/headings) and content saves.
+### Verify Additional Services toggles (Visitor Management, Load Management) can be selected and persist.
+### Verify user can add multiple services (Service 1, Service 2) and totals reflect aggregated services.
+
+### M-CONTRACT-STEP1-001 | Expanded Step 1 deep-dive validation (existing TC-CONTRACT-031 + 7 requested points)
+
+Execution steps:
+1. Navigate to `BASE_URL`.
+2. Log in with valid credentials from `.env`/`.env.uat`.
+3. Open `Deals` and open a deal where `Contract & Terms` is available.
+4. Open `Create Proposal`.
+5. Fill required drawer fields with valid values and submit to enter stepper:
+   - Proposal Name
+   - Time Zone
+   - Start Date
+   - Renewal/End Date per current mode
+6. Verify Step 1 (`Services`) is visible and `Save & Next` button is present.
+7. Verify baseline dedicated mode state:
+   - `Dedicated Service` is selected by default.
+   - `Service Name`, `Resource Type`, `Line Item`, `Officer/Guard`, `Hourly Rate`, `Job Days`, `Start Time`, `End Time` inputs are visible in current UI.
+8. Keep all Step 1 mandatory fields blank and click `Save & Next`.
+9. Verify combined blocked behavior:
+   - User stays on Step 1.
+   - `Save & Next` does not move to Step 2.
+   - Required validations appear without page crash/freeze.
+10. Leave only `Service Name` blank, fill all other required fields validly, and click `Save & Next`.
+11. Verify exact message: `Service Name is required`.
+12. Enter valid `Service Name`.
+
+13. **Point 1: Resource Type required**
+    - Keep `Resource Type` empty.
+    - Keep all other required fields valid.
+    - Click `Save & Next`.
+    - Verify step remains blocked and required validation is shown for `Resource Type` (or equivalent field-level invalid UI state).
+    - Select a valid `Resource Type` and verify validation clears.
+
+14. **Point 2: Line Item required**
+    - Keep `Line Item` empty while `Resource Type` is selected.
+    - Keep all other required fields valid.
+    - Click `Save & Next`.
+    - Verify step remains blocked and required validation is shown for `Line Item`.
+    - Select a valid `Line Item` and verify validation clears.
+
+15. **Point 3: Service Start Date required**
+    - Clear/leave service `Start Date` in Step 1 (service schedule start) blank.
+    - Keep all other required fields valid.
+    - Click `Save & Next`.
+    - Verify step remains blocked with Start Date required validation.
+    - Enter valid Start Date and verify error clears.
+
+16. **Point 4: Officer/Guard count required + positive integer**
+    - Keep Officer/Guard blank and click `Save & Next` -> verify required validation.
+    - Enter `0` and click `Save & Next` -> verify rejected (must be positive).
+    - Enter negative value (example `-1`) -> verify rejected.
+    - Enter decimal value (example `1.5`) -> verify integer-only behavior per product rule.
+    - Enter valid positive integer (example `1`) -> verify field accepted.
+
+17. **Point 5: Hourly Rate required + currency format**
+    - Keep Hourly Rate blank -> verify required validation and blocked submit.
+    - Enter letters (`abc`) -> verify rejected or blocked as invalid.
+    - Enter special chars only (`@#$`) -> verify rejected or blocked.
+    - Enter mixed value (`12ab`) -> verify invalid handling.
+    - Enter valid currency numeric format (example `15` or `15.00`) -> verify accepted and error clears.
+
+18. **Point 6: At least one Job Day required**
+    - Ensure no day chip is selected.
+    - Click `Save & Next`.
+    - Verify required message appears (currently expected text in automation: `Job Days must have at least 1 item.`).
+    - Select one valid day (example `Mon`) and verify required error clears.
+
+19. **Point 7: Start Time / End Time validation**
+    - Leave Start Time empty and attempt to set End Time/submit -> verify blocked for missing Start Time.
+    - Set Start Time only, leave End Time empty -> verify blocked for missing End Time.
+    - Set End Time earlier than Start Time (same-day invalid sequence) and submit -> verify blocked with chronology validation.
+    - If overnight is supported by product rules (example Start `10:00 PM`, End `06:00 AM`), verify whether accepted/rejected and document observed behavior.
+    - Set valid sequence (End after Start in allowed rule set) and verify validation clears.
+
+20. With all Step 1 mandatory fields valid, verify `Save & Next` becomes enabled.
+21. Click `Save & Next` and verify navigation to Step 2 (`Devices`).
+22. Navigate back to Step 1 using step tab navigation.
+23. Verify persistence of entered values:
+   - Service Name
+   - Service type selection
+   - Resource Type
+   - Line Item
+   - Officer/Guard
+   - Hourly Rate
+   - Job Days
+   - Start/End Time
+24. Switch from `Dedicated Service` to `Patrol Service`.
+25. Verify dedicated-only fields hide/update per patrol behavior.
+26. Attempt `Save & Next` without patrol-required fields and verify blocked state.
+27. Fill patrol-required fields with valid values.
+28. Verify `Save & Next` enables and Step 2 progression works.
+29. Navigate back again and verify latest saved values persist for active service type.
+30. **Point 8: Include Fuel Surcharge and Include Vehicle toggles**
+    - Return to Step 1 and keep `Dedicated Service` selected.
+    - Verify `Include Fuel Surcharge` toggle/checkbox is visible and interactive.
+    - Capture baseline service price/total before enabling.
+    - Enable `Include Fuel Surcharge`.
+    - Verify:
+      - Toggle state visibly changes to enabled.
+      - No UI break/re-render issue occurs.
+      - Service row price/Grand Total behavior matches product rule (whether display-only flag or pricing-affecting logic in current environment).
+    - Disable and re-enable `Include Fuel Surcharge` to verify deterministic behavior.
+    - Verify `Include Vehicle` toggle/checkbox is visible in Dedicated mode.
+    - Enable `Include Vehicle` and verify dependent vehicle inputs render (for example vehicle count/rate fields if configured in current UI).
+    - Enter valid vehicle-related values and verify service total recalculates (if pricing-linked in current product behavior).
+    - Disable `Include Vehicle` and verify:
+      - Vehicle-specific controls hide/disable per product rule.
+      - Total recalculates or remains per expected rule.
+    - Switch to `Patrol Service` and verify whether `Include Vehicle` is hidden/non-applicable (if that is current product behavior).
+
+31. **Point 9: Add Instructions rich text formatting + save persistence**
+    - Locate `Add Instructions` rich text editor in Step 1.
+    - Enter plain text baseline content.
+    - Apply `Bold` to one word/phrase and verify style is visible.
+    - Apply `Italic` to another word/phrase and verify style is visible.
+    - Create unordered bullet list with at least two items.
+    - Create ordered list with at least two items.
+    - Apply heading formatting (`H1` and `H2` where available) and verify rendering changes.
+    - Save via `Save & Next`, go to Step 2, then navigate back to Step 1.
+    - Verify instructions content persists with formatting intact (not flattened unexpectedly).
+    - Refresh-check (optional in same run strategy): revisit Step 1 after re-navigation and confirm content persistence remains consistent.
+
+32. **Point 10: Additional Services toggles persistence**
+    - In Step 1 Dedicated mode, locate `Visitor Management` and `Load Management` toggles.
+    - Verify both are visible and default state is documented (on/off).
+    - Enable `Visitor Management`, then explicitly verify/select `Load Management` as enabled.
+    - Save forward/back.
+    - Verify both toggles remain enabled after navigation.
+    - In current UAT behavior, toggle states may be linked; document observed behavior if one toggle updates the other.
+    - Re-enable both explicitly before final persistence assertion to keep test deterministic.
+    - Enable `Load Management` also and save forward/back again.
+    - Verify both remain enabled.
+    - Toggle one OFF while the other stays ON; save forward/back.
+    - Verify final saved toggle states persist after navigation (independent or linked behavior should be documented exactly as observed).
+    - Verify values reflected in visible deal/summary context where applicable after stepper completion/edit reopen.
+
+33. **Point 11: Multiple services (Service 1 + Service 2) and aggregated totals**
+    - Keep Service 1 fully valid and note Service 1 calculated value (or baseline grand total with only Service 1).
+    - Click `Add Service`/`Add Another Service`.
+    - In current UAT UI, use the icon button shown directly next to the `Add another service` heading.
+    - Verify new service section appears as `Service 2` (or sequential naming per current UI).
+    - Fill Service 2 with valid but different values from Service 1:
+      - Service Name
+      - Resource Type
+      - Line Item
+      - Officer/Guard
+      - Hourly Rate
+      - Job Day
+      - Start/End Time
+    - Verify both Service 1 and Service 2 are independently editable.
+    - Capture expected aggregate logic:
+      - Grand Total should equal Service1 Total + Service2 Total (plus any applicable options, if product includes them).
+    - Verify displayed Grand Total matches aggregate expectation within displayed rounding rules.
+    - Explicit verification sequence:
+      - Read `Service 1` displayed amount.
+      - Read `Service 2` displayed amount.
+      - Calculate `Expected Aggregate = Service1 + Service2`.
+      - Compare with displayed `Grand Total`.
+      - If minor decimal rounding exists, allow only documented tolerance (for example <= 0.01 or per UI currency rounding rule).
+    - Modify Service 2 values and verify Grand Total updates dynamically.
+    - Delete or clear Service 2 (if action is available in this flow) and verify Grand Total returns to Service 1-only value.
+    - Save to Step 2 and navigate back to Step 1; verify both service blocks and totals persist correctly.
+
+Expected result:
+- `Save & Next` stays blocked whenever Step 1 has missing/invalid mandatory data.
+- Exact Service Name required message appears: `Service Name is required`.
+- `Resource Type`, `Line Item`, and service `Start Date` behave as required fields.
+- Officer/Guard count enforces positive integer constraints.
+- Hourly Rate enforces required + valid numeric/currency format; letters/special chars are rejected.
+- At least one Job Day is required (expected current message: `Job Days must have at least 1 item.`).
+- Time validation enforces valid Start/End sequence per product chronology rules (including explicit overnight behavior confirmation).
+- Include Fuel Surcharge and Include Vehicle toggles are interactive, stable, and reflected according to product pricing/totals rules.
+- Add Instructions rich text supports toolbar formatting (bold/italic/lists/headings) and preserves formatted content after save/back-navigation.
+- Additional Services toggles (Visitor Management, Load Management) can be selected independently and persist reliably.
+- Multi-service flows allow Service 1 + Service 2 data entry, and Grand Total reflects aggregated service pricing logic.
+- After valid data entry, Step 1 progresses to Step 2 and values persist when navigating back.
+
+Observed behavior on `BASE_URL` (UAT exploration baseline):
+- `Visitor Management` and `Load Management` are rendered as standalone checkbox controls and must be verified with explicit checked-state assertions (not label-click only).
+- Toggle persistence can be validated by enabling both toggles, navigating forward/back, and confirming both remain ON before testing OFF state.
+- `Include Vehicle` dependent controls may be environment/data dependent; in some runs, rate field appears while count field may not be visible.
+- `Add another service` is triggered from the icon button adjacent to the `Add another service` heading; successful action increases service-name input count from 1 to 2.
+
+Negative and edge scenarios (same ID, execute as sub-coverage):
+- **N1 - Single-missing-field matrix**
+  - Keep one field missing at a time (Resource Type, Line Item, Start Date, Officer, Hourly Rate, Job Day, Start/End Time).
+  - Expected: each field independently blocks progression with targeted validation.
+
+- **N2 - Multi-missing combined validation**
+  - Keep 2-4 required fields missing in one submit.
+  - Expected: deterministic validation behavior; no random/flickering errors; no navigation to Step 2.
+
+- **N3 - Rapid repeated Save & Next clicks**
+  - Click `Save & Next` rapidly with invalid data.
+  - Expected: no duplicate error stacking, no duplicate API side effects, no UI freeze.
+
+- **N4 - Toggle service type with partial values**
+  - Fill Dedicated partially, switch to Patrol, then back.
+  - Expected: active-mode validations only; hidden-field leakage should not falsely satisfy requirements.
+
+- **N5 - Job Day deselect regression**
+  - Select one day, then deselect all, then submit.
+  - Expected: required Job Day validation returns consistently.
+
+- **N6 - Time edge checks**
+  - Equal start and end times; near-midnight boundaries; AM/PM flip boundaries.
+  - Expected: behavior follows product rule consistently and is clearly validated.
+
+- **N7 - Input sanitization checks**
+  - Officer/Hourly fields with spaces, pasted strings, leading zeros, long values.
+  - Expected: sanitized or rejected consistently; no crash or silent wrong acceptance.
+
+- **N8 - Keyboard-only accessibility**
+  - Complete field navigation and submit via keyboard only (`Tab`, `Shift+Tab`, `Space`, `Enter`).
+  - Expected: same validation and progression behavior as mouse interactions.
+
+- **N9 - Cancel/reopen draft behavior**
+  - Trigger validation errors, exit flow, re-enter Step 1.
+  - Expected: stale validation state should not persist incorrectly unless product intentionally preserves draft.
+
+- **N10 - Back-and-forth persistence**
+  - Save to Step 2, return to Step 1, modify values, save again.
+  - Expected: latest valid values persist and stale previous values do not reappear.
+
+- **N11 - Fuel Surcharge toggle stress**
+  - Toggle `Include Fuel Surcharge` rapidly ON/OFF multiple times before save.
+  - Expected: final saved state matches final toggle position; no duplicate recalculation artifacts.
+
+- **N12 - Include Vehicle dependency validation**
+  - Enable `Include Vehicle` but leave vehicle-dependent required inputs blank (if required by current UI), then save.
+  - Expected: targeted validation appears for vehicle sub-fields; no unrelated validation noise.
+
+- **N13 - Instructions rich text sanitization**
+  - Paste long mixed-format text with symbols/newlines; switch formatting repeatedly.
+  - Expected: editor remains stable, content is retained within allowed limit, no broken markup/render.
+
+- **N14 - Instructions persistence after service-type switch**
+  - Enter formatted instructions in Dedicated, switch to Patrol, then back to Dedicated.
+  - Expected: behavior follows product rule (persist/reset), but remains deterministic and non-corrupt.
+
+- **N15 - Additional Services toggle independence**
+  - Enable Visitor only, save/back, then enable Load only, save/back.
+  - Expected: each toggle state persists independently; no forced coupling.
+
+- **N16 - Multi-service aggregation edge**
+  - Add Service 2 with very small/large valid values and compare total update.
+  - Expected: aggregation remains mathematically correct and UI handles rounding consistently.
+
+- **N17 - Multi-service reorder/delete resilience**
+  - Add Service 2, then remove Service 1 or Service 2 (based on available controls).
+  - Expected: service list and totals renumber/recompute correctly without stale values.
+
+- **N18 - Keyboard-only with multiple services**
+  - Use keyboard navigation to add Service 2, update toggles, and save.
+  - Expected: parity with mouse flow; no inaccessible critical controls.
+
+Coverage gap checklist to log during execution:
+- Confirm exact validation copy for `Resource Type`, `Line Item`, and service Step-1 `Start Date` in UAT.
+- Confirm whether Officer/Guard accepts only integer or also rounds decimals.
+- Confirm accepted Hourly Rate format range and decimal precision (0, 2, or more decimal places).
+- Confirm official overnight time rule (allowed vs blocked) and exact error text.
+- Confirm whether validation order/focus is deterministic when multiple fields fail together.
+- Confirm whether `Include Fuel Surcharge` affects Step 1 display totals immediately or acts as a persisted flag used in later pricing steps only.
+- Confirm exact pricing formula contribution for `Include Vehicle` (count/rate/multiplier/time-period alignment).
+- Confirm rich text max-length rule for `Add Instructions` and behavior at/over boundary.
+- Confirm whether Patrol mode intentionally hides `Include Vehicle` and Additional Services toggles in all environments.
+- Confirm multi-service total precision/rounding rule (per-service rounding vs end-total rounding).
 
 ### TC-CONTRACT-E2E-001 | Navigate to E2E deal and verify empty state
 Execution steps:
@@ -998,6 +1915,100 @@ Expected result:
 - **Headless false**: Visualizing browser adds ~1–2 minutes per run
 
 ---
+
+## Manual QA Focus: Verify Auto Renewal of Contract check box can be checked and value persists to later steps/contract summary.
+
+Scope:
+- This section covers only `Auto Renewal of Contract` behavior from Create Proposal drawer through later steps and contract summary/edit surfaces.
+- Goal: verify user can check/uncheck Auto Renewal, proceed, and the saved value remains consistent after navigation/reopen/edit.
+- Do not use this section for service/device/payment validation except where needed to reach completion.
+
+Preconditions for all below cases:
+- Use `BASE_URL` from `.env.uat`.
+- Login using valid credentials from `.env.uat` (HO or SM user with contract permissions).
+- Open a deal where `Contract & Terms` is accessible and proposal creation is allowed.
+- Keep evidence for each run (screenshot/video) at: (a) drawer checkbox state, (b) post-finish contract summary/proposal card state, (c) edit reopen state.
+
+### M-CONTRACT-AR-001 | Verify Auto Renewal of Contract check box can be checked and value persists to later steps/contract summary.
+
+#### Detailed execution steps
+1. Navigate to `BASE_URL` and login using valid credentials from `.env.uat`.
+2. Open `Deals` and open a target deal.
+3. Open `Contract & Terms` tab and click `Create Proposal`.
+4. Verify baseline drawer state:
+   - `Auto Renewal of Contract` checkbox is visible.
+   - Checkbox is interactive (click/keyboard toggle works).
+   - Initial state is noted (checked/unchecked).
+5. Fill mandatory Create Proposal fields with valid data:
+   - Proposal Name
+   - Time Zone (if not preselected)
+   - Start Date
+   - End/Renewal Date (as required by active mode)
+6. Check `Auto Renewal of Contract`.
+7. Confirm checkbox stays checked after interacting with nearby controls:
+   - Toggle End/Renewal radio
+   - Edit Start Date
+   - Open/close Time Zone selector
+8. Click `Create Proposal` and verify user enters stepper flow.
+9. Complete remaining required steps (Services -> Devices -> On Demand -> Payment Terms -> Description -> Signees) with valid data.
+10. Click `Finish` to return to deal `Contract & Terms` summary/proposal card.
+11. Verify persisted state in summary surface:
+    - Contract summary/proposal details show Auto Renewal = enabled (or equivalent UI indication).
+12. Click `Edit` on the same proposal.
+13. Verify on reopen/edit surface:
+    - `Auto Renewal of Contract` remains checked.
+14. Save/Update proposal (or close edit without change, based on product rule).
+15. Refresh browser or navigate away/back to deal detail.
+16. Re-open contract summary and verify Auto Renewal still remains enabled.
+
+#### Expected result
+- User can check `Auto Renewal of Contract` in Create Proposal drawer.
+- Checked state remains stable while filling drawer fields.
+- After create + finish, contract summary/proposal card reflects Auto Renewal enabled.
+- Reopening proposal via Edit shows the same saved state (checked), including after refresh/navigation.
+
+#### Negative and edge scenarios to execute under same ID
+- **N1 - Unchecked persistence baseline**
+  - Leave Auto Renewal unchecked, complete create flow, verify summary + edit reopen both show disabled/unchecked state.
+  - Expected: default unchecked persists correctly; no false enabled state.
+
+- **N2 - Toggle stress before submit**
+  - Toggle checkbox ON/OFF rapidly 3-5 times; leave in final intended state; submit.
+  - Expected: persisted value matches the final visible state at submit time.
+
+- **N3 - Keyboard-only accessibility path**
+  - Use keyboard only (`Tab`/`Space`) to toggle checkbox and submit flow.
+  - Expected: keyboard toggle is functional and persisted value matches keyboard-selected state.
+
+- **N4 - Validation error resilience**
+  - Trigger drawer validation error (for example, submit once with missing required date), then correct fields and submit.
+  - Expected: Auto Renewal selection should not reset during validation cycle or recovery.
+
+- **N5 - Cancel/reopen non-persistence check**
+  - Toggle Auto Renewal, then click `Cancel` (without creating).
+  - Reopen Create Proposal.
+  - Expected: unsaved state should follow product rule (typically reset to default), and should not appear as saved.
+
+- **N6 - Edit change persistence**
+  - Create with Auto Renewal ON, then open Edit and set OFF, save/update.
+  - Expected: summary and subsequent edit reopen show OFF; no stale ON state.
+
+- **N7 - Session/navigation durability**
+  - After successful save, perform hard refresh and relogin (if session expires), open same deal/proposal.
+  - Expected: server-saved Auto Renewal state remains consistent across sessions.
+
+- **N8 - Cross-field interference**
+  - Validate Auto Renewal while changing related date controls (`Contract Dates to be decided`, End/Renewal modes).
+  - Expected: date control changes do not silently flip Auto Renewal value.
+
+- **N9 - Multi-tab consistency**
+  - Open same deal in second browser tab after saving.
+  - Expected: both tabs show same persisted Auto Renewal state after refresh.
+
+#### Coverage gaps to track explicitly
+- If summary card does not display a clear Auto Renewal label/value, log as a UX observability gap and verify via Edit surface/API-backed value.
+- If checkbox state changes without explicit user action during validation or rerender, log as functional bug (state loss).
+- If keyboard toggle is not reachable by focus order, log as accessibility defect.
 
 ## Best Practices
 
