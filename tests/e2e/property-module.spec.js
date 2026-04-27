@@ -3378,7 +3378,7 @@ test.describe(
         );
 
         await test.step(
-          "TC-PROP-067 step 2: verify Properties total-count card",
+          "Verify that Properties dashboard loads successfully with correct total counts",
           async () => {
             // heading "Properties" (level=6) + total count (level=1) must be visible
             await expect(
@@ -3395,7 +3395,7 @@ test.describe(
         );
 
         await test.step(
-          "TC-PROP-067 step 3: verify Properties by Stage chart",
+          "Verify that Properties by Stage chart displays correct stage-wise distribution",
           async () => {
             await expect(
               dashboardPage.getByRole("heading", { name: "Properties by Stage", level: 6 }),
@@ -3408,7 +3408,7 @@ test.describe(
         );
 
         await test.step(
-          "TC-PROP-067 step 4: verify Qualified Properties graph renders",
+          "Verify that Qualified Properties graph renders correctly",
           async () => {
             await expect(
               dashboardPage.getByRole("heading", { name: "Qualified Properties", level: 6 }),
@@ -3435,7 +3435,7 @@ test.describe(
         test.setTimeout(120_000);
 
         await test.step(
-          "TC-PROP-068 step 1: navigate to /app/sales/locations — list loads with All Affiliation default",
+          "Verify that property list loads with default All Affiliation filter applied",
           async () => {
             await dashboardPage.goto(`${baseUrl}app/sales/locations`, {
               waitUntil: "domcontentloaded",
@@ -3459,7 +3459,7 @@ test.describe(
         );
 
         await test.step(
-          "TC-PROP-068 step 2: search by property name and verify results",
+          "Verify that user can search property by name, ID, zip code",
           async () => {
             const searchInput = dashboardPage.getByRole("searchbox", {
               name: "ID, Property, Zip Code / Postal Code",
@@ -3486,7 +3486,7 @@ test.describe(
         );
 
         await test.step(
-          "TC-PROP-068 step 3: verify All Affiliation tooltip contains Approved and Rejected options",
+          "Verify that Approved and Rejected stage filter works correctly",
           async () => {
             await dashboardPage
               .getByRole("heading", { name: "All Affiliation", level: 6 })
@@ -3500,7 +3500,7 @@ test.describe(
         );
 
         await test.step(
-          "TC-PROP-068 step 4: verify All Properties tooltip contains All / Assigned / Unassigned options",
+          "Verify that All Properties dropdown filters Assigned and Unassigned properties",
           async () => {
             await dashboardPage
               .getByRole("heading", { name: "All Properties", level: 6 })
@@ -3515,7 +3515,7 @@ test.describe(
         );
 
         await test.step(
-          "TC-PROP-068 step 5: sort by Property Name column — table re-renders",
+          "Verify that sorting works on Property Name column",
           async () => {
             await dashboardPage.getByRole("button", { name: "Property Name" }).click();
             await expect(
@@ -3525,7 +3525,7 @@ test.describe(
         );
 
         await test.step(
-          "TC-PROP-068 step 6: verify Property Affiliation column exists and tags render in the table",
+          "Verify that Property Affiliation tags are displayed correctly",
           async () => {
             // Navigate fresh so sort state is reset and data is fully loaded
             await dashboardPage.goto(`${baseUrl}app/sales/locations`, {
@@ -3550,7 +3550,7 @@ test.describe(
         );
 
         await test.step(
-          "TC-PROP-068 step 7: select first row checkbox — Bulk Assignment becomes enabled",
+          "Verify that user can select single property using checkbox | Verify that Bulk Assignment button becomes enabled after selection",
           async () => {
             // Navigate fresh to reset any selection state
             await dashboardPage.goto(`${baseUrl}app/sales/locations`, {
@@ -3579,7 +3579,7 @@ test.describe(
         );
 
         await test.step(
-          "TC-PROP-068 step 8: select second row — count updates to 2",
+          "Verify that user can select multiple properties",
           async () => {
             const secondRowCheckbox = dashboardPage
               .locator("table tbody tr")
@@ -3593,7 +3593,7 @@ test.describe(
         );
 
         await test.step(
-          "TC-PROP-068 step 9: click Bulk Assignment — assignment overlay opens",
+          "Verify that Bulk Assignment assigns properties successfully",
           async () => {
             await dashboardPage.getByRole("button", { name: "Bulk Assignment" }).click();
             // Overlay appears with a Cancel button and a paragraph prompting assignment
@@ -3605,7 +3605,7 @@ test.describe(
         );
 
         await test.step(
-          "TC-PROP-068 step 10: Review Leads button navigates to /locations/reviews",
+          "Verify that Review Leads button opens review leads modal",
           async () => {
             await dashboardPage.goto(`${baseUrl}app/sales/locations`, {
               waitUntil: "domcontentloaded",
@@ -3631,7 +3631,7 @@ test.describe(
         );
 
         await test.step(
-          "TC-PROP-068 step 11: verify Stage, Created Date, Last Modified Date columns in first row",
+          "Verify that Property Stage badges display correct status | Verify that Assigned To column shows correct user | Verify that Franchise column shows correct value | Verify that Created Date and Last Modified Date are displayed correctly",
           async () => {
             // Navigate fresh so data is fully loaded before asserting column values
             await dashboardPage.goto(`${baseUrl}app/sales/locations`, {
@@ -3690,7 +3690,7 @@ test.describe(
         test.setTimeout(120_000);
 
         await test.step(
-          "TC-PROP-069 step 1: navigate to /app/sales/locations and open More Filters panel",
+          "Verify that More Filters panel opens successfully",
           async () => {
             await dashboardPage.goto(`${baseUrl}app/sales/locations`, {
               waitUntil: "domcontentloaded",
@@ -3713,14 +3713,14 @@ test.describe(
         );
 
         await test.step(
-          "TC-PROP-069 step 3: verify Property Type filter tooltip opens",
+          "Verify that Property Type filter works correctly",
           async () => {
             await dashboardModule.verifyFilterTooltipOpens("Select Property Type");
           },
         );
 
         await test.step(
-          "TC-PROP-069 step 4: select a Stage option — enables Apply Filters",
+          "Verify that Stage filter work correctly",
           async () => {
             await dashboardModule.selectFirstStageInFilter();
             // After selecting a stage, Apply Filters becomes enabled
@@ -3731,21 +3731,21 @@ test.describe(
         );
 
         await test.step(
-          "TC-PROP-069 step 5: verify Property Source filter tooltip opens",
+          "Verify that Property Source filter works correctly",
           async () => {
             await dashboardModule.verifyFilterTooltipOpens("Select Property Source");
           },
         );
 
         await test.step(
-          "TC-PROP-069 step 6: verify State filter tooltip opens",
+          "Verify that Country, State, City filters work correctly",
           async () => {
             await dashboardModule.verifyFilterTooltipOpens("Select states");
           },
         );
 
         await test.step(
-          "TC-PROP-069 step 7: fill Zip Code filter and verify chip appears",
+          "Verify that Zip Code filter accepts valid values",
           async () => {
             await dashboardModule.fillZipCodeFilter(ZIP_FILTER_VALUE);
             // After pressing Enter, the combobox retains the value or a chip appears
@@ -3756,56 +3756,63 @@ test.describe(
         );
 
         await test.step(
-          "TC-PROP-069 step 8: verify Parent Company filter tooltip opens",
+          "Verify that Parent Company filter works correctly",
           async () => {
             await dashboardModule.verifyFilterTooltipOpens("Select Parent Company");
           },
         );
 
         await test.step(
-          "TC-PROP-069 step 9: fill Property ID filter and verify value",
+          "Verify that Property ID filter works correctly",
           async () => {
             await dashboardModule.fillPropertyIdFilter(PROP_ID_FILTER_VALUE);
           },
         );
 
         await test.step(
-          "TC-PROP-069 step 10: verify Associated Franchise filter tooltip opens",
+          "Verify that Associated Franchise filter works correctly",
           async () => {
             await dashboardModule.verifyFilterTooltipOpens("Add Associated Franchise");
           },
         );
 
         await test.step(
-          "TC-PROP-069 step 11: verify Assigned To filter tooltip opens",
+          "Verify that Assigned To filter works correctly",
           async () => {
             await dashboardModule.verifyFilterTooltipOpens("Select Assigned to");
           },
         );
 
         await test.step(
-          "TC-PROP-069 step 12: fill Lot Number filter and verify value then clear",
+          "Verify that No. of Units filter works correctly",
+          async () => {
+            await dashboardModule.verifyFilterTooltipOpens("No. of Units");
+          },
+        );
+
+        await test.step(
+          "Verify that Lot Number filter works correctly",
           async () => {
             await dashboardModule.fillLotNumberFilter(LOT_NUMBER_FILTER_VALUE);
           },
         );
 
         await test.step(
-          "TC-PROP-069 step 13: fill Created Date filter and verify value",
+          "Verify that Created Date filter works correctly",
           async () => {
             await dashboardModule.fillDateRangeFilter(0, DATE_RANGE_FILTER_VALUE);
           },
         );
 
         await test.step(
-          "TC-PROP-069 step 14: fill Last Modified Date filter and verify value",
+          "Verify that Last Modified Date filter works correctly",
           async () => {
             await dashboardModule.fillDateRangeFilter(1, DATE_RANGE_FILTER_VALUE);
           },
         );
 
         await test.step(
-          "TC-PROP-069 step 15: click Apply Filters — panel closes and table updates",
+          "Verify that Apply Filters updates property listing correctly",
           async () => {
             await dashboardModule.applyMoreFilters();
             // Panel must be closed
@@ -3820,7 +3827,7 @@ test.describe(
         );
 
         await test.step(
-          "TC-PROP-069 step 16: reopen More Filters and click Clear All — filters reset",
+          "Verify that Clear All resets all applied filters",
           async () => {
             await dashboardModule.clearAllFilters();
             // After clearing: Apply Filters is disabled, Clear All is disabled

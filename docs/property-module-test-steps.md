@@ -1410,3 +1410,139 @@ Step 16 — Verify Clear All resets filters:
 - The "Clear All" button becomes disabled.
 
 ---
+
+## Missing Assertions and New Test Cases
+
+The following section documents gaps found during review of the existing automation against the stated requirements. Each entry either describes missing assertions in an existing TC or defines a brand-new TC that has no coverage at all.
+
+---
+
+### TC-PROP-006 — Enhanced assertions required
+
+**Gap:** The current automation for TC-PROP-006 calls `dismissCreatePropertyViaBackdrop()` (a backdrop click) instead of actually clicking the Cancel button. The test title says "Cancel button" but a backdrop dismiss is a different UI interaction. Additionally, after closing the drawer, the test never searches the property list to confirm the partially-entered property was not saved.
+
+**What must be added:**
+1. Replace `dismissCreatePropertyViaBackdrop()` with an actual Cancel button click (`cancelCreatePropertyDrawer()`).
+2. After the drawer closes, navigate to the Properties list and search for the discarded property name (`CANCELLED — SHOULD NOT SAVE`).
+3. Assert that the search returns no results — confirming Cancel did not persist any data.
+
+**Updated expected results for TC-PROP-006:**
+- Clicking the Cancel button (not the backdrop) closes the Create Property drawer.
+- The drawer heading "Create Property" is no longer visible.
+- Searching the discarded property name on the Properties list page returns 0 results.
+
+---
+
+### TC-PROP-021 — Enhanced assertions required
+
+**Gap:** The current automation for TC-PROP-021 calls `dismissCreatePropertyViaBackdrop()` (a backdrop click) and is titled "X icon closes drawer". No X/close-icon method exists for the Create Property drawer itself — the page object has a close-icon method only for the nested Create New Company sub-flow. The test never actually clicks any X icon.
+
+**What must be added:**
+1. Locate the X/close icon button on the Create Property drawer (a `button` containing an SVG close icon in the drawer header).
+2. Click it and verify the drawer closes (heading hidden, drawer panel removed from DOM).
+3. The existing post-close property search and no-results assertion is correct and must be retained.
+
+**Updated expected results for TC-PROP-021:**
+- Clicking the X/close icon button in the drawer header closes the Create Property drawer.
+- The drawer heading "Create Property" is no longer visible.
+- Searching the discarded draft property name returns 0 results in the Properties list.
+
+---
+
+### TC-PROP-024 — Enhanced assertions required
+
+**Gap:** TC-PROP-024 opens the Create New Company sub-flow and then closes it (via Cancel and via X), but never asserts that any values entered in the Create Property drawer *before* opening the sub-flow are preserved *after* returning. The requirement "Verify that returning from Create New Company flow preserves Create Property modal state" is completely untested.
+
+**What must be added:**
+1. Before opening `+ Create New`, fill the Property Name field with a distinctive value (e.g. `STATE-PRESERVE-<timestamp>`).
+2. Select a Property Source (e.g. `ALN`).
+3. Open the Create New Company sub-flow and then close it (via Cancel or X).
+4. After the sub-flow closes and the parent Create Property drawer is confirmed open, assert:
+   - The Property Name textbox still contains the value entered in step 1.
+   - The Property Source trigger still shows `ALN`.
+
+**Updated expected results for TC-PROP-024:**
+- `+ Create New` opens the Create New Company flow.
+- Closing the sub-flow (Cancel or X) returns the user to the Create Property drawer (drawer still open).
+- The Property Name entered before opening the sub-flow is still present in the field.
+- The Property Source selected before opening the sub-flow is still shown in the trigger.
+
+---
+
+### TC-PROP-028 — Enhanced assertions required
+
+**Gap:** TC-PROP-028 ("HO/SM/SP is able to link franchise") only asserts that the Associated Franchise control is *visible* inside the Edit Property form. It never selects a franchise, saves the edit, or verifies that the linked franchise appears in the property detail afterwards. A visibility check alone does not prove the linking functionality works.
+
+**What must be added:**
+1. In the Edit Property form, open the Associated Franchise dropdown.
+2. Select a known franchise (e.g. `216 - Omaha, NE`).
+3. Click Save.
+4. Wait for the Edit Property drawer to close and the detail page to reload.
+5. Assert that the selected franchise name is now visible in the `Franchise Associated` sidebar section on the property detail page.
+
+**Updated expected results for TC-PROP-028:**
+- The Associated Franchise dropdown is visible and interactive in the Edit Property form.
+- After selecting a franchise and saving, the Edit Property drawer closes.
+- The franchise name (e.g. `216 - Omaha, NE`) is visible in the `Franchise Associated` sidebar section on the property detail page.
+
+---
+
+### TC-PROP-030 — Enhanced assertions required
+
+**Gap:** TC-PROP-030 ("user can select multiple property affiliation options at the same time") has its core assertion wrapped in a conditional `if (selectionStateDetectable)`. When the state-detection check returns equal flags for both chips (`managedSelectedAfterOwnedClick === ownedSelectedAfterOwnedClick`), the entire assertion is skipped and the test passes vacuously. The requirement is that *both* chips appear selected simultaneously — this is never definitively verified.
+
+Additionally, the test logic suggests single-selection (mutual exclusion) behaviour — it asserts `managedSelectedAfterOwnedClick === false` after selecting Owned, which is the opposite of "multiple selections at the same time". The requirement and the implementation are contradictory and must be reconciled.
+
+**What must be added:**
+1. After selecting company (to unlock chips), click the Managed chip and immediately assert it appears selected.
+2. Without deselecting Managed, click the Owned chip.
+3. Assert **both** Managed and Owned appear selected simultaneously (the app either supports multi-select or single-select — the assertion must match actual app behavior and not be conditional).
+4. If the app supports only single-select (mutual exclusion), rename the test to reflect that: "Verify that selecting a Property Affiliation option deselects any previously selected option (single-select behavior)".
+5. Also verify that clicking a selected chip a second time deselects it (toggle behavior).
+
+**Updated expected results for TC-PROP-030:**
+- If multi-select is supported: Managed and Owned chips both show a selected visual state simultaneously after clicking each in turn.
+- If single-select is enforced: clicking Owned deselects Managed (only one chip selected at a time) — this must be asserted deterministically, not conditionally.
+- Clicking a selected chip a second time returns it to unselected state.
+
+---
+
+### TC-PROP-070 | Changing the selected company updates dependent fields (Property Affiliation chips)
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Create Property drawer is accessible.
+- At least two different companies exist in the system.
+
+**Steps:**
+
+Step 1 — Select first company and observe affiliation chips:
+1. Navigate to `/app/sales/locations`.
+2. Click `Create Property` to open the drawer.
+3. Wait for the "Create Property" heading (level=3) to be visible.
+4. Click the `Search Company` trigger and select the first known company (e.g. the `targetCompanyName` used in other tests).
+5. Observe the Property Affiliation section.
+
+**Expected results (Step 1):**
+- All six affiliation chips (Managed, Owned, Shared, Tenant, Headquarters, Regional Office) become visible after the first company is selected.
+
+Step 2 — Change to a different company and verify chips refresh:
+6. Click the `Search Company` trigger again (company is already selected).
+7. Clear the existing selection or type a different company name.
+8. Select a different company from the search results.
+9. Observe the Property Affiliation section immediately after the second company is selected.
+
+**Expected results (Step 2):**
+- The Property Affiliation chips remain visible (or are refreshed) after changing the company.
+- No crash or blank state occurs when the company is changed mid-session.
+- The drawer remains open throughout.
+
+Step 3 — Verify chips reset if company is deselected (if the UI supports deselection):
+10. If the UI provides a way to clear the company selection, clear it.
+11. Observe the Property Affiliation section.
+
+**Expected results (Step 3):**
+- If deselection is supported: affiliation chips return to the N/A / hidden state.
+- If deselection is not supported: the drawer shows chips from the most recently selected company.
+
+---

@@ -670,6 +670,45 @@ This also applies to cross-suite handoff data: if a previously created record's 
 - **New page objects / spec files:** apply from the start — no exceptions.
 - **Existing files (editing or reviewing):** flag every violation found **within the scope of your current task**. Before refactoring code outside the immediate task, ask the user first.
 
+### 10.9 Cross-suite entity references — NEVER use static constants for IDs or paths
+
+When a later suite (e.g., activity log tests) needs to navigate to a specific entity created by an earlier suite (e.g., property creation), the entity's path/ID must **never** be stored as a static top-level constant — not in the spec file, not in a utility file, and not in `.env.*` files.
+
+**Why:** A hardcoded path (e.g., `/app/sales/locations/location/13179`) couples the suite to a single environment and a single record. The moment that record is deleted or the suite runs against a different environment, it silently breaks.
+
+**Rule:** The creating suite must persist the entity's URL path to `utils/shared-run-state.js` immediately after navigating to the detail page. The consuming suite reads it back at runtime via a resolver function.
+
+```javascript
+// ── BEFORE (avoid) ──────────────────────────────────────────────────────────
+// In a utility file — static top-level constants are NOT acceptable here
+const ACTIVITY_REGRESSION_PROPERTY_NAME = 'Regression Location Phase 2'; // ❌
+const ACTIVITY_REGRESSION_PROPERTY_PATH = '/app/sales/locations/location/13179'; // ❌
+
+// ── AFTER (preferred) ────────────────────────────────────────────────────────
+
+// Step 1 — shared-run-state.js: add read/write helpers for the path
+function readCreatedPropertyPath()   { return readState().createdPropertyPath || ''; }
+function writeCreatedPropertyPath(p) { writeState({ ...readState(), createdPropertyPath: p }); }
+
+// Step 2 — creating suite: capture and persist the path after navigation
+await propertyModule.openPropertyDetail(createdPropertyName);
+writeCreatedPropertyPath(new URL(page.url()).pathname);
+
+// Step 3 — consuming suite: resolve at runtime, never at module load time
+function resolveActivityRegressionProperty() {
+  const name = readCreatedPropertyName();
+  const path = readCreatedPropertyPath();
+  if (!name || !path) throw new Error('Run the property creation suite first.');
+  return { name, path };
+}
+
+// Step 4 — beforeAll in the consuming suite
+const { name: activityPropertyName, path: activityPropertyPath } =
+  resolveActivityRegressionProperty();
+```
+
+**This applies to all entity types** — properties, deals, companies, contacts. If a suite needs to reference a record created by another suite, the path goes through `shared-run-state.js`, not a hardcoded constant or env var.
+
 ---
 
 ## 11. Auto-Fix Methodology
