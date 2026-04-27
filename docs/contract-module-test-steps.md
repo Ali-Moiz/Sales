@@ -785,12 +785,90 @@ Expected result:
 - The default value is `10`.
 
 ### TC-CONTRACT-019 | Notify for Renewal field is visible in default drawer state
+### Verify Notify for Renewal Before (Days) is required (when renewal is enabled) and only accepts valid numeric range (no letters/negative).
+
 Execution steps:
-- Open the `Create Proposal` drawer.
-- Check the notify-days field.
+1. Navigate to `BASE_URL`.
+2. Log in using valid credentials from `.env` (or `.env.uat` for UAT runs).
+3. Open `Deals` and open a deal where `Contract & Terms` is available.
+4. Click `Create Proposal` to open the drawer.
+5. Verify baseline state:
+   - `Renewal Date` is selected in date type radio (default mode).
+   - `Notify for Renewal Before (Days)` field is visible and enabled.
+   - Current value is captured (default expected is `10`).
+6. Fill other required fields with valid data to isolate Notify validation:
+   - Proposal Name
+   - Time Zone (if not preselected)
+   - Start Date
+   - Renewal Date (valid date after Start Date)
+7. Clear `Notify for Renewal Before (Days)` value and attempt submit (`Create Proposal`).
+8. Verify required behavior in renewal-enabled mode:
+   - Submit is blocked.
+   - Drawer remains open.
+   - User does not navigate to stepper.
+   - Notify field shows required/invalid state (error text, invalid border, aria-invalid, or equivalent).
+9. Enter letters (example: `abc`) in Notify field and attempt submit.
+10. Verify letters are rejected by product rule:
+    - Either letters are not retained in field OR submit is blocked with numeric validation.
+11. Enter mixed value (example: `1a`) and submit.
+12. Verify non-numeric characters are not accepted as valid input.
+13. Enter negative value (example: `-1`) and submit.
+14. Verify negative value is rejected:
+    - Submit blocked or value normalized per product rule (must not be saved as negative).
+15. Enter `0` and submit.
+16. Record behavior (accepted/rejected) as per product range rule and ensure behavior is consistent.
+17. Enter minimum valid positive value (if rule is shown in UI, use that exact minimum; otherwise test `1`) and submit.
+18. Verify valid lower-bound value allows progression when all required fields are valid.
+19. Reopen drawer and test upper bound:
+    - Enter large boundary candidate values (example: `365`, `999`, `1000`) one by one.
+    - Capture first value treated as invalid (if any) and first accepted max boundary.
+20. Verify only values within product-valid numeric range are accepted.
+21. Use keyboard-only flow on Notify field:
+    - Focus with `Tab`, update value, submit with `Enter`.
+22. Verify keyboard path behavior matches mouse path for validation and submission.
+23. Cancel and reopen drawer after triggering invalid Notify value.
+24. Verify stale validation does not incorrectly persist before next submit.
 
 Expected result:
-- The notify-days field is visible and enabled.
+- Notify field is visible and enabled in default drawer state.
+- When renewal is enabled, Notify field enforces required behavior according to product validation.
+- Letters and mixed non-numeric values are rejected.
+- Negative values are rejected (not persisted as valid saved values).
+- Only valid numeric range values allow successful progression to stepper.
+- Validation behavior is consistent across mouse and keyboard interactions.
+
+Negative and edge scenarios under same test ID:
+- **N1 - Required field missing**
+  - Keep Notify empty with all other required fields valid.
+  - Expected: submit blocked with Notify required/invalid signal.
+
+- **N2 - Letters-only input**
+  - Input `abc`.
+  - Expected: non-numeric rejected; no successful submit.
+
+- **N3 - Mixed alphanumeric**
+  - Input `10x`.
+  - Expected: rejected or sanitized to numeric only; if invalid remains, submit blocked.
+
+- **N4 - Negative numeric**
+  - Input `-5`.
+  - Expected: rejected; cannot proceed as valid.
+
+- **N5 - Decimal input**
+  - Input `1.5`.
+  - Expected: if only integers are allowed, reject/block; otherwise enforce documented rule consistently.
+
+- **N6 - Zero boundary**
+  - Input `0`.
+  - Expected: outcome follows product min rule; must be consistent and clearly validated.
+
+- **N7 - Large out-of-range value**
+  - Input very large number (example `9999`).
+  - Expected: blocked if outside allowed max; accepted only if within defined range.
+
+- **N8 - Rapid edits + submit**
+  - Quickly change values (`abc` -> `-1` -> `10`) then submit.
+  - Expected: final accepted value determines behavior; no stale error overlays.
 
 ### TC-CONTRACT-020 | Cancel button closes the Create Proposal drawer
 Execution steps:
@@ -821,6 +899,292 @@ Expected result:
 - The drawer can be reopened successfully.
 
 ## E2E Full Create and Publish Test Cases
+
+## Manual QA Focus: Step 1 Save & Next, Required Validation, and Service Type Behavior (Combined)
+
+### Verify Save & Next progresses to next step and preserves entered data when navigating back.
+### Verify Save & Next is blocked when mandatory fields on current step are missing.
+### Verify Service Name is required; leaving blank shows 'Service Name is required'.
+### Verify user can select Dedicated Service vs Patrol Service and relevant fields display accordingly.
+### Verify Step 1 required validations for:
+- Resource Type
+- Line Item
+- Service Start Date
+- Officer/Guard count
+- Hourly Rate format
+- Job Day selection
+- Start Time / End Time chronology
+### Verify Include Fuel Surcharge and Include Vehicle toggles can be enabled and reflected in pricing/totals where applicable.
+### Verify Add Instructions rich text supports formatting (bold/italic/list/headings) and content saves.
+### Verify Additional Services toggles (Visitor Management, Load Management) can be selected and persist.
+### Verify user can add multiple services (Service 1, Service 2) and totals reflect aggregated services.
+
+### M-CONTRACT-STEP1-001 | Expanded Step 1 deep-dive validation (existing TC-CONTRACT-031 + 7 requested points)
+
+Execution steps:
+1. Navigate to `BASE_URL`.
+2. Log in with valid credentials from `.env`/`.env.uat`.
+3. Open `Deals` and open a deal where `Contract & Terms` is available.
+4. Open `Create Proposal`.
+5. Fill required drawer fields with valid values and submit to enter stepper:
+   - Proposal Name
+   - Time Zone
+   - Start Date
+   - Renewal/End Date per current mode
+6. Verify Step 1 (`Services`) is visible and `Save & Next` button is present.
+7. Verify baseline dedicated mode state:
+   - `Dedicated Service` is selected by default.
+   - `Service Name`, `Resource Type`, `Line Item`, `Officer/Guard`, `Hourly Rate`, `Job Days`, `Start Time`, `End Time` inputs are visible in current UI.
+8. Keep all Step 1 mandatory fields blank and click `Save & Next`.
+9. Verify combined blocked behavior:
+   - User stays on Step 1.
+   - `Save & Next` does not move to Step 2.
+   - Required validations appear without page crash/freeze.
+10. Leave only `Service Name` blank, fill all other required fields validly, and click `Save & Next`.
+11. Verify exact message: `Service Name is required`.
+12. Enter valid `Service Name`.
+
+13. **Point 1: Resource Type required**
+    - Keep `Resource Type` empty.
+    - Keep all other required fields valid.
+    - Click `Save & Next`.
+    - Verify step remains blocked and required validation is shown for `Resource Type` (or equivalent field-level invalid UI state).
+    - Select a valid `Resource Type` and verify validation clears.
+
+14. **Point 2: Line Item required**
+    - Keep `Line Item` empty while `Resource Type` is selected.
+    - Keep all other required fields valid.
+    - Click `Save & Next`.
+    - Verify step remains blocked and required validation is shown for `Line Item`.
+    - Select a valid `Line Item` and verify validation clears.
+
+15. **Point 3: Service Start Date required**
+    - Clear/leave service `Start Date` in Step 1 (service schedule start) blank.
+    - Keep all other required fields valid.
+    - Click `Save & Next`.
+    - Verify step remains blocked with Start Date required validation.
+    - Enter valid Start Date and verify error clears.
+
+16. **Point 4: Officer/Guard count required + positive integer**
+    - Keep Officer/Guard blank and click `Save & Next` -> verify required validation.
+    - Enter `0` and click `Save & Next` -> verify rejected (must be positive).
+    - Enter negative value (example `-1`) -> verify rejected.
+    - Enter decimal value (example `1.5`) -> verify integer-only behavior per product rule.
+    - Enter valid positive integer (example `1`) -> verify field accepted.
+
+17. **Point 5: Hourly Rate required + currency format**
+    - Keep Hourly Rate blank -> verify required validation and blocked submit.
+    - Enter letters (`abc`) -> verify rejected or blocked as invalid.
+    - Enter special chars only (`@#$`) -> verify rejected or blocked.
+    - Enter mixed value (`12ab`) -> verify invalid handling.
+    - Enter valid currency numeric format (example `15` or `15.00`) -> verify accepted and error clears.
+
+18. **Point 6: At least one Job Day required**
+    - Ensure no day chip is selected.
+    - Click `Save & Next`.
+    - Verify required message appears (currently expected text in automation: `Job Days must have at least 1 item.`).
+    - Select one valid day (example `Mon`) and verify required error clears.
+
+19. **Point 7: Start Time / End Time validation**
+    - Leave Start Time empty and attempt to set End Time/submit -> verify blocked for missing Start Time.
+    - Set Start Time only, leave End Time empty -> verify blocked for missing End Time.
+    - Set End Time earlier than Start Time (same-day invalid sequence) and submit -> verify blocked with chronology validation.
+    - If overnight is supported by product rules (example Start `10:00 PM`, End `06:00 AM`), verify whether accepted/rejected and document observed behavior.
+    - Set valid sequence (End after Start in allowed rule set) and verify validation clears.
+
+20. With all Step 1 mandatory fields valid, verify `Save & Next` becomes enabled.
+21. Click `Save & Next` and verify navigation to Step 2 (`Devices`).
+22. Navigate back to Step 1 using step tab navigation.
+23. Verify persistence of entered values:
+   - Service Name
+   - Service type selection
+   - Resource Type
+   - Line Item
+   - Officer/Guard
+   - Hourly Rate
+   - Job Days
+   - Start/End Time
+24. Switch from `Dedicated Service` to `Patrol Service`.
+25. Verify dedicated-only fields hide/update per patrol behavior.
+26. Attempt `Save & Next` without patrol-required fields and verify blocked state.
+27. Fill patrol-required fields with valid values.
+28. Verify `Save & Next` enables and Step 2 progression works.
+29. Navigate back again and verify latest saved values persist for active service type.
+30. **Point 8: Include Fuel Surcharge and Include Vehicle toggles**
+    - Return to Step 1 and keep `Dedicated Service` selected.
+    - Verify `Include Fuel Surcharge` toggle/checkbox is visible and interactive.
+    - Capture baseline service price/total before enabling.
+    - Enable `Include Fuel Surcharge`.
+    - Verify:
+      - Toggle state visibly changes to enabled.
+      - No UI break/re-render issue occurs.
+      - Service row price/Grand Total behavior matches product rule (whether display-only flag or pricing-affecting logic in current environment).
+    - Disable and re-enable `Include Fuel Surcharge` to verify deterministic behavior.
+    - Verify `Include Vehicle` toggle/checkbox is visible in Dedicated mode.
+    - Enable `Include Vehicle` and verify dependent vehicle inputs render (for example vehicle count/rate fields if configured in current UI).
+    - Enter valid vehicle-related values and verify service total recalculates (if pricing-linked in current product behavior).
+    - Disable `Include Vehicle` and verify:
+      - Vehicle-specific controls hide/disable per product rule.
+      - Total recalculates or remains per expected rule.
+    - Switch to `Patrol Service` and verify whether `Include Vehicle` is hidden/non-applicable (if that is current product behavior).
+
+31. **Point 9: Add Instructions rich text formatting + save persistence**
+    - Locate `Add Instructions` rich text editor in Step 1.
+    - Enter plain text baseline content.
+    - Apply `Bold` to one word/phrase and verify style is visible.
+    - Apply `Italic` to another word/phrase and verify style is visible.
+    - Create unordered bullet list with at least two items.
+    - Create ordered list with at least two items.
+    - Apply heading formatting (`H1` and `H2` where available) and verify rendering changes.
+    - Save via `Save & Next`, go to Step 2, then navigate back to Step 1.
+    - Verify instructions content persists with formatting intact (not flattened unexpectedly).
+    - Refresh-check (optional in same run strategy): revisit Step 1 after re-navigation and confirm content persistence remains consistent.
+
+32. **Point 10: Additional Services toggles persistence**
+    - In Step 1 Dedicated mode, locate `Visitor Management` and `Load Management` toggles.
+    - Verify both are visible and default state is documented (on/off).
+    - Enable `Visitor Management`, then explicitly verify/select `Load Management` as enabled.
+    - Save forward/back.
+    - Verify both toggles remain enabled after navigation.
+    - In current UAT behavior, toggle states may be linked; document observed behavior if one toggle updates the other.
+    - Re-enable both explicitly before final persistence assertion to keep test deterministic.
+    - Enable `Load Management` also and save forward/back again.
+    - Verify both remain enabled.
+    - Toggle one OFF while the other stays ON; save forward/back.
+    - Verify final saved toggle states persist after navigation (independent or linked behavior should be documented exactly as observed).
+    - Verify values reflected in visible deal/summary context where applicable after stepper completion/edit reopen.
+
+33. **Point 11: Multiple services (Service 1 + Service 2) and aggregated totals**
+    - Keep Service 1 fully valid and note Service 1 calculated value (or baseline grand total with only Service 1).
+    - Click `Add Service`/`Add Another Service`.
+    - In current UAT UI, use the icon button shown directly next to the `Add another service` heading.
+    - Verify new service section appears as `Service 2` (or sequential naming per current UI).
+    - Fill Service 2 with valid but different values from Service 1:
+      - Service Name
+      - Resource Type
+      - Line Item
+      - Officer/Guard
+      - Hourly Rate
+      - Job Day
+      - Start/End Time
+    - Verify both Service 1 and Service 2 are independently editable.
+    - Capture expected aggregate logic:
+      - Grand Total should equal Service1 Total + Service2 Total (plus any applicable options, if product includes them).
+    - Verify displayed Grand Total matches aggregate expectation within displayed rounding rules.
+    - Explicit verification sequence:
+      - Read `Service 1` displayed amount.
+      - Read `Service 2` displayed amount.
+      - Calculate `Expected Aggregate = Service1 + Service2`.
+      - Compare with displayed `Grand Total`.
+      - If minor decimal rounding exists, allow only documented tolerance (for example <= 0.01 or per UI currency rounding rule).
+    - Modify Service 2 values and verify Grand Total updates dynamically.
+    - Delete or clear Service 2 (if action is available in this flow) and verify Grand Total returns to Service 1-only value.
+    - Save to Step 2 and navigate back to Step 1; verify both service blocks and totals persist correctly.
+
+Expected result:
+- `Save & Next` stays blocked whenever Step 1 has missing/invalid mandatory data.
+- Exact Service Name required message appears: `Service Name is required`.
+- `Resource Type`, `Line Item`, and service `Start Date` behave as required fields.
+- Officer/Guard count enforces positive integer constraints.
+- Hourly Rate enforces required + valid numeric/currency format; letters/special chars are rejected.
+- At least one Job Day is required (expected current message: `Job Days must have at least 1 item.`).
+- Time validation enforces valid Start/End sequence per product chronology rules (including explicit overnight behavior confirmation).
+- Include Fuel Surcharge and Include Vehicle toggles are interactive, stable, and reflected according to product pricing/totals rules.
+- Add Instructions rich text supports toolbar formatting (bold/italic/lists/headings) and preserves formatted content after save/back-navigation.
+- Additional Services toggles (Visitor Management, Load Management) can be selected independently and persist reliably.
+- Multi-service flows allow Service 1 + Service 2 data entry, and Grand Total reflects aggregated service pricing logic.
+- After valid data entry, Step 1 progresses to Step 2 and values persist when navigating back.
+
+Observed behavior on `BASE_URL` (UAT exploration baseline):
+- `Visitor Management` and `Load Management` are rendered as standalone checkbox controls and must be verified with explicit checked-state assertions (not label-click only).
+- Toggle persistence can be validated by enabling both toggles, navigating forward/back, and confirming both remain ON before testing OFF state.
+- `Include Vehicle` dependent controls may be environment/data dependent; in some runs, rate field appears while count field may not be visible.
+- `Add another service` is triggered from the icon button adjacent to the `Add another service` heading; successful action increases service-name input count from 1 to 2.
+
+Negative and edge scenarios (same ID, execute as sub-coverage):
+- **N1 - Single-missing-field matrix**
+  - Keep one field missing at a time (Resource Type, Line Item, Start Date, Officer, Hourly Rate, Job Day, Start/End Time).
+  - Expected: each field independently blocks progression with targeted validation.
+
+- **N2 - Multi-missing combined validation**
+  - Keep 2-4 required fields missing in one submit.
+  - Expected: deterministic validation behavior; no random/flickering errors; no navigation to Step 2.
+
+- **N3 - Rapid repeated Save & Next clicks**
+  - Click `Save & Next` rapidly with invalid data.
+  - Expected: no duplicate error stacking, no duplicate API side effects, no UI freeze.
+
+- **N4 - Toggle service type with partial values**
+  - Fill Dedicated partially, switch to Patrol, then back.
+  - Expected: active-mode validations only; hidden-field leakage should not falsely satisfy requirements.
+
+- **N5 - Job Day deselect regression**
+  - Select one day, then deselect all, then submit.
+  - Expected: required Job Day validation returns consistently.
+
+- **N6 - Time edge checks**
+  - Equal start and end times; near-midnight boundaries; AM/PM flip boundaries.
+  - Expected: behavior follows product rule consistently and is clearly validated.
+
+- **N7 - Input sanitization checks**
+  - Officer/Hourly fields with spaces, pasted strings, leading zeros, long values.
+  - Expected: sanitized or rejected consistently; no crash or silent wrong acceptance.
+
+- **N8 - Keyboard-only accessibility**
+  - Complete field navigation and submit via keyboard only (`Tab`, `Shift+Tab`, `Space`, `Enter`).
+  - Expected: same validation and progression behavior as mouse interactions.
+
+- **N9 - Cancel/reopen draft behavior**
+  - Trigger validation errors, exit flow, re-enter Step 1.
+  - Expected: stale validation state should not persist incorrectly unless product intentionally preserves draft.
+
+- **N10 - Back-and-forth persistence**
+  - Save to Step 2, return to Step 1, modify values, save again.
+  - Expected: latest valid values persist and stale previous values do not reappear.
+
+- **N11 - Fuel Surcharge toggle stress**
+  - Toggle `Include Fuel Surcharge` rapidly ON/OFF multiple times before save.
+  - Expected: final saved state matches final toggle position; no duplicate recalculation artifacts.
+
+- **N12 - Include Vehicle dependency validation**
+  - Enable `Include Vehicle` but leave vehicle-dependent required inputs blank (if required by current UI), then save.
+  - Expected: targeted validation appears for vehicle sub-fields; no unrelated validation noise.
+
+- **N13 - Instructions rich text sanitization**
+  - Paste long mixed-format text with symbols/newlines; switch formatting repeatedly.
+  - Expected: editor remains stable, content is retained within allowed limit, no broken markup/render.
+
+- **N14 - Instructions persistence after service-type switch**
+  - Enter formatted instructions in Dedicated, switch to Patrol, then back to Dedicated.
+  - Expected: behavior follows product rule (persist/reset), but remains deterministic and non-corrupt.
+
+- **N15 - Additional Services toggle independence**
+  - Enable Visitor only, save/back, then enable Load only, save/back.
+  - Expected: each toggle state persists independently; no forced coupling.
+
+- **N16 - Multi-service aggregation edge**
+  - Add Service 2 with very small/large valid values and compare total update.
+  - Expected: aggregation remains mathematically correct and UI handles rounding consistently.
+
+- **N17 - Multi-service reorder/delete resilience**
+  - Add Service 2, then remove Service 1 or Service 2 (based on available controls).
+  - Expected: service list and totals renumber/recompute correctly without stale values.
+
+- **N18 - Keyboard-only with multiple services**
+  - Use keyboard navigation to add Service 2, update toggles, and save.
+  - Expected: parity with mouse flow; no inaccessible critical controls.
+
+Coverage gap checklist to log during execution:
+- Confirm exact validation copy for `Resource Type`, `Line Item`, and service Step-1 `Start Date` in UAT.
+- Confirm whether Officer/Guard accepts only integer or also rounds decimals.
+- Confirm accepted Hourly Rate format range and decimal precision (0, 2, or more decimal places).
+- Confirm official overnight time rule (allowed vs blocked) and exact error text.
+- Confirm whether validation order/focus is deterministic when multiple fields fail together.
+- Confirm whether `Include Fuel Surcharge` affects Step 1 display totals immediately or acts as a persisted flag used in later pricing steps only.
+- Confirm exact pricing formula contribution for `Include Vehicle` (count/rate/multiplier/time-period alignment).
+- Confirm rich text max-length rule for `Add Instructions` and behavior at/over boundary.
+- Confirm whether Patrol mode intentionally hides `Include Vehicle` and Additional Services toggles in all environments.
+- Confirm multi-service total precision/rounding rule (per-service rounding vs end-total rounding).
 
 ### TC-CONTRACT-E2E-001 | Navigate to E2E deal and verify empty state
 Execution steps:
@@ -1551,6 +1915,100 @@ Expected result:
 - **Headless false**: Visualizing browser adds ~1–2 minutes per run
 
 ---
+
+## Manual QA Focus: Verify Auto Renewal of Contract check box can be checked and value persists to later steps/contract summary.
+
+Scope:
+- This section covers only `Auto Renewal of Contract` behavior from Create Proposal drawer through later steps and contract summary/edit surfaces.
+- Goal: verify user can check/uncheck Auto Renewal, proceed, and the saved value remains consistent after navigation/reopen/edit.
+- Do not use this section for service/device/payment validation except where needed to reach completion.
+
+Preconditions for all below cases:
+- Use `BASE_URL` from `.env.uat`.
+- Login using valid credentials from `.env.uat` (HO or SM user with contract permissions).
+- Open a deal where `Contract & Terms` is accessible and proposal creation is allowed.
+- Keep evidence for each run (screenshot/video) at: (a) drawer checkbox state, (b) post-finish contract summary/proposal card state, (c) edit reopen state.
+
+### M-CONTRACT-AR-001 | Verify Auto Renewal of Contract check box can be checked and value persists to later steps/contract summary.
+
+#### Detailed execution steps
+1. Navigate to `BASE_URL` and login using valid credentials from `.env.uat`.
+2. Open `Deals` and open a target deal.
+3. Open `Contract & Terms` tab and click `Create Proposal`.
+4. Verify baseline drawer state:
+   - `Auto Renewal of Contract` checkbox is visible.
+   - Checkbox is interactive (click/keyboard toggle works).
+   - Initial state is noted (checked/unchecked).
+5. Fill mandatory Create Proposal fields with valid data:
+   - Proposal Name
+   - Time Zone (if not preselected)
+   - Start Date
+   - End/Renewal Date (as required by active mode)
+6. Check `Auto Renewal of Contract`.
+7. Confirm checkbox stays checked after interacting with nearby controls:
+   - Toggle End/Renewal radio
+   - Edit Start Date
+   - Open/close Time Zone selector
+8. Click `Create Proposal` and verify user enters stepper flow.
+9. Complete remaining required steps (Services -> Devices -> On Demand -> Payment Terms -> Description -> Signees) with valid data.
+10. Click `Finish` to return to deal `Contract & Terms` summary/proposal card.
+11. Verify persisted state in summary surface:
+    - Contract summary/proposal details show Auto Renewal = enabled (or equivalent UI indication).
+12. Click `Edit` on the same proposal.
+13. Verify on reopen/edit surface:
+    - `Auto Renewal of Contract` remains checked.
+14. Save/Update proposal (or close edit without change, based on product rule).
+15. Refresh browser or navigate away/back to deal detail.
+16. Re-open contract summary and verify Auto Renewal still remains enabled.
+
+#### Expected result
+- User can check `Auto Renewal of Contract` in Create Proposal drawer.
+- Checked state remains stable while filling drawer fields.
+- After create + finish, contract summary/proposal card reflects Auto Renewal enabled.
+- Reopening proposal via Edit shows the same saved state (checked), including after refresh/navigation.
+
+#### Negative and edge scenarios to execute under same ID
+- **N1 - Unchecked persistence baseline**
+  - Leave Auto Renewal unchecked, complete create flow, verify summary + edit reopen both show disabled/unchecked state.
+  - Expected: default unchecked persists correctly; no false enabled state.
+
+- **N2 - Toggle stress before submit**
+  - Toggle checkbox ON/OFF rapidly 3-5 times; leave in final intended state; submit.
+  - Expected: persisted value matches the final visible state at submit time.
+
+- **N3 - Keyboard-only accessibility path**
+  - Use keyboard only (`Tab`/`Space`) to toggle checkbox and submit flow.
+  - Expected: keyboard toggle is functional and persisted value matches keyboard-selected state.
+
+- **N4 - Validation error resilience**
+  - Trigger drawer validation error (for example, submit once with missing required date), then correct fields and submit.
+  - Expected: Auto Renewal selection should not reset during validation cycle or recovery.
+
+- **N5 - Cancel/reopen non-persistence check**
+  - Toggle Auto Renewal, then click `Cancel` (without creating).
+  - Reopen Create Proposal.
+  - Expected: unsaved state should follow product rule (typically reset to default), and should not appear as saved.
+
+- **N6 - Edit change persistence**
+  - Create with Auto Renewal ON, then open Edit and set OFF, save/update.
+  - Expected: summary and subsequent edit reopen show OFF; no stale ON state.
+
+- **N7 - Session/navigation durability**
+  - After successful save, perform hard refresh and relogin (if session expires), open same deal/proposal.
+  - Expected: server-saved Auto Renewal state remains consistent across sessions.
+
+- **N8 - Cross-field interference**
+  - Validate Auto Renewal while changing related date controls (`Contract Dates to be decided`, End/Renewal modes).
+  - Expected: date control changes do not silently flip Auto Renewal value.
+
+- **N9 - Multi-tab consistency**
+  - Open same deal in second browser tab after saving.
+  - Expected: both tabs show same persisted Auto Renewal state after refresh.
+
+#### Coverage gaps to track explicitly
+- If summary card does not display a clear Auto Renewal label/value, log as a UX observability gap and verify via Edit surface/API-backed value.
+- If checkbox state changes without explicit user action during validation or rerender, log as functional bug (state loss).
+- If keyboard toggle is not reachable by focus order, log as accessibility defect.
 
 ## Best Practices
 
