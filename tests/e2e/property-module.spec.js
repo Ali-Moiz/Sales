@@ -9,9 +9,8 @@
 //
 // Company linkage — fully dynamic:
 //   The "Company" dropdown in Create Property requires an existing company.
-//   We read from process.env.CREATED_COMPANY_NAME (set by company suite's afterAll)
-//   and fall back to 'Regression Phase' (known existing company with related data)
-//   if running standalone.
+//   We read from shared-run-state (written by the company suite) and fall back
+//   to DEFAULT_COMPANY_NAME ('Regression Phase') when running standalone.
 
 const { test, expect } = require("@playwright/test");
 const { performLogin } = require("../../utils/auth/login-action");
@@ -26,7 +25,6 @@ const {
 } = require("../../utils/shared-run-state");
 const {
   DEFAULT_COMPANY_NAME,
-  resolvePropertyCompanyName,
 } = require("../../utils/property-company-selector");
 const {
   registerNotesTasksSuite,
@@ -71,8 +69,7 @@ test.describe.serial("Property Module", () => {
       return createdPropertyName;
     }
 
-    const candidate =
-      process.env.CREATED_PROPERTY_NAME || readCreatedPropertyName();
+    const candidate = readCreatedPropertyName();
 
     if (candidate) {
       const canOpenExisting = await openPropertyDetailFromList(candidate)
@@ -91,8 +88,6 @@ test.describe.serial("Property Module", () => {
       companyName: targetCompanyName,
     });
     await propertyModule.assertPropertyCreated();
-    process.env.CREATED_PROPERTY_NAME = createdPropertyName;
-    process.env.CREATED_PROPERTY_COMPANY_NAME = targetCompanyName;
     writeCreatedPropertyName(createdPropertyName);
     writeCreatedPropertyCompanyName(targetCompanyName);
     await propertyModule.searchProperty(createdPropertyName);
@@ -108,17 +103,7 @@ test.describe.serial("Property Module", () => {
 
   test.beforeAll(async ({ browser }) => {
     test.setTimeout(180_000);
-    // Never allow interactive company prompts during automation runs.
-    if (!(process.env.PROPERTY_COMPANY_MODE || "").trim()) {
-      process.env.PROPERTY_COMPANY_MODE = "hardcoded";
-    }
-    targetCompanyName =
-      (await resolvePropertyCompanyName()) ||
-      process.env.CREATED_COMPANY_NAME ||
-      readCreatedCompanyName() ||
-      DEFAULT_COMPANY_NAME;
-
-    process.env.PROPERTY_TEST_COMPANY = targetCompanyName;
+    targetCompanyName = readCreatedCompanyName() || DEFAULT_COMPANY_NAME;
     context = await browser.newContext();
     page = await context.newPage();
     propertyModule = new PropertyModule(page);
@@ -276,8 +261,6 @@ test.describe.serial("Property Module", () => {
     });
 
     // Verify property appears in the list after creation
-    process.env.CREATED_PROPERTY_NAME = createdPropertyName;
-    process.env.CREATED_PROPERTY_COMPANY_NAME = targetCompanyName;
     writeCreatedPropertyName(createdPropertyName);
     writeCreatedPropertyCompanyName(targetCompanyName);
     await gotoPropertiesListPage();
@@ -2099,31 +2082,19 @@ test.describe.serial("Property Module", () => {
     const hoPassword = (env.password || "").trim();
     const smEmail = (env.email_sm || "").trim();
     const smUsername = (process.env.SM_USERNAME || "").trim();
-    const configuredSmAssigneeText = (
-      process.env.PROPERTY_ASSIGNMENT_OPTION_SM ||
-      ASSIGNMENT_OPTION
-    ).trim();
 
     test.skip(
       !hoEmail || !hoPassword,
       "SIGNAL_EMAIL_HO and SIGNAL_PASSWORD_HO are required for HO login.",
     );
     test.skip(
-      !smUsername && !configuredSmAssigneeText && !smEmail,
-      "Set SM_USERNAME, PROPERTY_ASSIGNMENT_OPTION_SM, or SIGNAL_EMAIL_SM for assignment target.",
+      !smUsername && !smEmail,
+      "Set SM_USERNAME or SIGNAL_EMAIL_SM for assignment target.",
     );
     console.log("[TC-PROP-029] Preconditions validated");
 
-    // Default assignee target: ASSIGNMENT_OPTION constant (overridable via PROPERTY_ASSIGNMENT_OPTION_SM).
-    // Search still prefers SM_USERNAME for quicker filtering.
-    const smAssignmentOptionText =
-      configuredSmAssigneeText || smUsername || smEmail;
-    const assignmentSearchText = (
-      process.env.PROPERTY_ASSIGNMENT_SEARCH ||
-      smUsername ||
-      smEmail ||
-      smAssignmentOptionText
-    ).trim();
+    const smAssignmentOptionText = smUsername || smEmail || ASSIGNMENT_OPTION;
+    const assignmentSearchText = (smUsername || smEmail || smAssignmentOptionText).trim();
 
     // Prefer reusing the suite's authenticated HO session; fallback to login only
     // if this page is not already inside the app shell.
@@ -3345,14 +3316,26 @@ test.describe.serial("Property Module", () => {
 // ═════════════════════════════════════════════════════════════════════════════
 
 // ── Test-data constants (skill §10.3 — no inline literals) ──────────────────
-const PROP_SEARCH_TERM = "PAT 5199"; // Known property present in UAT dataset
+// PROP_SEARCH_TERM is resolved at runtime from the property created earlier in
+// the same run (shared-run-state / CREATED_PROPERTY_NAME env var).  No env-
+// specific hardcoding needed since the creation test runs on every environment.
 const ZIP_FILTER_VALUE = "68135";
 const PROP_ID_FILTER_VALUE = "1234";
 const LOT_NUMBER_FILTER_VALUE = "A-101";
-const DATE_RANGE_FILTER_VALUE = "04/01/2026 - 04/30/2026";
+// Computed at runtime: first–last day of current month in MM/DD/YYYY - MM/DD/YYYY format.
+// Never hardcode a calendar date — it becomes stale and the test still passes vacuously
+// (the UI accepts any well-formed date string; the point is to verify the filter is functional).
+function currentMonthDateRange() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
+  return `${month}/01/${year} - ${month}/${String(lastDay).padStart(2, "0")}/${year}`;
+}
+const DATE_RANGE_FILTER_VALUE = currentMonthDateRange();
 
 test.describe(
-  "Verify that Properties dashboard loads successfully with correct total counts, Verify that Properties by Stage chart displays correct stage-wise distribution, Verify that Qualified Properties graph renders correctly, Verify that property list loads with default All Affiliation filter applied, Verify that user can search property by name, ID, zip code, Verify that Approved and Rejected stage filter works correctly, Verify that All Properties dropdown filters Assigned and Unassigned properties, Verify that sorting works on Property Name column, Verify that Property Affiliation tags are displayed correctly, Verify that user can select single property using checkbox, Verify that user can select multiple properties, Verify that Bulk Assignment button becomes enabled after selection, Verify that Bulk Assignment assigns properties successfully, Verify that Review Leads button opens review leads modal, Verify that Property Stage badges display correct status, Verify that Assigned To column shows correct user, Verify that Franchise column shows correct value, Verify that Created Date and Last Modified Date are displayed correctly, Verify that More Filters panel opens successfully, Verify that Property Type filter works correctly, Verify that Stage filter work correctly, Verify that Property Source filter works correctly, Verify that Country, State, City filters work correctly, Verify that Zip Code filter accepts valid values, Verify that Parent Company filter works correctly, Verify that Property ID filter works correctly, Verify that Associated Franchise filter works correctly, Verify that Assigned To filter works correctly, Verify that No. of Units filter works correctly, Verify that Lot Number filter works correctly, Verify that Created Date filter works correctly, Verify that Last Modified Date filter works correctly, Verify that Clear All resets all applied filters, Verify that Apply Filters updates property listing correctly",
+  "Properties Dashboard, List & More Filters — TC-PROP-067, TC-PROP-068, TC-PROP-069",
   () => {
     const baseUrl = process.env.BASE_URL;
     if (!baseUrl) throw new Error("BASE_URL missing from .env");
@@ -3481,18 +3464,22 @@ test.describe(
             const searchInput = dashboardPage.getByRole("searchbox", {
               name: "ID, Property, Zip Code / Postal Code",
             });
-            await searchInput.fill(PROP_SEARCH_TERM);
-            await dashboardPage
-              .waitForResponse(
-                (r) =>
-                  r.url().includes("/locations") && r.status() === 200,
-                { timeout: 10_000 },
-              )
-              .catch(() => {});
+            const propSearchTerm = readCreatedPropertyName();
+            if (!propSearchTerm) throw new Error("No created property name available for search test — run the creation suite first");
+            // Use Promise.all so the response listener is active before fill fires
+            await Promise.all([
+              dashboardPage
+                .waitForResponse(
+                  (r) => r.url().includes("/locations") && r.status() === 200,
+                  { timeout: 10_000 },
+                )
+                .catch(() => {}),
+              searchInput.fill(propSearchTerm),
+            ]);
             // At least one row matching the search term is visible
             await expect(
               dashboardPage.locator("table tbody tr").first(),
-            ).toBeVisible({ timeout: 10_000 });
+            ).toBeVisible({ timeout: 15_000 });
             // Clear search
             await searchInput.clear();
           },

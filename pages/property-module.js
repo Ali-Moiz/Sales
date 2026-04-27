@@ -354,10 +354,15 @@ class PropertyModule {
       state: "visible",
       timeout: 10_000,
     });
-    await this.propertySearchInput.fill(term);
-    await this.page
-      .waitForLoadState("networkidle", { timeout: 10_000 })
-      .catch(() => {});
+    await Promise.all([
+      this.page
+        .waitForResponse(
+          (r) => r.url().includes("/locations") && r.status() === 200,
+          { timeout: 15_000 },
+        )
+        .catch(() => {}),
+      this.propertySearchInput.fill(term),
+    ]);
   }
 
   async assertSearchShowsNoResults(searchTerm = this.lastSearchTerm) {
@@ -2259,10 +2264,16 @@ class PropertyModule {
       state: "visible",
       timeout: 10_000,
     });
-    await this.propertySearchInput.fill(propertyName);
-    await this.page
-      .waitForLoadState("networkidle", { timeout: 10_000 })
-      .catch(() => {});
+    // Register the response listener before fill so the debounced search call is caught
+    await Promise.all([
+      this.page
+        .waitForResponse(
+          (r) => r.url().includes("/locations") && r.status() === 200,
+          { timeout: 15_000 },
+        )
+        .catch(() => {}),
+      this.propertySearchInput.fill(propertyName),
+    ]);
     const propertyRow = this.page.locator("table tbody tr").first();
     await propertyRow.waitFor({ state: "visible", timeout: 10_000 });
     const propertyNameCell = propertyRow.locator("td").nth(1);

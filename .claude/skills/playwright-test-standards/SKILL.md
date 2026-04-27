@@ -480,26 +480,31 @@ test.describe('Verify creating a proposal, Verify rejecting negative quantity', 
 });
 ```
 
-### 8.4 Describe title rule — EXACT user input
+### 8.4 Describe title rule
 
-The `test.describe()` title MUST be the user's requirement string verbatim.
-
-- **Single requirement:** describe title = the requirement exactly.
-- **Multiple requirements (comma-separated):** describe title = the comma-separated string exactly as passed, OR the requirements joined with ` | ` if the agent deems that more readable. **Ask the user in Phase 3 if unsure.**
+- **Single requirement:** describe title = the requirement verbatim.
+- **2–4 requirements:** use ` | ` to join them — readable and still searchable.
+- **5+ requirements (a whole feature group):** use a **short, descriptive summary** of what the group covers + the TC code range. Never concatenate all requirements into one giant string.
 
 ```javascript
-// User input: "Verify creating a proposal, Verify rejecting negative quantity"
-
+// ── Single requirement ────────────────────────────────────────────────────────
 // CORRECT
-test.describe('Verify creating a proposal, Verify rejecting negative quantity', () => { });
+test.describe('Verify user can create a proposal', () => { });
 
-// ALSO ACCEPTABLE (if confirmed with user)
+// ── 2–4 requirements ─────────────────────────────────────────────────────────
+// CORRECT
 test.describe('Verify creating a proposal | Verify rejecting negative quantity', () => { });
 
-// INCORRECT
-test.describe('Contract Module — Proposals', () => { });
-test.describe('Verify proposal tests', () => { });
+// ── 5+ requirements (feature group) ──────────────────────────────────────────
+// CORRECT — short summary + TC range
+test.describe('Properties Dashboard, List & More Filters — TC-PROP-067, TC-PROP-068, TC-PROP-069', () => { });
+
+// INCORRECT — never dump all requirements into the title
+test.describe('Verify X, Verify Y, Verify Z, Verify A, Verify B, Verify C, ...', () => { });
+test.describe('Contract Module — Proposals', () => { }); // too vague, no TC reference
 ```
+
+**Rule of thumb:** if the title wraps to more than one line in your editor, it is too long. Shorten it.
 
 ### 8.5 TC code naming
 
@@ -621,7 +626,46 @@ If a file header says **"Fully dynamic — no hardcoded names"** but the file co
 
 Prefer accurate comments over aspirational ones.
 
-### 10.7 Applying these rules when editing
+### 10.7 Dynamic date values — NEVER hardcode a calendar date
+
+Date strings used in filter inputs, date pickers, or date range fields must **never** be hardcoded to a specific calendar date (e.g., `"04/01/2026 - 04/30/2026"`). Hardcoded dates become stale silently: the test keeps passing because the UI accepts any well-formed date string, but the fixture no longer reflects anything meaningful.
+
+**Rule:** Compute dates at runtime relative to `new Date()`.
+
+```javascript
+// ── BEFORE (avoid) ──────────────────────────────────────────────────────────
+const DATE_RANGE_FILTER_VALUE = "04/01/2026 - 04/30/2026"; // stale on next month
+
+// ── AFTER (preferred) ────────────────────────────────────────────────────────
+// Inline helper at top of spec, before describe blocks:
+function currentMonthDateRange() {
+  const now   = new Date();
+  const year  = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const last  = new Date(year, now.getMonth() + 1, 0).getDate();
+  return `${month}/01/${year} - ${month}/${String(last).padStart(2, "0")}/${year}`;
+}
+const DATE_RANGE_FILTER_VALUE = currentMonthDateRange();
+```
+
+The same principle applies to any single date constant:
+
+```javascript
+// AVOID
+const TASK_DUE_DATE = "05/15/2026";
+
+// PREFER — always in the future, independent of when the test runs
+function daysFromNow(n) {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}/${d.getFullYear()}`;
+}
+const TASK_DUE_DATE = daysFromNow(7); // one week out
+```
+
+This also applies to cross-suite handoff data: if a previously created record's name contains a timestamp (the `PAT {timestamp}` pattern), reading it back via `readCreatedPropertyName()` is already dynamic — do not replace it with a hardcoded fallback that references a known-real record in only one environment.
+
+### 10.8 Applying these rules when editing
 
 - **New page objects / spec files:** apply from the start — no exceptions.
 - **Existing files (editing or reviewing):** flag every violation found **within the scope of your current task**. Before refactoring code outside the immediate task, ask the user first.
@@ -741,10 +785,13 @@ test('TC-CONTRACT-002 | ...', async () => {
 | **SHARED DESCRIBE FOR MULTI-REQ** | All comma-separated requirements → one describe. | No multiple describes per run |
 | **2 ATTEMPTS → PAUSE** | Auto-fix pauses after 2 attempts, asks user. | Cap at 3 total; no further asks after 3 |
 | **NO `process.env` FOR TEST DATA** | Names, labels, search strings → named constants at top of file. | Flag and refactor before merging |
+| **NO `process.env` WRITES FOR CROSS-SUITE STATE** | Use `writeCreated*()` helpers from `utils/shared-run-state.js` — never `process.env.X = value`. | Remove the env write; the helper is already there |
+| **NO LONG DESCRIBE TITLES** | 5+ requirements → short summary + TC range. Never concatenate all requirements. | Shorten if it wraps past one line |
 | **STATIC FIXTURE CONSTANTS** | Inline string literals buried in expressions → named `DOMAIN_FIELD_ENV` const block. | Unnamed literals are a review blocker |
 | **NO MAGIC NUMERIC FALLBACKS** | `\|\| 8` style defaults → named constant (e.g. `MAX_SEARCH_ATTEMPTS`). | Makes limits greppable and reviewable |
 | **`PAT {timestamp}` FOR CREATED RECORDS** | Plain names for test-created records → `\`PAT ${Date.now()}\``. | Identifies test-generated data in DB |
 | **ACCURATE HEADER COMMENTS** | Header must not claim "no hardcoded names" if static literals exist. | Fix comment or extract constants |
+| **NO HARDCODED DATES** | Date strings in filters/pickers must be computed from `new Date()`, never literal (e.g. `"04/01/2026"`). | Compute at runtime — see §10.7 |
 
 ---
 
