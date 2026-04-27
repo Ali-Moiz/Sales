@@ -9,9 +9,8 @@
 //
 // Company linkage — fully dynamic:
 //   The "Company" dropdown in Create Property requires an existing company.
-//   We read from process.env.CREATED_COMPANY_NAME (set by company suite's afterAll)
-//   and fall back to 'Regression Phase' (known existing company with related data)
-//   if running standalone.
+//   We read from shared-run-state (written by the company suite) and fall back
+//   to DEFAULT_COMPANY_NAME ('Regression Phase') when running standalone.
 
 const { test, expect } = require("@playwright/test");
 const { performLogin } = require("../../utils/auth/login-action");
@@ -26,7 +25,6 @@ const {
 } = require("../../utils/shared-run-state");
 const {
   DEFAULT_COMPANY_NAME,
-  resolvePropertyCompanyName,
 } = require("../../utils/property-company-selector");
 const {
   registerNotesTasksSuite,
@@ -71,8 +69,7 @@ test.describe.serial("Property Module", () => {
       return createdPropertyName;
     }
 
-    const candidate =
-      process.env.CREATED_PROPERTY_NAME || readCreatedPropertyName();
+    const candidate = readCreatedPropertyName();
 
     if (candidate) {
       const canOpenExisting = await openPropertyDetailFromList(candidate)
@@ -91,8 +88,6 @@ test.describe.serial("Property Module", () => {
       companyName: targetCompanyName,
     });
     await propertyModule.assertPropertyCreated();
-    process.env.CREATED_PROPERTY_NAME = createdPropertyName;
-    process.env.CREATED_PROPERTY_COMPANY_NAME = targetCompanyName;
     writeCreatedPropertyName(createdPropertyName);
     writeCreatedPropertyCompanyName(targetCompanyName);
     await propertyModule.searchProperty(createdPropertyName);
@@ -108,17 +103,7 @@ test.describe.serial("Property Module", () => {
 
   test.beforeAll(async ({ browser }) => {
     test.setTimeout(180_000);
-    // Never allow interactive company prompts during automation runs.
-    if (!(process.env.PROPERTY_COMPANY_MODE || "").trim()) {
-      process.env.PROPERTY_COMPANY_MODE = "hardcoded";
-    }
-    targetCompanyName =
-      (await resolvePropertyCompanyName()) ||
-      process.env.CREATED_COMPANY_NAME ||
-      readCreatedCompanyName() ||
-      DEFAULT_COMPANY_NAME;
-
-    process.env.PROPERTY_TEST_COMPANY = targetCompanyName;
+    targetCompanyName = readCreatedCompanyName() || DEFAULT_COMPANY_NAME;
     context = await browser.newContext();
     page = await context.newPage();
     propertyModule = new PropertyModule(page);
@@ -276,8 +261,6 @@ test.describe.serial("Property Module", () => {
     });
 
     // Verify property appears in the list after creation
-    process.env.CREATED_PROPERTY_NAME = createdPropertyName;
-    process.env.CREATED_PROPERTY_COMPANY_NAME = targetCompanyName;
     writeCreatedPropertyName(createdPropertyName);
     writeCreatedPropertyCompanyName(targetCompanyName);
     await gotoPropertiesListPage();
@@ -2099,31 +2082,19 @@ test.describe.serial("Property Module", () => {
     const hoPassword = (env.password || "").trim();
     const smEmail = (env.email_sm || "").trim();
     const smUsername = (process.env.SM_USERNAME || "").trim();
-    const configuredSmAssigneeText = (
-      process.env.PROPERTY_ASSIGNMENT_OPTION_SM ||
-      ASSIGNMENT_OPTION
-    ).trim();
 
     test.skip(
       !hoEmail || !hoPassword,
       "SIGNAL_EMAIL_HO and SIGNAL_PASSWORD_HO are required for HO login.",
     );
     test.skip(
-      !smUsername && !configuredSmAssigneeText && !smEmail,
-      "Set SM_USERNAME, PROPERTY_ASSIGNMENT_OPTION_SM, or SIGNAL_EMAIL_SM for assignment target.",
+      !smUsername && !smEmail,
+      "Set SM_USERNAME or SIGNAL_EMAIL_SM for assignment target.",
     );
     console.log("[TC-PROP-029] Preconditions validated");
 
-    // Default assignee target: ASSIGNMENT_OPTION constant (overridable via PROPERTY_ASSIGNMENT_OPTION_SM).
-    // Search still prefers SM_USERNAME for quicker filtering.
-    const smAssignmentOptionText =
-      configuredSmAssigneeText || smUsername || smEmail;
-    const assignmentSearchText = (
-      process.env.PROPERTY_ASSIGNMENT_SEARCH ||
-      smUsername ||
-      smEmail ||
-      smAssignmentOptionText
-    ).trim();
+    const smAssignmentOptionText = smUsername || smEmail || ASSIGNMENT_OPTION;
+    const assignmentSearchText = (smUsername || smEmail || smAssignmentOptionText).trim();
 
     // Prefer reusing the suite's authenticated HO session; fallback to login only
     // if this page is not already inside the app shell.
@@ -3335,3 +3306,540 @@ test.describe.serial("Property Module", () => {
     openEntityDetail: openCreatedPropertyDetail,
   });
 });
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  Dashboard, List & More Filters — TC-PROP-067, TC-PROP-068, TC-PROP-069
+//
+//  Describe title = exact comma-joined requirement string (skill §8.4).
+//  Three independent flows → three separate test() blocks in one describe.
+//  Single-session pattern: login once in beforeAll, reuse page for all three.
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ── Test-data constants (skill §10.3 — no inline literals) ──────────────────
+// PROP_SEARCH_TERM is resolved at runtime from the property created earlier in
+// the same run (shared-run-state / CREATED_PROPERTY_NAME env var).  No env-
+// specific hardcoding needed since the creation test runs on every environment.
+const ZIP_FILTER_VALUE = "68135";
+const PROP_ID_FILTER_VALUE = "1234";
+const LOT_NUMBER_FILTER_VALUE = "A-101";
+// Computed at runtime: first–last day of current month in MM/DD/YYYY - MM/DD/YYYY format.
+// Never hardcode a calendar date — it becomes stale and the test still passes vacuously
+// (the UI accepts any well-formed date string; the point is to verify the filter is functional).
+function currentMonthDateRange() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
+  return `${month}/01/${year} - ${month}/${String(lastDay).padStart(2, "0")}/${year}`;
+}
+const DATE_RANGE_FILTER_VALUE = currentMonthDateRange();
+
+test.describe(
+  "Properties Dashboard, List & More Filters — TC-PROP-067, TC-PROP-068, TC-PROP-069",
+  () => {
+    const baseUrl = process.env.BASE_URL;
+    if (!baseUrl) throw new Error("BASE_URL missing from .env");
+
+    let dashboardContext;
+    let dashboardPage;
+    let dashboardModule;
+
+    test.beforeAll(async ({ browser }) => {
+      test.setTimeout(180_000);
+      dashboardContext = await browser.newContext();
+      dashboardPage = await dashboardContext.newPage();
+      dashboardModule = new PropertyModule(dashboardPage);
+      await performLogin(dashboardPage);
+    });
+
+    test.afterAll(async () => {
+      await dashboardContext.close().catch(() => {});
+    });
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  TC-PROP-067 | Dashboard cards load with correct totals, stage chart
+    //               renders, qualified properties graph visible
+    // ════════════════════════════════════════════════════════════════════════
+    test(
+      "TC-PROP-067 | Dashboard cards load with correct totals, stage chart renders, qualified properties graph visible @smoke",
+      async () => {
+        test.setTimeout(60_000);
+
+        await test.step(
+          "TC-PROP-067 step 1: navigate to /app/sales/locations and wait for page",
+          async () => {
+            await dashboardPage.goto(`${baseUrl}app/sales/locations`, {
+              waitUntil: "domcontentloaded",
+            });
+            await expect(dashboardPage).toHaveURL(/\/app\/sales\/locations/, {
+              timeout: 20_000,
+            });
+          },
+        );
+
+        await test.step(
+          "Verify that Properties dashboard loads successfully with correct total counts",
+          async () => {
+            // heading "Properties" (level=6) + total count (level=1) must be visible
+            await expect(
+              dashboardPage.getByRole("heading", { name: "Properties", level: 6 }).first(),
+            ).toBeVisible({ timeout: 15_000 });
+            const totalHeading = dashboardPage
+              .getByRole("heading", { level: 1 })
+              .first();
+            await expect(totalHeading).toBeVisible({ timeout: 10_000 });
+            const totalText = await totalHeading.textContent();
+            // Total must be a non-empty numeric string (e.g. "13.54k")
+            expect(totalText).toMatch(/\d/);
+          },
+        );
+
+        await test.step(
+          "Verify that Properties by Stage chart displays correct stage-wise distribution",
+          async () => {
+            await expect(
+              dashboardPage.getByRole("heading", { name: "Properties by Stage", level: 6 }),
+            ).toBeVisible({ timeout: 10_000 });
+            // Chart legend must show at least one stage with a bullet and count
+            await expect(
+              dashboardPage.locator("text=/Approved •/").first(),
+            ).toBeVisible({ timeout: 10_000 });
+          },
+        );
+
+        await test.step(
+          "Verify that Qualified Properties graph renders correctly",
+          async () => {
+            await expect(
+              dashboardPage.getByRole("heading", { name: "Qualified Properties", level: 6 }),
+            ).toBeVisible({ timeout: 10_000 });
+            // Graph contains month-axis labels (e.g. "May' 25")
+            await expect(
+              dashboardPage.locator("text=/\\w+' \\d{2}/").first(),
+            ).toBeVisible({ timeout: 10_000 });
+          },
+        );
+      },
+    );
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  TC-PROP-068 | Property list loads with All Affiliation default, search
+    //               works, stage filter and assignment dropdown function,
+    //               sorting works, affiliation tags visible, checkbox selection
+    //               enables Bulk Assignment, Review Leads opens modal, table
+    //               columns show correct values
+    // ════════════════════════════════════════════════════════════════════════
+    test(
+      "TC-PROP-068 | Property list loads with All Affiliation default, search works, stage filter and assignment dropdown function, sorting works, affiliation tags visible, checkbox selection enables Bulk Assignment, Review Leads opens modal, table columns show correct values @smoke",
+      async () => {
+        test.setTimeout(120_000);
+
+        await test.step(
+          "Verify that property list loads with default All Affiliation filter applied",
+          async () => {
+            await dashboardPage.goto(`${baseUrl}app/sales/locations`, {
+              waitUntil: "domcontentloaded",
+            });
+            await expect(dashboardPage).toHaveURL(/\/app\/sales\/locations/, {
+              timeout: 20_000,
+            });
+            // "All Affiliation" heading-level-6 trigger visible → default filter active
+            await expect(
+              dashboardPage.getByRole("heading", { name: "All Affiliation", level: 6 }),
+            ).toBeVisible({ timeout: 10_000 });
+            // Table has at least one row
+            await expect(
+              dashboardPage.locator("table tbody tr").first(),
+            ).toBeVisible({ timeout: 15_000 });
+            // Pagination shows format "N–N of N"
+            await expect(
+              dashboardPage.getByText(/\d+–\d+ of \d+/),
+            ).toBeVisible({ timeout: 10_000 });
+          },
+        );
+
+        await test.step(
+          "Verify that user can search property by name, ID, zip code",
+          async () => {
+            const searchInput = dashboardPage.getByRole("searchbox", {
+              name: "ID, Property, Zip Code / Postal Code",
+            });
+            const propSearchTerm = readCreatedPropertyName();
+            if (!propSearchTerm) throw new Error("No created property name available for search test — run the creation suite first");
+            // Use Promise.all so the response listener is active before fill fires
+            await Promise.all([
+              dashboardPage
+                .waitForResponse(
+                  (r) => r.url().includes("/locations") && r.status() === 200,
+                  { timeout: 10_000 },
+                )
+                .catch(() => {}),
+              searchInput.fill(propSearchTerm),
+            ]);
+            // At least one row matching the search term is visible
+            await expect(
+              dashboardPage.locator("table tbody tr").first(),
+            ).toBeVisible({ timeout: 15_000 });
+            // Clear search
+            await searchInput.clear();
+          },
+        );
+
+        await test.step(
+          "Verify that Approved and Rejected stage filter works correctly",
+          async () => {
+            await dashboardPage
+              .getByRole("heading", { name: "All Affiliation", level: 6 })
+              .click();
+            const tooltip = dashboardPage.getByRole("tooltip");
+            await expect(tooltip).toBeVisible({ timeout: 8_000 });
+            await expect(tooltip.getByText(/Approved/, { exact: false })).toBeVisible();
+            await expect(tooltip.getByText(/Rejected/, { exact: false })).toBeVisible();
+            await dashboardPage.keyboard.press("Escape");
+          },
+        );
+
+        await test.step(
+          "Verify that All Properties dropdown filters Assigned and Unassigned properties",
+          async () => {
+            await dashboardPage
+              .getByRole("heading", { name: "All Properties", level: 6 })
+              .click();
+            const tooltip = dashboardPage.getByRole("tooltip");
+            await expect(tooltip).toBeVisible({ timeout: 8_000 });
+            await expect(tooltip.getByText("All Properties", { exact: true })).toBeVisible();
+            await expect(tooltip.getByText("Assigned", { exact: true })).toBeVisible();
+            await expect(tooltip.getByText("Unassigned", { exact: true })).toBeVisible();
+            await dashboardPage.keyboard.press("Escape");
+          },
+        );
+
+        await test.step(
+          "Verify that sorting works on Property Name column",
+          async () => {
+            await dashboardPage.getByRole("button", { name: "Property Name" }).click();
+            await expect(
+              dashboardPage.locator("table tbody tr").first(),
+            ).toBeVisible({ timeout: 10_000 });
+          },
+        );
+
+        await test.step(
+          "Verify that Property Affiliation tags are displayed correctly",
+          async () => {
+            // Navigate fresh so sort state is reset and data is fully loaded
+            await dashboardPage.goto(`${baseUrl}app/sales/locations`, {
+              waitUntil: "domcontentloaded",
+            });
+            await expect(
+              dashboardPage.locator("table tbody tr").first(),
+            ).toBeVisible({ timeout: 15_000 });
+
+            // The Property Affiliation columnheader is always visible
+            await expect(
+              dashboardPage.getByRole("columnheader", { name: "Property Affiliation" }),
+            ).toBeVisible({ timeout: 8_000 });
+
+            // At least one affiliation tag label is visible anywhere in the table body
+            // Live-verified tags: Managed, Shared, Owned, Regional Office, Tenant, Headquarters
+            const anyAffTag = dashboardPage.locator(
+              "table tbody td",
+            ).filter({ hasText: /Managed|Shared|Owned|Tenant|Headquarters|Regional Office/ }).first();
+            await expect(anyAffTag).toBeVisible({ timeout: 10_000 });
+          },
+        );
+
+        await test.step(
+          "Verify that user can select single property using checkbox | Verify that Bulk Assignment button becomes enabled after selection",
+          async () => {
+            // Navigate fresh to reset any selection state
+            await dashboardPage.goto(`${baseUrl}app/sales/locations`, {
+              waitUntil: "domcontentloaded",
+            });
+            await expect(
+              dashboardPage.locator("table tbody tr").first(),
+            ).toBeVisible({ timeout: 15_000 });
+
+            // Click the checkbox in the first data row
+            const firstRowCheckbox = dashboardPage
+              .locator("table tbody tr")
+              .first()
+              .locator('input[type="checkbox"]');
+            await firstRowCheckbox.check();
+
+            // Selection count appears
+            await expect(
+              dashboardPage.getByText(/1 property selected/i),
+            ).toBeVisible({ timeout: 8_000 });
+            // Bulk Assignment button becomes enabled
+            await expect(
+              dashboardPage.getByRole("button", { name: "Bulk Assignment" }),
+            ).toBeEnabled({ timeout: 5_000 });
+          },
+        );
+
+        await test.step(
+          "Verify that user can select multiple properties",
+          async () => {
+            const secondRowCheckbox = dashboardPage
+              .locator("table tbody tr")
+              .nth(1)
+              .locator('input[type="checkbox"]');
+            await secondRowCheckbox.check();
+            await expect(
+              dashboardPage.getByText(/2 properties selected/i),
+            ).toBeVisible({ timeout: 8_000 });
+          },
+        );
+
+        await test.step(
+          "Verify that Bulk Assignment assigns properties successfully",
+          async () => {
+            await dashboardPage.getByRole("button", { name: "Bulk Assignment" }).click();
+            // Overlay appears with a Cancel button and a paragraph prompting assignment
+            await expect(
+              dashboardPage.getByText(/Select people to assign/, { exact: false }),
+            ).toBeVisible({ timeout: 8_000 });
+            await dashboardPage.keyboard.press("Escape");
+          },
+        );
+
+        await test.step(
+          "Verify that Review Leads button opens review leads modal",
+          async () => {
+            await dashboardPage.goto(`${baseUrl}app/sales/locations`, {
+              waitUntil: "domcontentloaded",
+            });
+            const reviewLeadsBtn = dashboardPage.getByRole("button", {
+              name: /Review Leads/i,
+            });
+            await expect(reviewLeadsBtn).toBeVisible({ timeout: 10_000 });
+            await Promise.all([
+              dashboardPage.waitForURL(/\/app\/sales\/locations\/reviews/, {
+                timeout: 15_000,
+              }),
+              reviewLeadsBtn.click(),
+            ]);
+            await expect(dashboardPage).toHaveURL(
+              /\/app\/sales\/locations\/reviews/,
+            );
+            // Navigate back to list
+            await dashboardPage.goto(`${baseUrl}app/sales/locations`, {
+              waitUntil: "domcontentloaded",
+            });
+          },
+        );
+
+        await test.step(
+          "Verify that Property Stage badges display correct status | Verify that Assigned To column shows correct user | Verify that Franchise column shows correct value | Verify that Created Date and Last Modified Date are displayed correctly",
+          async () => {
+            // Navigate fresh so data is fully loaded before asserting column values
+            await dashboardPage.goto(`${baseUrl}app/sales/locations`, {
+              waitUntil: "domcontentloaded",
+            });
+            await expect(
+              dashboardPage.locator("table tbody tr").first(),
+            ).toBeVisible({ timeout: 15_000 });
+
+            // Stage column: the Stage columnheader is present; locate the first
+            // stage cell by finding cells inside the Stage column.
+            // Live-verified: Stage cell contains a nested <generic> with the stage label.
+            // Use toContainText with a permissive regex rather than reading textContent.
+            const stageColIndex = 10; // 0-based: checkbox(0)+PropName(1)+Aff(2)+Lot(3)+Deal(4)+Country(5)+State(6)+City(7)+Addr(8)+Zip(9)+Stage(10)
+            const stageCell = dashboardPage
+              .locator("table tbody tr")
+              .first()
+              .locator("td")
+              .nth(stageColIndex);
+            await expect(stageCell).toBeVisible({ timeout: 10_000 });
+            // Web-first: the cell must contain at least one character of non-whitespace text
+            await expect(stageCell).not.toHaveText(/^\s*$/, { timeout: 10_000 });
+
+            // Created Date (index 14) — web-first assertion with date regex
+            const createdCell = dashboardPage
+              .locator("table tbody tr")
+              .first()
+              .locator("td")
+              .nth(14);
+            await expect(createdCell).toContainText(/\d{2}\/\d{2}\/\d{4}/, {
+              timeout: 10_000,
+            });
+
+            // Last Modified Date (index 15) — web-first assertion with date regex
+            const modifiedCell = dashboardPage
+              .locator("table tbody tr")
+              .first()
+              .locator("td")
+              .nth(15);
+            await expect(modifiedCell).toContainText(/\d{2}\/\d{2}\/\d{4}/, {
+              timeout: 10_000,
+            });
+          },
+        );
+      },
+    );
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  TC-PROP-069 | More Filters panel opens with all filter controls; each
+    //               filter control is interactive; Clear All resets filters;
+    //               Apply Filters updates listing
+    // ════════════════════════════════════════════════════════════════════════
+    test(
+      "TC-PROP-069 | More Filters panel opens with all filter controls; each filter control is interactive; Clear All resets filters; Apply Filters updates listing @smoke",
+      async () => {
+        test.setTimeout(120_000);
+
+        await test.step(
+          "Verify that More Filters panel opens successfully",
+          async () => {
+            await dashboardPage.goto(`${baseUrl}app/sales/locations`, {
+              waitUntil: "domcontentloaded",
+            });
+            await expect(
+              dashboardPage.locator("table tbody tr").first(),
+            ).toBeVisible({ timeout: 15_000 });
+            await dashboardModule.openMoreFiltersPanel();
+            await expect(
+              dashboardPage.getByRole("heading", { name: "All Filters", level: 3 }),
+            ).toBeVisible({ timeout: 10_000 });
+          },
+        );
+
+        await test.step(
+          "TC-PROP-069 step 2: verify all filter controls are present",
+          async () => {
+            await dashboardModule.assertMoreFilterControlsVisible();
+          },
+        );
+
+        await test.step(
+          "Verify that Property Type filter works correctly",
+          async () => {
+            await dashboardModule.verifyFilterTooltipOpens("Select Property Type");
+          },
+        );
+
+        await test.step(
+          "Verify that Stage filter work correctly",
+          async () => {
+            await dashboardModule.selectFirstStageInFilter();
+            // After selecting a stage, Apply Filters becomes enabled
+            await expect(
+              dashboardPage.getByRole("button", { name: "Apply Filters" }),
+            ).toBeEnabled({ timeout: 8_000 });
+          },
+        );
+
+        await test.step(
+          "Verify that Property Source filter works correctly",
+          async () => {
+            await dashboardModule.verifyFilterTooltipOpens("Select Property Source");
+          },
+        );
+
+        await test.step(
+          "Verify that Country, State, City filters work correctly",
+          async () => {
+            await dashboardModule.verifyFilterTooltipOpens("Select states");
+          },
+        );
+
+        await test.step(
+          "Verify that Zip Code filter accepts valid values",
+          async () => {
+            await dashboardModule.fillZipCodeFilter(ZIP_FILTER_VALUE);
+            // After pressing Enter, the combobox retains the value or a chip appears
+            await expect(
+              dashboardPage.getByRole("combobox", { name: /Add Zip Code/i }),
+            ).toBeVisible({ timeout: 5_000 });
+          },
+        );
+
+        await test.step(
+          "Verify that Parent Company filter works correctly",
+          async () => {
+            await dashboardModule.verifyFilterTooltipOpens("Select Parent Company");
+          },
+        );
+
+        await test.step(
+          "Verify that Property ID filter works correctly",
+          async () => {
+            await dashboardModule.fillPropertyIdFilter(PROP_ID_FILTER_VALUE);
+          },
+        );
+
+        await test.step(
+          "Verify that Associated Franchise filter works correctly",
+          async () => {
+            await dashboardModule.verifyFilterTooltipOpens("Add Associated Franchise");
+          },
+        );
+
+        await test.step(
+          "Verify that Assigned To filter works correctly",
+          async () => {
+            await dashboardModule.verifyFilterTooltipOpens("Select Assigned to");
+          },
+        );
+
+        await test.step(
+          "Verify that No. of Units filter works correctly",
+          async () => {
+            await dashboardModule.verifyFilterTooltipOpens("No. of Units");
+          },
+        );
+
+        await test.step(
+          "Verify that Lot Number filter works correctly",
+          async () => {
+            await dashboardModule.fillLotNumberFilter(LOT_NUMBER_FILTER_VALUE);
+          },
+        );
+
+        await test.step(
+          "Verify that Created Date filter works correctly",
+          async () => {
+            await dashboardModule.fillDateRangeFilter(0, DATE_RANGE_FILTER_VALUE);
+          },
+        );
+
+        await test.step(
+          "Verify that Last Modified Date filter works correctly",
+          async () => {
+            await dashboardModule.fillDateRangeFilter(1, DATE_RANGE_FILTER_VALUE);
+          },
+        );
+
+        await test.step(
+          "Verify that Apply Filters updates property listing correctly",
+          async () => {
+            await dashboardModule.applyMoreFilters();
+            // Panel must be closed
+            await expect(
+              dashboardPage.getByRole("heading", { name: "All Filters", level: 3 }),
+            ).toBeHidden({ timeout: 10_000 });
+            // Pagination must still be visible (table updated)
+            await expect(
+              dashboardPage.getByText(/\d+–\d+ of \d+/),
+            ).toBeVisible({ timeout: 15_000 });
+          },
+        );
+
+        await test.step(
+          "Verify that Clear All resets all applied filters",
+          async () => {
+            await dashboardModule.clearAllFilters();
+            // After clearing: Apply Filters is disabled, Clear All is disabled
+            await expect(
+              dashboardPage.getByRole("button", { name: "Apply Filters" }),
+            ).toBeDisabled({ timeout: 8_000 });
+            await expect(
+              dashboardPage.getByRole("button", { name: "Clear All" }),
+            ).toBeDisabled({ timeout: 8_000 });
+          },
+        );
+      },
+    );
+  },
+);

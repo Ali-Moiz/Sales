@@ -1099,3 +1099,450 @@ Step 2 — Change the Referred By Property and verify Contact list refreshes:
 - In either case, the drawer does not crash and both dropdowns eventually display results.
 
 ---
+
+## Verify that Properties dashboard loads successfully with correct total counts, Verify that Properties by Stage chart displays correct stage-wise distribution, Verify that Qualified Properties graph renders correctly
+
+### TC-PROP-067 | Dashboard cards load with correct totals, stage chart renders, qualified properties graph visible
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- Properties list page is accessible at `/app/sales/locations`.
+
+**Steps:**
+
+Step 1 — Verify dashboard total count card:
+1. Navigate to `/app/sales/locations`.
+2. Wait for the page to load (URL contains `/app/sales/locations`).
+3. Observe the "Properties" card in the top dashboard area.
+
+**Expected results (Step 1):**
+- The heading "Properties" (level=6) is visible.
+- A level=1 heading displaying the total count (e.g. `13.54k`) is visible directly below it.
+- The pie chart legend below the total shows at least one affiliation label such as `Existing •`, `New •`, `Old •`, or `Lost •` with numeric values.
+
+Step 2 — Verify Properties by Stage chart:
+4. Observe the "Properties by Stage" card in the dashboard row.
+
+**Expected results (Step 2):**
+- The heading "Properties by Stage" (level=6) is visible.
+- A level=1 heading showing the total stage count (e.g. `13.54k`) is visible.
+- The chart legend contains at least one stage entry such as `Approved •` with a numeric count.
+
+Step 3 — Verify Qualified Properties graph:
+5. Observe the "Qualified Properties" card in the dashboard row.
+
+**Expected results (Step 3):**
+- The heading "Qualified Properties" (level=6) is visible.
+- The graph image/canvas element is visible inside the card.
+- The graph contains at least one month label on the x-axis (e.g. `May' 25` or similar).
+
+---
+
+## Verify that property list loads with default All Affiliation filter applied, Verify that user can search property by name, ID, zip code, Verify that Approved and Rejected stage filter works correctly, Verify that All Properties dropdown filters Assigned and Unassigned properties, Verify that sorting works on Property Name column, Verify that Property Affiliation tags are displayed correctly, Verify that user can select single property using checkbox, Verify that user can select multiple properties, Verify that Bulk Assignment button becomes enabled after selection, Verify that Bulk Assignment assigns properties successfully, Verify that Review Leads button opens review leads modal, Verify that Property Stage badges display correct status, Verify that Assigned To column shows correct user, Verify that Franchise column shows correct value, Verify that Created Date and Last Modified Date are displayed correctly
+
+### TC-PROP-068 | Property list loads with All Affiliation default, search works, stage filter and assignment dropdown function, sorting works, affiliation tags visible, checkbox selection enables Bulk Assignment, Review Leads opens modal, table columns show correct values
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Properties list page has existing properties with at least one `Approved` stage record.
+- At least two properties exist in the system.
+
+**Steps:**
+
+Step 1 — Verify list loads with All Affiliation default filter:
+1. Navigate to `/app/sales/locations`.
+2. Wait for the table to render (at least one data row is visible).
+3. Observe the filter toolbar above the table.
+
+**Expected results (Step 1):**
+- The "All Affiliation" heading (level=6) trigger is visible in the toolbar — confirming the default filter is active.
+- The table contains at least one property row.
+- The pagination text matches the format `\d+–\d+ of \d+` (e.g. `1–10 of 13544`).
+
+Step 2 — Verify search by property name:
+4. Type a known property name (e.g. `PAT 5199`) into the search input (`ID, Property, Zip Code / Postal Code`).
+5. Wait for the table to update.
+6. Observe the search results.
+
+**Expected results (Step 2):**
+- The table updates to show only rows matching the search term.
+- At least one row with the searched property name is visible.
+- Clear the search field after verification.
+
+Step 3 — Verify Approved/Rejected stage filter options:
+7. Click the "All Affiliation" heading (level=6) trigger to open its tooltip.
+8. Observe the available options in the tooltip.
+
+**Expected results (Step 3):**
+- The tooltip is visible.
+- The tooltip contains the option `Approved` (with a count).
+- The tooltip contains the option `Rejected` (with a count).
+- Close the tooltip by pressing Escape.
+
+Step 4 — Verify All Properties dropdown (Assigned/Unassigned):
+9. Click the "All Properties" heading (level=6) trigger to open its tooltip.
+10. Observe the available options.
+
+**Expected results (Step 4):**
+- The tooltip is visible.
+- The tooltip contains a paragraph `All Properties`.
+- The tooltip contains a paragraph `Assigned`.
+- The tooltip contains a paragraph `Unassigned`.
+- Close the tooltip by pressing Escape.
+
+Step 5 — Verify Property Name column sorting:
+11. Click the "Property Name" sort button (column header button) once.
+12. Wait for the table to re-render.
+
+**Expected results (Step 5):**
+- The table re-renders after the sort click.
+- At least one row is still visible.
+- The "Property Name" column header sort button is still present and clickable.
+
+Step 6 — Verify Property Affiliation tags:
+13. Observe the "Property Affiliation" column in the first visible data row.
+
+**Expected results (Step 6):**
+- The Property Affiliation cell contains at least one tag element (a styled badge or chip, e.g. `Managed`, `Shared`, `Owned`, `Tenant`, `Headquarters`, or `Regional Office`).
+- Tags are visible and not empty.
+
+Step 7 — Verify single checkbox selection enables Bulk Assignment:
+14. Click the checkbox cell of the first data row to select it.
+15. Observe the toolbar buttons.
+
+**Expected results (Step 7):**
+- The "Bulk Assignment" button becomes enabled (no longer disabled).
+- A count message appears (e.g. `1 property selected.`).
+
+Step 8 — Verify multiple property selection:
+16. Click the checkbox cell of the second data row.
+17. Observe the selection count.
+
+**Expected results (Step 8):**
+- The selection count message updates (e.g. `2 properties selected.`).
+- The "Bulk Assignment" button remains enabled.
+
+Step 9 — Verify Bulk Assignment dialog opens:
+18. Click the "Bulk Assignment" button.
+19. Wait for a dialog or modal to appear.
+
+**Expected results (Step 9):**
+- A dialog or modal opens (a dialog role element or visible overlay content becomes visible).
+- Close the dialog/modal by pressing Escape or clicking Cancel.
+
+Step 10 — Verify Review Leads button opens the review leads page:
+20. Navigate to `/app/sales/locations`.
+21. Click the "Review Leads" button (labeled `Review Leads (N)` where N is the lead count).
+22. Wait for navigation.
+
+**Expected results (Step 10):**
+- The URL changes to contain `/app/sales/locations/reviews`.
+- The review leads page is visible (e.g. a "New Leads Request" tab button is present).
+- Navigate back to `/app/sales/locations`.
+
+Step 11 — Verify Stage badge, Assigned To, Franchise, Created Date, Last Modified Date columns:
+23. Navigate to `/app/sales/locations` and wait for the table to load.
+24. Observe the first visible data row's Stage, Assigned To, Franchise, Created Date, and Last Modified Date cells.
+
+**Expected results (Step 11):**
+- The Stage cell contains a non-empty badge text (e.g. `Approved`, `Current Customer`, etc.).
+- The Assigned To cell contains either a user name or `N/A`.
+- The Franchise cell contains a text value or `N/A`.
+- The Created Date cell contains text matching the format `MM/DD/YYYY`.
+- The Last Modified Date cell contains text matching the format `MM/DD/YYYY`.
+
+---
+
+## Verify that More Filters panel opens successfully, Verify that Property Type filter works correctly, Verify that Stage filter work correctly, Verify that Property Source filter works correctly, Verify that Country, State, City filters work correctly, Verify that Zip Code filter accepts valid values, Verify that Parent Company filter works correctly, Verify that Property ID filter works correctly, Verify that Associated Franchise filter works correctly, Verify that Assigned To filter works correctly, Verify that No. of Units filter works correctly, Verify that Lot Number filter works correctly, Verify that Created Date filter works correctly, Verify that Last Modified Date filter works correctly, Verify that Clear All resets all applied filters, Verify that Apply Filters updates property listing correctly
+
+### TC-PROP-069 | More Filters panel opens with all filter controls; each filter control is interactive; Clear All resets filters; Apply Filters updates listing
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- Properties list page is accessible at `/app/sales/locations`.
+- The More Filters panel is accessible via the "More Filters" button in the toolbar.
+
+**Steps:**
+
+Step 1 — Verify More Filters panel opens with all expected controls:
+1. Navigate to `/app/sales/locations`.
+2. Click the "More Filters" button in the toolbar.
+3. Wait for the "All Filters" heading (level=3) to become visible.
+4. Observe all filter controls in the panel.
+
+**Expected results (Step 1):**
+- The "All Filters" heading (level=3) is visible.
+- The following filter trigger labels are visible: "Select Property Type", "Select Stages", "Select Property Source", "Select states", "Select Company Associated", "Select Parent Company", "Add Associated Franchise", "Select Assigned to".
+- The following input controls are visible: Zip Code combobox (`Add Zip Code / Postal Code and press enter`), Property ID textbox (`Add ID`), Lot Number textbox, two date range inputs (`MM/DD/YYYY - MM/DD/YYYY`).
+- The "No. of Units" button is visible.
+- The "Clear All" button is visible.
+- The "Apply Filters" button is visible (disabled initially when no filter is set).
+
+Step 2 — Verify Property Type filter opens:
+5. Click the "Select Property Type" trigger (heading level=6).
+6. Observe the tooltip that opens.
+
+**Expected results (Step 2):**
+- A tooltip becomes visible with at least one selectable Property Type option.
+- Close the tooltip by pressing Escape.
+
+Step 3 — Verify Stage filter opens:
+7. Click the "Select Stages" trigger (heading level=6).
+8. Observe the tooltip.
+
+**Expected results (Step 3):**
+- A tooltip becomes visible with at least one stage option (e.g. `Approved`, `Discovery`, etc.).
+- Select one stage option (e.g. click `Approved`).
+- Close the tooltip by pressing Escape.
+
+Step 4 — Verify Property Source filter opens:
+9. Click the "Select Property Source" trigger (heading level=6).
+10. Observe the tooltip.
+
+**Expected results (Step 4):**
+- A tooltip becomes visible with at least one property source option.
+- Close the tooltip by pressing Escape.
+
+Step 5 — Verify State filter opens:
+11. Click the "Select states" trigger (heading level=6).
+12. Observe the tooltip.
+
+**Expected results (Step 5):**
+- A tooltip becomes visible with at least one state option.
+- Close the tooltip by pressing Escape.
+
+Step 6 — Verify Zip Code filter accepts input:
+13. Click the Zip Code combobox (`Add Zip Code / Postal Code and press enter`).
+14. Type `68135` into the Zip Code field.
+15. Press Enter.
+
+**Expected results (Step 6):**
+- The Zip Code field accepts the input `68135`.
+- After pressing Enter, a chip or tag appears representing the entered zip code.
+
+Step 7 — Verify Parent Company filter opens:
+16. Click the "Select Parent Company" trigger (heading level=6).
+17. Observe the tooltip.
+
+**Expected results (Step 7):**
+- A tooltip becomes visible.
+- The tooltip contains a search field or a list of company options.
+- Close the tooltip by pressing Escape.
+
+Step 8 — Verify Property ID filter accepts input:
+18. Click the Property ID textbox (`Add ID`).
+19. Type `1234`.
+
+**Expected results (Step 8):**
+- The textbox accepts the numeric input.
+- The value `1234` is visible in the field.
+- Clear the field after verification.
+
+Step 9 — Verify Associated Franchise filter opens:
+20. Click the "Add Associated Franchise" trigger (heading level=6).
+21. Observe the tooltip.
+
+**Expected results (Step 9):**
+- A tooltip becomes visible with at least one franchise option or a search field.
+- Close the tooltip by pressing Escape.
+
+Step 10 — Verify Assigned To filter opens:
+22. Click the "Select Assigned to" trigger (heading level=6).
+23. Observe the tooltip.
+
+**Expected results (Step 10):**
+- A tooltip becomes visible with at least one user option or a search field.
+- Close the tooltip by pressing Escape.
+
+Step 11 — Verify No. of Units filter expands:
+24. Click the "No. of Units" button.
+25. Observe the filter area for No. of Units.
+
+**Expected results (Step 11):**
+- The No. of Units filter expands to show a range input (min and max fields or a slider).
+- At least one numeric input is visible.
+
+Step 12 — Verify Lot Number filter accepts input:
+26. Click the Lot Number textbox.
+27. Type `A-101`.
+
+**Expected results (Step 12):**
+- The Lot Number textbox accepts the input.
+- The value `A-101` is visible in the field.
+- Clear the field after verification.
+
+Step 13 — Verify Created Date filter accepts date range input:
+28. Click the first date range textbox (Created Date, labeled `MM/DD/YYYY - MM/DD/YYYY`).
+29. Type `04/01/2026 - 04/30/2026`.
+
+**Expected results (Step 13):**
+- The date range textbox accepts the input.
+- The entered value is visible in the field.
+
+Step 14 — Verify Last Modified Date filter accepts date range input:
+30. Click the second date range textbox (Last Modified Date, labeled `MM/DD/YYYY - MM/DD/YYYY`).
+31. Type `04/01/2026 - 04/30/2026`.
+
+**Expected results (Step 14):**
+- The Last Modified Date textbox accepts the input.
+- The entered value is visible in the field.
+
+Step 15 — Verify Apply Filters becomes enabled and updates listing:
+32. Observe the "Apply Filters" button state (it should be enabled after step 3 selected a stage).
+33. Click "Apply Filters".
+34. Wait for the filter panel to close and the table to update.
+
+**Expected results (Step 15):**
+- The "Apply Filters" button is enabled after at least one filter value is set.
+- After clicking Apply Filters, the More Filters panel closes.
+- The table updates (may show a different count or filtered rows).
+- The pagination count updates to reflect the filtered results.
+
+Step 16 — Verify Clear All resets filters:
+35. Click the "More Filters" button to reopen the panel.
+36. Wait for the "All Filters" heading (level=3) to be visible.
+37. Click the "Clear All" button (it should now be enabled since filters were applied).
+38. Observe all filter fields after clearing.
+
+**Expected results (Step 16):**
+- After clicking Clear All, all filter fields are reset to their empty/default state.
+- The "Apply Filters" button becomes disabled.
+- The "Clear All" button becomes disabled.
+
+---
+
+## Missing Assertions and New Test Cases
+
+The following section documents gaps found during review of the existing automation against the stated requirements. Each entry either describes missing assertions in an existing TC or defines a brand-new TC that has no coverage at all.
+
+---
+
+### TC-PROP-006 — Enhanced assertions required
+
+**Gap:** The current automation for TC-PROP-006 calls `dismissCreatePropertyViaBackdrop()` (a backdrop click) instead of actually clicking the Cancel button. The test title says "Cancel button" but a backdrop dismiss is a different UI interaction. Additionally, after closing the drawer, the test never searches the property list to confirm the partially-entered property was not saved.
+
+**What must be added:**
+1. Replace `dismissCreatePropertyViaBackdrop()` with an actual Cancel button click (`cancelCreatePropertyDrawer()`).
+2. After the drawer closes, navigate to the Properties list and search for the discarded property name (`CANCELLED — SHOULD NOT SAVE`).
+3. Assert that the search returns no results — confirming Cancel did not persist any data.
+
+**Updated expected results for TC-PROP-006:**
+- Clicking the Cancel button (not the backdrop) closes the Create Property drawer.
+- The drawer heading "Create Property" is no longer visible.
+- Searching the discarded property name on the Properties list page returns 0 results.
+
+---
+
+### TC-PROP-021 — Enhanced assertions required
+
+**Gap:** The current automation for TC-PROP-021 calls `dismissCreatePropertyViaBackdrop()` (a backdrop click) and is titled "X icon closes drawer". No X/close-icon method exists for the Create Property drawer itself — the page object has a close-icon method only for the nested Create New Company sub-flow. The test never actually clicks any X icon.
+
+**What must be added:**
+1. Locate the X/close icon button on the Create Property drawer (a `button` containing an SVG close icon in the drawer header).
+2. Click it and verify the drawer closes (heading hidden, drawer panel removed from DOM).
+3. The existing post-close property search and no-results assertion is correct and must be retained.
+
+**Updated expected results for TC-PROP-021:**
+- Clicking the X/close icon button in the drawer header closes the Create Property drawer.
+- The drawer heading "Create Property" is no longer visible.
+- Searching the discarded draft property name returns 0 results in the Properties list.
+
+---
+
+### TC-PROP-024 — Enhanced assertions required
+
+**Gap:** TC-PROP-024 opens the Create New Company sub-flow and then closes it (via Cancel and via X), but never asserts that any values entered in the Create Property drawer *before* opening the sub-flow are preserved *after* returning. The requirement "Verify that returning from Create New Company flow preserves Create Property modal state" is completely untested.
+
+**What must be added:**
+1. Before opening `+ Create New`, fill the Property Name field with a distinctive value (e.g. `STATE-PRESERVE-<timestamp>`).
+2. Select a Property Source (e.g. `ALN`).
+3. Open the Create New Company sub-flow and then close it (via Cancel or X).
+4. After the sub-flow closes and the parent Create Property drawer is confirmed open, assert:
+   - The Property Name textbox still contains the value entered in step 1.
+   - The Property Source trigger still shows `ALN`.
+
+**Updated expected results for TC-PROP-024:**
+- `+ Create New` opens the Create New Company flow.
+- Closing the sub-flow (Cancel or X) returns the user to the Create Property drawer (drawer still open).
+- The Property Name entered before opening the sub-flow is still present in the field.
+- The Property Source selected before opening the sub-flow is still shown in the trigger.
+
+---
+
+### TC-PROP-028 — Enhanced assertions required
+
+**Gap:** TC-PROP-028 ("HO/SM/SP is able to link franchise") only asserts that the Associated Franchise control is *visible* inside the Edit Property form. It never selects a franchise, saves the edit, or verifies that the linked franchise appears in the property detail afterwards. A visibility check alone does not prove the linking functionality works.
+
+**What must be added:**
+1. In the Edit Property form, open the Associated Franchise dropdown.
+2. Select a known franchise (e.g. `216 - Omaha, NE`).
+3. Click Save.
+4. Wait for the Edit Property drawer to close and the detail page to reload.
+5. Assert that the selected franchise name is now visible in the `Franchise Associated` sidebar section on the property detail page.
+
+**Updated expected results for TC-PROP-028:**
+- The Associated Franchise dropdown is visible and interactive in the Edit Property form.
+- After selecting a franchise and saving, the Edit Property drawer closes.
+- The franchise name (e.g. `216 - Omaha, NE`) is visible in the `Franchise Associated` sidebar section on the property detail page.
+
+---
+
+### TC-PROP-030 — Enhanced assertions required
+
+**Gap:** TC-PROP-030 ("user can select multiple property affiliation options at the same time") has its core assertion wrapped in a conditional `if (selectionStateDetectable)`. When the state-detection check returns equal flags for both chips (`managedSelectedAfterOwnedClick === ownedSelectedAfterOwnedClick`), the entire assertion is skipped and the test passes vacuously. The requirement is that *both* chips appear selected simultaneously — this is never definitively verified.
+
+Additionally, the test logic suggests single-selection (mutual exclusion) behaviour — it asserts `managedSelectedAfterOwnedClick === false` after selecting Owned, which is the opposite of "multiple selections at the same time". The requirement and the implementation are contradictory and must be reconciled.
+
+**What must be added:**
+1. After selecting company (to unlock chips), click the Managed chip and immediately assert it appears selected.
+2. Without deselecting Managed, click the Owned chip.
+3. Assert **both** Managed and Owned appear selected simultaneously (the app either supports multi-select or single-select — the assertion must match actual app behavior and not be conditional).
+4. If the app supports only single-select (mutual exclusion), rename the test to reflect that: "Verify that selecting a Property Affiliation option deselects any previously selected option (single-select behavior)".
+5. Also verify that clicking a selected chip a second time deselects it (toggle behavior).
+
+**Updated expected results for TC-PROP-030:**
+- If multi-select is supported: Managed and Owned chips both show a selected visual state simultaneously after clicking each in turn.
+- If single-select is enforced: clicking Owned deselects Managed (only one chip selected at a time) — this must be asserted deterministically, not conditionally.
+- Clicking a selected chip a second time returns it to unselected state.
+
+---
+
+### TC-PROP-070 | Changing the selected company updates dependent fields (Property Affiliation chips)
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Create Property drawer is accessible.
+- At least two different companies exist in the system.
+
+**Steps:**
+
+Step 1 — Select first company and observe affiliation chips:
+1. Navigate to `/app/sales/locations`.
+2. Click `Create Property` to open the drawer.
+3. Wait for the "Create Property" heading (level=3) to be visible.
+4. Click the `Search Company` trigger and select the first known company (e.g. the `targetCompanyName` used in other tests).
+5. Observe the Property Affiliation section.
+
+**Expected results (Step 1):**
+- All six affiliation chips (Managed, Owned, Shared, Tenant, Headquarters, Regional Office) become visible after the first company is selected.
+
+Step 2 — Change to a different company and verify chips refresh:
+6. Click the `Search Company` trigger again (company is already selected).
+7. Clear the existing selection or type a different company name.
+8. Select a different company from the search results.
+9. Observe the Property Affiliation section immediately after the second company is selected.
+
+**Expected results (Step 2):**
+- The Property Affiliation chips remain visible (or are refreshed) after changing the company.
+- No crash or blank state occurs when the company is changed mid-session.
+- The drawer remains open throughout.
+
+Step 3 — Verify chips reset if company is deselected (if the UI supports deselection):
+10. If the UI provides a way to clear the company selection, clear it.
+11. Observe the Property Affiliation section.
+
+**Expected results (Step 3):**
+- If deselection is supported: affiliation chips return to the N/A / hidden state.
+- If deselection is not supported: the drawer shows chips from the most recently selected company.
+
+---
