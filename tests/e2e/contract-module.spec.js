@@ -783,7 +783,10 @@ test.describe.serial("Contract Module", () => {
 
   test.beforeEach(async ({}, testInfo) => {
     test.setTimeout(180_000);
-    if (testInfo.title.includes("TC-CONTRACT-E2E-") || testInfo.title.includes("TC-CONTRACT-DEVICE-")) {
+    if (
+      testInfo.title.includes("TC-CONTRACT-E2E-") ||
+      testInfo.title.includes("TC-CONTRACT-DEVICE-")
+    ) {
       return;
     }
     await gotoDealsListPage();
@@ -1007,7 +1010,7 @@ test.describe.serial("Contract Module", () => {
    *   - Validation shown for Proposal Name
    *   - User remains on Create Proposal drawer
    */
-  test("TC-CONTRACT-023 | Proposal Name is required and cannot be blank on Create Proposal (M-CONTRACT-REQ-001)", async () => {
+  test("TC-CONTRACT-023 | Verify Proposal Name is required and cannot be blank; show validation on Create Proposal. (M-CONTRACT-REQ-001)", async () => {
     const visualPauseMs = Number(process.env.CONTRACT_VISUAL_PAUSE_MS || 700);
     const visualPause = async () => page.waitForTimeout(visualPauseMs);
 
@@ -1089,7 +1092,7 @@ test.describe.serial("Contract Module", () => {
    *   - Cover key negative/edge behaviors
    *   - Final positive submit after valid Time Zone selection
    */
-  test("TC-CONTRACT-024 | Create Proposal blocked when Time Zone is not selected (M-CONTRACT-TZ-001)", async () => {
+  test("TC-CONTRACT-024 | Verify Create Proposal blocked when Time Zone is not selected; show required validation. (M-CONTRACT-TZ-001)", async () => {
     test.setTimeout(240_000);
     const visualPauseMs = Number(process.env.CONTRACT_VISUAL_PAUSE_MS || 600);
     const visualPause = async () => page.waitForTimeout(visualPauseMs);
@@ -1907,7 +1910,9 @@ test.describe.serial("Contract Module", () => {
           name: /USD\s*[\d,]+(?:\.\d{1,2})?\s*(Weekly|Monthly|Yearly)?/i,
         })
         .first();
-      const summaryVisible = await summaryHeading.isVisible().catch(() => false);
+      const summaryVisible = await summaryHeading
+        .isVisible()
+        .catch(() => false);
       if (summaryVisible) {
         const summaryText = await summaryHeading.textContent().catch(() => "");
         const parsedFromSummary = parseFirstCurrencyFromText(summaryText);
@@ -1919,10 +1924,17 @@ test.describe.serial("Contract Module", () => {
     };
 
     const readVisibleServiceAmounts = async () => {
-      const rowTexts = await page.locator("p").allTextContents().catch(() => []);
+      const rowTexts = await page
+        .locator("p")
+        .allTextContents()
+        .catch(() => []);
       const amounts = rowTexts
         .map((text) => {
-          if (!/\$\s*[\d,]+(?:\.\d{1,2})?\s*\/\s*(Weekly|Monthly|Yearly)/i.test(text)) {
+          if (
+            !/\$\s*[\d,]+(?:\.\d{1,2})?\s*\/\s*(Weekly|Monthly|Yearly)/i.test(
+              text,
+            )
+          ) {
             return null;
           }
           return parseFirstCurrencyFromText(text);
@@ -1986,8 +1998,11 @@ test.describe.serial("Contract Module", () => {
           if (await directRoleCheckbox.isVisible().catch(() => false)) {
             return directRoleCheckbox;
           }
-          const sectionCheckboxes = additionalServicesSection.getByRole("checkbox");
-          const sectionCheckboxCount = await sectionCheckboxes.count().catch(() => 0);
+          const sectionCheckboxes =
+            additionalServicesSection.getByRole("checkbox");
+          const sectionCheckboxCount = await sectionCheckboxes
+            .count()
+            .catch(() => 0);
           if (sectionCheckboxCount >= 2) {
             const index = /visitor management/i.test(labelTextForLogs) ? 0 : 1;
             return sectionCheckboxes.nth(index);
@@ -2448,6 +2463,14 @@ test.describe.serial("Contract Module", () => {
     renewalDate.setDate(startDate.getDate() + 5);
     const startDateText = formatDate(startDate);
     const renewalDateText = formatDate(renewalDate);
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const serviceJobDayFromProposalRange = dayNames[startDate.getDay()];
+    const tc030ServiceData = {
+      ...SERVICE_DATA,
+      // Keep Step 1 job-day aligned with proposal selected date window
+      // to avoid service creation toast for out-of-range day selection.
+      jobDays: [serviceJobDayFromProposalRange],
+    };
 
     const previousDealName = resolvedContractDealName;
     resolvedContractDealName = "";
@@ -2520,7 +2543,10 @@ test.describe.serial("Contract Module", () => {
     console.log(
       "[TC-CONTRACT-030] Step 9: Complete required stepper flow to reach summary",
     );
-    await contractModule.fillStep1Services(SERVICE_DATA);
+    console.log(
+      `[TC-CONTRACT-030] Using job day aligned with proposal dates: ${serviceJobDayFromProposalRange}`,
+    );
+    await contractModule.fillStep1Services(tc030ServiceData);
     await contractModule.clickSaveAndNext();
     await contractModule.assertStep2Visible();
     await contractModule.addDeviceQuantity("NFC Tags", 1);
@@ -2755,7 +2781,7 @@ test.describe.serial("Contract Module", () => {
    * Expected      : Spinbutton is visible and enabled
    * Priority      : P2 — Medium
    */
-  test("TC-CONTRACT-019 | Notify for Renewal field is visible in default drawer state", async () => {
+  test("TC-CONTRACT-019 | Verify Notify for Renewal Before (Days) is required (when renewal is enabled) and only accepts valid numeric range (no letters/negative).", async () => {
     test.setTimeout(240_000);
     const visualPauseMs = Number(process.env.CONTRACT_VISUAL_PAUSE_MS || 600);
     const visualPause = async () => page.waitForTimeout(visualPauseMs);
@@ -2975,7 +3001,9 @@ test.describe.serial("Contract Module", () => {
           name: /USD\s*[\d,]+(?:\.\d{1,2})?\s*(Weekly|Monthly|Yearly)?/i,
         })
         .first();
-      const summaryVisible = await summaryHeading.isVisible().catch(() => false);
+      const summaryVisible = await summaryHeading
+        .isVisible()
+        .catch(() => false);
       if (summaryVisible) {
         const summaryText = await summaryHeading.textContent().catch(() => "");
         const parsedFromSummary = parseFirstCurrencyFromText(summaryText);
@@ -2987,10 +3015,17 @@ test.describe.serial("Contract Module", () => {
     };
 
     const readVisibleServiceAmounts = async () => {
-      const rowTexts = await page.locator("p").allTextContents().catch(() => []);
+      const rowTexts = await page
+        .locator("p")
+        .allTextContents()
+        .catch(() => []);
       const amounts = rowTexts
         .map((text) => {
-          if (!/\$\s*[\d,]+(?:\.\d{1,2})?\s*\/\s*(Weekly|Monthly|Yearly)/i.test(text)) {
+          if (
+            !/\$\s*[\d,]+(?:\.\d{1,2})?\s*\/\s*(Weekly|Monthly|Yearly)/i.test(
+              text,
+            )
+          ) {
             return null;
           }
           return parseFirstCurrencyFromText(text);
@@ -3043,11 +3078,16 @@ test.describe.serial("Contract Module", () => {
         .isVisible()
         .catch(() => false);
       if (additionalServicesVisible) {
-        const sectionCheckboxes = additionalServicesSection.getByRole("checkbox");
-        const sectionCheckboxCount = await sectionCheckboxes.count().catch(() => 0);
+        const sectionCheckboxes =
+          additionalServicesSection.getByRole("checkbox");
+        const sectionCheckboxCount = await sectionCheckboxes
+          .count()
+          .catch(() => 0);
         if (sectionCheckboxCount >= 2) {
-          if (/visitor management/i.test(labelTextForLogs)) return sectionCheckboxes.nth(0);
-          if (/load management/i.test(labelTextForLogs)) return sectionCheckboxes.nth(1);
+          if (/visitor management/i.test(labelTextForLogs))
+            return sectionCheckboxes.nth(0);
+          if (/load management/i.test(labelTextForLogs))
+            return sectionCheckboxes.nth(1);
         }
       }
 
@@ -3057,7 +3097,8 @@ test.describe.serial("Contract Module", () => {
         .filter({ has: page.getByRole("checkbox") })
         .first();
       const roleCheckbox = rowWithRoleCheckbox.getByRole("checkbox").first();
-      if (await roleCheckbox.isVisible().catch(() => false)) return roleCheckbox;
+      if (await roleCheckbox.isVisible().catch(() => false))
+        return roleCheckbox;
 
       const rowWithInputCheckbox = page
         .locator("div")
@@ -3067,9 +3108,12 @@ test.describe.serial("Contract Module", () => {
       const inputCheckbox = rowWithInputCheckbox
         .locator('input[type="checkbox"]')
         .first();
-      if (await inputCheckbox.isVisible().catch(() => false)) return inputCheckbox;
+      if (await inputCheckbox.isVisible().catch(() => false))
+        return inputCheckbox;
 
-      throw new Error(`Could not resolve checkbox for label: ${labelTextForLogs}`);
+      throw new Error(
+        `Could not resolve checkbox for label: ${labelTextForLogs}`,
+      );
     };
 
     const readCheckboxState = async (checkboxLocator) => {
@@ -3094,13 +3138,10 @@ test.describe.serial("Contract Module", () => {
         await checkbox.click({ force: true });
       }
       await expect
-        .poll(
-          async () => readCheckboxState(checkbox),
-          {
-            timeout: 6_000,
-            message: `Expected ${labelText} checkbox state to become ${targetChecked}`,
-          },
-        )
+        .poll(async () => readCheckboxState(checkbox), {
+          timeout: 6_000,
+          message: `Expected ${labelText} checkbox state to become ${targetChecked}`,
+        })
         .toBe(targetChecked);
       return checkbox;
     };
@@ -3235,7 +3276,7 @@ test.describe.serial("Contract Module", () => {
       await visualPause();
     });
 
-    await test.step("Step 3: Verify 'Save & Next is blocked when mandatory fields on current step are missing' and 'Service Name is required; leaving blank shows Service Name is required'", async () => {
+    await test.step("Step 3: Verify Service Name is required; leaving blank shows 'Service Name is required'.", async () => {
       console.log(
         "[TC-CONTRACT-031] Step 3: Verify blocked Save & Next + Service Name required message",
       );
@@ -3254,20 +3295,30 @@ test.describe.serial("Contract Module", () => {
         "[TC-CONTRACT-031] Step 4: Expanded Step 1 required validations",
       );
 
-      console.log(
-        "[TC-CONTRACT-031] 4.1 Resource Type/Line Item required baseline",
+      await test.step(
+        "Step 4.1: Verify Resource Type is required; leaving blank shows 'Resource Type is required'.",
+        async () => {
+          console.log(
+            "[TC-CONTRACT-031] 4.1 Resource Type/Line Item required baseline",
+          );
+          await fillStep1CoreFields();
+          await assertStep1Blocked("Resource Type + Line Item missing");
+        },
       );
-      await fillStep1CoreFields();
-      await assertStep1Blocked("Resource Type + Line Item missing");
 
-      console.log(
-        "[TC-CONTRACT-031] 4.2 Line Item required when Resource Type is selected",
+      await test.step(
+        "Step 4.2: Verify Line Item is required; leaving blank shows 'Line Item is required'.",
+        async () => {
+          console.log(
+            "[TC-CONTRACT-031] 4.2 Line Item required when Resource Type is selected",
+          );
+          await contractModule._selectCustomDropdownIfEmpty(
+            contractModule.resourceTypeTriggerDiv,
+            "Resource Type",
+          );
+          await assertStep1Blocked("Line Item missing");
+        },
       );
-      await contractModule._selectCustomDropdownIfEmpty(
-        contractModule.resourceTypeTriggerDiv,
-        "Resource Type",
-      );
-      await assertStep1Blocked("Line Item missing");
 
       console.log(
         "[TC-CONTRACT-031] 4.3 Select Line Item to recover required state",
@@ -3278,148 +3329,175 @@ test.describe.serial("Contract Module", () => {
       );
       await visualPause();
 
-      console.log(
-        "[TC-CONTRACT-031] 4.4 Service Start Date required (if field is exposed on Step 1)",
-      );
-      const step1ServiceStartDateInput = page
-        .getByRole("textbox", { name: /Service Start Date|Select Start Date/i })
-        .first();
-      const serviceStartDateVisible = await step1ServiceStartDateInput
-        .isVisible()
-        .catch(() => false);
-      if (serviceStartDateVisible) {
-        await step1ServiceStartDateInput.fill("");
-        await assertStep1Blocked("Step 1 Service Start Date missing");
-        await step1ServiceStartDateInput.fill(startDateText);
-      } else {
-        console.log(
-          "[TC-CONTRACT-031] Step 1 Service Start Date field not exposed in this UI state; skipped with log.",
-        );
-      }
-      await visualPause();
-
-      console.log(
-        "[TC-CONTRACT-031] 4.5 Officer/Guard count required and positive integer",
-      );
-      await contractModule.fillOfficerCount("");
-      await assertStep1Blocked("Officer/Guard missing");
-      await contractModule.fillOfficerCount("0");
-      await assertStep1Blocked("Officer/Guard equals 0");
-      await contractModule.fillOfficerCount("-1");
-      await assertStep1Blocked("Officer/Guard negative");
-      await contractModule.fillOfficerCount("1");
-      await visualPause();
-
-      console.log(
-        "[TC-CONTRACT-031] 4.6 Hourly Rate required and numeric/currency format",
-      );
-      await contractModule.fillHourlyRate("");
-      await assertStep1Blocked("Hourly Rate missing");
-
-      const assertHourlyRateRejectsInvalid = async (value, label) => {
-        const rateInput = contractModule.hourlyRateInput;
-        await rateInput.click({ clickCount: 3 });
-        let fillErrored = false;
-        try {
-          await rateInput.fill(value);
-        } catch (error) {
-          fillErrored = true;
-        }
-        const resultingValue = await rateInput.inputValue().catch(() => "");
-        const valueRejectedByControl =
-          fillErrored ||
-          resultingValue === "" ||
-          /^-?\d*\.?\d*$/.test(resultingValue);
-        expect(
-          valueRejectedByControl,
-          `Hourly Rate should reject invalid ${label} input`,
-        ).toBeTruthy();
-        await assertStep1Blocked(`Hourly Rate ${label}`);
-      };
-
-      await assertHourlyRateRejectsInvalid("abc", "letters only");
-      await assertHourlyRateRejectsInvalid("@#$", "special chars only");
-      await assertHourlyRateRejectsInvalid("12ab", "mixed alphanumeric");
-      await contractModule.fillHourlyRate("15.00");
-      await visualPause();
-
-      if (primaryJobDay) {
-        console.log("[TC-CONTRACT-031] 4.7 Job Day required");
-        await contractModule.clickJobDay(primaryJobDay);
-        await assertStep1Blocked("Job Day missing");
-        const dayChipPressed = await page
-          .getByText(primaryJobDay, { exact: true })
-          .first()
-          .getAttribute("aria-pressed")
-          .catch(() => null);
-        expect(
-          dayChipPressed === "false" || dayChipPressed === null,
-          "Expected selected Job Day to be cleared before re-selecting valid state",
-        ).toBeTruthy();
-        await contractModule.clickJobDay(primaryJobDay);
-        await visualPause();
-      } else {
-        console.log(
-          "[TC-CONTRACT-031] No jobDays configured in SERVICE_DATA; skipping Job Day validation block.",
-        );
-      }
-
-      console.log("[TC-CONTRACT-031] 4.8 Start/End Time chronology validation");
-      const startTimeTriggerVisible = await page
-        .getByRole("button", { name: /Choose time/ })
-        .first()
-        .isVisible()
-        .catch(() => false);
-      if (startTimeTriggerVisible) {
-        try {
-          await setServiceTimes(
-            { hours: "10", minutes: "00", meridiem: "AM" },
-            { hours: "09", minutes: "00", meridiem: "AM" },
-            "invalid chronology",
-          );
-          await assertStep1Blocked("End Time earlier than Start Time");
-
-          // Overnight behavior observation: some environments allow this, others block it.
-          await setServiceTimes(
-            { hours: "10", minutes: "00", meridiem: "PM" },
-            { hours: "06", minutes: "00", meridiem: "AM" },
-            "overnight observation",
-          );
-          await contractModule.saveAndNextBtn
-            .click({ force: true })
-            .catch(() => {});
-          const movedToStep2WithOvernight =
-            await contractModule.devicesPageHeading
-              .isVisible()
-              .catch(() => false);
+      await test.step(
+        "Step 4.4: Verify Service Start Date is required; leaving blank shows validation.",
+        async () => {
           console.log(
-            `[TC-CONTRACT-031] Overnight time behavior (10:00 PM -> 06:00 AM) movedToStep2=${movedToStep2WithOvernight}`,
+            "[TC-CONTRACT-031] 4.4 Service Start Date required (if field is exposed on Step 1)",
           );
-          if (movedToStep2WithOvernight) {
-            await contractModule.stepperStep1.click({ force: true });
-            await contractModule.assertStep1Visible();
+          const step1ServiceStartDateInput = page
+            .getByRole("textbox", {
+              name: /Service Start Date|Select Start Date/i,
+            })
+            .first();
+          const serviceStartDateVisible = await step1ServiceStartDateInput
+            .isVisible()
+            .catch(() => false);
+          if (serviceStartDateVisible) {
+            await step1ServiceStartDateInput.fill("");
+            await assertStep1Blocked("Step 1 Service Start Date missing");
+            await step1ServiceStartDateInput.fill(startDateText);
+          } else {
+            console.log(
+              "[TC-CONTRACT-031] Step 1 Service Start Date field not exposed in this UI state; skipped with log.",
+            );
           }
+          await visualPause();
+        },
+      );
 
-          // Restore deterministic valid same-day order for remaining flow.
-          await setServiceTimes(
-            SERVICE_DATA.startTime,
-            SERVICE_DATA.endTime,
-            "restore valid chronology",
-          );
-        } catch (timeValidationError) {
+      await test.step(
+        "Step 4.5: Verify Officer/Guard count is required and must be a positive integer.",
+        async () => {
           console.log(
-            `[TC-CONTRACT-031] Time validation controls became unstable/unavailable: ${timeValidationError.message}`,
+            "[TC-CONTRACT-031] 4.5 Officer/Guard count required and positive integer",
           );
-        }
-      } else {
-        console.log(
-          "[TC-CONTRACT-031] Start/End time controls are not visible in current Step 1 state; chronology check skipped.",
-        );
-      }
-      await visualPause();
+          await contractModule.fillOfficerCount("");
+          await assertStep1Blocked("Officer/Guard missing");
+          await contractModule.fillOfficerCount("0");
+          await assertStep1Blocked("Officer/Guard equals 0");
+          await contractModule.fillOfficerCount("-1");
+          await assertStep1Blocked("Officer/Guard negative");
+          await contractModule.fillOfficerCount("1");
+          await visualPause();
+        },
+      );
+
+      await test.step(
+        "Step 4.6: Verify Hourly Rate is required and accepts valid currency format; reject letters/special chars.",
+        async () => {
+          console.log(
+            "[TC-CONTRACT-031] 4.6 Hourly Rate required and numeric/currency format",
+          );
+          await contractModule.fillHourlyRate("");
+          await assertStep1Blocked("Hourly Rate missing");
+
+          const assertHourlyRateRejectsInvalid = async (value, label) => {
+            const rateInput = contractModule.hourlyRateInput;
+            await rateInput.click({ clickCount: 3 });
+            let fillErrored = false;
+            try {
+              await rateInput.fill(value);
+            } catch (error) {
+              fillErrored = true;
+            }
+            const resultingValue = await rateInput.inputValue().catch(() => "");
+            const valueRejectedByControl =
+              fillErrored ||
+              resultingValue === "" ||
+              /^-?\d*\.?\d*$/.test(resultingValue);
+            expect(
+              valueRejectedByControl,
+              `Hourly Rate should reject invalid ${label} input`,
+            ).toBeTruthy();
+            await assertStep1Blocked(`Hourly Rate ${label}`);
+          };
+
+          await assertHourlyRateRejectsInvalid("abc", "letters only");
+          await assertHourlyRateRejectsInvalid("@#$", "special chars only");
+          await assertHourlyRateRejectsInvalid("12ab", "mixed alphanumeric");
+          await contractModule.fillHourlyRate("15.00");
+          await visualPause();
+        },
+      );
+
+      await test.step(
+        "Step 4.7: Verify at least one Job Day selection is required (if applicable); show validation if none selected.",
+        async () => {
+          if (primaryJobDay) {
+            console.log("[TC-CONTRACT-031] 4.7 Job Day required");
+            await contractModule.clickJobDay(primaryJobDay);
+            await assertStep1Blocked("Job Day missing");
+            const dayChipPressed = await page
+              .getByText(primaryJobDay, { exact: true })
+              .first()
+              .getAttribute("aria-pressed")
+              .catch(() => null);
+            expect(
+              dayChipPressed === "false" || dayChipPressed === null,
+              "Expected selected Job Day to be cleared before re-selecting valid state",
+            ).toBeTruthy();
+            await contractModule.clickJobDay(primaryJobDay);
+            await visualPause();
+          } else {
+            console.log(
+              "[TC-CONTRACT-031] No jobDays configured in SERVICE_DATA; skipping Job Day validation block.",
+            );
+          }
+        },
+      );
+
+      await test.step(
+        "Step 4.8: Verify Start Time and End Time validations: end time must be after start time (including overnight rules if supported).",
+        async () => {
+          console.log("[TC-CONTRACT-031] 4.8 Start/End Time chronology validation");
+          const startTimeTriggerVisible = await page
+            .getByRole("button", { name: /Choose time/ })
+            .first()
+            .isVisible()
+            .catch(() => false);
+          if (startTimeTriggerVisible) {
+            try {
+              await setServiceTimes(
+                { hours: "10", minutes: "00", meridiem: "AM" },
+                { hours: "09", minutes: "00", meridiem: "AM" },
+                "invalid chronology",
+              );
+              await assertStep1Blocked("End Time earlier than Start Time");
+
+              // Overnight behavior observation: some environments allow this, others block it.
+              await setServiceTimes(
+                { hours: "10", minutes: "00", meridiem: "PM" },
+                { hours: "06", minutes: "00", meridiem: "AM" },
+                "overnight observation",
+              );
+              await contractModule.saveAndNextBtn
+                .click({ force: true })
+                .catch(() => {});
+              const movedToStep2WithOvernight =
+                await contractModule.devicesPageHeading
+                  .isVisible()
+                  .catch(() => false);
+              console.log(
+                `[TC-CONTRACT-031] Overnight time behavior (10:00 PM -> 06:00 AM) movedToStep2=${movedToStep2WithOvernight}`,
+              );
+              if (movedToStep2WithOvernight) {
+                await contractModule.stepperStep1.click({ force: true });
+                await contractModule.assertStep1Visible();
+              }
+
+              // Restore deterministic valid same-day order for remaining flow.
+              await setServiceTimes(
+                SERVICE_DATA.startTime,
+                SERVICE_DATA.endTime,
+                "restore valid chronology",
+              );
+            } catch (timeValidationError) {
+              console.log(
+                `[TC-CONTRACT-031] Time validation controls became unstable/unavailable: ${timeValidationError.message}`,
+              );
+            }
+          } else {
+            console.log(
+              "[TC-CONTRACT-031] Start/End time controls are not visible in current Step 1 state; chronology check skipped.",
+            );
+          }
+          await visualPause();
+        },
+      );
     });
 
-    await test.step("Step 5: Verify user can select Dedicated Service vs Patrol Service and relevant fields display accordingly", async () => {
+    await test.step("Step 5: Verify user can select Dedicated Service vs Patrol Service and relevant fields display accordingly.", async () => {
       console.log(
         "[TC-CONTRACT-031] Step 5: Verify Dedicated vs Patrol selection and field behavior",
       );
@@ -3477,7 +3555,7 @@ test.describe.serial("Contract Module", () => {
       await visualPause();
     });
 
-    await test.step("Step 6: Verify 'Save & Next progresses to next step and preserves entered data when navigating back'", async () => {
+    await test.step("Step 6: Verify Save & Next progresses to next step and preserves entered data when navigating back.", async () => {
       console.log(
         "[TC-CONTRACT-031] Step 6: Fill valid Step 1 data and progress",
       );
@@ -3563,13 +3641,17 @@ test.describe.serial("Contract Module", () => {
           .getByText(/service name/i)
           .filter({ hasText: /exist|already|required|invalid/i })
           .first();
-        const toastVisible = await serviceNameToast.isVisible().catch(() => false);
+        const toastVisible = await serviceNameToast
+          .isVisible()
+          .catch(() => false);
         if (!toastVisible) return false;
         effectiveServiceName = `Svc${String(Date.now()).slice(-8)}`;
         console.log(
           `[TC-CONTRACT-031] Step 6 detected service-name toast; retrying with unique name=${effectiveServiceName}`,
         );
-        await contractModule.fillServiceName(effectiveServiceName).catch(() => {});
+        await contractModule
+          .fillServiceName(effectiveServiceName)
+          .catch(() => {});
         await page.waitForTimeout(300);
         return true;
       };
@@ -3581,7 +3663,9 @@ test.describe.serial("Contract Module", () => {
           .catch(() => false);
         if (!moved) {
           await handleServiceNameToastIfAny();
-          moved = await contractModule.devicesPageHeading.isVisible().catch(() => false);
+          moved = await contractModule.devicesPageHeading
+            .isVisible()
+            .catch(() => false);
         }
         if (!moved) {
           // Fallback click path for transient missed click/overlay race on Save & Next.
@@ -3591,7 +3675,9 @@ test.describe.serial("Contract Module", () => {
             .click({ force: true })
             .catch(() => {});
           await page.waitForTimeout(800);
-          moved = await contractModule.devicesPageHeading.isVisible().catch(() => false);
+          moved = await contractModule.devicesPageHeading
+            .isVisible()
+            .catch(() => false);
         }
         console.log(
           `[TC-CONTRACT-031] Step 6 Save & Next moved to Step2=${moved} (${attemptLabel})`,
@@ -3602,15 +3688,23 @@ test.describe.serial("Contract Module", () => {
       let movedToStep2 = await attemptStep2Progress("initial");
       if (!movedToStep2) {
         // Recovery pass: restore Step 1 valid state and retry once.
-        await contractModule.stepperStep1.click({ force: true }).catch(() => {});
+        await contractModule.stepperStep1
+          .click({ force: true })
+          .catch(() => {});
         await page.keyboard.press("Escape").catch(() => {});
-        await contractModule.fillServiceName(effectiveServiceName).catch(() => {});
+        await contractModule
+          .fillServiceName(effectiveServiceName)
+          .catch(() => {});
         await contractModule.selectFirstAvailableLineItem().catch(() => {});
         if (officerVisibleForSubmit) {
-          await contractModule.fillOfficerCount(SERVICE_DATA.officerCount).catch(() => {});
+          await contractModule
+            .fillOfficerCount(SERVICE_DATA.officerCount)
+            .catch(() => {});
         }
         if (hourlyVisibleForSubmit) {
-          await contractModule.fillHourlyRate(SERVICE_DATA.hourlyRate).catch(() => {});
+          await contractModule
+            .fillHourlyRate(SERVICE_DATA.hourlyRate)
+            .catch(() => {});
         }
         if (primaryJobDay) {
           const selectedDayPressed = await page
@@ -3649,7 +3743,9 @@ test.describe.serial("Contract Module", () => {
           .first()
           .isVisible()
           .catch(() => false);
-        await contractModule.stepperStep2.click({ force: true }).catch(() => {});
+        await contractModule.stepperStep2
+          .click({ force: true })
+          .catch(() => {});
         await page.waitForTimeout(700);
         movedToStep2 = await contractModule.devicesPageHeading
           .isVisible()
@@ -3664,7 +3760,9 @@ test.describe.serial("Contract Module", () => {
           );
         }
       }
-      console.log(`[TC-CONTRACT-031] Step 6 Save & Next moved to Step2=${movedToStep2}`);
+      console.log(
+        `[TC-CONTRACT-031] Step 6 Save & Next moved to Step2=${movedToStep2}`,
+      );
       await visualPause();
 
       console.log(
@@ -3672,9 +3770,12 @@ test.describe.serial("Contract Module", () => {
       );
       await contractModule.stepperStep1.click({ force: true });
       await contractModule.assertStep1Visible();
-      await expect(contractModule.serviceNameInput).toHaveValue(effectiveServiceName, {
-        timeout: 8_000,
-      });
+      await expect(contractModule.serviceNameInput).toHaveValue(
+        effectiveServiceName,
+        {
+          timeout: 8_000,
+        },
+      );
       await expect(contractModule.dedicatedServiceRadio).toBeChecked({
         timeout: 8_000,
       });
@@ -3693,7 +3794,7 @@ test.describe.serial("Contract Module", () => {
       await visualPause();
     });
 
-    await test.step("Step 7: Verify Include Fuel Surcharge and Include Vehicle toggles and pricing reflection where applicable", async () => {
+    await test.step("Step 7: Verify Include Fuel Surcharge and Include Vehicle toggles can be enabled and reflect in totals/pricing where applicable.", async () => {
       console.log(
         "[TC-CONTRACT-031] Step 7: Validate Include Fuel Surcharge + Include Vehicle toggle behavior",
       );
@@ -3781,7 +3882,7 @@ test.describe.serial("Contract Module", () => {
       await visualPause();
     });
 
-    await test.step("Step 8: Verify Add Instructions rich text formatting and persistence after navigation", async () => {
+    await test.step("Step 8: Verify Add Instructions rich text supports formatting (bold/italic/list/headings) and content saves.", async () => {
       console.log(
         "[TC-CONTRACT-031] Step 8: Validate Add Instructions rich text behavior",
       );
@@ -3856,7 +3957,7 @@ test.describe.serial("Contract Module", () => {
       await visualPause();
     });
 
-    await test.step("Step 9: Verify Additional Services toggles (Visitor Management, Load Management) selection and persistence", async () => {
+    await test.step("Step 9: Verify Additional Services toggles (e.g., Visitor Management, Load Management) can be selected and persist.", async () => {
       console.log(
         "[TC-CONTRACT-031] Step 9: Validate Additional Services toggles persistence",
       );
@@ -3881,14 +3982,19 @@ test.describe.serial("Contract Module", () => {
         .filter({ has: page.getByRole("checkbox") })
         .first();
       const sectionCheckboxes = additionalServicesSection.getByRole("checkbox");
-      const sectionCheckboxCount = await sectionCheckboxes.count().catch(() => 0);
+      const sectionCheckboxCount = await sectionCheckboxes
+        .count()
+        .catch(() => 0);
       expect(
         sectionCheckboxCount >= 2,
         `Expected Visitor/Load Management checkboxes in Additional Services section, found ${sectionCheckboxCount}.`,
       ).toBeTruthy();
       const visitorCheckboxDirect = sectionCheckboxes.nth(0);
       const loadCheckboxDirect = sectionCheckboxes.nth(1);
-      await scrollUntilVisible(visitorCheckboxDirect, "Visitor Management checkbox");
+      await scrollUntilVisible(
+        visitorCheckboxDirect,
+        "Visitor Management checkbox",
+      );
       await scrollUntilVisible(loadCheckboxDirect, "Load Management checkbox");
 
       // 9.1 Enable Additional Services toggles and persist state.
@@ -3906,10 +4012,13 @@ test.describe.serial("Contract Module", () => {
       await expect
         .poll(async () => readCheckboxState(visitorBefore), {
           timeout: 6_000,
-          message: "Expected Visitor Management toggle to be ON after direct interaction.",
+          message:
+            "Expected Visitor Management toggle to be ON after direct interaction.",
         })
         .toBe(true);
-      console.log("[TC-CONTRACT-031] Step 9 interacted Visitor Management toggle directly.");
+      console.log(
+        "[TC-CONTRACT-031] Step 9 interacted Visitor Management toggle directly.",
+      );
 
       if ((await readCheckboxState(loadCheckboxDirect)) !== true) {
         await loadCheckboxDirect.click({ force: true });
@@ -3917,15 +4026,19 @@ test.describe.serial("Contract Module", () => {
       await expect
         .poll(async () => readCheckboxState(loadBefore), {
           timeout: 6_000,
-          message: "Expected Load Management toggle to be ON after direct interaction.",
+          message:
+            "Expected Load Management toggle to be ON after direct interaction.",
         })
         .toBe(true);
-      console.log("[TC-CONTRACT-031] Step 9 interacted Load Management toggle directly.");
-      await ensureStep1MandatoryFieldsForSave("step9 visitor-only persistence save");
+      console.log(
+        "[TC-CONTRACT-031] Step 9 interacted Load Management toggle directly.",
+      );
+      await ensureStep1MandatoryFieldsForSave(
+        "step9 visitor-only persistence save",
+      );
       await contractModule.clickSaveAndNext();
-      const movedToStep2AfterVisitorOnly = await contractModule.devicesPageHeading
-        .isVisible()
-        .catch(() => false);
+      const movedToStep2AfterVisitorOnly =
+        await contractModule.devicesPageHeading.isVisible().catch(() => false);
       console.log(
         `[TC-CONTRACT-031] Step 9 Visitor-only Save & Next moved to Step2=${movedToStep2AfterVisitorOnly}`,
       );
@@ -3956,7 +4069,9 @@ test.describe.serial("Contract Module", () => {
         })
         .toBe(true);
       await visualPause();
-      await ensureStep1MandatoryFieldsForSave("step9 visitor+load persistence save");
+      await ensureStep1MandatoryFieldsForSave(
+        "step9 visitor+load persistence save",
+      );
       await contractModule.clickSaveAndNext();
       const movedToStep2FromAdditionalServices =
         await contractModule.devicesPageHeading.isVisible().catch(() => false);
@@ -4013,7 +4128,7 @@ test.describe.serial("Contract Module", () => {
       await visualPause();
     });
 
-    await test.step("Step 10: Verify adding multiple services and aggregate total reflection", async () => {
+    await test.step("Step 10: Verify user can add multiple services (Service #1, Service #2) and totals reflect aggregated services.", async () => {
       console.log(
         "[TC-CONTRACT-031] Step 10: Validate multi-service aggregation (Service 1 + Service 2)",
       );
@@ -4113,21 +4228,30 @@ test.describe.serial("Contract Module", () => {
         await locator.click({ force: true });
         await locator.fill("");
         await locator.fill(value);
-        await expect(locator, `Expected ${label} to be set`).toHaveValue(value, {
-          timeout: 6_000,
-        });
+        await expect(locator, `Expected ${label} to be set`).toHaveValue(
+          value,
+          {
+            timeout: 6_000,
+          },
+        );
       };
 
       const officerInputs = page.getByRole("spinbutton", {
         name: "Officer/Guard *",
       });
       const rateInputs = page.getByRole("spinbutton", { name: /Hourly Rate/ });
-      const resourceTypeTriggers = page.locator('label[for="officerType"] + div');
+      const resourceTypeTriggers = page.locator(
+        'label[for="officerType"] + div',
+      );
       const lineItemTriggers = page.locator('label[for="lineItem"] + div');
       const officerCount = await officerInputs.count().catch(() => 0);
       const rateCount = await rateInputs.count().catch(() => 0);
-      const resourceTriggerCount = await resourceTypeTriggers.count().catch(() => 0);
-      const lineItemTriggerCount = await lineItemTriggers.count().catch(() => 0);
+      const resourceTriggerCount = await resourceTypeTriggers
+        .count()
+        .catch(() => 0);
+      const lineItemTriggerCount = await lineItemTriggers
+        .count()
+        .catch(() => 0);
 
       if (resourceTriggerCount > service2Index) {
         await contractModule._selectCustomDropdownIfEmpty(
@@ -4169,11 +4293,7 @@ test.describe.serial("Contract Module", () => {
           "1",
           "Service 2 Officer/Guard",
         );
-        await fillSpinField(
-          service2RateInput,
-          "20",
-          "Service 2 Hourly Rate",
-        );
+        await fillSpinField(service2RateInput, "20", "Service 2 Hourly Rate");
       } else {
         throw new Error(
           `[TC-CONTRACT-031] Could not locate Service 2 numeric inputs. before=${numberInputsBeforeAdd}, after=${numberInputsAfterAdd}`,
@@ -4186,7 +4306,9 @@ test.describe.serial("Contract Module", () => {
         await service2JobDayChip.click({ force: true });
       }
       const serviceTimeInputs = page.locator('input[placeholder*="hh:mm"]');
-      const serviceTimeInputCount = await serviceTimeInputs.count().catch(() => 0);
+      const serviceTimeInputCount = await serviceTimeInputs
+        .count()
+        .catch(() => 0);
       const serviceStartInputIndex = service2Index * 2;
       const serviceEndInputIndex = service2Index * 2 + 1;
       if (serviceTimeInputCount > serviceEndInputIndex) {
@@ -4206,25 +4328,40 @@ test.describe.serial("Contract Module", () => {
       });
       const service2TimeCount = await service2TimeInputs.count().catch(() => 0);
       if (service2TimeCount >= 2) {
-        await service2TimeInputs.nth(serviceStartInputIndex).fill("09:00 AM").catch(() => {});
-        await service2TimeInputs.nth(serviceEndInputIndex).fill("06:00 PM").catch(() => {});
-        await expect(service2TimeInputs.nth(serviceStartInputIndex)).toHaveValue("09:00 AM", {
+        await service2TimeInputs
+          .nth(serviceStartInputIndex)
+          .fill("09:00 AM")
+          .catch(() => {});
+        await service2TimeInputs
+          .nth(serviceEndInputIndex)
+          .fill("06:00 PM")
+          .catch(() => {});
+        await expect(
+          service2TimeInputs.nth(serviceStartInputIndex),
+        ).toHaveValue("09:00 AM", {
           timeout: 6_000,
         });
-        await expect(service2TimeInputs.nth(serviceEndInputIndex)).toHaveValue("06:00 PM", {
-          timeout: 6_000,
-        });
+        await expect(service2TimeInputs.nth(serviceEndInputIndex)).toHaveValue(
+          "06:00 PM",
+          {
+            timeout: 6_000,
+          },
+        );
       }
       await visualPause();
 
       await expect
-        .poll(async () => {
-          const amounts = await readVisibleServiceAmounts();
-          return amounts.length >= 2;
-        }, {
-          timeout: 10_000,
-          message: "Expected Service 1 and Service 2 amounts to be populated.",
-        })
+        .poll(
+          async () => {
+            const amounts = await readVisibleServiceAmounts();
+            return amounts.length >= 2;
+          },
+          {
+            timeout: 10_000,
+            message:
+              "Expected Service 1 and Service 2 amounts to be populated.",
+          },
+        )
         .toBe(true);
       const resolvedServiceAmounts = await readVisibleServiceAmounts();
       expect(
@@ -4253,7 +4390,11 @@ test.describe.serial("Contract Module", () => {
         `Expected Service 2 amount (~${expectedService2FromInputs}) from entered inputs, got ${service2AmountAfter}`,
       ).toBeTruthy();
 
-      if (serviceTotalAfterAdd !== null && service1AmountAfter > 0 && service2AmountAfter > 0) {
+      if (
+        serviceTotalAfterAdd !== null &&
+        service1AmountAfter > 0 &&
+        service2AmountAfter > 0
+      ) {
         const expectedAggregate = service1AmountAfter + service2AmountAfter;
         expect(
           Math.abs(serviceTotalAfterAdd - expectedAggregate) <= 1,
