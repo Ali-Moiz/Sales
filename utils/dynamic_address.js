@@ -61,7 +61,6 @@ function normalizeText(value) {
 }
 
 function debugLog(message, meta = {}) {
-  // eslint-disable-next-line no-console
   console.log(`[dynamic_address] ${message}`, JSON.stringify(meta));
 }
 
@@ -303,4 +302,3 @@ module.exports = {
   selectAddressFromAutocomplete,
   selectDynamicAddressWithRetry,
 };
-

@@ -62,6 +62,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
     });
 
     test(`NT-${moduleName}-N004: Create note – success and note appears in list`, async () => {
+      // Verify that note count updates after adding a note
       const subject = `Auto Note ${moduleName} ${ts()}`;
 
       await ntPage.clickNotesTab();
@@ -75,6 +76,9 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
     });
 
     test(`NT-${moduleName}-N005: Create note – validation when Subject is empty`, async () => {
+      // Verify that Subject field is mandatory while creating a note
+      // Verify that system shows validation error when Subject is empty
+      // Verify that user cannot save note when required fields are missing
       await ntPage.clickNotesTab();
       await ntPage.openCreateNoteDrawer();
       await ntPage.noteDescEditor.click();
@@ -120,6 +124,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
     });
 
     test(`NT-${moduleName}-N009: Edit note – update subject and save`, async () => {
+      // Verify that edited note shows updated content in listing
       const subject = `Edit Note ${moduleName} ${ts()}`;
       const updatedSubject = `${subject} UPDATED`;
 
@@ -146,6 +151,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
     });
 
     test(`NT-${moduleName}-N011: Delete note – confirmation dialog shown`, async () => {
+      // Verify that delete confirmation modal appears before deleting note
       const subject = `Delete Note ${moduleName} ${ts()}`;
 
       await ntPage.clickNotesTab();
@@ -157,6 +163,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
     });
 
     test(`NT-${moduleName}-N012: Delete note – Cancel keeps the note`, async () => {
+      // Verify that note is not deleted when cancel is clicked on confirmation modal
       const subject = `Stay Note ${moduleName} ${ts()}`;
 
       await ntPage.clickNotesTab();
@@ -277,6 +284,8 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
     });
 
     test(`NT-${moduleName}-T009: Create task – validation shown for empty Title`, async () => {
+      // Verify that Task Title field is mandatory while creating a task
+      // Verify that system shows validation error when required fields are missing
       await ntPage.clickTasksTab();
       await ntPage.openCreateTaskDrawer();
       await ntPage.taskDescEditor.click();
@@ -290,6 +299,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
     });
 
     test(`NT-${moduleName}-T010: Search task by title filters results`, async () => {
+      // Verify that user can search tasks using Search by Title
       const title = `Searchable Task ${moduleName} ${ts()}`;
 
       await ntPage.clickTasksTab();
@@ -328,6 +338,8 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
     });
 
     test(`NT-${moduleName}-T013: Edit task – update title and save`, async () => {
+      // Verify that user can edit an existing task
+      // Verify that edited task details are updated in listing
       test.setTimeout(120_000);
       const title = `Update Task ${moduleName} ${ts()}`;
       const updatedTitle = `${title} UPDATED`;
@@ -368,6 +380,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
     });
 
     test(`NT-${moduleName}-T015: Mark task as complete via checkbox`, async () => {
+      // Verify that completed task is shown under Completed status filter
       test.setTimeout(120_000);
       const title = `Complete Task ${moduleName} ${ts()}`;
 
@@ -387,6 +400,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
     });
 
     test(`NT-${moduleName}-T016: Unmark completed task reverts to To-do`, async () => {
+      // Verify that unchecking completed checkbox marks task as To-Do
       test.setTimeout(120_000);
       const title = `Unmark Task ${moduleName} ${ts()}`;
 
@@ -425,6 +439,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
     });
 
     test(`NT-${moduleName}-T018: Delete task – Cancel keeps the task`, async () => {
+      // Verify that task is not deleted when delete action is cancelled
       test.setTimeout(120_000);
       const title = `Stay Task ${moduleName} ${ts()}`;
 
@@ -446,6 +461,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
     });
 
     test(`NT-${moduleName}-T019: Delete task – Confirm removes task from table`, async () => {
+      // Verify that user can delete a task after confirmation
       test.setTimeout(120_000);
       const title = `Deletable Task ${moduleName} ${ts()}`;
 
