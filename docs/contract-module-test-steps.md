@@ -1340,6 +1340,197 @@ Execution steps:
 Expected result:
 - All Step 4 sections are visible.
 
+### TC-CONTRACT-E2E-008B | Verify Holiday Multiplier and Holiday Group selection works; '0 Holidays' link/info is accessible (if applicable).
+
+Execution steps:
+- In `Define Payment Terms`, select a non-empty value in `Holiday Multiplier`.
+- Select one value in `Holiday Group`.
+- Click `0 Holidays` link/info below `Holiday Group`.
+
+Expected result:
+- Selected `Holiday Multiplier` and `Holiday Group` values remain visible.
+- `0 Holidays` control is interactable and shows product-defined feedback (modal/tooltip/navigation/inline content). If no feedback appears, log as defect.
+
+Positive scenarios:
+- `Holiday Multiplier` accepts a valid selection.
+- `Holiday Group` accepts a valid selection after multiplier is chosen.
+
+Negative scenarios:
+- Keep `Holiday Group` empty after selecting multiplier, then click `Save & Next`.
+- Verify field-level validation appears and navigation is blocked.
+
+Edge scenarios:
+- Clear/reselect `Holiday Multiplier` and verify `Holiday Group` required behavior updates correctly.
+- If `0 Holidays` is visible but does not react on click, capture as a behavior gap.
+
+Manual assertion (single):
+- **Assert:** With valid `Holiday Multiplier` and `Holiday Group` selected, both values persist and `0 Holidays` remains accessible/clickable.
+
+### TC-CONTRACT-E2E-008C | Verify Flat plan input validation (flat amount required, numeric only).
+
+Execution steps:
+- In `Select Billing Occurrence`, select `Flat` plan.
+- Verify `Flat Rate ($)/month` input is enabled.
+- Enter valid numeric input (example: `1000`) and confirm the value is retained.
+- Clear/leave flat amount invalid (empty or non-numeric) and click `Save & Next`.
+
+Expected result:
+- Flat amount is required for `Flat` plan and accepts numeric input only.
+- `Save & Next` is blocked for missing/invalid flat amount with field-level validation.
+
+Positive scenarios:
+- Selecting `Flat` enables flat amount input.
+- Valid numeric value is accepted and retained.
+
+Negative scenarios:
+- Non-numeric input is rejected/sanitized.
+- Missing flat amount blocks progression and shows validation.
+
+Edge scenarios:
+- Negative value handling follows product rule (reject or field validation).
+- Very large numeric value does not break UI and follows product validation.
+- Precision input (for example `250.505`) follows product rounding/precision rule.
+
+Manual assertion (single):
+- **Assert:** Under `Flat` plan, valid numeric amount is accepted, and missing/invalid amount blocks `Save & Next` with field-level validation.
+
+### Verify Billing Information required fields: First Name, Last Name, Email, Phone Number validate correctly.
+
+Execution steps:
+- Navigate to `Step 4 > Billing Information`.
+- Keep a valid address source selected (`Property Address` or `Company Address`).
+- Clear `First Name`, `Last Name`, `Email`, and `Phone Number`.
+- Click `Save & Next` and capture field-level errors.
+- Fill the four fields with valid values and click `Save & Next` again.
+
+Expected result:
+- `Save & Next` is blocked when any required contact field is empty.
+- Field-level validation appears for missing required fields.
+- Progression is allowed only after all four required fields are valid.
+
+Positive scenarios:
+- Valid values in all four fields allow progression.
+
+Negative scenarios:
+- Leaving any one required field empty blocks progression.
+
+Edge scenarios:
+- Spaces-only input is rejected or trimmed consistently per product behavior.
+
+Manual assertion (single):
+- **Assert:** Billing Information progression is blocked until `First Name`, `Last Name`, `Email`, and `Phone Number` are all valid, with field-level validation shown for missing values.
+
+### Verify Email field validation for invalid formats (missing @, domain, spaces).
+
+Execution steps:
+- Go to `Step 4 > Billing Information`.
+- Enter valid `First Name`, `Last Name`, and `Phone Number`.
+- In `Email`, test these invalid values one by one and click `Save & Next` each time:
+  - `userdomain.com`
+  - `user@`
+  - `user @domain.com`
+- Enter a valid email (example: `qa.billing+uat@domain.com`) and click `Save & Next`.
+
+Expected result:
+- Invalid email formats are rejected and `Save & Next` remains blocked.
+- Valid email format is accepted.
+
+Positive scenarios:
+- Standard valid email passes validation.
+
+Negative scenarios:
+- Missing `@` is rejected.
+- Missing domain after `@` is rejected.
+- Spaces in email are rejected.
+
+Edge scenarios:
+- Leading/trailing spaces are handled consistently (trim or reject).
+
+Manual assertion (single):
+- **Assert:** Invalid email formats (`missing @`, `missing domain`, `spaces`) block `Save & Next` with field-level validation, while a valid email is accepted.
+
+### Verify Phone Number accepts valid numbers and country code; reject letters and too short/long values.
+
+Execution steps:
+- Open `Step 4 > Billing Information`.
+- Select a country code from phone country dropdown (for example `+1`).
+- Enter a valid phone number and click `Save & Next`.
+- Re-test with invalid values and click `Save & Next` each time:
+  - letters (`abcde`)
+  - too short number
+  - too long number
+
+Expected result:
+- Valid numeric phone value with selected country code is accepted.
+- Invalid phone inputs are rejected and keep user on current step with field-level validation.
+
+Positive scenarios:
+- Country code can be selected and retained.
+- Valid number length/format is accepted.
+
+Negative scenarios:
+- Letters are rejected.
+- Too short and too long numbers are rejected.
+
+Edge scenarios:
+- Input with spaces/hyphens is handled consistently per product rule.
+
+Manual assertion (single):
+- **Assert:** Phone field accepts only valid numeric input with country code and blocks invalid letter/length cases with field-level validation.
+
+### Verify Address/Country/State/City/Zip are prefilled from property and are consistent.
+
+Execution steps:
+- Reach `Step 4 > Billing Information` with `Property Address` option selected.
+- Observe prefilled values for `Address`, `Country`, `State`, `City`, and `Zip`.
+- Compare displayed values with the selected property details from deal/property context.
+- Switch to `Company Address` (if available), then switch back to `Property Address`.
+
+Expected result:
+- Address fields are prefilled from the selected source and are internally consistent.
+- Toggling source updates values correctly and returning restores expected property values.
+
+Positive scenarios:
+- Prefilled fields match property data.
+- No manual typing is required for read-only prefilled fields.
+
+Negative scenarios:
+- If any prefilled value is missing/inconsistent with property source, log as defect.
+- Stale values after source toggle are logged as defect.
+
+Edge scenarios:
+- Zip/postal formatting remains consistent when source is toggled.
+
+Manual assertion (single):
+- **Assert:** `Address/Country/State/City/Zip` values are correctly prefilled from property and remain consistent when switching address source options.
+
+### Verify 'Use a different billing address' reveals editable address fields and saves the alternate billing address.
+
+Execution steps:
+- In `Step 4 > Billing Information`, select `Other` (Use a different billing address).
+- Verify address inputs become editable (`Address`, `Country`, `State`, `City`, `Zip`).
+- Enter a complete alternate billing address with valid values.
+- Fill required contact details (if not already filled).
+- Click `Save & Next`, then return to `Step 4` and check entered alternate address values.
+
+Expected result:
+- Selecting `Other` reveals editable billing address fields.
+- Alternate address can be entered and is persisted after save/navigation.
+
+Positive scenarios:
+- Complete valid alternate address saves successfully.
+- Returning to step shows previously entered alternate billing address.
+
+Negative scenarios:
+- Missing required alternate address field blocks progression with field-level validation.
+- Invalid zip/postal format is rejected (if product validates).
+
+Edge scenarios:
+- Toggle `Other` -> `Property/Company` -> `Other` and verify expected persistence/reset behavior.
+
+Manual assertion (single):
+- **Assert:** Choosing `Other` exposes editable address fields, and a valid alternate billing address is saved/persisted while invalid or incomplete values block progression.
+
 ### TC-CONTRACT-024 | Verify Dispatch Request billing type dropdown loads and can be set
 Execution steps:
 - Navigate to Step 4 Payment Terms.
