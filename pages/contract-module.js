@@ -176,10 +176,10 @@ class ContractModule {
     this.lineItemTrigger = this.resourceTypeTriggerDiv;
     // Time picker dialog (shared for both Start and End time)
     // The dialog is a modal; listboxes are always unique when the dialog is open
-    this.timeDialogHoursListbox    = page.getByRole('listbox', { name: 'Select hours' });
-    this.timeDialogMinutesListbox  = page.getByRole('listbox', { name: 'Select minutes' });
-    this.timeDialogMeridiemListbox = page.getByRole('listbox', { name: 'Select meridiem' });
-    this.timeDialogOkBtn           = page.getByRole('button',  { name: 'OK' });
+    this.timeDialogHoursListbox    = page.getByRole('listbox', { name: 'Select hours' }).first();
+    this.timeDialogMinutesListbox  = page.getByRole('listbox', { name: 'Select minutes' }).first();
+    this.timeDialogMeridiemListbox = page.getByRole('listbox', { name: 'Select meridiem' }).first();
+    this.timeDialogOkBtn           = page.getByRole('button',  { name: 'OK' }).first();
     // Instructions rich text editor (first rdw-editor on the stepper)
     this.instructionsEditor = page.getByRole('textbox', { name: 'rdw-editor' }).first();
 
@@ -639,11 +639,24 @@ class ContractModule {
    * @param {'end' | 'renewal'} type
    */
   async selectDateType(type) {
-    if (type === 'end') {
-      await this.endDateRadio.click({ force: true });
-    } else if (type === 'renewal') {
-      await this.renewalDateRadio.click({ force: true });
+    const targetRadio = type === 'end' ? this.endDateRadio : this.renewalDateRadio;
+    const otherRadio = type === 'end' ? this.renewalDateRadio : this.endDateRadio;
+
+    let selected = false;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      selected = await targetRadio
+        .click({ force: true })
+        .then(async () => targetRadio.isChecked().catch(() => false))
+        .catch(() => false);
+      if (selected) break;
+      await this.page.waitForTimeout(200);
     }
+
+    if (!selected) {
+      throw new Error(`Unable to select date type "${type}" in Create Proposal drawer.`);
+    }
+    await expect(targetRadio).toBeChecked({ timeout: 5_000 });
+    await expect(otherRadio).not.toBeChecked({ timeout: 5_000 });
     await this.page.waitForTimeout(300);
   }
 
@@ -739,12 +752,27 @@ class ContractModule {
    * Waits for the button to be enabled first.
    */
   async clickSaveAndNext() {
-    const saveAndNextVisible = await this.saveAndNextBtn.isVisible().catch(() => false);
-    const primaryActionButton = saveAndNextVisible ? this.saveAndNextBtn : this.updateProposalBtn;
+    const saveAndNextButtons = this.page.getByRole('button', { name: /^Save & Next$/ });
+    const saveCount = await saveAndNextButtons.count().catch(() => 0);
 
-    await primaryActionButton.waitFor({ state: 'visible', timeout: 10_000 });
-    await expect(primaryActionButton).toBeEnabled({ timeout: 8_000 });
-    await primaryActionButton.click();
+    let clicked = false;
+    for (let i = Math.max(0, saveCount - 1); i >= 0; i -= 1) {
+      const candidate = saveAndNextButtons.nth(i);
+      const visible = await candidate.isVisible().catch(() => false);
+      if (!visible) continue;
+      const enabled = await candidate.isEnabled().catch(() => false);
+      if (!enabled) continue;
+      await candidate.click({ force: true });
+      clicked = true;
+      break;
+    }
+
+    if (!clicked) {
+      const primaryActionButton = this.updateProposalBtn;
+      await primaryActionButton.waitFor({ state: 'visible', timeout: 10_000 });
+      await expect(primaryActionButton).toBeEnabled({ timeout: 8_000 });
+      await primaryActionButton.click();
+    }
     await this.page.waitForTimeout(800);
     await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
   }
