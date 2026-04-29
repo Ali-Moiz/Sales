@@ -602,6 +602,7 @@ TC codes must be written into `docs/{{module}}-test-steps.md` **before** test ge
 
 - Never invent TC codes at test-write time.
 - If the user edits TC codes during the doc-review pause, the agent uses the edited codes.
+- **TC names (the part after the `|`) must use the user's EXACT requirement text** — never shortened, summarized, or paraphrased. Example: if the user provides "Verify that the Companies listing page loads successfully and displays charts, filters, and the companies grid", the TC line must be `### TC-COMP-001 | Verify that the Companies listing page loads successfully and displays charts, filters, and the companies grid`. The same exact text carries into `test()` titles.
 
 ### 9.6 Key patterns
 
@@ -943,6 +944,7 @@ test('TC-CONTRACT-002 | ...', async () => {
 | **NO `process.env` FOR TEST DATA** | Names, labels, search strings → named constants at top of file. | Flag and refactor before merging |
 | **NO `process.env` WRITES FOR CROSS-SUITE STATE** | Use `writeCreated*()` helpers from `utils/shared-run-state.js` — never `process.env.X = value`. | Remove the env write; the helper is already there |
 | **NO REQUIREMENT STRINGS IN DESCRIBE** | Requirements go in `test()` titles, `test.step()` titles, or `//` comments — never in the describe title. | Shorten to a summary if it reads like a user story |
+| **TC NAMES = EXACT REQUIREMENT TEXT** | The part after the `\|` in TC headings and `test()` titles must be the user's exact requirement string — never shortened, summarized, or paraphrased. | Rewrite to match user's original text |
 | **STATIC FIXTURE CONSTANTS** | Inline string literals buried in expressions → named `DOMAIN_FIELD_ENV` const block. | Unnamed literals are a review blocker |
 | **NO MAGIC NUMERIC FALLBACKS** | `\|\| 8` style defaults → named constant (e.g. `MAX_SEARCH_ATTEMPTS`). | Makes limits greppable and reviewable |
 | **`PAT {timestamp}` FOR CREATED RECORDS** | Plain names for test-created records → `\`PAT ${Date.now()}\``. | Identifies test-generated data in DB |

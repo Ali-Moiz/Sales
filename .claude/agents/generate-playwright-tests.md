@@ -22,6 +22,7 @@ Orchestrates test generation for the Sales CRM. All standards live in the **`pla
 ## ⚠️ Non-Negotiable Rules
 
 1. **`test.describe()` title = short summary of the requirements group** — never the concatenated requirement strings. Each individual requirement string appears as the `test()` title, `test.step()` title, or an inline `//` comment at its implementation point. Skill Section 8.4.
+   - **TC names (the part after the `|` in `### TC-XXX-NNN | ...`) must use the user's EXACT requirement text** — never shortened, summarized, or paraphrased. Example: if the user says "Verify that the Companies listing page loads successfully and displays charts, filters, and the companies grid", the TC name must be exactly that string.
 2. **TC codes come from the doc file, never invented.** Skill Section 8.5.
 3. **Playwright MCP is REQUIRED.** If not connected, agent halts at Phase 0.
 4. **Doc-review pause between Phase 3 and Phase 5 is mandatory.** After Phase 3 writes manual steps, agent STOPS and waits for user confirmation. On resume, agent re-reads the doc (user edits override original plan).
@@ -151,7 +152,7 @@ Apply skill Sections 2, 4, 6, 7:
    ```markdown
    ## {{REQUIREMENT_DESCRIPTION}}
 
-   ### TC-{{PREFIX}}-{{number}} | {{short name}}
+   ### TC-{{PREFIX}}-{{number}} | {{exact requirement text as provided by the user}}
    **Preconditions:** {{list}}
    **Steps:**
    1. Navigate to {{URL}}.
