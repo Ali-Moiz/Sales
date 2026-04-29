@@ -1441,8 +1441,26 @@ class ContractModule {
     await trigger.waitFor({ state: 'visible', timeout: 8_000 });
     await trigger.click();
     await this.page.waitForTimeout(300);
-    // Options appear in a tooltip/popper; click by exact text
-    await this.page.getByText(optionText, { exact: true }).first().click();
+
+    // Options appear in a tooltip/popper; scope lookup to popper first to avoid
+    // matching disabled labels elsewhere on the page (e.g., Payment Plans "Weekly").
+    const popper = this.page.locator('#simple-popper').last();
+    const popperVisible = await popper.isVisible().catch(() => false);
+    if (popperVisible) {
+      const popperOption = popper.getByText(optionText, { exact: true }).first();
+      await popperOption.waitFor({ state: 'visible', timeout: 8_000 });
+      await popperOption.click({ force: true });
+      await this.page.waitForTimeout(300);
+      return;
+    }
+
+    // Fallback when popper id is not available in current build.
+    const fallbackOption = this.page
+      .locator('[role="option"], li, p, div')
+      .filter({ hasText: new RegExp(`^\\s*${String(optionText).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`) })
+      .first();
+    await fallbackOption.waitFor({ state: 'visible', timeout: 8_000 });
+    await fallbackOption.click({ force: true });
     await this.page.waitForTimeout(300);
   }
 
@@ -1549,35 +1567,20 @@ class ContractModule {
 
   /**
    * Select the Billing Frequency.
-   * Uses #simple-popper scoping to avoid matching "Weekly" billing cycle elsewhere.
+   * Uses the Step 4 custom dropdown trigger and option selection.
    * @param {'Weekly'|'Bi Weekly'|'Monthly'|'Semi Monthly'} freq
    */
   async selectBillingFrequency(freq) {
-    const normalizedFreq = freq.replace(/\s+/g, '-');
-    const targetRadio = this.page.getByRole('radio', { name: new RegExp(`^${normalizedFreq}$|^${freq}$`, 'i') });
-    const targetVisible = await targetRadio.isVisible().catch(() => false);
+    const normalized = String(freq || '').trim();
+    const optionText =
+      /^bi\s*weekly$/i.test(normalized) ? 'Bi-Weekly'
+      : /^semi\s*monthly$/i.test(normalized) ? 'Semi Monthly'
+      : normalized;
 
-    if (targetVisible) {
-      const targetDisabled = await targetRadio.isDisabled().catch(() => false);
-      if (!targetDisabled) {
-        await targetRadio.click({ force: true });
-        await this.page.waitForTimeout(300);
-        return;
-      }
-    }
-
-    const checkedRadio = this.page.locator('input[type="radio"]:checked').first();
-    const checkedExists = await checkedRadio.isVisible().catch(() => false);
-    if (checkedExists) {
-      return;
-    }
-
-    const eventRadio = this.page.getByRole('radio', { name: 'Event' });
-    const eventVisible = await eventRadio.isVisible().catch(() => false);
-    if (eventVisible) {
-      await eventRadio.click({ force: true });
-      await this.page.waitForTimeout(300);
-    }
+    await this._selectFromCustomDropdown(
+      /Select Billing Frequency|Weekly|Bi-Weekly|Bi Weekly|Monthly|Semi Monthly/i,
+      optionText,
+    );
   }
 
   /**

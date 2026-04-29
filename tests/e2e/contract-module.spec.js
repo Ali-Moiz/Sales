@@ -5112,6 +5112,10 @@ test.describe.serial("Contract Module", () => {
         ).toBeTruthy();
       },
     );
+
+    // Keep serial flow deterministic for following Step 4 tests.
+    await ensureE2EStep4Ready(cm);
+    await companyAddressRadio.click({ force: true }).catch(() => {});
   });
 
   /**
@@ -5134,6 +5138,36 @@ test.describe.serial("Contract Module", () => {
    */
   test("TC-CONTRACT-E2E-009 | Fill Step 4 Payment Terms and advance to Step 5", async () => {
     await ensureE2EStep4Ready(cm);
+    await page
+      .getByRole("radio", { name: /Company Address/i })
+      .first()
+      .click({ force: true })
+      .catch(() => {});
+
+    // Serial-flow guard: previous Step 4 tests may leave "Flat" selected with 0,
+    // which blocks Save & Next. Normalize to a non-blocking billing occurrence.
+    const flatRadio = page.getByRole("radio", { name: /Flat/i }).first();
+    const eventRadio = page.getByRole("radio", { name: /Event/i }).first();
+    const flatChecked = await flatRadio.isChecked().catch(() => false);
+    if (flatChecked) {
+      const eventVisible = await eventRadio.isVisible().catch(() => false);
+      const eventEnabled = await eventRadio.isEnabled().catch(() => false);
+      if (eventVisible && eventEnabled) {
+        await eventRadio.click({ force: true }).catch(() => {});
+      } else {
+        const flatRateInput = page
+          .locator("div")
+          .filter({ has: flatRadio })
+          .getByRole("spinbutton")
+          .first();
+        const flatRateVisible = await flatRateInput.isVisible().catch(() => false);
+        const flatRateEnabled = await flatRateInput.isEnabled().catch(() => false);
+        if (flatRateVisible && flatRateEnabled) {
+          await flatRateInput.fill("1000");
+        }
+      }
+    }
+
     await cm.fillStep4PaymentTerms(PAYMENT_DATA);
     await cm.clickSaveAndNext();
     await cm.assertStep5Visible();
