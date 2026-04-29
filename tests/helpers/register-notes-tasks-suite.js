@@ -1,5 +1,6 @@
 const { expect } = require('@playwright/test');
 const { NotesTaskPage } = require('../../pages/notesTask.page');
+const { performLogin } = require('../../utils/auth/login-action');
 
 const ts = () => Date.now();
 
@@ -16,6 +17,13 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
       page = getPage();
       ntPage = new NotesTaskPage(page);
       await openEntityDetail();
+
+      // Guard: if the app redirected to login (session expired / invalidated),
+      // re-authenticate and retry openEntityDetail once before failing the test.
+      if (!/\/app\/sales\//.test(page.url())) {
+        await performLogin(page);
+        await openEntityDetail();
+      }
     });
 
     test(`NT-${moduleName}-N001: Notes tab is visible and clickable`, async () => {

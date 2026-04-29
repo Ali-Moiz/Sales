@@ -71,6 +71,18 @@ function writeCreatedPropertyCompanyName(createdPropertyCompanyName) {
   });
 }
 
+function readCreatedPropertyPath() {
+  return readState().createdPropertyPath || '';
+}
+
+function writeCreatedPropertyPath(createdPropertyPath) {
+  const current = readState();
+  writeState({
+    ...current,
+    createdPropertyPath,
+  });
+}
+
 function readCreatedContactName() {
   return readState().createdContactName || '';
 }
@@ -88,6 +100,8 @@ module.exports = {
   writeCreatedCompanyName,
   readCreatedPropertyName,
   writeCreatedPropertyName,
+  readCreatedPropertyPath,
+  writeCreatedPropertyPath,
   readCreatedPropertyCompanyName,
   writeCreatedPropertyCompanyName,
   readCreatedContactName,

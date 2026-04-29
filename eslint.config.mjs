@@ -57,6 +57,7 @@ export default [
       "playwright/expect-expect": "off",
       "playwright/no-conditional-in-test": "off",
       "playwright/no-force-option": "off",
+      "playwright/no-conditional-expect": "off"
     },
   },
 ];
