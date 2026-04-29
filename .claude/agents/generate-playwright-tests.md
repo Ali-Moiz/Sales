@@ -21,11 +21,12 @@ Orchestrates test generation for the Sales CRM. All standards live in the **`pla
 
 ## ⚠️ Non-Negotiable Rules
 
-1. **`test.describe()` title = user's exact requirement string** (verbatim for single; comma-joined for multiple). Skill Section 8.4.
+1. **`test.describe()` title = short summary of the requirements group** — never the concatenated requirement strings. Each individual requirement string appears as the `test()` title, `test.step()` title, or an inline `//` comment at its implementation point. Skill Section 8.4.
 2. **TC codes come from the doc file, never invented.** Skill Section 8.5.
 3. **Playwright MCP is REQUIRED.** If not connected, agent halts at Phase 0.
 4. **Doc-review pause between Phase 3 and Phase 5 is mandatory.** After Phase 3 writes manual steps, agent STOPS and waits for user confirmation. On resume, agent re-reads the doc (user edits override original plan).
 5. **All tests must pass headless via MCP before delivery.** Failures trigger Phase 8 auto-fix (2 attempts → pause → optional attempt 3 → `test.fail()`).
+6. **Already-implemented requirements are NOT skipped.** For any requirement whose TC code or test already exists in the output file, the agent MUST: (a) update the `test()` or `test.step()` title to match the requirement string if it doesn't already, (b) add any missing assertions identified in Phase 2, (c) add an inline `//` comment at the relevant implementation point referencing the requirement.
 
 ---
 
@@ -60,7 +61,7 @@ The agent infers the **module** from the test output file path (e.g., `contract-
    - If path doesn't match `{module}-module.spec.js` pattern → ask user to confirm module.
 5. **Check files:**
    - Doc file: exists? If yes, parse existing TC codes to avoid collisions.
-   - Test output file: exists? If yes, scan for TC codes to avoid duplicate test generation.
+   - Test output file: exists? If yes, scan for TC codes AND test/step titles to classify each requirement as NEW or ALREADY IMPLEMENTED. For already-implemented ones, record: current title, current assertions, and what's missing.
    - POM file: exists? If not, flag for Phase 4 (will ask user before creating).
 6. **Load `.env`:**
    - Read `.env.uat` (or `.env`) for `BASE_URL`.
@@ -70,8 +71,8 @@ The agent infers the **module** from the test output file path (e.g., `contract-
 [PHASE 0] PRE-FLIGHT
   Playwright MCP: CONNECTED
   Requirements parsed: {{N}}
-    1. {{requirement 1}}
-    2. {{requirement 2}}
+    1. {{requirement 1}} — {{NEW | ALREADY IMPLEMENTED (TC-X-001, title match: YES/NO, missing assertions: N)}}
+    2. {{requirement 2}} — {{NEW | ALREADY IMPLEMENTED (TC-X-002, ...)}}
   Module (inferred): {{module}}
   Doc file: {{path}} ({{exists | new}})
   POM file: {{path}} ({{exists | will prompt to create}})
@@ -246,16 +247,31 @@ Do NOT modify, rename, or refactor existing code.
 ## Phase 5: Generate Tests
 
 1. **Structure** per skill Section 8 and Phase 2's test structure decision:
-   - Shared describe block titled with exact comma-joined requirement string.
+   - `test.describe()` title = **short summary** of the requirements group — never the concatenated requirement strings.
    - One test with `test.step()` groups (shared flow) OR separate tests (independent flows).
-2. **Apply ALL skill rules:**
+   - **Each requirement string** must appear as: the `test()` title (independent flows), the `test.step()` title (shared flow), or an inline `//` comment directly above the relevant implementation block.
+
+2. **For each requirement, apply the correct mode:**
+
+   **NEW requirement** (not found in spec file):
+   - Generate a full test or `test.step()` block.
+   - Use the requirement string as the `test()` or `test.step()` title.
+
+   **ALREADY IMPLEMENTED requirement** (TC code or matching test found):
+   - Update the `test()` or `test.step()` title to match the requirement string if it doesn't already.
+   - Add any missing assertions identified in Phase 2.
+   - Add an inline `// {{requirement string}}` comment at the relevant implementation point if not already present.
+   - Do NOT rewrite working test logic — only add/update titles, assertions, and comments.
+
+3. **Apply ALL skill rules:**
    - Locator-first selectors (Section 2)
    - Event-based waits (Section 4)
    - Critical-point assertions only (Section 6.1)
    - Unique test data (Section 5)
    - `test.step()` logging (Section 8.6)
    - Tags: `@smoke` on happy path, `@regression` on edge cases (Section 8.7)
-3. Write to `{{TEST_OUTPUT_FILE}}`.
+
+4. Write to `{{TEST_OUTPUT_FILE}}`.
 
 ---
 
@@ -279,7 +295,8 @@ Checklist:
 - [ ] No double-waits
 - [ ] No `toBeDefined()` as sole assertion
 - [ ] No hardcoded URLs/credentials
-- [ ] Describe title matches requirement string (single or comma-joined)
+- [ ] Describe title is a short summary — NOT the concatenated requirement string
+- [ ] Each requirement string appears in a `test()` title, `test.step()` title, or `//` comment
 - [ ] All TC codes match doc
 - [ ] `test.step()` used to group multi-requirement assertions
 - [ ] Assertion counts within target (3–6 per test, 2–4 per step)
@@ -418,7 +435,9 @@ Files changed:
 
 - **Load `playwright-test-standards` skill first** — do not duplicate its rules.
 - **Playwright MCP is mandatory** — halt at Phase 0 if not connected.
-- **ONE shared describe block** for multi-requirement runs.
+- **ONE shared describe block** for multi-requirement runs. Describe title = short summary, never the concatenated requirement string.
+- **Each requirement string** must surface as a `test()` title, `test.step()` title, or `//` comment — not buried in the describe title.
+- **Already-implemented requirements** are NOT skipped — update title, add missing assertions, add comment.
 - **Doc-review pause is mandatory** — do NOT skip Phase 3 pause, do NOT auto-resume.
 - **Re-read doc on resume** — user's edits override the original plan.
 - **Infer module from spec path** — don't ask unless path doesn't match pattern.
