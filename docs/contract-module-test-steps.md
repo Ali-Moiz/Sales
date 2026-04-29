@@ -338,6 +338,7 @@ Preconditions for all below cases:
 - User opens a deal where `Contract & Terms` is accessible.
 - `Create Proposal` drawer can be opened.
 - `Contract Dates to be decided` is unchecked (date controls visible).
+- Contract state allows access to the `Create Proposal` drawer date fields (Start Date + End/Renewal controls).
 
 ### M-CONTRACT-DR-001 | Verify End Date and Renewal Date are mutually exclusive (radio behavior) and proper field becomes required accordingly.
 
@@ -361,27 +362,39 @@ Preconditions for all below cases:
    - Renewal Date required validation appears.
    - End Date required validation is not shown at the same time.
 8. Enter valid Renewal Date and submit again.
-9. Verify successful progression (if all required inputs are valid):
+9. Before submitting, verify `Contract Duration` behavior in Renewal mode:
+   - `Contract Duration` value/label is visible (if product rule requires visibility at this stage).
+   - Duration is calculated from `Start Date` to `Renewal Date`.
+   - Duration format is consistent (for example days/months/years per product rule).
+10. Verify successful progression (if all required inputs are valid):
    - Submission proceeds to contract stepper/created state.
    - URL/state indicates contract instance created.
-10. Return/reopen drawer and switch to `End Date` radio.
-11. Verify mutual exclusivity:
+11. Return/reopen drawer and switch to `End Date` radio.
+12. Verify mutual exclusivity:
     - `End Date` becomes selected.
     - `Renewal Date` becomes unselected.
     - End Date input is visible/enabled as active required field.
-12. Leave End Date empty and submit.
-13. Verify required behavior for End Date mode:
+13. Enter valid End Date.
+14. Verify `Contract Duration` behavior in End mode:
+    - Duration recalculates from `Start Date` to `End Date`.
+    - Display updates from prior Renewal-based duration to End-based duration.
+15. Leave End Date empty and submit.
+16. Verify required behavior for End Date mode:
     - Submission is blocked.
     - End Date required validation appears.
     - Renewal Date required validation is not shown as active blocker.
-14. Enter valid End Date and submit.
-15. Verify submission succeeds when selected date-type field is valid.
+17. Re-enter valid End Date and submit.
+18. Verify submission succeeds when selected date-type field is valid.
+19. Edit `Start Date` while End/Renewal value remains set and verify duration recomputes immediately.
+20. Switch `End Date` <-> `Renewal Date` twice after both fields have values and verify displayed duration always maps to active radio selection only.
 
 #### Expected result
 - `End Date` and `Renewal Date` work as mutually exclusive radios.
 - Only the selected date-type field is required at submit time.
 - Missing selected date blocks submit with clear field-level validation.
 - Providing valid value for selected date-type clears validation and allows progress.
+- `Contract Duration` display (if present by design) is derived from `Start Date` + currently selected date type (`End Date` or `Renewal Date`).
+- Changing date values or radio selection updates duration deterministically without stale/previous-mode values.
 
 #### Negative and edge scenarios to execute under same ID
 - **N1 - Rapid radio switching before submit**
@@ -423,6 +436,36 @@ Preconditions for all below cases:
 - **N10 - Repeated submit clicks**
   - Click `Create Proposal` 3-5 times quickly with selected date field empty.
   - Expected: no duplicate error stacking, no freeze, stable single validation behavior.
+
+- **N11 - Duration behavior with missing selected date**
+  - Keep `Start Date` filled and selected date-type field empty.
+  - Expected: submit blocked by required validation; duration does not show misleading computed value.
+
+- **N12 - Duration behavior with invalid chronology**
+  - Enter selected date earlier than `Start Date` in active mode.
+  - Expected: chronological validation appears; duration should not display an invalid computed state.
+
+- **N13 - Same-day boundary**
+  - Set selected date equal to `Start Date`.
+  - Expected: duration displays boundary value consistently (for example `0 days` or equivalent per product rule).
+
+- **N14 - Month/year boundary**
+  - Use dates across month/year boundary (for example Jan 31 -> Feb 1).
+  - Expected: duration calculation remains accurate across calendar boundaries.
+
+- **N15 - Leap-year boundary (when test date range allows)**
+  - Use leap-year date pair (for example Feb 28/29 -> Mar 1).
+  - Expected: duration calculation remains calendar-correct and deterministic.
+
+#### Manual exploration findings (current run)
+- Login to UAT via `.env.uat` credentials succeeded.
+- Current accessible deals in the run had existing contracts, and `Create Proposal` drawer was not reachable in tested records.
+- Full execution of Contract Duration display scenarios was blocked in this run due to drawer access state.
+
+#### Coverage gaps to track explicitly
+- Provide at least one clean deal state where `Create Proposal` drawer is accessible for full execution.
+- Confirm product rule for whether `Contract Duration` must always be visible pre-submit or only after valid date pair.
+- Confirm canonical duration format (days vs mixed units) for expected-result consistency.
 
 ## Manual QA Focus: Verify Renewal Date cannot be earlier than Start Date; show validation/error.
 
@@ -915,6 +958,7 @@ Expected result:
 - Job Day selection
 - Start Time / End Time chronology
 ### Verify Include Fuel Surcharge and Include Vehicle toggles can be enabled and reflected in pricing/totals where applicable.
+### Verify Officer/Guard Breaks checkboxes (Billable/Payable) can be toggled and saved.
 ### Verify Add Instructions rich text supports formatting (bold/italic/list/headings) and content saves.
 ### Verify Additional Services toggles (Visitor Management, Load Management) can be selected and persist.
 ### Verify user can add multiple services (Service 1, Service 2) and totals reflect aggregated services.
@@ -1054,7 +1098,24 @@ Execution steps:
     - Verify final saved toggle states persist after navigation (independent or linked behavior should be documented exactly as observed).
     - Verify values reflected in visible deal/summary context where applicable after stepper completion/edit reopen.
 
-33. **Point 11: Multiple services (Service 1 + Service 2) and aggregated totals**
+33. **Point 11: Officer/Guard Breaks (Billable/Payable) toggle + save persistence**
+    - In Step 1 (`Services`), locate `Officer/Guard Breaks` section.
+    - Verify two checkboxes are present:
+      - `Billable`
+      - `Payable`
+    - Capture baseline default state for both checkboxes (checked/unchecked).
+    - Toggle `Billable` ON while `Payable` remains OFF.
+    - Click `Save & Next`, then navigate back to Step 1.
+    - Verify `Billable` persisted ON and `Payable` persisted OFF.
+    - Toggle `Payable` ON (with `Billable` still ON), save forward/back.
+    - Verify both persisted ON.
+    - Toggle `Billable` OFF (keep `Payable` ON), save forward/back.
+    - Verify final saved state persists exactly as configured.
+    - Toggle both OFF, save forward/back, and verify both remain OFF.
+    - Perform rapid toggles (`ON -> OFF -> ON`) for each checkbox, save, and verify persisted state matches final user action.
+    - If `Officer/Guard Breaks` controls are not visible in current environment, log blocker with URL and screenshot, and mark this point as blocked for execution.
+
+34. **Point 12: Multiple services (Service 1 + Service 2) and aggregated totals**
     - Keep Service 1 fully valid and note Service 1 calculated value (or baseline grand total with only Service 1).
     - Click `Add Service`/`Add Another Service`.
     - In current UAT UI, use the icon button shown directly next to the `Add another service` heading.
@@ -1090,6 +1151,7 @@ Expected result:
 - At least one Job Day is required (expected current message: `Job Days must have at least 1 item.`).
 - Time validation enforces valid Start/End sequence per product chronology rules (including explicit overnight behavior confirmation).
 - Include Fuel Surcharge and Include Vehicle toggles are interactive, stable, and reflected according to product pricing/totals rules.
+- Officer/Guard Breaks checkboxes (`Billable`/`Payable`) are independently toggleable and persist accurately after save + back-navigation.
 - Add Instructions rich text supports toolbar formatting (bold/italic/lists/headings) and preserves formatted content after save/back-navigation.
 - Additional Services toggles (Visitor Management, Load Management) can be selected independently and persist reliably.
 - Multi-service flows allow Service 1 + Service 2 data entry, and Grand Total reflects aggregated service pricing logic.
@@ -1099,6 +1161,7 @@ Observed behavior on `BASE_URL` (UAT exploration baseline):
 - `Visitor Management` and `Load Management` are rendered as standalone checkbox controls and must be verified with explicit checked-state assertions (not label-click only).
 - Toggle persistence can be validated by enabling both toggles, navigating forward/back, and confirming both remain ON before testing OFF state.
 - `Include Vehicle` dependent controls may be environment/data dependent; in some runs, rate field appears while count field may not be visible.
+- In current UAT exploration (`https://uat.sales.teamsignal.com/app/sales/deals/deal/20107/contract/216`), `Officer/Guard Breaks` with `Billable`/`Payable` was not visible in Step 1; this point is currently blocked in that environment state.
 - `Add another service` is triggered from the icon button adjacent to the `Add another service` heading; successful action increases service-name input count from 1 to 2.
 
 Negative and edge scenarios (same ID, execute as sub-coverage):
@@ -1162,15 +1225,20 @@ Negative and edge scenarios (same ID, execute as sub-coverage):
   - Enable Visitor only, save/back, then enable Load only, save/back.
   - Expected: each toggle state persists independently; no forced coupling.
 
-- **N16 - Multi-service aggregation edge**
+- **N16 - Officer/Guard Breaks visibility + save matrix**
+  - Validate all four combinations across save/reopen cycles: `(Billable OFF, Payable OFF)`, `(ON, OFF)`, `(OFF, ON)`, `(ON, ON)`.
+  - Expected: each combination persists exactly as configured, with no forced coupling unless explicitly defined by product rule.
+  - If controls are missing, log as environment/product gap with URL and run evidence.
+
+- **N17 - Multi-service aggregation edge**
   - Add Service 2 with very small/large valid values and compare total update.
   - Expected: aggregation remains mathematically correct and UI handles rounding consistently.
 
-- **N17 - Multi-service reorder/delete resilience**
+- **N18 - Multi-service reorder/delete resilience**
   - Add Service 2, then remove Service 1 or Service 2 (based on available controls).
   - Expected: service list and totals renumber/recompute correctly without stale values.
 
-- **N18 - Keyboard-only with multiple services**
+- **N19 - Keyboard-only with multiple services**
   - Use keyboard navigation to add Service 2, update toggles, and save.
   - Expected: parity with mouse flow; no inaccessible critical controls.
 
@@ -1271,6 +1339,197 @@ Execution steps:
 
 Expected result:
 - All Step 4 sections are visible.
+
+### TC-CONTRACT-E2E-008B | Verify Holiday Multiplier and Holiday Group selection works; '0 Holidays' link/info is accessible (if applicable).
+
+Execution steps:
+- In `Define Payment Terms`, select a non-empty value in `Holiday Multiplier`.
+- Select one value in `Holiday Group`.
+- Click `0 Holidays` link/info below `Holiday Group`.
+
+Expected result:
+- Selected `Holiday Multiplier` and `Holiday Group` values remain visible.
+- `0 Holidays` control is interactable and shows product-defined feedback (modal/tooltip/navigation/inline content). If no feedback appears, log as defect.
+
+Positive scenarios:
+- `Holiday Multiplier` accepts a valid selection.
+- `Holiday Group` accepts a valid selection after multiplier is chosen.
+
+Negative scenarios:
+- Keep `Holiday Group` empty after selecting multiplier, then click `Save & Next`.
+- Verify field-level validation appears and navigation is blocked.
+
+Edge scenarios:
+- Clear/reselect `Holiday Multiplier` and verify `Holiday Group` required behavior updates correctly.
+- If `0 Holidays` is visible but does not react on click, capture as a behavior gap.
+
+Manual assertion (single):
+- **Assert:** With valid `Holiday Multiplier` and `Holiday Group` selected, both values persist and `0 Holidays` remains accessible/clickable.
+
+### TC-CONTRACT-E2E-008C | Verify Flat plan input validation (flat amount required, numeric only).
+
+Execution steps:
+- In `Select Billing Occurrence`, select `Flat` plan.
+- Verify `Flat Rate ($)/month` input is enabled.
+- Enter valid numeric input (example: `1000`) and confirm the value is retained.
+- Clear/leave flat amount invalid (empty or non-numeric) and click `Save & Next`.
+
+Expected result:
+- Flat amount is required for `Flat` plan and accepts numeric input only.
+- `Save & Next` is blocked for missing/invalid flat amount with field-level validation.
+
+Positive scenarios:
+- Selecting `Flat` enables flat amount input.
+- Valid numeric value is accepted and retained.
+
+Negative scenarios:
+- Non-numeric input is rejected/sanitized.
+- Missing flat amount blocks progression and shows validation.
+
+Edge scenarios:
+- Negative value handling follows product rule (reject or field validation).
+- Very large numeric value does not break UI and follows product validation.
+- Precision input (for example `250.505`) follows product rounding/precision rule.
+
+Manual assertion (single):
+- **Assert:** Under `Flat` plan, valid numeric amount is accepted, and missing/invalid amount blocks `Save & Next` with field-level validation.
+
+### Verify Billing Information required fields: First Name, Last Name, Email, Phone Number validate correctly.
+
+Execution steps:
+- Navigate to `Step 4 > Billing Information`.
+- Keep a valid address source selected (`Property Address` or `Company Address`).
+- Clear `First Name`, `Last Name`, `Email`, and `Phone Number`.
+- Click `Save & Next` and capture field-level errors.
+- Fill the four fields with valid values and click `Save & Next` again.
+
+Expected result:
+- `Save & Next` is blocked when any required contact field is empty.
+- Field-level validation appears for missing required fields.
+- Progression is allowed only after all four required fields are valid.
+
+Positive scenarios:
+- Valid values in all four fields allow progression.
+
+Negative scenarios:
+- Leaving any one required field empty blocks progression.
+
+Edge scenarios:
+- Spaces-only input is rejected or trimmed consistently per product behavior.
+
+Manual assertion (single):
+- **Assert:** Billing Information progression is blocked until `First Name`, `Last Name`, `Email`, and `Phone Number` are all valid, with field-level validation shown for missing values.
+
+### Verify Email field validation for invalid formats (missing @, domain, spaces).
+
+Execution steps:
+- Go to `Step 4 > Billing Information`.
+- Enter valid `First Name`, `Last Name`, and `Phone Number`.
+- In `Email`, test these invalid values one by one and click `Save & Next` each time:
+  - `userdomain.com`
+  - `user@`
+  - `user @domain.com`
+- Enter a valid email (example: `qa.billing+uat@domain.com`) and click `Save & Next`.
+
+Expected result:
+- Invalid email formats are rejected and `Save & Next` remains blocked.
+- Valid email format is accepted.
+
+Positive scenarios:
+- Standard valid email passes validation.
+
+Negative scenarios:
+- Missing `@` is rejected.
+- Missing domain after `@` is rejected.
+- Spaces in email are rejected.
+
+Edge scenarios:
+- Leading/trailing spaces are handled consistently (trim or reject).
+
+Manual assertion (single):
+- **Assert:** Invalid email formats (`missing @`, `missing domain`, `spaces`) block `Save & Next` with field-level validation, while a valid email is accepted.
+
+### Verify Phone Number accepts valid numbers and country code; reject letters and too short/long values.
+
+Execution steps:
+- Open `Step 4 > Billing Information`.
+- Select a country code from phone country dropdown (for example `+1`).
+- Enter a valid phone number and click `Save & Next`.
+- Re-test with invalid values and click `Save & Next` each time:
+  - letters (`abcde`)
+  - too short number
+  - too long number
+
+Expected result:
+- Valid numeric phone value with selected country code is accepted.
+- Invalid phone inputs are rejected and keep user on current step with field-level validation.
+
+Positive scenarios:
+- Country code can be selected and retained.
+- Valid number length/format is accepted.
+
+Negative scenarios:
+- Letters are rejected.
+- Too short and too long numbers are rejected.
+
+Edge scenarios:
+- Input with spaces/hyphens is handled consistently per product rule.
+
+Manual assertion (single):
+- **Assert:** Phone field accepts only valid numeric input with country code and blocks invalid letter/length cases with field-level validation.
+
+### Verify Address/Country/State/City/Zip are prefilled from property and are consistent.
+
+Execution steps:
+- Reach `Step 4 > Billing Information` with `Property Address` option selected.
+- Observe prefilled values for `Address`, `Country`, `State`, `City`, and `Zip`.
+- Compare displayed values with the selected property details from deal/property context.
+- Switch to `Company Address` (if available), then switch back to `Property Address`.
+
+Expected result:
+- Address fields are prefilled from the selected source and are internally consistent.
+- Toggling source updates values correctly and returning restores expected property values.
+
+Positive scenarios:
+- Prefilled fields match property data.
+- No manual typing is required for read-only prefilled fields.
+
+Negative scenarios:
+- If any prefilled value is missing/inconsistent with property source, log as defect.
+- Stale values after source toggle are logged as defect.
+
+Edge scenarios:
+- Zip/postal formatting remains consistent when source is toggled.
+
+Manual assertion (single):
+- **Assert:** `Address/Country/State/City/Zip` values are correctly prefilled from property and remain consistent when switching address source options.
+
+### Verify 'Use a different billing address' reveals editable address fields and saves the alternate billing address.
+
+Execution steps:
+- In `Step 4 > Billing Information`, select `Other` (Use a different billing address).
+- Verify address inputs become editable (`Address`, `Country`, `State`, `City`, `Zip`).
+- Enter a complete alternate billing address with valid values.
+- Fill required contact details (if not already filled).
+- Click `Save & Next`, then return to `Step 4` and check entered alternate address values.
+
+Expected result:
+- Selecting `Other` reveals editable billing address fields.
+- Alternate address can be entered and is persisted after save/navigation.
+
+Positive scenarios:
+- Complete valid alternate address saves successfully.
+- Returning to step shows previously entered alternate billing address.
+
+Negative scenarios:
+- Missing required alternate address field blocks progression with field-level validation.
+- Invalid zip/postal format is rejected (if product validates).
+
+Edge scenarios:
+- Toggle `Other` -> `Property/Company` -> `Other` and verify expected persistence/reset behavior.
+
+Manual assertion (single):
+- **Assert:** Choosing `Other` exposes editable address fields, and a valid alternate billing address is saved/persisted while invalid or incomplete values block progression.
 
 ### TC-CONTRACT-024 | Verify Dispatch Request billing type dropdown loads and can be set
 Execution steps:
@@ -2009,6 +2268,283 @@ Preconditions for all below cases:
 - If summary card does not display a clear Auto Renewal label/value, log as a UX observability gap and verify via Edit surface/API-backed value.
 - If checkbox state changes without explicit user action during validation or rerender, log as functional bug (state loss).
 - If keyboard toggle is not reachable by focus order, log as accessibility defect.
+
+## Manual QA Focus: Verify payment plan columns render (Monthly, Bi-Weekly, Weekly, Event, Flat) and selecting a plan highlights it.
+
+Scope:
+- This section covers only Payment Plans UI behavior in Contract Step 4 (`Payment Terms`).
+- Goal: verify all required plan columns render and selected plan is highlighted correctly.
+- Do not use this section for unrelated Create Proposal validations, Step 1 service field validations, or publish/signature flow.
+
+Preconditions for all below cases:
+- User is logged in to `BASE_URL` using valid `.env` credentials.
+- User opens a deal and enters `Contract & Terms`.
+- User reaches contract stepper and navigates to Step 4 (`Payment Terms`).
+- Ensure Payment Plans block is visible before execution.
+
+### M-CONTRACT-PLAN-001 | Verify payment plan columns render and selected plan highlight behavior
+
+#### Detailed execution steps
+1. Navigate to `BASE_URL` and login with valid HO credentials from `.env.uat`.
+2. Open `Deals`, open a target deal, and open `Contract & Terms`.
+3. Enter proposal flow and complete prior required steps with valid values to reach Step 4 (`Payment Terms`).
+4. Scroll to `Payment Plans` section.
+5. Verify visible plan columns include all of the following labels:
+   - `Monthly`
+   - `Bi-Weekly`
+   - `Weekly`
+   - `Event`
+   - `Flat`
+6. Capture baseline state:
+   - Which plan is selected by default.
+   - Which plans are enabled vs disabled.
+   - Current visual state (selected/unselected/disabled style).
+7. Click `Event`.
+8. Verify `Event` is highlighted as selected and only one plan is active.
+9. Click `Flat`.
+10. Verify highlight moves to `Flat` and `Event` is unselected.
+11. Click between selectable plans (`Event` <-> `Flat`) 3-5 times.
+12. Verify stable selection transition with no flicker, overlap, or stale highlight.
+13. Navigate away to another step (for example Step 2 or Step 3), then return to Step 4.
+14. Verify previously selected plan remains selected (persistence check).
+15. Attempt `Save & Next` with valid Step 4 required inputs completed.
+16. Verify no false payment-plan highlight/selection loss occurs during submit transition.
+
+#### Expected result
+- Payment Plans section renders all required columns: `Monthly`, `Bi-Weekly`, `Weekly`, `Event`, `Flat`.
+- Selecting a plan applies clear selected highlight and deselects prior selection (single-select behavior).
+- Repeated switching keeps state consistent and stable.
+- Selected plan persists after step navigation and during normal submit flow.
+
+#### Negative and edge scenarios to execute under same ID
+- **N1 - Disabled plans are visible but non-interactive**
+  - If any plan is disabled, attempt click/keyboard activation.
+  - Expected: disabled option cannot be selected and selected state does not move to disabled card.
+
+- **N2 - Disabled-state UX clarity**
+  - For disabled plans, verify whether user gets explanation (tooltip/helper text/inline hint).
+  - Expected: app should provide clear reason for disabled plans (if business-rule-driven).
+  - If missing, log as UX gap.
+
+- **N3 - Default selection integrity**
+  - Reload Step 4 and verify only one default plan is selected.
+  - Expected: exactly one active plan (no dual-highlight, no null-highlight unless explicitly designed).
+
+- **N4 - Rapid selection switching**
+  - Switch plans quickly (5-10 toggles).
+  - Expected: no lagging visual state, no console-visible crash, no stuck state.
+
+- **N5 - Save transition integrity**
+  - Select plan, click `Save & Next`, return back.
+  - Expected: same plan remains selected; no silent reset.
+
+- **N6 - Keyboard-only accessibility**
+  - Use Tab navigation to focus each selectable plan.
+  - Use `Enter` or `Space` to select.
+  - Expected: keyboard selection mirrors mouse behavior; focus indicator visible; selected highlight updates correctly.
+
+- **N7 - Responsive/viewport behavior**
+  - Execute in smaller viewport (for example 1280x720).
+  - Expected: all five plan columns remain discoverable without overlap/truncation blocking interaction.
+
+- **N8 - Date-duration dependency check**
+  - Repeat with short and long contract durations (set in Step 1 dates) and compare enabled/disabled plan states.
+  - Expected: any duration-based enable/disable behavior is deterministic and communicated to user.
+
+#### Manual exploration findings (current run)
+- Observed all 5 columns rendered in UI.
+- Observed `Event` and `Flat` selectable with clear blue selected highlight.
+- Observed `Monthly`, `Bi-Weekly`, and `Weekly` in disabled state in the tested short-duration contract.
+- Observed selection persistence after navigating away and back to Step 4.
+- Observed gap: no visible helper text/tooltip explaining why disabled plans were unavailable.
+
+#### Coverage gaps to track explicitly
+- If disabled plans are expected by business rule, add product-level acceptance criteria for explanatory messaging.
+- Validate keyboard accessibility with real manual run (Tab + Enter/Space + focus indication + optional screen reader check).
+- Validate duration-driven behavior matrix explicitly:
+  - short duration,
+  - medium duration,
+  - long duration.
+
+## Manual QA Focus: Verify Services Total/Dispatch Total/Tax Rate/Total update for selected plan.
+
+Scope:
+- This section covers only Step 4 (`Payment Terms`) totals behavior for selected payment plan.
+- Goal: verify `Tax Rate (%)` behaves as a required numeric field, enforces valid range (`0` to `100`), supports decimals, rejects alpha/negative input, and updates dependent totals correctly.
+- Do not use this section for unrelated Step 1 field validations, proposal drawer validations, or publish/signature workflow.
+
+Preconditions for all below cases:
+- User is logged in to `BASE_URL` with valid `.env` credentials.
+- User opens a deal and enters `Contract & Terms`.
+- User reaches Step 4 (`Payment Terms`) through valid stepper flow.
+- Payment Plans table is visible with columns:
+  - `Services Total ($)`
+  - `Dispatch Total ($)`
+  - `Tax Rate (%)`
+  - `Total`
+
+### M-CONTRACT-PLAN-TOTAL-001 | Verify Services Total/Dispatch Total/Tax Rate/Total update for selected plan. 
+#### Verify Tax Rate (%) is required and validates numeric range (0-100) and decimals; reject alpha/negative.
+#### Verify Save & Next blocked until required payment term fields are completed; show field-level errors.
+
+#### Detailed execution steps
+1. Navigate to `BASE_URL` and login with valid HO credentials from `.env.uat`.
+2. Open `Deals`, open target deal, then open `Contract & Terms`.
+3. Enter proposal flow and progress to Step 4 (`Payment Terms`).
+4. In `Payment Plans`, verify all visible plan columns and capture baseline values for:
+   - Services Total
+   - Dispatch Total
+   - Tax Rate
+   - Total
+5. Identify which plans are currently selectable vs disabled.
+6. Select first available plan and confirm selected highlight.
+7. Record plan-row values again and verify displayed totals are stable.
+8. Enter `10` in `Tax Rate (%)`.
+9. Verify all displayed totals recalculate immediately:
+   - Tax amount per row updates.
+   - Grand `Total` per row updates.
+10. Verify selected-plan summary amount updates with the new tax.
+11. Click `Save & Next` (or equivalent progression CTA).
+12. Verify progression succeeds when tax value is valid.
+13. Clear one required Payment Terms field (start with `Tax Rate (%)`) and click `Save & Next`.
+14. Verify blocking behavior:
+    - User does not move to next step.
+    - Current step remains `Payment Terms`.
+15. Verify field-level validation behavior:
+    - Error state appears on the invalid field.
+    - Error message is shown at field level (or nearest inline helper region).
+16. Correct the invalid field with valid value and click outside field.
+17. Verify that field error clears after correction.
+18. Repeat steps 13-17 for each other required Payment Terms field visible in current plan mode.
+19. Leave multiple required fields empty at the same time and click `Save & Next`.
+20. Verify deterministic multi-error behavior:
+    - Required errors are visible for invalid fields.
+    - Focus/attention behavior is consistent (first invalid field or stable error pattern).
+21. Fill all required Payment Terms fields with valid values and click `Save & Next`.
+22. Verify progression succeeds when all required fields are valid.
+
+#### Expected result
+- `Tax Rate (%)` accepts valid numeric values within `0` to `100` (including decimals).
+- Valid tax values trigger real-time recalculation of tax and final totals.
+- `Save & Next` is blocked whenever any required Payment Terms field is incomplete/invalid.
+- Field-level validation feedback appears for invalid required fields and clears after correction.
+- Save/progression works only when all required Payment Terms fields are valid.
+- No calculation artifacts (`NaN`, stale totals, mismatched summary) appear.
+
+### M-CONTRACT-PLAN-TOTAL-002 | Verify Tax Rate is required for progression.
+
+#### Detailed execution steps
+1. Reach Step 4 (`Payment Terms`) and confirm `Tax Rate (%)` is visible.
+2. Clear the entire `Tax Rate (%)` field so it is blank.
+3. Click outside the field (blur event).
+4. Click `Save & Next`.
+5. Observe field state, inline/helper messaging, and progression behavior.
+6. Re-open Step 4 if navigation happened automatically and verify stored value.
+
+#### Expected result
+- Required behavior is explicit and deterministic:
+  - either inline required validation is shown and progression is blocked, or
+  - product explicitly defaults blank to `0` and communicates that behavior in UI.
+- No silent, ambiguous conversion should occur without user feedback.
+
+### M-CONTRACT-PLAN-TOTAL-003 | Verify Tax Rate accepts decimals within range and applies deterministic rounding.
+
+#### Detailed execution steps
+1. Reach Step 4 (`Payment Terms`).
+2. Enter each decimal value one by one in `Tax Rate (%)` and observe tax/total updates:
+   - `7.25`
+   - `0.01`
+   - `99.99`
+   - `100.00`
+3. After each value, click outside field and verify value formatting remains stable.
+4. Capture tax and total amounts after each input for at least one selected plan.
+5. Click `Save & Next` after a valid decimal value (for example `8.5`).
+
+#### Expected result
+- Decimal values in allowed range are accepted.
+- Tax and total recalculate correctly and consistently.
+- Displayed rounding behavior is deterministic (same input yields same output every time).
+- Valid decimal values do not block progression.
+
+### M-CONTRACT-PLAN-TOTAL-004 | Verify Tax Rate rejects negative values and minus-sign entry.
+
+#### Detailed execution steps
+1. Reach Step 4 (`Payment Terms`).
+2. Try typing `-5` directly in `Tax Rate (%)`.
+3. Try typing only `-` (minus sign).
+4. Try pasting `-5` into the field.
+5. Blur the field and observe resulting value plus any validation UI.
+6. Attempt `Save & Next`.
+
+#### Expected result
+- Negative values are rejected (typing prevented, sanitized, or validation shown).
+- Minus-only input cannot remain as valid value.
+- Totals never compute with negative tax.
+- Progression does not proceed with invalid negative state.
+
+### M-CONTRACT-PLAN-TOTAL-005 | Verify Tax Rate rejects alpha and mixed alphanumeric input.
+
+#### Detailed execution steps
+1. Reach Step 4 (`Payment Terms`).
+2. Try entering `abc`.
+3. Try entering `12abc`.
+4. Try pasting `abc12` into field.
+5. Blur field and inspect field value, error state, and totals.
+6. Attempt progression.
+
+#### Expected result
+- Alphabetic and mixed alphanumeric values are rejected.
+- Field must not persist non-numeric characters.
+- Totals do not calculate from invalid text input.
+- Progression is blocked for invalid state or value is clearly corrected with UI feedback.
+
+### M-CONTRACT-PLAN-TOTAL-006 | Verify Tax Rate enforces upper/lower numeric boundaries (0-100).
+
+#### Detailed execution steps
+1. Reach Step 4 (`Payment Terms`).
+2. Enter lower bound `0`; observe calculations and save behavior.
+3. Enter upper bound `100`; observe calculations and save behavior.
+4. Enter below-lower value `-0.01` (or `-1`); observe behavior.
+5. Enter above-upper value `101` (and optional `200`); observe behavior.
+6. Blur field and attempt `Save & Next` after each invalid boundary test.
+
+#### Expected result
+- `0` and `100` are accepted as valid boundary values.
+- Values below `0` are rejected.
+- Values above `100` are rejected with clear validation messaging.
+- No out-of-range value should be silently accepted for financial calculation.
+
+### M-CONTRACT-PLAN-TOTAL-007 | Verify UI behavior and calculation stability during rapid edits and plan changes.
+
+#### Detailed execution steps
+1. Reach Step 4 (`Payment Terms`) and select an available plan.
+2. Rapidly change tax values in sequence (`5`, `7.25`, `10`, `0`, `8.5`) with short pauses.
+3. Switch to another selectable plan, then back.
+4. Confirm selected-plan summary and row totals stay synchronized.
+5. Navigate away to previous step and return to Step 4.
+6. Verify current tax value and totals persist as expected.
+
+#### Expected result
+- No lagging or stale totals after rapid edits.
+- Selected-plan highlight and summary remain synchronized.
+- Navigation does not introduce inconsistent totals or invalid display state.
+- Persisted tax value behavior matches product rule.
+
+#### Manual exploration findings (current run)
+- Tested URL: `https://uat.sales.teamsignal.com/app/sales/deals/deal/20107/contract/216`.
+- Observed decimal inputs (`7.25`, `0.01`, `99.99`) accepted and totals recalculated correctly.
+- Observed `0` and `100` accepted and calculations remained stable.
+- Observed negative and alpha input paths were rejected/sanitized (no negative arithmetic applied).
+- Observed product gap: value above `100` (for example `101`) was accepted and used in calculations (no upper-bound validation message).
+- Observed required-state ambiguity: field is marked required but blank/invalid interactions may silently coerce to `0` without explicit required error.
+
+#### Coverage gaps to track explicitly
+- Confirm product rule for required behavior:
+  - strict required-blocking validation, or
+  - explicit default-to-zero behavior with clear UX messaging.
+- Enforce and document a hard upper bound of `100` for `Tax Rate (%)`.
+- Confirm accepted decimal precision policy (number of decimal places allowed in input and displayed tax/total rounding).
+- Re-run same matrix on data where additional plan types are enabled and where `Dispatch Total` is non-zero.
 
 ## Best Practices
 

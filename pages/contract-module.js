@@ -1,3 +1,5 @@
+// @ts-check
+//
 // pages/contract-module.js
 // Page Object Model — Contract & Terms Module, Signal CRM
 //
@@ -23,262 +25,187 @@ class ContractModule {
   constructor(page) {
     this.page = page;
 
-    // ── Sidebar navigation (to Deals list) ───────────────────────────────
+    // Navigation
     this.dealsMenuLink = page
       .getByRole('listitem', { name: 'Deals' })
       .getByRole('link');
 
-    // ── Deals list — search input ─────────────────────────────────────────
-    // Live-verified: searchbox with name "ID, Deal"
-    this.dealSearchInput = page
-      .getByRole('searchbox', { name: 'ID, Deal' })
-      .or(page.locator('input[placeholder*="ID, Deal"]'))
-      .first();
+    // Deal List
+    // Live-verified: searchbox with accessible name "ID, Deal".
+    this.dealSearchInput = page.getByRole('searchbox', { name: 'ID, Deal' });
 
-    // ── Deal Detail — overview tabs ───────────────────────────────────────
-    // Live-verified: "Contract & Terms" is the default selected tab (aria-selected=true)
+    // Tab Bar
+    this.activitiesTab = page.getByRole('tab', { name: 'Activities' });
+    // Live-verified: "Contract & Terms" is the default selected tab (aria-selected=true).
     this.contractTermsTab = page.getByRole('tab', { name: 'Contract & Terms' });
-    this.activitiesTab    = page.getByRole('tab', { name: 'Activities' });
-    this.notesTab         = page.getByRole('tab', { name: 'Notes' });
-    this.tasksTab         = page.getByRole('tab', { name: /Tasks/ });
+    this.notesTab = page.getByRole('tab', { name: 'Notes' });
+    this.tasksTab = page.getByRole('tab', { name: /Tasks/ });
 
-    // ── Contract & Terms — empty state ────────────────────────────────────
-    // Shown when no proposal has been created for the deal
-    // Live-verified: heading level=2, specific paragraph text, button label
-    this.createProposalEmptyHeading = page.getByRole('heading', {
-      name: 'Create a Proposal',
-      level: 2
-    });
-    this.createProposalEmptyText = page.getByText(
-      'Create a proposal and add services',
-      { exact: true }
-    );
-    // The "Create Proposal" button on the empty state panel (first occurrence)
+    // Empty State
     this.createProposalBtn = page
       .getByRole('button', { name: 'Create Proposal' })
       .first();
+    this.createProposalEmptyHeading = page.getByRole('heading', {
+      name: 'Create a Proposal',
+      level: 2,
+    });
+    this.createProposalEmptyText = page.getByText(
+      'Create a proposal and add services',
+      { exact: true },
+    );
 
-    // ── Create Proposal Drawer ─────────────────────────────────────────────
-    // Live-verified: heading level=3
+    // Create Proposal Drawer — Structure
+    this.cancelDrawerBtn = page.getByRole('button', { name: 'Cancel' });
     this.createProposalDrawerHeading = page.getByRole('heading', {
       name: 'Create Proposal',
-      level: 3
+      level: 3,
     });
-
-    // Service Type — radiogroup with two options
-    // Live-verified accessible names include description text
-    this.dedicatedPatrolRadio = page.getByRole('radio', {
-      name: /Dedicated\s*\/\s*Patrol/
-    });
-    this.dispatchOnlyRadio = page.getByRole('radio', {
-      name: /Dispatch Only/
-    });
-
-    // Proposal Name — required text input, pre-filled with deal name
-    this.proposalNameInput = page.getByRole('textbox', {
-      name: 'Add Proposal Name'
-    });
-
-    // Time Zone — custom heading-level dropdown trigger
-    // Live-verified: level=6, text matches "(UTC...)" pattern
-    this.timeZoneTrigger = page.getByRole('heading', {
-      name: /(UTC)/,
-      level: 6
-    });
-
-    // "Contract Dates to be decided" checkbox
-    // DOM structure: <generic wrapper><generic (clickable)><checkbox/><img/></generic><p>text</p></generic>
-    // We anchor on the label paragraph and navigate to its sibling checkbox container
-    this.contractDatesTBDText = page.getByText(
-      'Contract Dates to be decided',
-      { exact: true }
-    );
-
-    // Start Date — required date picker (conditionally hidden when TBD is checked)
-    this.startDateInput  = page.getByRole('textbox', { name: 'Select Start Date' });
-    this.startDatePicker = page.getByRole('button', { name: 'Choose date' }).first();
-
-    // End Date / Renewal Date radio group (visible when TBD is unchecked)
-    // Live-verified: "Renewal Date" is the default selected option
-    this.endDateRadio     = page.getByRole('radio', { name: 'End Date' });
-    this.renewalDateRadio = page.getByRole('radio', { name: 'Renewal Date' });
-
-    // Renewal Date — date picker (shown when "Renewal Date" radio is selected)
-    this.renewalDateInput = page.getByRole('textbox', {
-      name: 'Select Renewal Date'
-    });
-
-    // "Auto Renewal of Contract" checkbox
-    // Same DOM structure as contractDatesTBDText
-    this.autoRenewalText = page.getByText(
-      'Auto Renewal of Contract',
-      { exact: true }
-    );
-
-    // "Notify for Renewal Before (Days)" — spinbutton, default value = 10
-    // Live-verified: only number spinbutton in the drawer
-    this.notifyRenewalInput = page.getByRole('spinbutton').first();
-
-    // Drawer action buttons
-    this.cancelDrawerBtn         = page.getByRole('button', { name: 'Cancel' });
-    // Submit is the LAST "Create Proposal" button — avoids matching the empty-state button
     this.submitCreateProposalBtn = page
       .getByRole('button', { name: 'Create Proposal' })
       .last();
 
-    // ── Stepper — step tab headings (visible in top step bar) ─────────────
-    // Live-verified: all six steps present as level=6 headings
-    this.stepperStep1 = page.getByRole('heading', { name: '1. Services',      level: 6 });
-    this.stepperStep2 = page.getByRole('heading', { name: '2. Devices',       level: 6 });
-    this.stepperStep3 = page.getByRole('heading', { name: '3. On Demand',     level: 6 });
-    this.stepperStep4 = page.getByRole('heading', { name: '4. Payment Terms', level: 6 });
-    this.stepperStep5 = page.getByRole('heading', { name: '5. Description',   level: 6 });
-    this.stepperStep6 = page.getByRole('heading', { name: '6. Signees',       level: 6 });
+    // Create Proposal Drawer — Fields
+    this.autoRenewalText = page.getByText(
+      'Auto Renewal of Contract',
+      { exact: true },
+    );
+    this.contractDatesTBDText = page.getByText(
+      'Contract Dates to be decided',
+      { exact: true },
+    );
+    this.dedicatedPatrolRadio = page.getByRole('radio', {
+      name: /Dedicated\s*\/\s*Patrol/,
+    });
+    this.dispatchOnlyRadio = page.getByRole('radio', {
+      name: /Dispatch Only/,
+    });
+    this.endDateRadio = page.getByRole('radio', { name: 'End Date' });
+    this.notifyRenewalInput = page.getByRole('spinbutton').first();
+    this.proposalNameInput = page.getByRole('textbox', {
+      name: 'Add Proposal Name',
+    });
+    this.renewalDateInput = page.getByRole('textbox', {
+      name: 'Select Renewal Date',
+    });
+    this.renewalDateRadio = page.getByRole('radio', { name: 'Renewal Date' });
+    this.startDateInput = page.getByRole('textbox', { name: 'Select Start Date' });
+    this.startDatePicker = page.getByRole('button', { name: 'Choose date' }).first();
+    this.timeZoneTrigger = page.getByRole('heading', {
+      name: /(UTC)/,
+      level: 6,
+    });
 
-    // ── Stepper — shared bottom-bar buttons ───────────────────────────────
+    // Stepper — Step Tabs
+    this.stepperStep1 = page.getByRole('heading', { name: '1. Services', level: 6 });
+    this.stepperStep2 = page.getByRole('heading', { name: '2. Devices', level: 6 });
+    this.stepperStep3 = page.getByRole('heading', { name: '3. On Demand', level: 6 });
+    this.stepperStep4 = page.getByRole('heading', { name: '4. Payment Terms', level: 6 });
+    this.stepperStep5 = page.getByRole('heading', { name: '5. Description', level: 6 });
+    this.stepperStep6 = page.getByRole('heading', { name: '6. Signees', level: 6 });
+
+    // Stepper — Shared Buttons
+    this.finishBtn = page.getByRole('button', { name: 'Finish' });
+    this.previewBtn = page.getByRole('button', { name: 'Preview' });
     this.saveAndNextBtn = page.getByRole('button', { name: 'Save & Next' });
-    this.finishBtn      = page.getByRole('button', { name: 'Finish' });
-    this.previewBtn     = page.getByRole('button', { name: 'Preview' });
     this.updateProposalBtn = page.getByRole('button', { name: 'Update Proposal' });
 
-    // ── Step 1 — Services ─────────────────────────────────────────────────
-    // Service name textbox: placeholder "Service 1"
-    this.serviceNameInput = page.getByRole('textbox', { name: 'Service 1' });
-    // Service type radios (stepper uses different names than the drawer)
-    // Live-verified: "Dedicated Service" is default checked
+    // Step 1 — Services
     this.dedicatedServiceRadio = page.getByRole('radio', { name: 'Dedicated Service' });
-    this.patrolServiceRadio    = page.getByRole('radio', { name: 'Patrol Service' });
-    // Required numeric fields
-    this.officerCountInput = page.getByRole('spinbutton', { name: 'Officer/Guard *' });
-    this.hourlyRateInput   = page.getByRole('spinbutton', { name: /Hourly Rate/ });
-
-    // ── Resource Type & Line Item custom dropdowns ─────────────────────────
-    // DOM structure (live-verified 2026-03-24):
-    //   <label for="officerType">Select Resource Type *</label>
-    //   <div class="jss441 jss443" aria-describedby="simple-popper">   ← clickable trigger
-    //     <div><div><h6>[selected value | placeholder]</h6></div></div>
-    //   </div>
-    //   <label for="lineItem">Line Item *</label>
-    //   <div class="jss441 jss443" aria-describedby="simple-popper">   ← clickable trigger
-    //     <div><div><h6>[selected value | placeholder]</h6></div></div>
-    //   </div>
-    //
-    // When EMPTY the h6 shows a placeholder (starts with "Select…").
-    // When FILLED the h6 shows the selected name (e.g. "Armed Officer").
-    //
-    // We anchor on the <label for="…"> element and navigate to its immediately
-    // following sibling div (the actual clickable trigger).
-    this.resourceTypeTriggerDiv = page.locator('label[for="officerType"] + div');
-    this.lineItemTriggerDiv     = page.locator('label[for="lineItem"] + div');
-
-    // Kept for backward-compatibility with any direct references in spec files.
-    // Points to the Resource Type trigger div (first custom dropdown in Step 1).
-    this.lineItemTrigger = this.resourceTypeTriggerDiv;
-    // Time picker dialog (shared for both Start and End time)
-    // The dialog is a modal; listboxes are always unique when the dialog is open
-    this.timeDialogHoursListbox    = page.getByRole('listbox', { name: 'Select hours' }).first();
-    this.timeDialogMinutesListbox  = page.getByRole('listbox', { name: 'Select minutes' }).first();
-    this.timeDialogMeridiemListbox = page.getByRole('listbox', { name: 'Select meridiem' }).first();
-    this.timeDialogOkBtn           = page.getByRole('button',  { name: 'OK' }).first();
-    // Instructions rich text editor (first rdw-editor on the stepper)
+    this.hourlyRateInput = page.getByRole('spinbutton', { name: /Hourly Rate/ });
     this.instructionsEditor = page.getByRole('textbox', { name: 'rdw-editor' }).first();
+    this.lineItemTriggerDiv = page.locator('label[for="lineItem"] + div');
+    this.officerCountInput = page.getByRole('spinbutton', { name: 'Officer/Guard *' });
+    this.patrolServiceRadio = page.getByRole('radio', { name: 'Patrol Service' });
+    this.resourceTypeTriggerDiv = page.locator('label[for="officerType"] + div');
+    this.serviceNameInput = page.getByRole('textbox', { name: 'Service 1' });
+    this.timeDialogHoursListbox = page.getByRole('listbox', { name: 'Select hours' }).first();
+    this.timeDialogMeridiemListbox = page.getByRole('listbox', { name: 'Select meridiem' }).first();
+    this.timeDialogMinutesListbox = page.getByRole('listbox', { name: 'Select minutes' }).first();
+    this.timeDialogOkBtn = page.getByRole('button', { name: 'OK' }).first();
 
-    // ── Step 2 — Devices ─────────────────────────────────────────────────
-    // Live-verified: "Checkpoints & Devices" heading + table of NFC/Beacon/QR rows
-    this.devicesPageHeading  = page.getByRole('heading', { name: 'Checkpoints & Devices', level: 3 });
-    this.devicesTotalHeading = page
-      .getByRole('heading', { name: /^Total:/, level: 5 })
-      .or(page.getByRole('heading', { name: /Total:\s*\$?\s*[\d,]+(?:\.\d{1,2})?/i }).first())
-      .or(page.getByText(/^\s*Total:\s*\$?\s*[\d,]+(?:\.\d{1,2})?\s*$/i).first());
+    // Step 2 — Devices
+    this.devicesPageHeading = page.getByRole('heading', {
+      name: 'Checkpoints & Devices',
+      level: 3,
+    });
+    // REVIEW: needs data-testid for deterministic total locator.
+    this.devicesTotalHeading = page.getByRole('heading', { name: /^Total:/, level: 5 });
 
-    // ── Step 3 — On Demand ────────────────────────────────────────────────
-    // Live-verified: "Additional Services Pricing" heading
+    // Step 3 — On Demand
     this.onDemandPageHeading = page.getByRole('heading', {
       name: 'Additional Services Pricing',
-      level: 3
+      level: 3,
     });
 
-    // ── Step 4 — Payment Terms ────────────────────────────────────────────
-    // Live-verified: three section headings + required inputs
-    this.billingOccurrenceHeading  = page.getByRole('heading', { name: 'Select Billing Occurrence', level: 3 });
-    this.definePaymentTermsHeading = page.getByRole('heading', { name: 'Define Payment Terms',       level: 3 });
-    this.billingInfoHeading        = page.getByRole('heading', { name: 'Billing Information',         level: 3 });
-    // Annual Rate Increase — required spinbutton
+    // Step 4 — Payment Terms
     this.annualRateIncreaseInput = page.getByRole('spinbutton', { name: 'Annual Rate Increase *' });
-    // Cycle Reference Date — date picker textbox
-    this.cycleReferenceDateInput = page.getByRole('textbox', { name: 'Select Cycle Reference Date' });
-    // Billing contact form inputs (visible under "Billing Information")
+    this.billingEmailInput = page.getByRole('textbox', { name: 'Email *' });
     this.billingFirstNameInput = page.getByRole('textbox', { name: 'First Name *' });
-    this.billingLastNameInput  = page.getByRole('textbox', { name: 'Last Name *' });
-    this.billingEmailInput     = page.getByRole('textbox', { name: 'Email *' });
-    this.billingPhoneInput     = page.getByRole('textbox', { name: 'Enter phone number' });
+    this.billingInfoHeading = page.getByRole('heading', {
+      name: 'Billing Information',
+      level: 3,
+    });
+    this.billingLastNameInput = page.getByRole('textbox', { name: 'Last Name *' });
+    this.billingOccurrenceHeading = page.getByRole('heading', {
+      name: 'Select Billing Occurrence',
+      level: 3,
+    });
+    this.billingPhoneInput = page.getByRole('textbox', { name: 'Enter phone number' });
+    this.cycleReferenceDateInput = page.getByRole('textbox', { name: 'Select Cycle Reference Date' });
+    this.definePaymentTermsHeading = page.getByRole('heading', {
+      name: 'Define Payment Terms',
+      level: 3,
+    });
 
-    // ── Step 5 — Description ──────────────────────────────────────────────
-    // Live-verified: "Description of Services" heading + pre-filled rdw-editor
+    // Step 5 — Description
     this.descriptionPageHeading = page.getByRole('heading', {
       name: 'Description of Services',
-      level: 3
+      level: 3,
     });
 
-    // ── Step 6 — Signees ──────────────────────────────────────────────────
-    // Live-verified: current user auto-added as Signee 1
+    // Step 6 — Signees
     this.signeesPageHeading = page.getByRole('heading', {
       name: 'Select signees for this contract',
-      level: 3
+      level: 3,
     });
 
-    // ── Post-stepper — Proposal Card ──────────────────────────────────────
-    // Visible on the Contract & Terms tabpanel after stepper completion
-    // Live-verified: "Publish Contract" + "Signature" + Edit/Clone/Preview PDF/Delete
+    // Proposal Card
+    this.contractTermsTabpanel = page.getByRole('tabpanel', { name: 'Contract & Terms' });
     this.publishContractBtn = page.getByRole('button', { name: 'Publish Contract' }).first();
     this.signatureBtnOnCard = page.getByRole('button', { name: 'Signature' });
-    this.contractTermsTabpanel = page.getByRole('tabpanel', { name: 'Contract & Terms' });
     const cardActionSiblings = this.signatureBtnOnCard.locator('~ *');
-    this.editProposalAction = cardActionSiblings.nth(0);
     this.cloneProposalAction = cardActionSiblings.nth(1);
+    this.editProposalAction = cardActionSiblings.nth(0);
     this.previewPdfAction = cardActionSiblings.nth(2);
 
-    // ── Step A: Close Deal modal ───────────────────────────────────────────
-    // Appears on the FIRST click of "Publish Contract" when the deal is NOT yet closed.
-    // Live-verified: closing the deal is a PREREQUISITE before publishing.
-    // Flow: Click "Publish Contract" → Close Deal modal → Select status + Hubspot Stage
-    //       → Save → Deal closes ("Deal closed successfully!" toast)
-    //       → "Publish Contract" button remains enabled for the actual publish step.
+    // Publish Flow — Step A
     this.closeDealModalHeading = page.getByRole('heading', { name: 'Close Deal', level: 3 });
-    this.closedWonRadio        = page.getByRole('radio',   { name: 'Closed Won' });
-    this.closedLostRadio       = page.getByRole('radio',   { name: 'Closed Lost' });
-    this.publishSaveBtn        = page.getByRole('button',  { name: 'Save' });
-    // Success toast after deal is closed
+    this.closedLostRadio = page.getByRole('radio', { name: 'Closed Lost' });
+    this.closedWonRadio = page.getByRole('radio', { name: 'Closed Won' });
     this.dealClosedSuccessHeading = page.getByRole('heading', {
       name: 'Deal closed successfully!',
-      level: 4
+      level: 4,
     });
+    this.publishSaveBtn = page.getByRole('button', { name: 'Save' });
 
-    // ── Step B: "Publish contract!" confirmation modal ─────────────────────
-    // Appears on the SECOND click of "Publish Contract" (after deal is already closed).
-    // Live-verified heading: "Publish contract!" (level=4, lowercase 'c')
-    // Live-verified text: "Do you confirm to activate this contract? Once confirmed,
-    //   the contract details will become operational on Signal.
-    //   Please note that this action is irreversible."
-    // After confirming, "Publish Contract" button disappears and status badge appears.
+    // Publish Flow — Step B
+    this.publishConfirmBtn = page.getByRole('button', { name: 'Publish Contract' }).last();
     this.publishConfirmModalHeading = page.getByRole('heading', {
       name: 'Publish contract!',
-      level: 4
+      level: 4,
     });
     this.publishConfirmText = page.getByText(
-      'Do you confirm to activate this contract?'
+      'Do you confirm to activate this contract?',
     );
-    // The confirm button is the LAST "Publish Contract" button when modal is open
-    this.publishConfirmBtn = page.getByRole('button', { name: 'Publish Contract' }).last();
 
-    // ── Published state ────────────────────────────────────────────────────
-    // After publishing, the proposal card shows a "Published without sign" badge
-    // and the "Publish Contract" button disappears.
-    // Actions change: Edit → View, Delete → Terminate.
-    // Live-verified badge text: "Published without sign"
+    // Published State
     this.contractPublishedBadge = page.getByText('Published without sign', { exact: true });
-    this.viewContractGeneric = this.contractTermsTabpanel.getByText('View', { exact: true }).first();
-    this.terminateContractGeneric = this.contractTermsTabpanel.getByText('Terminate', { exact: true }).first();
+    this.terminateContractGeneric = this.contractTermsTabpanel
+      .getByText('Terminate', { exact: true })
+      .first();
+    this.viewContractGeneric = this.contractTermsTabpanel
+      .getByText('View', { exact: true })
+      .first();
   }
 
   // ── Navigation ──────────────────────────────────────────────────────────
@@ -402,27 +329,26 @@ class ContractModule {
   }
 
   async detectContractState(timeoutMs = 10_000) {
-    const startedAt = Date.now();
-
-    while (Date.now() - startedAt < timeoutMs) {
-      if (await this.isOnStepperPage()) {
-        return 'stepper';
-      }
-      if (await this.hasEmptyStateVisible()) {
-        return 'empty';
-      }
-      if (await this.hasProposalCardVisible()) {
-        return 'proposal';
-      }
-
-      const tabVisible = await this.contractTermsTab.isVisible().catch(() => false);
-      if (tabVisible) {
-        await this.contractTermsTab.click().catch(() => {});
-      }
-      await this.page.waitForTimeout(500);
+    await this.clickContractTermsTab().catch(() => {});
+    try {
+      await expect
+        .poll(
+          async () => {
+            if (await this.isOnStepperPage()) return "stepper";
+            if (await this.hasEmptyStateVisible()) return "empty";
+            if (await this.hasProposalCardVisible()) return "proposal";
+            return null;
+          },
+          { intervals: [500, 500, 500], timeout: timeoutMs },
+        )
+        .not.toBeNull();
+      if (await this.isOnStepperPage()) return "stepper";
+      if (await this.hasEmptyStateVisible()) return "empty";
+      if (await this.hasProposalCardVisible()) return "proposal";
+      return "unknown";
+    } catch {
+      return "unknown";
     }
-
-    return 'unknown';
   }
 
   // ── Create Proposal Drawer — Open & Validate ───────────────────────────
@@ -542,7 +468,7 @@ class ContractModule {
   async selectTimeZone(searchText = 'Eastern') {
     await this.openTimeZoneDropdown();
 
-    const popper = this.page.locator('#simple-popper').last().or(this.page.getByRole('tooltip').last());
+    const popper = this.page.locator('#simple-popper').last();
     await popper.waitFor({ state: 'visible', timeout: 8_000 });
 
     const searchBox = popper.getByRole('textbox').first();
@@ -811,114 +737,66 @@ class ContractModule {
     await expect(this.serviceNameInput).toBeVisible({ timeout: 10_000 });
   }
 
+  async scrollUntilVisible(locator, label, maxScrolls = 20) {
+    for (let i = 0; i < maxScrolls; i += 1) {
+      const visible = await locator.isVisible().catch(() => false);
+      if (visible) return true;
+      await this.page.mouse.wheel(0, 700).catch(() => {});
+      await this.page.keyboard.press("PageDown").catch(() => {});
+      await this.page.evaluate(() => window.scrollBy(0, 900)).catch(() => {});
+      await this.page.waitForTimeout(250);
+    }
+    const finalVisible = await locator.isVisible().catch(() => false);
+    expect(finalVisible, `Expected ${label} to be visible after scrolling`).toBeTruthy();
+    return finalVisible;
+  }
+
   /** Fill the service name field (placeholder "Service 1") */
   async fillServiceName(name, serviceIndex = 0) {
-    // Get the nth service name input (when multiple services exist)
-    // The label may vary (Service 1, Service 2, etc.) so match any "Service" placeholder
+    console.log(`[fillServiceName] service ${serviceIndex}: filling with "${name}"`);
     const serviceNameInput = this.page.getByRole('textbox', { name: /Service/ }).nth(serviceIndex);
     await serviceNameInput.waitFor({ state: 'visible', timeout: 10_000 });
-    await serviceNameInput.scrollIntoViewIfNeeded().catch(() => {});
     await serviceNameInput.click({ clickCount: 3, force: true });
-    await serviceNameInput.fill('');
-    await serviceNameInput.type(name, { delay: 20 });
-    console.log(`[fillServiceName] service ${serviceIndex}: filled with "${name}"`);
-
-    let currentValue = await serviceNameInput.inputValue().catch(() => '');
-    if (currentValue.trim() !== String(name).trim()) {
-      await serviceNameInput.fill(name);
-      await serviceNameInput.press('Tab').catch(() => {});
-      currentValue = await serviceNameInput.inputValue().catch(() => '');
+    await serviceNameInput.fill(String(name));
+    await serviceNameInput.press('Tab').catch(() => {});
+    const actual = await serviceNameInput.inputValue().catch(() => "");
+    if (actual.trim() !== String(name).trim()) {
+      throw new Error(
+        `[fillServiceName] Expected "${name}" but got "${actual}" for service index ${serviceIndex}`,
+      );
     }
-
-    if (currentValue.trim() !== String(name).trim()) {
-      await serviceNameInput.evaluate((el, value) => {
-        el.value = value;
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-        el.dispatchEvent(new Event('blur', { bubbles: true }));
-      }, String(name));
-    }
-
-    await expect(serviceNameInput).toHaveValue(String(name), { timeout: 3_000 });
   }
 
   /** Fill the Officer/Guard count spinbutton (for specified service index) */
   async fillOfficerCount(count, serviceIndex = 0) {
-    // Try multiple strategies to find Officer/Guard inputs across service cards
-    const strategies = [
-      // Strategy 1: spinbutton role with "Officer/Guard" name
-      () => this.page.getByRole('spinbutton', { name: /Officer|Guard/ }).nth(serviceIndex),
-      // Strategy 2: text input (some forms use regular inputs not spinbuttons)
-      () => this.page.getByPlaceholder(/Officer|Guard|Enter Number/).nth(serviceIndex),
-      // Strategy 3: textbox by label context
-      () => this.page.locator('input[type="number"]').filter({ has: this.page.getByText('Officer/Guard') }).nth(serviceIndex),
-      // Strategy 4: all number inputs, filter by proximity to "Officer/Guard" label
-      () => this.page.locator('input[type="number"]').nth(serviceIndex),
-    ];
-
-    let officerCountInput = null;
-    let usedStrategy = -1;
-    for (let i = 0; i < strategies.length; i++) {
-      try {
-        const el = strategies[i]();
-        const isVisible = await el.isVisible({ timeout: 3_000 }).catch(() => false);
-        if (isVisible) {
-          officerCountInput = el;
-          usedStrategy = i;
-          break;
-        }
-      } catch (e) {
-        // Try next strategy
-      }
-    }
-
-    if (!officerCountInput) {
-      throw new Error(`Officer/Guard input not found for service ${serviceIndex}`);
-    }
-
-    await officerCountInput.scrollIntoViewIfNeeded().catch(() => {});
+    console.log(`[fillOfficerCount] service ${serviceIndex}: filling with "${count}"`);
+    const officerCountInput = this.page.getByRole('spinbutton', { name: /Officer|Guard/ }).nth(serviceIndex);
+    await officerCountInput.waitFor({ state: 'visible', timeout: 10_000 });
     await officerCountInput.click({ clickCount: 3, force: true });
     await officerCountInput.fill(String(count));
-    await officerCountInput.press('Tab'); // Trigger blur/validation
-    await this.page.waitForTimeout(200);
-    console.log(`[fillOfficerCount] service ${serviceIndex}: filled with "${count}" (strategy ${usedStrategy + 1})`);
+    await officerCountInput.press('Tab').catch(() => {});
+    const actual = await officerCountInput.inputValue().catch(() => "");
+    if (actual.trim() !== String(count).trim()) {
+      throw new Error(
+        `[fillOfficerCount] Expected "${count}" but got "${actual}" for service index ${serviceIndex}`,
+      );
+    }
   }
 
   /** Fill the Hourly Rate spinbutton (for specified service index) */
   async fillHourlyRate(rate, serviceIndex = 0) {
-    const primaryInputs = this.page.getByRole('spinbutton', { name: /Hourly Rate/ });
-    const fallbackInputs = this.page.locator('input[aria-label*="Hourly" i]');
-    const pairedSpinbuttons = this.page.getByRole('spinbutton');
-
-    let hourlyRateInput = primaryInputs.nth(serviceIndex);
-    let selectorLabel = 'role=spinbutton[name=/Hourly Rate/]';
-    const primaryCount = await primaryInputs.count().catch(() => 0);
-
-    if (primaryCount <= serviceIndex) {
-      const pairIndex = (serviceIndex * 2) + 1;
-      const pairedCount = await pairedSpinbuttons.count().catch(() => 0);
-      if (pairedCount > pairIndex) {
-        hourlyRateInput = pairedSpinbuttons.nth(pairIndex);
-        selectorLabel = 'role=spinbutton paired-index';
-      } else {
-        const fallbackCount = await fallbackInputs.count().catch(() => 0);
-        if (fallbackCount <= serviceIndex) {
-          throw new Error(`Hourly Rate input not found for service ${serviceIndex}`);
-        }
-        hourlyRateInput = fallbackInputs.nth(serviceIndex);
-        selectorLabel = 'input[aria-label*="Hourly"]';
-      }
-    }
-
-    await hourlyRateInput.waitFor({ state: 'visible', timeout: 8_000 });
-    await hourlyRateInput.scrollIntoViewIfNeeded().catch(() => {});
+    console.log(`[fillHourlyRate] service ${serviceIndex}: filling with "${rate}"`);
+    const hourlyRateInput = this.page.getByRole('spinbutton', { name: /Hourly Rate/ }).nth(serviceIndex);
+    await hourlyRateInput.waitFor({ state: 'visible', timeout: 10_000 });
     await hourlyRateInput.click({ clickCount: 3, force: true });
     await hourlyRateInput.fill(String(rate));
-    await hourlyRateInput.press('Tab');
-    await this.page.waitForTimeout(200);
-    console.log(
-      `[fillHourlyRate] service ${serviceIndex}: filled with "${rate}" via ${selectorLabel}`,
-    );
+    await hourlyRateInput.press('Tab').catch(() => {});
+    const actual = await hourlyRateInput.inputValue().catch(() => "");
+    if (actual.trim() !== String(rate).trim()) {
+      throw new Error(
+        `[fillHourlyRate] Expected "${rate}" but got "${actual}" for service index ${serviceIndex}`,
+      );
+    }
   }
 
   /**
@@ -940,33 +818,23 @@ class ContractModule {
    * then read the h6 value directly to determine whether a selection is still needed.
    */
   async selectFirstAvailableLineItem(serviceIndex = 0) {
-    // For multiple services, get the nth occurrence of each trigger
-    const resourceTypeTriggers = this.page.locator('label[for="officerType"] + div');
-    const lineItemTriggers = this.page.locator('label[for="lineItem"] + div');
-
+    const resourceTypeTriggers = this.page.locator("label[for='officerType'] + div");
+    const lineItemTriggers = this.page.locator("label[for='lineItem'] + div");
     const rtCount = await resourceTypeTriggers.count().catch(() => 0);
     const liCount = await lineItemTriggers.count().catch(() => 0);
-    console.log(`[selectFirstAvailableLineItem] serviceIndex=${serviceIndex}, resourceTypeTriggers count=${rtCount}, lineItemTriggers count=${liCount}`);
-
+    console.log(
+      `[selectFirstAvailableLineItem] serviceIndex=${serviceIndex}, resourceTypeTriggers count=${rtCount}, lineItemTriggers count=${liCount}`,
+    );
     if (serviceIndex >= rtCount || serviceIndex >= liCount) {
-      console.log(`[selectFirstAvailableLineItem] Index out of range! Trying alternate approach...`);
-      // Fallback: use getByText to find by label text
-      const serviceNameInput = this.page.getByRole('textbox', { name: /Service/ }).nth(serviceIndex);
-      const serviceSection = serviceNameInput.locator('xpath=ancestor::div[@class[contains(., "service")] or @class[contains(., "Service")]][1]');
-
-      const rtTrigger = serviceSection.locator('[aria-describedby="simple-popper"]').first();
-      const liTrigger = serviceSection.locator('[aria-describedby="simple-popper"]').nth(1);
-
-      await this._selectCustomDropdownIfEmpty(rtTrigger, 'Resource Type (fallback)');
-      await this._selectCustomDropdownIfEmpty(liTrigger, 'Line Item (fallback)');
-      return;
+      console.log(
+        `[selectFirstAvailableLineItem] serviceIndex ${serviceIndex} out of range. Available resourceType triggers: ${rtCount}, lineItem triggers: ${liCount}`,
+      );
+      throw new Error(
+        `[selectFirstAvailableLineItem] serviceIndex ${serviceIndex} out of range. Available resourceType triggers: ${rtCount}, lineItem triggers: ${liCount}`,
+      );
     }
-
-    const resourceTypeTrigger = resourceTypeTriggers.nth(serviceIndex);
-    const lineItemTrigger = lineItemTriggers.nth(serviceIndex);
-
-    await this._selectCustomDropdownIfEmpty(resourceTypeTrigger, 'Resource Type');
-    await this._selectCustomDropdownIfEmpty(lineItemTrigger, 'Line Item');
+    await this._selectCustomDropdownIfEmpty(resourceTypeTriggers.nth(serviceIndex), "Resource Type");
+    await this._selectCustomDropdownIfEmpty(lineItemTriggers.nth(serviceIndex), "Line Item");
   }
 
   /**
@@ -1001,7 +869,9 @@ class ContractModule {
     await triggerDiv.waitFor({ state: 'visible', timeout: 8_000 });
     await triggerDiv.scrollIntoViewIfNeeded().catch(() => {});
     // Use JS click to bypass innerScrollBar overlay that can intercept pointer events
-    await triggerDiv.evaluate((el) => el.click());
+    await triggerDiv.evaluate((el) => {
+      if (el instanceof HTMLElement) el.click();
+    });
     console.log(`[_selectCustomDropdownIfEmpty] ${fieldLabel} clicked`);
 
     const popper = this.page.locator('#simple-popper').last();
@@ -1031,10 +901,7 @@ class ContractModule {
         .catch(() => false);
 
       if (!fallbackPopperVisible) {
-        await triggerDiv.press('ArrowDown').catch(() => {});
-        await triggerDiv.press('Enter').catch(() => {});
-        await this.page.waitForTimeout(400);
-        return;
+        throw new Error(`[_selectCustomDropdownIfEmpty] Popper did not open for field "${fieldLabel}"`);
       }
     }
 
@@ -1069,9 +936,7 @@ class ContractModule {
       }
     }
 
-    await triggerDiv.press('ArrowDown').catch(() => {});
-    await triggerDiv.press('Enter').catch(() => {});
-    await this.page.waitForTimeout(500);
+    throw new Error(`[_selectCustomDropdownIfEmpty] Popper did not open for field "${fieldLabel}"`);
   }
 
   /**
@@ -1207,7 +1072,7 @@ class ContractModule {
     await this.fillOfficerCount(officerCount, serviceIndex);
     await this.fillHourlyRate(hourlyRate, serviceIndex);
     for (const day of jobDays) {
-      await this.clickJobDay(day, serviceIndex);
+      await this.clickJobDay(/** @type {any} */ (day), serviceIndex);
     }
 
     const jobDaysRequiredMsg = this.page.getByText(
@@ -1219,7 +1084,7 @@ class ContractModule {
       .catch(() => false);
     if (needsJobDayRecovery && jobDays.length > 0) {
       for (const day of jobDays) {
-        await this.clickJobDay(day, serviceIndex);
+        await this.clickJobDay(/** @type {any} */ (day), serviceIndex);
         const stillMissingJobDay = await jobDaysRequiredMsg.isVisible().catch(() => false);
         if (!stillMissingJobDay) {
           break;
@@ -1227,8 +1092,8 @@ class ContractModule {
       }
     }
 
-    await this.selectStartTime(startTime.hours, startTime.minutes, startTime.meridiem, serviceIndex);
-    await this.selectEndTime(endTime.hours, endTime.minutes, endTime.meridiem, serviceIndex);
+    await this.selectStartTime(startTime.hours, startTime.minutes, /** @type {any} */ (startTime.meridiem), serviceIndex);
+    await this.selectEndTime(endTime.hours, endTime.minutes, /** @type {any} */ (endTime.meridiem), serviceIndex);
 
     // Allow React to reconcile all field updates so form validation runs
     // and enables the "Save & Next" button before the test asserts on it.
@@ -1288,7 +1153,9 @@ class ContractModule {
     const plusBtn = this._deviceQuantityGroup(deviceName).getByRole('button', { name: '+' });
     for (let i = 0; i < count; i++) {
       // Use JS click to bypass the innerScrollBar overlay that intercepts pointer events
-      await plusBtn.evaluate((el) => el.click());
+      await plusBtn.evaluate((el) => {
+        if (el instanceof HTMLElement) el.click();
+      });
       await this.page.waitForTimeout(250);
     }
   }
@@ -1302,7 +1169,9 @@ class ContractModule {
     const minusBtn = this._deviceQuantityGroup(deviceName).getByRole('button', { name: '-' });
     for (let i = 0; i < count; i++) {
       // Use JS click to bypass the innerScrollBar overlay that intercepts pointer events
-      await minusBtn.evaluate((el) => el.click());
+      await minusBtn.evaluate((el) => {
+        if (el instanceof HTMLElement) el.click();
+      });
       await this.page.waitForTimeout(250);
     }
   }
@@ -1410,23 +1279,23 @@ class ContractModule {
   }
 
   /**
-   * Get the current unit price value for the given device.
-   * Returns the raw string value from the input field.
+   * Get the current unit price value for the given device as a raw string.
    * @param {'NFC Tags'|'Beacons'|'QR Tags'} deviceName
    * @returns {Promise<string>}
    */
   async getDeviceUnitPrice(deviceName) {
-try {
-    // 1. Get the string value from the input first
-    const value = await this._deviceUnitPriceInput(deviceName).inputValue();
+    return this._deviceUnitPriceInput(deviceName).inputValue().catch(() => "");
+  }
 
-    // 2. Parse the string to an integer
-    // We use || 0 as a fallback if the string is empty or invalid
+  /**
+   * Get the current unit price value for the given device as a parsed integer.
+   * @param {'NFC Tags'|'Beacons'|'QR Tags'} deviceName
+   * @returns {Promise<number>}
+   */
+  async getDeviceUnitPriceAsNumber(deviceName) {
+    const value = await this.getDeviceUnitPrice(deviceName);
     return parseInt(value, 10) || 0;
-  } catch (error) {
-    // 3. If the locator fails or the page crashes, return 0
-    return 0;
-  }  }
+  }
 
   /**
    * Fill the unit price input for the given device with a numeric value.
@@ -1572,8 +1441,26 @@ try {
     await trigger.waitFor({ state: 'visible', timeout: 8_000 });
     await trigger.click();
     await this.page.waitForTimeout(300);
-    // Options appear in a tooltip/popper; click by exact text
-    await this.page.getByText(optionText, { exact: true }).first().click();
+
+    // Options appear in a tooltip/popper; scope lookup to popper first to avoid
+    // matching disabled labels elsewhere on the page (e.g., Payment Plans "Weekly").
+    const popper = this.page.locator('#simple-popper').last();
+    const popperVisible = await popper.isVisible().catch(() => false);
+    if (popperVisible) {
+      const popperOption = popper.getByText(optionText, { exact: true }).first();
+      await popperOption.waitFor({ state: 'visible', timeout: 8_000 });
+      await popperOption.click({ force: true });
+      await this.page.waitForTimeout(300);
+      return;
+    }
+
+    // Fallback when popper id is not available in current build.
+    const fallbackOption = this.page
+      .locator('[role="option"], li, p, div')
+      .filter({ hasText: new RegExp(`^\\s*${String(optionText).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`) })
+      .first();
+    await fallbackOption.waitFor({ state: 'visible', timeout: 8_000 });
+    await fallbackOption.click({ force: true });
     await this.page.waitForTimeout(300);
   }
 
@@ -1680,34 +1567,20 @@ try {
 
   /**
    * Select the Billing Frequency.
-   * Uses #simple-popper scoping to avoid matching "Weekly" billing cycle elsewhere.
+   * Uses the Step 4 custom dropdown trigger and option selection.
    * @param {'Weekly'|'Bi Weekly'|'Monthly'|'Semi Monthly'} freq
    */
   async selectBillingFrequency(freq) {
-    const normalizedFreq = freq.replace(/\s+/g, '-');
-    const targetRadio = this.page.getByRole('radio', { name: new RegExp(`^${normalizedFreq}$|^${freq}$`, 'i') });
-    const targetVisible = await targetRadio.isVisible().catch(() => false);
+    const normalized = String(freq || '').trim();
+    const optionText =
+      /^bi\s*weekly$/i.test(normalized) ? 'Bi-Weekly'
+      : /^semi\s*monthly$/i.test(normalized) ? 'Semi Monthly'
+      : normalized;
 
-    if (targetVisible) {
-      const targetDisabled = await targetRadio.isDisabled().catch(() => false);
-      if (!targetDisabled) {
-        await targetRadio.click({ force: true });
-        await this.page.waitForTimeout(300);
-        return;
-      }
-    }
-
-    const checkedRadio = this.page.locator('input[type="radio"]:checked').first();
-    const checkedExists = await checkedRadio.isVisible().catch(() => false);
-    if (checkedExists) {
-      return;
-    }
-
-    const eventRadio = this.page.getByRole('radio', { name: 'Event' });
-    if (await eventRadio.isVisible().catch(() => false)) {
-      await eventRadio.click({ force: true });
-      await this.page.waitForTimeout(300);
-    }
+    await this._selectFromCustomDropdown(
+      /Select Billing Frequency|Weekly|Bi-Weekly|Bi Weekly|Monthly|Semi Monthly/i,
+      optionText,
+    );
   }
 
   /**
@@ -1789,11 +1662,11 @@ try {
     paymentTerms, paymentMethod, cycleRefDay, billingContact
   }) {
     await this.fillAnnualRateIncrease(annualRateIncrease);
-    await this.selectBillingType(billingType);
-    await this.selectContractType(contractType);
-    await this.selectBillingFrequency(billingFrequency);
+    await this.selectBillingType(/** @type {any} */ (billingType));
+    await this.selectContractType(/** @type {any} */ (contractType));
+    await this.selectBillingFrequency(/** @type {any} */ (billingFrequency));
     await this.selectPaymentTerms(paymentTerms);
-    await this.selectPaymentMethod(paymentMethod);
+    await this.selectPaymentMethod(/** @type {any} */ (paymentMethod));
     await this.selectCycleReferenceDate(cycleRefDay);
     await this.fillBillingContactInfo(billingContact);
   }
@@ -1803,6 +1676,30 @@ try {
   /** Assert Step 5 Description section heading is visible */
   async assertStep5Visible() {
     await expect(this.descriptionPageHeading).toBeVisible({ timeout: 10_000 });
+  }
+
+  /**
+   * Assert Step 5 description editor is pre-filled with non-empty content.
+   * Uses the visible rich-text editor instance instead of brittle character-counter text.
+   */
+  async assertStep5DescriptionPrefilled() {
+    await this.assertStep5Visible();
+    const editors = this.page.getByRole('textbox', { name: 'rdw-editor' });
+    const count = await editors.count().catch(() => 0);
+    let visibleEditorText = '';
+
+    for (let i = 0; i < count; i += 1) {
+      const editor = editors.nth(i);
+      const isVisible = await editor.isVisible().catch(() => false);
+      if (!isVisible) continue;
+      visibleEditorText = String(await editor.textContent().catch(() => '')).trim();
+      if (visibleEditorText.length > 0) break;
+    }
+
+    expect(
+      visibleEditorText.length > 0,
+      'Expected Step 5 Description editor to contain pre-filled content.',
+    ).toBeTruthy();
   }
 
   // ── Step 6 — Signees ────────────────────────────────────────────────────
@@ -2058,14 +1955,7 @@ try {
 
   // ── Step 1 — Multi-Service Management ───────────────────────────────────
 
-  /**
-   * Get the count of visible service forms on Step 1.
-   * Each service is represented by a set of input fields.
-   */
-  async getServiceCount() {
-    const serviceContainers = this.page.locator('[class*="service"][class*="form"], [class*="Service"][class*="Form"]');
-    return serviceContainers.count().catch(() => 0);
-  }
+  // TODO: implement via stable locator when data-testid is available.
 
   /**
    * Click the delete button for the first service on Step 1.
