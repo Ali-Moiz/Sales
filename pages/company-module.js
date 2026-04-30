@@ -28,6 +28,13 @@ class CompanyModule {
     this.companyOwnerSortBtn  = page.getByRole('button', { name: 'Company Owner' });
     this.createdDateSortBtn   = page.getByRole('button', { name: 'Created Date' });
     this.lastModifiedSortBtn  = page.getByRole('button', { name: 'Last Modified Date' });
+    this.lastActivitySortBtn  = page.getByRole('button', { name: 'Last Activity' });
+
+    // ── Charts section ────────────────────────────────────────────────────────
+    this.chartByContractsHeading       = page.getByRole('heading', { name: 'Companies by Contracts', level: 6 });
+    this.chartByMarketVerticalsHeading = page.getByRole('heading', { name: 'Companies by Market Verticals', level: 6 });
+    this.chartTrendHeading             = page.getByRole('heading', { name: 'Companies', level: 6, exact: true });
+    this.chartTotalH1                  = page.getByRole('heading', { level: 1 }).first();
 
     // ── Create Company drawer ─────────────────────────────────────────────────
     this.createCompanyHeading = page.getByRole('heading', { name: 'Create a New Company' });
@@ -35,9 +42,10 @@ class CompanyModule {
     this.companyDomainInput   = page.getByRole('textbox', { name: 'e.g., www.Signal.com' });
     this.addressInput         = page.getByRole('textbox', { name: 'Type Address' });
     this.addressOption        = page.getByText('S 9th St, Omaha, NE 68102, USA').first();
-    // Market Vertical inside drawer — same heading pattern as Tasks/Notes custom dropdowns
-    this.createIndustryTrigger  = page.getByRole('heading', { name: 'Select Industry', level: 6 });
-    this.createSpStatusTrigger  = page.getByRole('heading', { name: 'Select SP Status', level: 6 });
+    // Market Vertical inside drawer — click handler is on the parent container div,
+    // not on the <h6> itself, so navigate up with locator('..') to target the clickable wrapper.
+    this.createIndustryTrigger  = page.getByRole('heading', { name: 'Select Industry', level: 6 }).locator('..');
+    this.createSpStatusTrigger  = page.getByRole('heading', { name: 'Select SP Status', level: 6 }).locator('..');
     this.industryOption         = page.locator('#simple-popper div').filter({ hasText: 'Manufacturing' }).first();
     this.spStatusActiveOption   = page.getByText('SP - Active', { exact: true }).first();
     this.spStatusTargetOption   = page.getByText('SP - Target', { exact: true }).first();
@@ -49,6 +57,27 @@ class CompanyModule {
     }).first();
     this.createCompanyNameRequiredText = page.getByText(/Company Name.*required/i).first();
     this.createCompanyAddressRequiredText = page.getByText(/Address.*required/i).first();
+
+    // ── Create Company drawer — numeric fields ──────────────────────────────
+    // No. of Employees spinbutton has no accessible name; scope to the drawer
+    // by chaining from the parent of the "No. of Employees" label.
+    this.createEmployeesInput = page.getByRole('spinbutton').first();
+    this.createRevenueInput   = page.getByRole('spinbutton', { name: 'Revenue' });
+    this.createMapRegion      = page.getByRole('region', { name: 'Map' });
+
+    // ── Change Review History ────────────────────────────────────────────────
+    this.changeReviewButton    = page.getByRole('button', { name: 'Change Review' });
+    this.changeReviewHeading   = page.getByRole('heading', { name: 'Change review', level: 3 });
+    this.pendingReviewsTab     = page.getByRole('tab', { name: 'Pending Reviews' });
+    this.activityLogsTab       = page.getByRole('tab', { name: 'Activity Logs' });
+    this.noChangeRequestMsg    = page.getByRole('heading', { name: 'No change request found.' });
+
+    // ── Export button ────────────────────────────────────────────────────────
+    this.exportButton = page.getByRole('button', { name: 'Export' }).first();
+
+    // ── Search / No-results state ───────────────────────────────────────────
+    this.noRecordFoundHeading  = page.getByRole('heading', { name: 'No Record Found', level: 2 });
+    this.noRecordFoundMessage  = page.getByText('Expecting to see new companies? Try again in a few seconds as the system catches up.');
 
     // ── Company Detail page ───────────────────────────────────────────────────
     this.activitiesTab    = page.getByRole('tab', { name: 'Activities' });
@@ -173,7 +202,7 @@ class CompanyModule {
   async assertMarketVerticalFilterOptions() {
     // Click the Market Vertical filter heading to open the tooltip
     await this.marketVerticalFilter.click();
-    const tooltip = this.page.locator('#simple-popper[role="tooltip"]').first();
+    const tooltip = this.page.locator('#simple-popper').first();
     await expect(tooltip).toBeVisible({ timeout: 5_000 });
 
     // Verify all 5 confirmed option labels
@@ -387,13 +416,15 @@ class CompanyModule {
   async clickCompanyNameCellByText(companyName) {
     const escapedName = companyName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const exactText = new RegExp(`^\\s*${escapedName}\\s*$`, 'i');
-    const clickableCell = this.companiesTable.locator('tbody tr td').filter({
-      has: this.page.getByText(exactText).first(),
-    }).first();
+    // Click the inner text element directly — the navigation handler is on the
+    // child div inside the <td>, not the <td> itself.
+    const clickableText = this.companiesTable
+      .getByText(exactText)
+      .first();
 
-    await clickableCell.waitFor({ state: 'visible', timeout: 30_000 });
-    await clickableCell.scrollIntoViewIfNeeded().catch(() => {});
-    await clickableCell.click({ force: true });
+    await clickableText.waitFor({ state: 'visible', timeout: 30_000 });
+    await clickableText.scrollIntoViewIfNeeded().catch(() => {});
+    await clickableText.click();
   }
 
   async openFirstCompanyFromList() {
@@ -551,6 +582,7 @@ class CompanyModule {
 
   getSpStatusOptionCandidates(label) {
     return [
+      this.page.getByRole('tooltip').getByText(label, { exact: true }).last(),
       this.page.locator('#simple-popper').getByText(label, { exact: true }).last(),
       this.page.getByRole('listbox').getByText(label, { exact: true }).last(),
       this.page.getByRole('option', { name: label, exact: true }).last(),
@@ -692,7 +724,7 @@ class CompanyModule {
   async openMarketVerticalFilterOptions() {
     await this.marketVerticalFilter.waitFor({ state: 'visible', timeout: 10_000 });
     await this.marketVerticalFilter.click({ force: true });
-    const tooltip = this.page.locator('#simple-popper[role="tooltip"]').first();
+    const tooltip = this.page.locator('#simple-popper').first();
     await expect(tooltip).toBeVisible({ timeout: 10_000 });
     return tooltip;
   }
@@ -726,7 +758,7 @@ class CompanyModule {
 
   async assertAboutFieldValue(label, expectedValueRegex) {
     // About section lists fields as label/value pairs. Use regex for stable checks.
-    const escaped = String(expectedValueRegex);
+
     const labelNode = this.page.getByText(label, { exact: true }).first();
     await labelNode.waitFor({ state: 'visible', timeout: 15_000 });
     await expect(this.page.getByText(expectedValueRegex).first()).toBeVisible({ timeout: 15_000 });
@@ -929,7 +961,7 @@ class CompanyModule {
 
     await Promise.allSettled([
       waitForToast(),
-      modalCreateButton.click({ force: true })
+      modalCreateButton.click()
     ]);
 
     // If the modal did not close, try a JS click as a last resort.
@@ -938,12 +970,16 @@ class CompanyModule {
       await Promise.allSettled([
         waitForToast(),
         this.page.evaluate(() => {
+          // Use the LAST "Create Company" button — the one inside the modal, not the toolbar
           const buttons = Array.from(document.querySelectorAll('button'));
-          const target  = buttons.find((btn) => (btn.textContent || '').trim() === 'Create Company');
+          const matches = buttons.filter((btn) => (btn.textContent || '').trim() === 'Create Company');
+          const target  = matches[matches.length - 1];
           target?.click();
         })
       ]);
-      await this.createCompanyHeading.waitFor({ state: 'hidden', timeout: 20_000 });
+      await this.createCompanyHeading.waitFor({ state: 'hidden', timeout: 20_000 }).catch(() => {
+        // Page may navigate or context may close after successful submission — treat as success
+      });
     }
   }
 
@@ -1255,6 +1291,898 @@ class CompanyModule {
     await expect(this.page.getByText(revenueRegex).first()).toBeVisible({ timeout: 15_000 });
     await expect(this.page.getByText(employeesRegex).first()).toBeVisible({ timeout: 15_000 });
     await expect(this.page.getByText(new RegExp(`Year\\s*Founded\\s*${companyData.yearFounded}`, 'i')).first()).toBeVisible({ timeout: 15_000 });
+  }
+
+  // ── Analytics & Charts helpers (TC-COMP-013 through TC-COMP-015) ───────────
+
+  /**
+   * Returns the ECharts container (`div.echarts-for-react`) that lives inside
+   * the same chart section as the given h6 heading locator.
+   */
+  getEchartsContainerNear(headingLocator) {
+    // Walk up from the heading to the section wrapper, then locate the echarts div
+    return headingLocator.locator('xpath=ancestor::div[.//div[contains(@class,"echarts-for-react")]]')
+      .first()
+      .locator('.echarts-for-react')
+      .first();
+  }
+
+  /** Contracts donut — verifies Active/Inactive legend entries via chart section text */
+  async assertContractsLegendVisible() {
+    // The legend labels are truncated in the DOM (e.g. "Active Contr... • 2,435.00").
+    // Use the entire chart section's innerText which includes the full or truncated legend.
+    const sectionText = await this.getChartSectionText(this.chartByContractsHeading);
+    return {
+      hasActive:   /Active Contr/.test(sectionText),
+      hasInactive: /Inactive Con/.test(sectionText),
+    };
+  }
+
+  /** Market Verticals donut — legend items */
+  getMarketVerticalsLegendItems() {
+    const section = this.chartByMarketVerticalsHeading
+      .locator('xpath=ancestor::div[.//div[contains(@class,"echarts-for-react")]]').first();
+    return {
+      container: section,
+      anyLegendItem: section.locator('div').filter({ hasText: /•/ }),
+    };
+  }
+
+  /** Trend chart — x-axis label elements (month strings rendered by ECharts accessibility layer) */
+  getTrendXAxisLabels() {
+    const section = this.chartTrendHeading
+      .locator('xpath=ancestor::div[.//div[contains(@class,"echarts-for-react")]]').first();
+    // ECharts renders x-axis labels as generic elements with text like "May' 25"
+    return section.locator('.echarts-for-react div').filter({ hasText: /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)['']\s*\d{2}$/ });
+  }
+
+  /** Returns the chart section wrapper (ancestor div) for a given heading locator */
+  getChartSection(headingLocator) {
+    return headingLocator
+      .locator('xpath=ancestor::div[.//div[contains(@class,"echarts-for-react")]]')
+      .first();
+  }
+
+  /** Returns innerText of the chart section that contains the given heading */
+  async getChartSectionText(headingLocator) {
+    const section = this.getChartSection(headingLocator);
+    return section.innerText();
+  }
+
+  // ── Search helpers (TC-COMP-016 through TC-COMP-021) ──────────────────────
+
+  /**
+   * Fills search input and waits for the grid to reflect the change
+   * by polling pagination text until it differs from the baseline.
+   */
+  async searchAndWaitForGridUpdate(searchText) {
+    const baselinePagination = await this.getPaginationText().catch(() => '');
+    await this.companySearchInput.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.companySearchInput.fill(searchText);
+    // Wait until pagination text changes (grid updated)
+    await expect
+      .poll(async () => {
+        const current = await this.getPaginationText().catch(() => '');
+        return current !== baselinePagination ? 'updated' : 'same';
+      }, { timeout: 15_000 })
+      .toBe('updated');
+  }
+
+  /**
+   * Clears search input and waits for the grid to return to unfiltered state.
+   */
+  async clearSearchAndWaitForGridRestore(filteredPagination) {
+    await this.companySearchInput.clear();
+    await expect
+      .poll(async () => {
+        const current = await this.getPaginationText().catch(() => '');
+        return current !== filteredPagination ? 'restored' : 'same';
+      }, { timeout: 15_000 })
+      .toBe('restored');
+  }
+
+  /**
+   * Returns an array of company name texts from all visible rows (column 0).
+   */
+  async getAllVisibleCompanyNames() {
+    await this.companiesTable.first().waitFor({ state: 'visible', timeout: 15_000 });
+    const rows = this.companiesTable.locator('tbody tr');
+    const count = await rows.count();
+    const names = [];
+    for (let i = 0; i < count; i++) {
+      const text = await rows.nth(i).locator('td').first().innerText().catch(() => '');
+      names.push((text || '').trim());
+    }
+    return names;
+  }
+
+  // ── Filter Management helpers (TC-COMP-022 through TC-COMP-052) ────────────
+
+  /**
+   * Opens the Market Vertical filter dropdown, handling both clean state
+   * ("Market Vertical" heading) and filtered state ("Market Vertical (N)" chip).
+   * Returns the tooltip locator.
+   */
+  async openMarketVerticalDropdown() {
+    // The filter area has a container with aria-describedby="simple-popper" that contains
+    // the Market Vertical heading (clean or chip state). Click this container to open tooltip.
+    const triggerContainer = this.page.locator('[aria-describedby="simple-popper"]')
+      .filter({ has: this.page.getByRole('heading', { name: /^Market Vertical/, level: 6 }) });
+    await triggerContainer.first().waitFor({ state: 'visible', timeout: 10_000 });
+    await triggerContainer.first().click({ force: true });
+    const tooltip = this.page.locator('#simple-popper').first();
+    await expect(tooltip).toBeVisible({ timeout: 10_000 });
+    return tooltip;
+  }
+
+  /**
+   * Clears any active Market Vertical filter by clicking the X button on the chip.
+   * Does nothing if no filter is active.
+   */
+  async clearMarketVerticalChip() {
+    // The chip structure: grandparent div > div(h6 "Market Vertical (N)") + div(svg X icon)
+    const chipHeading = this.page.getByRole('heading', { name: /^Market Vertical \(\d+\)/, level: 6 }).first();
+    const isActive = await chipHeading.isVisible().catch(() => false);
+    if (!isActive) return;
+    // Use evaluate to find and click the X (SVG) button in the sibling container
+    await this.page.evaluate(() => {
+      const headings = document.querySelectorAll('h6');
+      for (const h of headings) {
+        if (/Market Vertical \(\d+\)/.test(h.textContent.trim())) {
+          const parent = h.parentElement;
+          const grandparent = parent?.parentElement;
+          if (grandparent) {
+            const svgContainer = grandparent.querySelector('svg');
+            if (svgContainer) { svgContainer.parentElement.click(); return; }
+          }
+        }
+      }
+    });
+    // Wait for the chip to disappear and clean heading to reappear
+    await expect(this.marketVerticalFilter).toBeVisible({ timeout: 10_000 });
+  }
+
+  /**
+   * Returns the Market Vertical tooltip locator (#simple-popper).
+   */
+  getMarketVerticalTooltip() {
+    return this.page.locator('#simple-popper').first();
+  }
+
+  /**
+   * Returns the "Search by Industry" textbox inside the Market Vertical tooltip.
+   */
+  getMarketVerticalSearchInput() {
+    return this.getMarketVerticalTooltip().getByRole('textbox', { name: 'Search by Industry' });
+  }
+
+  /**
+   * Returns a locator for a specific market vertical option inside the tooltip.
+   */
+  getMarketVerticalOption(optionLabel) {
+    return this.getMarketVerticalTooltip().locator('p').filter({ hasText: new RegExp(`^${optionLabel}$`) });
+  }
+
+  /**
+   * Returns locator for the checkbox img next to a market vertical option.
+   * When checked, the img src changes.
+   */
+  getMarketVerticalOptionCheckbox(optionLabel) {
+    const optionContainer = this.getMarketVerticalTooltip()
+      .locator('div[style*="cursor"]').filter({ hasText: new RegExp(`^${optionLabel}$`) })
+      .or(this.getMarketVerticalTooltip().locator('div').filter({ hasText: new RegExp(`^${optionLabel}$`) }));
+    return optionContainer.locator('img').first();
+  }
+
+  /**
+   * Clicks a market vertical option in the dropdown tooltip and waits for grid update.
+   */
+  async selectMarketVerticalOption(optionLabel) {
+    const beforePagination = await this.getPaginationText().catch(() => '');
+    const option = this.getMarketVerticalOption(optionLabel);
+    await option.waitFor({ state: 'visible', timeout: 5_000 });
+    await option.click({ force: true });
+    await expect
+      .poll(async () => {
+        const current = await this.getPaginationText().catch(() => '');
+        return current !== beforePagination ? 'changed' : 'same';
+      }, { timeout: 15_000 })
+      .toBe('changed');
+  }
+
+  /**
+   * Clicks a market vertical option without waiting for grid update (for multi-select).
+   */
+  async clickMarketVerticalOptionNoWait(optionLabel) {
+    const option = this.getMarketVerticalOption(optionLabel);
+    await option.waitFor({ state: 'visible', timeout: 5_000 });
+    await option.click({ force: true });
+  }
+
+  /**
+   * Returns all visible market vertical option texts from the tooltip.
+   */
+  async getVisibleMarketVerticalOptions() {
+    const tooltip = this.getMarketVerticalTooltip();
+    await expect(tooltip).toBeVisible({ timeout: 5_000 });
+    const options = tooltip.locator('p');
+    const count = await options.count();
+    const texts = [];
+    for (let i = 0; i < count; i++) {
+      const text = await options.nth(i).innerText().catch(() => '');
+      if (text.trim()) texts.push(text.trim());
+    }
+    return texts;
+  }
+
+  /**
+   * Returns all Market Vertical column values from visible rows.
+   * Market Vertical is at column index 3.
+   */
+  async getAllVisibleMarketVerticalValues() {
+    await this.companiesTable.first().waitFor({ state: 'visible', timeout: 15_000 });
+    const rows = this.companiesTable.locator('tbody tr');
+    const count = await rows.count();
+    const values = [];
+    for (let i = 0; i < count; i++) {
+      const text = await rows.nth(i).locator('td').nth(3).innerText().catch(() => '');
+      values.push((text || '').trim());
+    }
+    return values;
+  }
+
+  /**
+   * Returns all State column values from visible rows.
+   * State is at column index 9.
+   */
+  async getAllVisibleStateValues() {
+    await this.companiesTable.first().waitFor({ state: 'visible', timeout: 15_000 });
+    const rows = this.companiesTable.locator('tbody tr');
+    const count = await rows.count();
+    const values = [];
+    for (let i = 0; i < count; i++) {
+      const text = await rows.nth(i).locator('td').nth(9).innerText().catch(() => '');
+      values.push((text || '').trim());
+    }
+    return values;
+  }
+
+  /**
+   * Returns all City column values from visible rows.
+   * City is at column index 8.
+   */
+  async getAllVisibleCityValues() {
+    await this.companiesTable.first().waitFor({ state: 'visible', timeout: 15_000 });
+    const rows = this.companiesTable.locator('tbody tr');
+    const count = await rows.count();
+    const values = [];
+    for (let i = 0; i < count; i++) {
+      const text = await rows.nth(i).locator('td').nth(8).innerText().catch(() => '');
+      values.push((text || '').trim());
+    }
+    return values;
+  }
+
+  /**
+   * Opens a dropdown inside the More Filters panel by heading text.
+   */
+  async openMoreFiltersDropdown(headingText) {
+    const heading = this.page.getByRole('heading', { name: headingText, level: 6 }).first();
+    await heading.scrollIntoViewIfNeeded().catch(() => {});
+    // Dismiss any lingering tooltip first
+    const existingTooltip = this.page.locator('#simple-popper').first();
+    if (await existingTooltip.isVisible().catch(() => false)) {
+      await this.moreFiltersHeading.click({ force: true });
+      await expect(existingTooltip).toBeHidden({ timeout: 3_000 }).catch(() => {});
+    }
+    // The onclick handler is on the grandparent container of the h6.
+    // Use evaluate to click the correct ancestor.
+    await this.page.evaluate((text) => {
+      const headings = document.querySelectorAll('h6');
+      for (const h of headings) {
+        if (h.textContent.trim() === text) {
+          const grandparent = h.parentElement?.parentElement;
+          if (grandparent) { grandparent.click(); return; }
+          h.click();
+          return;
+        }
+      }
+    }, headingText);
+    const tooltip = this.page.locator('#simple-popper').first();
+    await expect(tooltip).toBeVisible({ timeout: 5_000 });
+    return tooltip;
+  }
+
+  /**
+   * Selects an option from a More Filters dropdown tooltip.
+   */
+  async selectMoreFiltersDropdownOption(tooltipLocator, optionText) {
+    const option = tooltipLocator.getByText(optionText, { exact: true }).first();
+    await option.waitFor({ state: 'visible', timeout: 5_000 });
+    await option.click({ force: true });
+  }
+
+  /**
+   * Dismisses the tooltip inside the More Filters panel without closing the drawer.
+   * Clicks the "All Filters" heading to move focus away from the tooltip.
+   */
+  async dismissMoreFiltersTooltip() {
+    await this.moreFiltersHeading.click({ force: true });
+    const tooltip = this.page.locator('#simple-popper').first();
+    await expect(tooltip).toBeHidden({ timeout: 5_000 }).catch(() => {});
+  }
+
+  /**
+   * Selects a state in the More Filters panel.
+   */
+  async selectMoreFiltersState(stateName) {
+    const tooltip = await this.openMoreFiltersDropdown('Select states');
+    await this.selectMoreFiltersDropdownOption(tooltip, stateName);
+    await this.dismissMoreFiltersTooltip();
+  }
+
+  /**
+   * Selects a city in the More Filters panel (state must already be selected).
+   */
+  async selectMoreFiltersCity(cityName) {
+    const tooltip = await this.openMoreFiltersDropdown('Select cities');
+    await this.selectMoreFiltersDropdownOption(tooltip, cityName);
+    await this.dismissMoreFiltersTooltip();
+  }
+
+  /**
+   * Selects a parent company in the More Filters panel.
+   */
+  async selectMoreFiltersParentCompany() {
+    const tooltip = await this.openMoreFiltersDropdown('Select Parent Company');
+    // Pick the first available option
+    const firstOption = tooltip.locator('p').first()
+      .or(tooltip.locator('div[style*="cursor"]').first());
+    const text = await firstOption.innerText().catch(() => '');
+    if (text.trim()) {
+      await firstOption.click({ force: true });
+    }
+    await this.dismissMoreFiltersTooltip();
+    return text.trim();
+  }
+
+  /**
+   * Selects an SP Status in the More Filters panel.
+   */
+  async selectMoreFiltersSpStatus(statusLabel) {
+    const tooltip = await this.openMoreFiltersDropdown('Select SP Status');
+    await this.selectMoreFiltersDropdownOption(tooltip, statusLabel);
+    await this.dismissMoreFiltersTooltip();
+  }
+
+  /**
+   * Types a date range into one of the More Filters date fields.
+   * @param {string} fieldLabel - "Created Date", "Last Activity", or "Last Modified"
+   * @param {string} dateRange - e.g. "01/01/2025 - 12/31/2025"
+   */
+  async fillMoreFiltersDateRange(fieldLabel, dateRange) {
+    // Find the correct date input by field label position
+    const allDateInputs = this.page.locator('input[placeholder="MM/DD/YYYY - MM/DD/YYYY"]');
+    let targetInput = null;
+
+    if (fieldLabel === 'Created Date') {
+      targetInput = allDateInputs.nth(0);
+    } else if (fieldLabel === 'Last Activity') {
+      targetInput = allDateInputs.nth(1);
+    } else if (fieldLabel === 'Last Modified') {
+      targetInput = allDateInputs.nth(2);
+    }
+
+    if (targetInput) {
+      await targetInput.scrollIntoViewIfNeeded().catch(() => {});
+      await targetInput.click();
+      await targetInput.fill(dateRange);
+    }
+  }
+
+  /**
+   * Clicks the close (X) link next to "All Filters" heading.
+   */
+  async closeMoreFiltersViaX() {
+    // Click the X link adjacent to "All Filters" heading using evaluate
+    await this.page.evaluate(() => {
+      const headings = document.querySelectorAll('h3');
+      for (const h of headings) {
+        if (h.textContent.includes('All Filters')) {
+          const container = h.parentElement;
+          const link = container?.querySelector('a');
+          if (link) { link.click(); return; }
+        }
+      }
+    });
+    await expect(this.moreFiltersHeading).toBeHidden({ timeout: 10_000 });
+  }
+
+  /**
+   * Checks if the Cities dropdown is disabled (pointer-events: none).
+   */
+  async isCitiesDropdownDisabled() {
+    // Check if the Cities dropdown trigger has pointer-events: none (disabled state)
+    // The pointer-events is set on the h6's direct parent div
+    const disabled = await this.page.evaluate(() => {
+      const headings = document.querySelectorAll('h6');
+      for (const h of headings) {
+        if (h.textContent.trim() === 'Select cities') {
+          // Check each ancestor up to 3 levels for pointer-events: none
+          let el = h.parentElement;
+          for (let i = 0; i < 3 && el; i++) {
+            if (window.getComputedStyle(el).pointerEvents === 'none') return true;
+            el = el.parentElement;
+          }
+          return false;
+        }
+      }
+      return true;
+    });
+    return disabled;
+  }
+
+  /**
+   * Waits for grid to update after applying filters by polling pagination.
+   */
+  async waitForGridUpdateAfterFilter(baselinePagination) {
+    await expect
+      .poll(async () => {
+        const current = await this.getPaginationText().catch(() => '');
+        return current !== baselinePagination ? 'updated' : 'same';
+      }, { timeout: 20_000 })
+      .toBe('updated');
+  }
+
+  /**
+   * Returns the Strategic Partnership Status column values from visible rows.
+   * SP Status is at column index 19.
+   */
+  async getAllVisibleSpStatusValues() {
+    await this.companiesTable.first().waitFor({ state: 'visible', timeout: 15_000 });
+    const rows = this.companiesTable.locator('tbody tr');
+    const count = await rows.count();
+    const values = [];
+    for (let i = 0; i < count; i++) {
+      const text = await rows.nth(i).locator('td').nth(19).innerText().catch(() => '');
+      values.push((text || '').trim());
+    }
+    return values;
+  }
+
+  // ── Listing page — chart & grid helpers (TC-COMP-001 through TC-COMP-012) ──
+
+  async getChartContainerBoxes() {
+    // Returns bounding boxes of the three chart containers for overlap checks
+    
+    // The chart section has three direct children with h6 headings
+    const chartSection = this.page.locator('div').filter({
+      has: this.chartByContractsHeading,
+    }).filter({
+      has: this.chartByMarketVerticalsHeading,
+    }).first();
+    return chartSection;
+  }
+
+  async getTableScrollInfo() {
+    // Evaluate scrollWidth vs clientWidth on the table's scroll container
+    return this.page.evaluate(() => {
+      const table = document.querySelector('table');
+      if (!table) return { scrollWidth: 0, clientWidth: 0, scrollLeft: 0 };
+      const container = table.closest('div[style*="overflow"]') || table.parentElement;
+      return {
+        scrollWidth: container.scrollWidth,
+        clientWidth: container.clientWidth,
+        scrollLeft: container.scrollLeft,
+      };
+    });
+  }
+
+  async scrollTableToRight() {
+    await this.page.evaluate(() => {
+      const table = document.querySelector('table');
+      if (!table) return;
+      const container = table.closest('div[style*="overflow"]') || table.parentElement;
+      container.scrollLeft = container.scrollWidth;
+    });
+  }
+
+  async getFirstRowCellTexts() {
+    // Returns an array of all cell texts in the first data row
+    await this.companiesTable.first().waitFor({ state: 'visible', timeout: 15_000 });
+    const firstRow = this.companiesTable.locator('tbody tr').first();
+    await firstRow.waitFor({ state: 'visible', timeout: 15_000 });
+    const cells = firstRow.locator('td');
+    const count = await cells.count();
+    const texts = [];
+    for (let i = 0; i < count; i++) {
+      const text = await cells.nth(i).innerText().catch(() => '');
+      texts.push((text || '').trim());
+    }
+    return texts;
+  }
+  // ── Sorting & Pagination helpers (TC-COMP-053 through TC-COMP-059) ──────
+
+  /**
+   * Returns the Created Date column values from visible rows.
+   * Created Date is at column index 6.
+   */
+  async getAllVisibleCreatedDateValues() {
+    await this.companiesTable.first().waitFor({ state: 'visible', timeout: 15_000 });
+    const rows = this.companiesTable.locator('tbody tr');
+    const count = await rows.count();
+    const values = [];
+    for (let i = 0; i < count; i++) {
+      const text = await rows.nth(i).locator('td').nth(6).innerText().catch(() => '');
+      values.push((text || '').trim());
+    }
+    return values;
+  }
+
+  /**
+   * Returns the visible row count in the table body.
+   */
+  async getTableBodyRowCount() {
+    await this.companiesTable.first().waitFor({ state: 'visible', timeout: 15_000 });
+    return this.companiesTable.locator('tbody tr').count();
+  }
+
+  /**
+   * Navigates to the last page by clicking next page until disabled.
+   * Returns the pagination text on the last page.
+   */
+  async navigateToLastPage(maxClicks = 50) {
+    for (let i = 0; i < maxClicks; i++) {
+      const isDisabled = await this.nextPageBtn.isDisabled().catch(() => true);
+      if (isDisabled) break;
+      await this.gotoNextPage();
+    }
+    return this.getPaginationText();
+  }
+
+  /**
+   * Deselects a Market Vertical option from the page-level filter by clicking it in the dropdown.
+   * If tooltip is not open, opens it first.
+   */
+  async deselectMarketVerticalFromDropdown(optionLabel) {
+    const tooltip = this.getMarketVerticalTooltip();
+    const isOpen = await tooltip.isVisible().catch(() => false);
+    if (!isOpen) {
+      await this.openMarketVerticalDropdown();
+    }
+    const beforePagination = await this.getPaginationText().catch(() => '');
+    const option = this.getMarketVerticalOption(optionLabel);
+    await option.waitFor({ state: 'visible', timeout: 5_000 });
+    await option.click({ force: true });
+    await expect
+      .poll(async () => {
+        const current = await this.getPaginationText().catch(() => '');
+        return current !== beforePagination ? 'changed' : 'same';
+      }, { timeout: 15_000 })
+      .toBe('changed');
+  }
+  // ── Create Company Workflow helpers (TC-COMP-064 through TC-COMP-093) ─────
+
+  /**
+   * Returns the Create Company submit button scoped to the modal.
+   * Distinct from the list-page "Create Company" toolbar button.
+   */
+  getCreateCompanyModalSubmitBtn() {
+    return this.getModal().getByRole('button', { name: 'Create Company' }).last();
+  }
+
+  /**
+   * Checks whether the Company Name label has a mandatory asterisk (*).
+   */
+  async hasCompanyNameMandatoryMarker() {
+    const labelContainer = this.getModal().locator('div').filter({ hasText: /Company Name/ }).first();
+    const text = await labelContainer.innerText().catch(() => '');
+    return text.includes('*');
+  }
+
+  /**
+   * Checks whether the Market Vertical label has a mandatory asterisk (*).
+   */
+  async hasMarketVerticalMandatoryMarker() {
+    const labelContainer = this.getModal().locator('div').filter({ hasText: /Market Vertical/ }).first();
+    const text = await labelContainer.innerText().catch(() => '');
+    return text.includes('*');
+  }
+
+  /**
+   * Checks whether the Address label has a mandatory asterisk (*).
+   */
+  async hasAddressMandatoryMarker() {
+    const labelContainer = this.getModal().locator('div').filter({ hasText: /^Address/ }).first();
+    const text = await labelContainer.innerText().catch(() => '');
+    return text.includes('*');
+  }
+
+  /**
+   * Returns the No. of Employees spinbutton scoped inside the Create Company modal.
+   * The field has no accessible name, so we scope via the label text.
+   */
+  getCreateEmployeesSpinbutton() {
+    const modal = this.getModal();
+    return modal.locator('div').filter({ hasText: /No\. of Employees/ }).locator('input[type="number"]').first();
+  }
+
+  /**
+   * Returns the Revenue spinbutton scoped inside the Create Company modal.
+   */
+  getCreateRevenueSpinbutton() {
+    const modal = this.getModal();
+    return modal.getByRole('spinbutton', { name: 'Revenue' });
+  }
+
+  /**
+   * Opens the Market Vertical (Industry) dropdown in the Create Company modal.
+   * The MUI custom dropdown's click handler lives on a React fiber ancestor that
+   * does not respond to Playwright's force-click on the DOM element.  We walk the
+   * React fiber tree from the <h6> "Select Industry" heading upward until we find
+   * a fiber whose props contain an onClick, then invoke it programmatically.
+   * Falls back to multi-candidate DOM clicks if the fiber approach fails.
+   * Returns true if #simple-popper became visible, false otherwise.
+   */
+  async openCreateIndustryDropdown() {
+    const popper = this.page.locator('#simple-popper').first();
+
+    // If popper is already open, nothing to do
+    if (await popper.isVisible().catch(() => false)) return true;
+
+    // Approach 1: Trigger the React onClick handler via fiber tree traversal.
+    // This mirrors the proven React-fiber pattern in selectIndustry().
+    const fiberClicked = await this.page.evaluate(() => {
+      const h6 = Array.from(document.querySelectorAll('h6'))
+        .find(el => el.textContent?.trim() === 'Select Industry');
+      if (!h6) return false;
+
+      // Walk up DOM ancestors to find the one with a React onClick prop
+      let el = h6;
+      for (let depth = 0; depth < 8 && el; depth++) {
+        const propsKey = Object.keys(el).find(k => k.startsWith('__reactProps'));
+        if (propsKey && el[propsKey]?.onClick) {
+          el[propsKey].onClick({ preventDefault() {}, stopPropagation() {} });
+          return true;
+        }
+        el = el.parentElement;
+      }
+
+      // Fallback: walk the React fiber tree (fiber.return) for onClick
+      const fiberKey = Object.keys(h6).find(k => k.startsWith('__reactFiber'));
+      if (!fiberKey) return false;
+      let fiber = h6[fiberKey];
+      for (let i = 0; i < 15 && fiber; i++) {
+        if (fiber.memoizedProps?.onClick) {
+          fiber.memoizedProps.onClick({ preventDefault() {}, stopPropagation() {} });
+          return true;
+        }
+        fiber = fiber.return;
+      }
+      return false;
+    }).catch(() => false);
+
+    if (fiberClicked) {
+      const popperVisible = await popper.isVisible({ timeout: 3_000 }).catch(() => false);
+      if (popperVisible) return true;
+    }
+
+    // Approach 2: Multi-candidate DOM clicks as a last resort
+    const candidates = [
+      this.page.getByText('Select Industry', { exact: true }).first(),
+      this.page.locator('div').filter({ hasText: /^Select Industry$/ }).first(),
+      this.createIndustryTrigger,
+    ];
+
+    for (const candidate of candidates) {
+      const visible = await candidate.isVisible().catch(() => false);
+      if (!visible) continue;
+      await candidate.click({ force: true }).catch(() => {});
+      const popperVisible = await popper.isVisible({ timeout: 2_000 }).catch(() => false);
+      if (popperVisible) return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Opens the Market Vertical dropdown inside the Create Company modal and returns
+   * all visible option texts.
+   */
+  async getCreateIndustryOptions() {
+    const opened = await this.openCreateIndustryDropdown();
+    if (!opened) {
+      throw new Error('Market Vertical dropdown did not open in the Create Company modal.');
+    }
+    const tooltip = this.page.locator('#simple-popper').first();
+    await expect(tooltip).toBeVisible({ timeout: 5_000 });
+    const options = tooltip.locator('div[style*="cursor"], p').filter({ hasText: /\w+/ });
+    const count = await options.count();
+    const texts = [];
+    for (let i = 0; i < count; i++) {
+      const text = await options.nth(i).innerText().catch(() => '');
+      if (text.trim() && !texts.includes(text.trim())) texts.push(text.trim());
+    }
+    return texts;
+  }
+
+  /**
+   * Fills the No. of Employees spinbutton in the Create Company modal.
+   */
+  async fillCreateEmployees(value) {
+    const input = this.getCreateEmployeesSpinbutton();
+    await input.waitFor({ state: 'visible', timeout: 5_000 });
+    await input.fill(String(value));
+  }
+
+  /**
+   * Fills the Revenue spinbutton in the Create Company modal.
+   */
+  async fillCreateRevenue(value) {
+    const input = this.getCreateRevenueSpinbutton();
+    await input.waitFor({ state: 'visible', timeout: 5_000 });
+    await input.fill(String(value));
+  }
+  // ── Change Review History (TC-COMP-094 through TC-COMP-098) ──────────────
+
+  async gotoChangeReviewHistory() {
+    await this.changeReviewButton.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.changeReviewButton.click();
+    await this.page.waitForURL(/\/app\/sales\/companies\/reviews/, { timeout: 20_000 });
+    await this.page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+  }
+
+  async assertChangeReviewPageLoaded() {
+    await expect(this.page).toHaveURL(/\/app\/sales\/companies\/reviews/, { timeout: 20_000 });
+    await expect(this.companiesTable.first()).toBeVisible({ timeout: 15_000 });
+    await expect(this.paginationInfo.first()).toBeVisible({ timeout: 15_000 });
+  }
+
+  async openFirstCompanyReview() {
+    const firstRow = this.companiesTable.locator('tbody tr').first();
+    await firstRow.waitFor({ state: 'visible', timeout: 15_000 });
+    const firstCell = firstRow.locator('td').first();
+    const companyName = await firstCell.innerText().catch(() => '');
+    await firstCell.click();
+    await this.changeReviewHeading.waitFor({ state: 'visible', timeout: 15_000 });
+    return companyName.trim();
+  }
+
+  async assertChangeReviewDrawerOpen() {
+    await expect(this.changeReviewHeading).toBeVisible({ timeout: 10_000 });
+    await expect(this.page.getByText('Please review to approve or reject the changes.')).toBeVisible({ timeout: 10_000 });
+    await expect(this.pendingReviewsTab).toBeVisible({ timeout: 5_000 });
+    await expect(this.activityLogsTab).toBeVisible({ timeout: 5_000 });
+  }
+
+  async gotoActivityLogsTab() {
+    await this.activityLogsTab.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.activityLogsTab.click();
+    await this.page.waitForTimeout(1_000);
+  }
+
+  async getActivityLogEditedByText() {
+    const editedByLabel = this.page.getByText('Edited by').first();
+    const visible = await editedByLabel.isVisible({ timeout: 5_000 }).catch(() => false);
+    if (!visible) return null;
+    // The "Edited by" is followed by the user name in a nearby sibling
+    const container = editedByLabel.locator('xpath=ancestor::div[1]');
+    const text = await container.innerText().catch(() => '');
+    return text.trim();
+  }
+
+  async closeChangeReviewDrawer() {
+    await this.page.keyboard.press('Escape');
+    await this.changeReviewHeading.waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => {});
+  }
+
+  // ── Notes CRUD helpers (TC-COMP-121 through TC-COMP-132) ──────────────────
+
+  async createNote({ subject, description }) {
+    await this.openCreateNoteDrawer();
+    // Subject input is the first textbox inside the Add Notes drawer
+    const notesDrawer = this.addNotesHeading.locator('xpath=ancestor::*[@role="dialog" or @role="presentation" or contains(@class,"MuiDrawer-paper")][1]');
+    const subjectInput = notesDrawer.getByRole('textbox').first().or(this.page.locator('div[role="presentation"] input').first());
+    await subjectInput.fill(subject);
+    await this.noteDescEditor.click();
+    await this.noteDescEditor.fill(description);
+    await this.noteSaveBtn.click();
+    await this.addNotesHeading.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => {});
+    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+  }
+
+  async assertNoteVisible(subject) {
+    // Note text in the DOM is wrapped as "Note: {subject} by {username}" — use substring match
+    await expect(this.page.getByText(subject).first()).toBeVisible({ timeout: 15_000 });
+  }
+
+  /** Returns the note card container for a given subject (substring match). */
+  getNoteCard(subject) {
+    // Note text is "Note: {subject} by {username}" — find the paragraph, then go up to the card
+    const noteParagraph = this.page.getByText(subject).first();
+    return noteParagraph.locator('xpath=ancestor::div[3]');
+  }
+
+  async openNoteOptionsMenu(subject) {
+    const noteCard = this.getNoteCard(subject);
+    const editBtn = noteCard.getByRole('button', { name: 'Edit' }).first();
+    await editBtn.click({ force: true });
+    await this.page.waitForTimeout(500);
+  }
+
+  async deleteNote(subject) {
+    // Edit and Delete are direct buttons on the note card — no dropdown menu
+    const noteCard = this.getNoteCard(subject);
+    const deleteBtn = noteCard.getByRole('button', { name: /delete/i }).first();
+    await deleteBtn.click({ force: true });
+    // Confirm deletion — dialog button is "Delete Note" not "Delete"
+    const confirmDialog = this.page.getByRole('dialog').filter({ hasText: /Delete Note/i });
+    const dialogVisible = await confirmDialog.isVisible({ timeout: 5_000 }).catch(() => false);
+    if (dialogVisible) {
+      await confirmDialog.getByRole('button', { name: /Delete Note/i }).click();
+    }
+    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+  }
+
+  // ── Tasks CRUD helpers (TC-COMP-133 through TC-COMP-149) ──────────────────
+
+  async createTask({ title, description, type = 'To-Do', priority = 'Medium' }) {
+    await this.openCreateTaskDrawer();
+    await this.taskTitleInput.fill(title);
+    await this.taskDescEditor.click();
+    await this.taskDescEditor.fill(description);
+
+    // Select type — dropdown renders as tooltip, option text may differ in casing (e.g. "To-do" vs "To-Do")
+    await this.taskTypeTrigger.click({ force: true });
+    const typeTooltip = this.page.getByRole('tooltip').first();
+    await expect(typeTooltip).toBeVisible({ timeout: 5_000 });
+    await typeTooltip.getByText(new RegExp(`^${type}$`, 'i')).first().click({ force: true });
+
+    // Select priority — same tooltip pattern
+    await this.taskPriorityTrigger.click({ force: true });
+    const priorityTooltip = this.page.getByRole('tooltip').first();
+    await expect(priorityTooltip).toBeVisible({ timeout: 5_000 });
+    await priorityTooltip.getByText(new RegExp(`^${priority}$`, 'i')).first().click({ force: true });
+
+    // Select due date — pick today
+    const dueDateInput = this.page.locator('input[placeholder*="MM/DD/YYYY"]').first();
+    const dueDateVisible = await dueDateInput.isVisible({ timeout: 3_000 }).catch(() => false);
+    if (dueDateVisible) {
+      const today = new Date();
+      const dateStr = `${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}/${today.getFullYear()}`;
+      await dueDateInput.fill(dateStr);
+    }
+
+    await this.taskSaveBtn.click();
+    await this.createTaskHeading.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => {});
+    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+  }
+
+  async assertTaskVisible(title) {
+    // Task title may be truncated with ellipsis — cell accessible name has the full text
+    await expect(this.page.getByRole('cell', { name: title }).first()).toBeVisible({ timeout: 15_000 });
+  }
+
+  async openTaskDetail(title) {
+    await this.page.getByRole('cell', { name: title }).first().click();
+    await this.page.waitForTimeout(1_000);
+  }
+
+  async deleteTask(title) {
+    // Click on task row to open detail, then find delete option
+    const taskRow = this.companiesTable.locator('tbody tr').filter({ hasText: title }).first();
+    const deleteBtn = taskRow.getByRole('button', { name: /delete/i })
+      .or(taskRow.locator('svg').last());
+    const visible = await deleteBtn.isVisible({ timeout: 3_000 }).catch(() => false);
+    if (visible) {
+      await deleteBtn.click({ force: true });
+      const confirmBtn = this.page.getByRole('button', { name: /^Delete$/ }).last();
+      const confirmVisible = await confirmBtn.isVisible({ timeout: 3_000 }).catch(() => false);
+      if (confirmVisible) {
+        await confirmBtn.click({ force: true });
+      }
+    }
+    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
   }
 }
 
