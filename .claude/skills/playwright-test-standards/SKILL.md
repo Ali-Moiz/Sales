@@ -31,6 +31,10 @@ Priority order — **NO XPATH ever** (convert or `test.fail()` + TODO):
 
 Every selector must be verified via Playwright MCP DOM inspection or user codegen paste — never fabricated from memory.
 
+**MUI Popper/Tooltip elements:** Use `#simple-popper` (id only) — never `#simple-popper[role="tooltip"]`. The `role="tooltip"` attribute is not reliably present on MUI Popper elements and causes locator timeouts. The working pattern in `getCreateIndustryOptions()` confirms `#simple-popper` alone is sufficient.
+
+**MUI custom dropdowns (no native `<select>`):** `force: true` click on the container div does NOT trigger React synthetic event handlers -- the DOM click bypasses React's event system. Use `openCreateIndustryDropdown()` which walks the React fiber tree to find and invoke the `onClick` handler programmatically. Never add new direct `.click({ force: true })` calls to open MUI custom dropdowns; always use the POM's dedicated opener method.
+
 ---
 
 ## 3. Timeouts
@@ -134,7 +138,66 @@ Every test MUST have meaningful assertions. `toBeDefined()` alone is insufficien
 
 ## 9. Test Structure
 
-### 9.1 Multi-requirement decision
+### 9.1 Single Session Pattern (MANDATORY)
+
+All tests in a spec file MUST run in a single browser window and single session. Never create separate browser contexts per sub-describe.
+
+**Main `test.describe` must contain:**
+- `let sharedPage; let companyModule;` (or equivalent module variable)
+- `test.beforeAll` — creates ONE context, ONE page, logs in ONCE, instantiates the Page Object
+- `test.beforeEach` — navigates to the module's listing page (state reset before every test)
+- `test.afterAll` — closes the context
+
+**Sub-describes must NOT:**
+- Declare their own `let sharedPage` / `let companyModule`
+- Create new browser contexts (`browser.newContext()`)
+- Duplicate login or page creation
+- Have their own `afterAll` to close context
+
+**Sub-describes that need extra setup** (e.g., open a detail page, switch to a tab) use their own `beforeEach` for ONLY the additional navigation — the parent `beforeEach` handles the base navigation.
+
+```javascript
+test.describe('Module E2E Tests', () => {
+  let sharedPage;
+  let module;
+
+  test.beforeAll(async ({ browser }) => {
+    const context = await browser.newContext();
+    sharedPage = await context.newPage();
+    await performLogin(sharedPage);
+    module = new MyModule(sharedPage);
+  });
+
+  test.beforeEach(async () => {
+    await sharedPage.goto(`${env.baseUrl}/app/sales/module`, { waitUntil: 'domcontentloaded' });
+    await module.assertPageOpened();
+  });
+
+  test.afterAll(async () => {
+    await sharedPage.context().close();
+  });
+
+  // Sub-describe with no extra hooks — inherits parent beforeEach
+  test.describe('Listing Tests', () => {
+    test('TC-001 | ...', async () => { /* starts on listing page */ });
+  });
+
+  // Sub-describe with extra setup
+  test.describe('Detail Page Tests', () => {
+    test.beforeEach(async () => {
+      // Parent beforeEach already navigated to listing — just open detail
+      await module.openFirstItemFromList();
+      await module.assertDetailOpened();
+    });
+
+    test('TC-050 | ...', async () => { /* starts on detail page */ });
+  });
+});
+```
+
+**Exception:** Access-control tests that require a DIFFERENT user role may create a separate context within the test body, but must close it before the test ends.
+
+### 9.2 Multi-requirement decision
 
 ```
 Do requirements share setup and continuous UI flow?
@@ -142,7 +205,7 @@ Do requirements share setup and continuous UI flow?
   NO  → separate test() blocks inside same describe()
 ```
 
-### 9.2 Describe title rule
+### 9.3 Describe title rule
 
 **Always a short summary** — never requirement strings. Include TC range if known.
 ```javascript
@@ -152,24 +215,24 @@ test.describe('Contract Service Management — TC-001, TC-002', () => {});
 test.describe('Verify deleting a service updates totals', () => {});
 ```
 
-### 9.3 TC code naming
+### 9.4 TC code naming
 
 - TC codes written to `docs/{{module}}-test-steps.md` in Phase 3, before test generation.
 - Never invent TC codes at test-write time.
 - **TC names (part after `|`) = user's EXACT requirement text** — never shortened or paraphrased.
 - User edits during doc-review pause are source of truth.
 
-### 9.4 Tags
+### 9.5 Tags
 
 - `@smoke` — happy path
 - `@regression` — edge cases
 - `@critical` — blocking business flows
 
-### 9.5 Key patterns
+### 9.6 Key patterns
 
-- Use `{ page }` from test context — not `browser.newContext()`.
 - Use `test.step()` for logical sections.
 - Screenshots/traces in `playwright.config.js`, not `afterEach`.
+- Do NOT add per-test `goto` to the module listing page — the parent `beforeEach` handles it.
 
 ---
 
