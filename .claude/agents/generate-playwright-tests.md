@@ -114,25 +114,24 @@ Run tests via **CLI** (`npx playwright test --grep "TC-CODE"` via Bash tool), NO
 
 ---
 
-## Phase 8: Auto-Fix (Token-Efficient)
+## Phase 8: Delegate Failures to Playwright Debugger
 
-Hard cap: **2 attempts per failing test.** Prioritize CLI error messages over MCP exploration.
+When any test fails in Phase 7, **do NOT attempt to fix it yourself.** Instead, delegate to the **Playwright Debugger** agent.
 
-```
-Attempt 1 — Read CLI error output. Fix based on error message alone (selector typo, missing await, wrong locator).
-  Re-run via CLI.
-  ↓ still failing?
-Attempt 2 — Use MCP DOM snapshot on the SPECIFIC failing element only (not full page). Fix selector/wait.
-  Re-run via CLI.
-  ↓ still failing?
-Auto-mark test.fail() with TODO. No further attempts, no user pause.
-```
+1. Capture the full CLI error output from Phase 7 (test name, error message, stack trace, line numbers).
+2. Spawn the `Playwright Debugger` agent via the **Agent tool** with:
+   - The complete failure log as input.
+   - The spec file path and POM file path for context.
+   - A brief summary of what the test was trying to do.
+3. Wait for the Playwright Debugger agent to complete its fix.
+4. After the debugger agent finishes, re-run the fixed tests via CLI (`npx playwright test --grep "TC-CODE"`) to confirm the fix.
+5. If tests still fail after the debugger's fix, report the remaining failures to the user — do NOT retry or attempt further fixes.
 
 **Rules:**
-- Always re-run via CLI, never MCP browser.
-- MCP snapshots: only in attempt 2, only on the specific area of failure — never full-page snapshots.
-- Never bump timeouts to fix flakiness. Investigate root cause.
-- `test.fail()` TODO format per Skill §12.
+- Never self-fix failing tests. Always delegate to the Playwright Debugger agent.
+- Pass the raw CLI error output — do not summarize or truncate it.
+- One debugger agent call per batch of failures is sufficient (include all failure logs together).
+- Never bump timeouts to fix flakiness. The debugger agent will investigate root causes.
 
 ---
 

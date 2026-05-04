@@ -16,13 +16,13 @@
     "test:uat:property": "cross-env ENV_NAME=uat npx playwright test --project=chrome --headed --workers=1 tests/e2e/property-module.spec.js",
     "test:uat:deal": "cross-env ENV_NAME=uat npx playwright test --project=chrome --headed --workers=1 tests/e2e/deal-module.spec.js",
     "test:uat:contract": "cross-env ENV_NAME=uat npx playwright test --project=chrome --headed --workers=1 tests/e2e/contract-module.spec.js",
+    "test:uat:tasks": "cross-env ENV_NAME=uat npx playwright test --project=chrome --headed --workers=1 tests/e2e/tasks-module.spec.js",
     "test:prod:login": "cross-env ENV_NAME=prod npx playwright test --project=chrome --headed --workers=1 tests/e2e/login-module.spec.js",
     "test:prod:company": "cross-env ENV_NAME=prod npx playwright test --project=chrome --headed --workers=1 tests/e2e/company-module.spec.js",
     "test:prod:contact": "cross-env ENV_NAME=prod npx playwright test --project=chrome --headed --workers=1 tests/e2e/contact-module.spec.js",
     "test:prod:property": "cross-env ENV_NAME=prod npx playwright test --project=chrome --headed --workers=1 tests/e2e/property-module.spec.js",
     "test:prod:deal": "cross-env ENV_NAME=prod npx playwright test --project=chrome --headed --workers=1 tests/e2e/deal-module.spec.js",
     "test:prod:contract": "cross-env ENV_NAME=prod npx playwright test --project=chrome --headed --workers=1 tests/e2e/contract-module.spec.js",
-
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },
