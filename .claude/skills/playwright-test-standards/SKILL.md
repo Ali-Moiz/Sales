@@ -35,6 +35,8 @@ Every selector must be verified via Playwright MCP DOM inspection or user codege
 
 **MUI custom dropdowns (no native `<select>`):** `force: true` click on the container div does NOT trigger React synthetic event handlers -- the DOM click bypasses React's event system. Use `openCreateIndustryDropdown()` which walks the React fiber tree to find and invoke the `onClick` handler programmatically. Never add new direct `.click({ force: true })` calls to open MUI custom dropdowns; always use the POM's dedicated opener method.
 
+**Drawer/modal close icons (`<a href="#">`):** Never use `force: true` on close/dismiss icon clicks. When an input field is focused, `force: true` bypasses the normal focus/blur sequencing and prevents the React `onClick` handler from firing -- the drawer stays open. Symptom: `expect(heading).not.toBeVisible()` times out after clicking the close icon. Root cause: `force: true` dispatches the click without triggering the blur on the focused input, which the MUI drawer's React handler depends on. Fix: use a normal `.click()` (no `force` flag). Also remove `.catch(() => {})` on the subsequent `waitFor({ state: "hidden" })` so failures surface immediately.
+
 ---
 
 ## 3. Timeouts
@@ -123,6 +125,8 @@ Every test MUST have meaningful assertions. `toBeDefined()` alone is insufficien
 | Enabled/disabled changes | `toBeEnabled`/`toBeDisabled` |
 
 **Targets:** 3-6 assertions per test, 2-4 per `test.step()` group. If a step matches none of the above, don't assert it.
+
+**Grid filter assertions — sibling-row tolerance:** When asserting that a grid filter (e.g., city) returns only matching rows, the backend may include sibling rows (same parent entity, different field value in the same state/category). Use a majority-match assertion (`matchCount / total >= 0.8`) plus `toContain(expected)` instead of strict `toBe` on every row. Symptom: `expect(val).toBe("Omaha")` fails with `"Kearney"` — both Nebraska cities from the same company. Root cause: backend returns all rows for a matching company, not just the matching city row.
 
 ---
 

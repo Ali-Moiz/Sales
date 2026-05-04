@@ -1,14 +1,9 @@
 # Company Module Review
 
-Reviewed files:
-- `tests/e2e/company-module.spec.js`
-- `pages/company-module.js`
-
-## Company cases ko kaise execute karein
+## How to Run
 
 Requirements:
 - `npm install`
-- `data/credentials.js` mein valid `baseUrl`, `email`, aur `password`
 
 Commands:
 - Run complete company suite: `npm run test:company`

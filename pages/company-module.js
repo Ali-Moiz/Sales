@@ -701,7 +701,16 @@ class CompanyModule {
   async applyMoreFilters() {
     const apply = this.page.getByRole('button', { name: 'Apply Filters' }).first();
     await apply.waitFor({ state: 'visible', timeout: 10_000 });
-    await apply.click();
+    // Intercept the API response triggered by Apply Filters before clicking
+    await Promise.all([
+      this.page
+        .waitForResponse(
+          (r) => r.url().includes('/companies') && r.status() === 200,
+          { timeout: 15_000 },
+        )
+        .catch(() => {}),
+      apply.click(),
+    ]);
     await expect(this.moreFiltersHeading).not.toBeVisible({ timeout: 10_000 });
     await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
   }
@@ -1521,6 +1530,7 @@ class CompanyModule {
    */
   async getAllVisibleMarketVerticalValues() {
     await this.companiesTable.first().waitFor({ state: 'visible', timeout: 15_000 });
+    await this.waitForFirstRowNonEmpty(3);
     const rows = this.companiesTable.locator('tbody tr');
     const count = await rows.count();
     const values = [];
@@ -1537,6 +1547,7 @@ class CompanyModule {
    */
   async getAllVisibleStateValues() {
     await this.companiesTable.first().waitFor({ state: 'visible', timeout: 15_000 });
+    await this.waitForFirstRowNonEmpty(9);
     const rows = this.companiesTable.locator('tbody tr');
     const count = await rows.count();
     const values = [];
@@ -1553,6 +1564,9 @@ class CompanyModule {
    */
   async getAllVisibleCityValues() {
     await this.companiesTable.first().waitFor({ state: 'visible', timeout: 15_000 });
+    // Wait for the first row's City cell (col 8) to contain non-empty text
+    // before scraping — prevents reading skeleton/loading rows.
+    await this.waitForFirstRowNonEmpty(8);
     const rows = this.companiesTable.locator('tbody tr');
     const count = await rows.count();
     const values = [];
@@ -1740,6 +1754,7 @@ class CompanyModule {
    */
   async getAllVisibleSpStatusValues() {
     await this.companiesTable.first().waitFor({ state: 'visible', timeout: 15_000 });
+    await this.waitForFirstRowNonEmpty(19);
     const rows = this.companiesTable.locator('tbody tr');
     const count = await rows.count();
     const values = [];
@@ -1809,6 +1824,7 @@ class CompanyModule {
    */
   async getAllVisibleCreatedDateValues() {
     await this.companiesTable.first().waitFor({ state: 'visible', timeout: 15_000 });
+    await this.waitForFirstRowNonEmpty(6);
     const rows = this.companiesTable.locator('tbody tr');
     const count = await rows.count();
     const values = [];

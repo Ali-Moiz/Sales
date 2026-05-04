@@ -12,8 +12,8 @@
 // ============================================================
 
 const { test, expect } = require('@playwright/test');
-const { LoginPage } = require('../pages/login.page');
-const { TaskPage }  = require('../pages/task.page');
+const { LoginModule: LoginPage } = require('../../pages/login-module');
+const { TaskPage }  = require('../../pages/task.page');
 
 // ── Test data ────────────────────────────────────────────────
 const BASE_URL   = 'https://uat.sales.teamsignal.com';
@@ -84,7 +84,7 @@ test.describe('Tasks Module – Smoke Tests', () => {
     if (paginationText?.includes('0–0 of 0')) {
       await expect(taskPage.emptyStateHeading).toBeVisible();
     } else {
-      test.skip(); // skip if tasks already exist
+       // skip if tasks already exist
       const visibleRows = await taskPage.tableBody.locator('tr').count();
       expect(visibleRows).toBeGreaterThan(0);
     }
