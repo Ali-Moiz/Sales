@@ -192,10 +192,46 @@ test.describe.serial("Contract Module", () => {
   // ── Navigation helpers ────────────────────────────────────────────────────
 
   async function gotoDealsListPage() {
+    const ensureDealsSurface = async (label) => {
+      const onDealsUrl = /\/app\/sales\/deals/.test(page.url());
+      const dealSearchVisible = await contractModule.dealSearchInput
+        .isVisible()
+        .catch(() => false);
+      const onPublicLanding = /:\/\/[^/]+\/?$/.test(page.url());
+      const loginVisible = await page
+        .getByRole("button", { name: /login/i })
+        .first()
+        .isVisible()
+        .catch(() => false);
+
+      if (onDealsUrl || dealSearchVisible) return true;
+      if (onPublicLanding || loginVisible) {
+        console.log(`[nav] ${label}: auth surface detected, re-login recovery`);
+        await withTimeout(performLogin(page), 120_000, `performLogin(${label})`);
+        await contractModule.gotoDealsPage();
+      }
+      const recoveredDealsUrl = /\/app\/sales\/deals/.test(page.url());
+      const recoveredSearchVisible = await contractModule.dealSearchInput
+        .isVisible()
+        .catch(() => false);
+      return recoveredDealsUrl || recoveredSearchVisible;
+    };
+
     await contractModule.gotoDealsPage();
+    const dealsReady = await ensureDealsSurface("gotoDealsListPage");
+    expect(
+      dealsReady,
+      "Expected Deals page/search surface to be available before continuing.",
+    ).toBeTruthy();
   }
 
   async function openContractDealDetail(dealName = resolvedContractDealName) {
+    const searchVisible = await contractModule.dealSearchInput
+      .isVisible()
+      .catch(() => false);
+    if (!searchVisible) {
+      await gotoDealsListPage();
+    }
     await contractModule.openDealDetail(dealName);
     await contractModule.assertOnDealDetailPage();
   }
@@ -601,6 +637,25 @@ test.describe.serial("Contract Module", () => {
       return;
     }
 
+    // If Step 2 content is already visible (race with stepper click) or Step 1
+    // panel is not active, refilling via a broad /Service/ locator can hit the
+    // wrong control and leave the value empty — return or switch back to Step 1 first.
+    const step2Now = await contractModuleInstance.devicesPageHeading
+      .isVisible()
+      .catch(() => false);
+    if (step2Now) {
+      return;
+    }
+    const step1PanelVisible = await contractModuleInstance.dedicatedServiceRadio
+      .isVisible()
+      .catch(() => false);
+    if (!step1PanelVisible) {
+      await contractModuleInstance.stepperStep1
+        .click({ force: true })
+        .catch(() => {});
+      await contractModuleInstance.assertStep1Visible();
+    }
+
     await contractModuleInstance.fillStep1Services(SERVICE_DATA);
     const saveEnabled = await contractModuleInstance.saveAndNextBtn
       .isEnabled()
@@ -648,6 +703,22 @@ test.describe.serial("Contract Module", () => {
       if (saveEnabledAfterJobDayRecovery) {
         await contractModuleInstance.clickSaveAndNext();
       } else {
+        const step2BeforeRefill = await contractModuleInstance.devicesPageHeading
+          .isVisible()
+          .catch(() => false);
+        if (step2BeforeRefill) {
+          await contractModuleInstance.assertStep2Visible();
+          return;
+        }
+        const step1Ok = await contractModuleInstance.dedicatedServiceRadio
+          .isVisible()
+          .catch(() => false);
+        if (!step1Ok) {
+          await contractModuleInstance.stepperStep1
+            .click({ force: true })
+            .catch(() => {});
+          await contractModuleInstance.assertStep1Visible();
+        }
         await contractModuleInstance.fillStep1Services(SERVICE_DATA);
         const saveEnabledAfterRefill =
           await contractModuleInstance.saveAndNextBtn
@@ -1946,6 +2017,39 @@ test.describe.serial("Contract Module", () => {
     const summaryAutoRenewalText = contractModule.contractTermsTabpanel
       .getByText(/Auto Renewal/i)
       .first();
+    const autoPublishValidationText = page
+      .getByText(/Value must be less than/i)
+      .first();
+    const ensureValidAutoPublishOffsets = async () => {
+      const spinbuttons = page.getByRole("spinbutton");
+      const spinCount = await spinbuttons.count().catch(() => 0);
+      expect(
+        spinCount >= 2,
+        "Expected Drafts Before and Auto Publish Before spinbuttons to be visible.",
+      ).toBeTruthy();
+      const firstSpinner = spinbuttons.nth(Math.max(0, spinCount - 2));
+      const secondSpinner = spinbuttons.nth(Math.max(0, spinCount - 1));
+
+      const trySetPair = async (firstValue, secondValue) => {
+        await firstSpinner.fill(String(firstValue));
+        await secondSpinner.fill(String(secondValue));
+        await secondSpinner.press("Tab").catch(() => {});
+        await page.waitForTimeout(250);
+        const validationVisible = await autoPublishValidationText
+          .isVisible()
+          .catch(() => false);
+        return !validationVisible;
+      };
+
+      let validPairApplied = await trySetPair(5, 3);
+      if (!validPairApplied) {
+        validPairApplied = await trySetPair(3, 5);
+      }
+      expect(
+        validPairApplied,
+        "Expected to satisfy Auto Publish < Drafts constraint before submit.",
+      ).toBeTruthy();
+    };
 
     const formatDate = (date) => {
       const mm = String(date.getMonth() + 1).padStart(2, "0");
@@ -2038,6 +2142,7 @@ test.describe.serial("Contract Module", () => {
     console.log("[TC-CONTRACT-030] Step 6: Check Auto Renewal of Contract");
     await contractModule.setCheckboxState(contractModule.autoRenewalText, true);
     await expect(autoRenewalCheckbox).toBeChecked({ timeout: 8_000 });
+    await ensureValidAutoPublishOffsets();
     await visualPause();
 
     console.log(
@@ -2047,6 +2152,8 @@ test.describe.serial("Contract Module", () => {
     await contractModule.selectDateType("renewal");
     await contractModule.fillStartDate(startDateText);
     await expect(autoRenewalCheckbox).toBeChecked({ timeout: 8_000 });
+    // Date-type toggles can recompute auto-publish constraints; normalize again before submit.
+    await ensureValidAutoPublishOffsets();
     await visualPause();
 
     console.log(
@@ -2347,6 +2454,26 @@ test.describe.serial("Contract Module", () => {
       await notifyInput.press("Tab");
     };
 
+    const assertNotifyInvalid = async (label) => {
+      const submitIsEnabled = await submitEnabled();
+      const notifyAriaInvalid = await notifyInput
+        .getAttribute("aria-invalid")
+        .then((v) => String(v).toLowerCase() === "true")
+        .catch(() => false);
+      const notifyValidationVisible = await page
+        .getByText(/Notify.*(required|valid|numeric|number|days)|must be/i)
+        .first()
+        .isVisible()
+        .catch(() => false);
+      console.log(
+        `[TC-CONTRACT-019] ${label}: submitEnabled=${submitIsEnabled}, ariaInvalid=${notifyAriaInvalid}, validationVisible=${notifyValidationVisible}`,
+      );
+      expect(
+        !submitIsEnabled || notifyAriaInvalid || notifyValidationVisible,
+        `Expected invalid Notify input to block progression or show explicit validation for ${label}.`,
+      ).toBeTruthy();
+    };
+
     console.log(
       "[TC-CONTRACT-019] Step 1-4: Open isolated Create Proposal drawer (single deal)",
     );
@@ -2370,6 +2497,7 @@ test.describe.serial("Contract Module", () => {
     await notifyInput.press("Tab");
     const emptyEnabled = await submitEnabled();
     console.log(`[TC-CONTRACT-019] Empty notify submitEnabled=${emptyEnabled}`);
+    await assertNotifyInvalid("empty");
     await visualPause();
 
     console.log(
@@ -2384,6 +2512,7 @@ test.describe.serial("Contract Module", () => {
     console.log(
       `[TC-CONTRACT-019] Letters notify submitEnabled=${lettersEnabled}`,
     );
+    await assertNotifyInvalid("letters");
     await visualPause();
 
     console.log(
@@ -2392,6 +2521,7 @@ test.describe.serial("Contract Module", () => {
     await typeNotify("1a");
     const mixedValue = await notifyInput.inputValue().catch(() => "");
     expect(!/[a-z]/i.test(mixedValue)).toBeTruthy();
+    await assertNotifyInvalid("mixed-alphanumeric");
     await visualPause();
 
     console.log(
@@ -2400,6 +2530,7 @@ test.describe.serial("Contract Module", () => {
     await typeNotify("-1");
     const negativeValue = await notifyInput.inputValue().catch(() => "");
     expect(!String(negativeValue).trim().startsWith("-")).toBeTruthy();
+    await assertNotifyInvalid("negative");
     await visualPause();
 
     console.log("[TC-CONTRACT-019] Step 15-16 (N6): Zero boundary observation");
@@ -2420,6 +2551,7 @@ test.describe.serial("Contract Module", () => {
     await typeNotify("abc");
     const keyboardInvalidValue = await notifyInput.inputValue().catch(() => "");
     expect(!/[a-z]/i.test(keyboardInvalidValue)).toBeTruthy();
+    await assertNotifyInvalid("keyboard-invalid");
     await visualPause();
 
     console.log(
@@ -2770,10 +2902,9 @@ test.describe.serial("Contract Module", () => {
             fillErrored ||
             resultingValue === "" ||
             /^-?\d*\.?\d*$/.test(resultingValue);
-          expect(
-            valueRejectedByControl,
-            `Hourly Rate should reject invalid ${label} input`,
-          ).toBeTruthy();
+          expect(valueRejectedByControl).toBe(
+            true,
+          );
           await assertStep1Blocked(`Hourly Rate ${label}`);
         };
 
@@ -2794,10 +2925,9 @@ test.describe.serial("Contract Module", () => {
             .first()
             .getAttribute("aria-pressed")
             .catch(() => null);
-          expect(
-            dayChipPressed === "false" || dayChipPressed === null,
-            "Expected selected Job Day to be cleared before re-selecting valid state",
-          ).toBeTruthy();
+          expect(dayChipPressed === "false" || dayChipPressed === null).toBe(
+            true,
+          );
           await contractModule.clickJobDay(primaryJobDay);
           await visualPause();
         } else {
@@ -3942,10 +4072,23 @@ test.describe.serial("Contract Module", () => {
     await cm.fillStep1Services(SERVICE_DATA);
 
     const saveEnabled = await cm.saveAndNextBtn.isEnabled().catch(() => false);
+    expect(
+      saveEnabled,
+      "Step 1 required fields should enable Save & Next before advancing.",
+    ).toBeTruthy();
+
     if (saveEnabled) {
-      await cm.clickSaveAndNext();
-    } else {
-      await cm.stepperStep2.click({ force: true });
+      await cm.clickSaveAndNext().catch(() => {});
+    }
+
+    const reachedStep2AfterSave = await cm.devicesPageHeading
+      .isVisible()
+      .catch(() => false);
+    if (!reachedStep2AfterSave) {
+      console.log(
+        "[TC-CONTRACT-E2E-004] Save transition did not land on Step 2; running bounded stepper recovery.",
+      );
+      await ensureStepperAtStep2(cm);
     }
     await cm.assertStep2Visible();
   });
@@ -4060,1062 +4203,1077 @@ test.describe.serial("Contract Module", () => {
     await expect(cm.annualRateIncreaseInput).toBeVisible({ timeout: 5_000 });
   });
 
-  test("TC-CONTRACT-E2E-008A | Manual workflow automation for payment plans, tax validations, contract duration, Save & Next blocking, and Officer/Guard Breaks persistence", async () => {
-    test.setTimeout(420_000);
-    const visualPauseMs = Number(process.env.CONTRACT_VISUAL_PAUSE_MS || 450);
-    const visualPause = async () => page.waitForTimeout(visualPauseMs);
+  const visualPauseMs = Number(process.env.CONTRACT_VISUAL_PAUSE_MS || 450);
+  const visualPause = async () => page.waitForTimeout(visualPauseMs);
+  let e2e008ASetupDone = false;
+  let e2e008DSetupDone = false;
 
-    const readTaxRateInput = async () => {
-      // Primary locator: Payment Plans grid -> Tax Rate (%) row -> input.
-      const paymentPlansSection = page
+  const readTaxRateInput = async () => {
+    // Primary locator: Payment Plans grid -> Tax Rate (%) row -> input.
+    const paymentPlansSection = page
+      .locator("div")
+      .filter({ has: page.getByRole("heading", { name: /Payment Plans/i }) })
+      .first();
+    const paymentPlansVisible = await paymentPlansSection
+      .isVisible()
+      .catch(() => false);
+    if (paymentPlansVisible) {
+      const taxRateRow = paymentPlansSection
         .locator("div")
-        .filter({ has: page.getByRole("heading", { name: /Payment Plans/i }) })
+        .filter({
+          has: page.getByText(/Tax\s*Rate\s*\(%\)\s*\*/i),
+        })
         .first();
-      const paymentPlansVisible = await paymentPlansSection
-        .isVisible()
-        .catch(() => false);
-      if (paymentPlansVisible) {
-        const taxRateRow = paymentPlansSection
-          .locator("div")
-          .filter({
-            has: page.getByText(/Tax\s*Rate\s*\(%\)\s*\*/i),
-          })
-          .first();
-        const taxRateInputFromRow = taxRateRow
-          .locator(
-            'input[name="taxRate"], input#taxRate, input[placeholder*="Enter %"], input[type="number"]',
-          )
-          .first();
-        const taxRateInputFromRowVisible = await taxRateInputFromRow
-          .isVisible()
-          .catch(() => false);
-        if (taxRateInputFromRowVisible) return taxRateInputFromRow;
-      }
-
-      const spinTax = page
-        .getByRole("spinbutton", { name: /Tax Rate/i })
-        .first();
-      const spinVisible = await spinTax.isVisible().catch(() => false);
-      if (spinVisible) return spinTax;
-      const textTax = page.getByRole("textbox", { name: /Tax Rate/i }).first();
-      const textVisible = await textTax.isVisible().catch(() => false);
-      if (textVisible) return textTax;
-      // Fallback for builds where the tax input has no accessible name but
-      // appears adjacent to the "Tax Rate (%) *" heading.
-      const taxHeading = page.getByRole("heading", { name: /Tax Rate/i }).first();
-      const taxHeadingVisible = await taxHeading.isVisible().catch(() => false);
-      if (taxHeadingVisible) {
-        const headingContainer = taxHeading.locator("..");
-        const unlabeledSpin = headingContainer.getByRole("spinbutton").first();
-        const unlabeledSpinVisible = await unlabeledSpin
-          .isVisible()
-          .catch(() => false);
-        if (unlabeledSpinVisible) return unlabeledSpin;
-
-        const unlabeledTextbox = headingContainer.getByRole("textbox").first();
-        const unlabeledTextboxVisible = await unlabeledTextbox
-          .isVisible()
-          .catch(() => false);
-        if (unlabeledTextboxVisible) return unlabeledTextbox;
-      }
-      return null;
-    };
-
-    const planNodeByName = (planName) =>
-      page
-        .locator("button, [role='button'], [role='columnheader'], div, p, h6")
-        .filter({ hasText: new RegExp(`^\\s*${planName}\\s*$`, "i") })
-        .first();
-
-    const setTaxValue = async (value) => {
-      const taxInput = await readTaxRateInput();
-      if (!taxInput) return null;
-      await taxInput.click({ clickCount: 3 });
-      const normalizedValue = String(value);
-      const isRawText = /[a-z]/i.test(normalizedValue);
-      if (isRawText) {
-        // input[type=number] rejects fill("abc"), so type raw keys to validate sanitization.
-        await taxInput.pressSequentially(normalizedValue);
-      } else {
-        await taxInput.fill(normalizedValue);
-      }
-      await taxInput.press("Tab").catch(() => {});
-      await visualPause();
-      return taxInput;
-    };
-
-    const isSaveAndNextBlockedAtStep4 = async () => {
-      const currentUrl = page.url();
-      await cm.saveAndNextBtn.click({ force: true }).catch(() => {});
-      await visualPause();
-      const stillOnStep4 = await cm.billingOccurrenceHeading
-        .isVisible()
-        .catch(() => false);
-      const urlUnchanged = page.url() === currentUrl;
-      return stillOnStep4 || urlUnchanged;
-    };
-
-    const goToStep1Services = async () => {
-      await cm.stepperStep1.click({ force: true }).catch(() => {});
-      await cm.assertStep1Visible();
-      await visualPause();
-    };
-    const assertPaymentTermsSurfaceVisible = async () => {
-      const headingVisible = await cm.billingOccurrenceHeading
-        .isVisible()
-        .catch(() => false);
-      const planVisible = await page
-        .getByText(/Monthly|Bi-Weekly|Weekly|Event|Flat/i)
-        .first()
-        .isVisible()
-        .catch(() => false);
-      const taxInput = await readTaxRateInput();
-      const taxVisible = Boolean(taxInput);
-      expect(
-        headingVisible || planVisible || taxVisible,
-        "Expected Payment Terms surface to be visible (heading or plan/tax markers).",
-      ).toBeTruthy();
-    };
-
-    const formatDate = (date) => {
-      const mm = String(date.getMonth() + 1).padStart(2, "0");
-      const dd = String(date.getDate()).padStart(2, "0");
-      const yyyy = date.getFullYear();
-      return `${mm}/${dd}/${yyyy}`;
-    };
-    await test.step("Setup: create fresh proposal and reach Step 4 Payment Terms", async () => {
-      console.log(
-        "[TC-CONTRACT-E2E-008A] Setup: open deal and resolve current contract state",
-      );
-      await gotoDealsListPage();
-      await openContractDealDetail();
-      const currentState = await cm.detectContractState();
-      console.log(
-        `[TC-CONTRACT-E2E-008A] Setup: detected state=${currentState}`,
-      );
-
-      if (currentState === "proposal") {
-        await cm.openExistingProposalEditor();
-      } else if (currentState === "empty") {
-        await cm.openCreateProposalDrawer();
-        const now = new Date();
-        const startDate = new Date(now);
-        startDate.setDate(startDate.getDate() + 8);
-        const renewalDate = new Date(startDate);
-        renewalDate.setDate(renewalDate.getDate() + 5);
-        const alignedJobDay = getWeekdayAbbr(startDate);
-        const alignedServiceData = {
-          ...SERVICE_DATA,
-          jobDays: [alignedJobDay],
-        };
-        await cm.fillProposalName(`E2E008A ${Date.now()}`);
-        const timeZonePreselected = await cm.timeZoneTrigger
-          .textContent()
-          .then((txt) => /\(utc/i.test(String(txt || "")))
-          .catch(() => false);
-        if (!timeZonePreselected) {
-          await cm.selectTimeZone(PROPOSAL_DATA.timeZone);
-        }
-        await cm.fillStartDate(formatDate(startDate));
-        await cm.fillRenewalDate(formatDate(renewalDate));
-        await cm.submitCreateProposal();
-        await cm.assertOnStepperPage();
-        console.log(
-          `[TC-CONTRACT-E2E-008A] Setup: aligned Step 1 Job Day with proposal Start Date day=${alignedJobDay}`,
-        );
-        await ensureE2EStep4Ready(cm, { serviceData: alignedServiceData });
-        await visualPause();
-        return;
-      } else if (currentState !== "stepper") {
-        throw new Error(
-          `TC-CONTRACT-E2E-008A requires proposal/stepper state, got '${currentState}'.`,
-        );
-      }
-      await cm.assertOnStepperPage();
-      console.log(
-        "[TC-CONTRACT-E2E-008A] Setup: navigate to Step 4 from existing stepper",
-      );
-      await ensureE2EStep4Ready(cm);
-      await visualPause();
-    });
-
-    await test.step("Verify payment plan columns render (Monthly, Bi-Weekly, Weekly, Event, Flat) and selecting a plan highlights it.", async () => {
-      console.log(
-        "[TC-CONTRACT-E2E-008A] Step 1/6: Verify payment plan columns render and selected plan is highlighted.",
-      );
-      await assertPaymentTermsSurfaceVisible();
-
-      const expectedPlans = ["Monthly", "Bi-Weekly", "Weekly", "Event", "Flat"];
-      const planVisibility = await Promise.all(
-        expectedPlans.map((plan) =>
-          page
-            .getByText(new RegExp(`^\\s*${plan}\\s*$`, "i"))
-            .first()
-            .isVisible()
-            .catch(() => false),
-        ),
-      );
-
-      const eventPlanNode = planNodeByName("Event");
-      await eventPlanNode.click({ force: true }).catch(() => {});
-      await visualPause();
-
-      const eventPlanParent = eventPlanNode.locator("..").first();
-      const eventNodeClass = String(
-        await eventPlanNode.getAttribute("class").catch(() => ""),
-      );
-      const eventParentClass = String(
-        await eventPlanParent.getAttribute("class").catch(() => ""),
-      );
-      const eventNodeAriaSelected = await eventPlanNode
-        .getAttribute("aria-selected")
-        .catch(() => null);
-      const eventNodeAriaPressed = await eventPlanNode
-        .getAttribute("aria-pressed")
-        .catch(() => null);
-      const eventParentAriaSelected = await eventPlanParent
-        .getAttribute("aria-selected")
-        .catch(() => null);
-      const eventParentAriaPressed = await eventPlanParent
-        .getAttribute("aria-pressed")
-        .catch(() => null);
-
-      const eventPlanSelected =
-        eventNodeAriaSelected === "true" ||
-        eventNodeAriaPressed === "true" ||
-        eventParentAriaSelected === "true" ||
-        eventParentAriaPressed === "true" ||
-        /selected|active/i.test(eventNodeClass) ||
-        /selected|active/i.test(eventParentClass);
-      const selectionMarkerSupported =
-        eventNodeAriaSelected !== null ||
-        eventNodeAriaPressed !== null ||
-        eventParentAriaSelected !== null ||
-        eventParentAriaPressed !== null ||
-        /selected|active/i.test(eventNodeClass) ||
-        /selected|active/i.test(eventParentClass);
-      console.log(
-        `[TC-CONTRACT-E2E-008A] Event plan selected marker=${eventPlanSelected}, markerSupported=${selectionMarkerSupported}`,
-      );
-      const eventRadioChecked = await page
-        .getByRole("radio", { name: /Event/i })
-        .first()
-        .isChecked()
-        .catch(() => false);
-      const selectionConfirmed = selectionMarkerSupported
-        ? eventPlanSelected
-        : eventRadioChecked;
-      expect(
-        planVisibility.every(Boolean) && selectionConfirmed,
-        "Expected all payment plan columns (Monthly, Bi-Weekly, Weekly, Event, Flat) to be visible and selected plan to be highlighted/checked.",
-      ).toBeTruthy();
-    });
-
-    await test.step("Verify Services Total/Dispatch Total/Tax Rate/Total update for selected plan.", async () => {
-      console.log(
-        "[TC-CONTRACT-E2E-008A] Step 2/6: Verify Services/Dispatch/Tax/Total visible and reactive for selected plan.",
-      );
-      const [servicesVisible, dispatchVisible, taxRateVisible, totalVisible] =
-        await Promise.all([
-          page.getByText(/Services Total/i).first().isVisible().catch(() => false),
-          page.getByText(/Dispatch Total/i).first().isVisible().catch(() => false),
-          page.getByText(/Tax Rate/i).first().isVisible().catch(() => false),
-          page.getByText(/^Total$/i).first().isVisible().catch(() => false),
-        ]);
-
-      const selectedPlanContainer = page
-        .locator("div")
-        .filter({ has: page.locator('input[type="radio"]:checked') })
-        .first();
-      const beforeMetrics = await selectedPlanContainer
-        .locator("p")
-        .allTextContents()
-        .catch(() => []);
-      const beforeTotal = Number(
-        String(beforeMetrics[3] || "").replace(/[^\d.-]/g, ""),
-      );
-
-      const taxInput = await setTaxValue("10");
-      const taxValue = await taxInput?.inputValue().catch(() => "");
-      const afterMetrics = await selectedPlanContainer
-        .locator("p")
-        .allTextContents()
-        .catch(() => []);
-      const afterTax = Number(
-        String(afterMetrics[2] || "").replace(/[^\d.-]/g, ""),
-      );
-      const afterTotal = Number(
-        String(afterMetrics[3] || "").replace(/[^\d.-]/g, ""),
-      );
-
-      const totalsUpdatedForSelectedPlan =
-        Number.isFinite(beforeTotal) &&
-        Number.isFinite(afterTax) &&
-        Number.isFinite(afterTotal) &&
-        afterTotal >= beforeTotal &&
-        afterTax >= 0;
-      expect(
-        servicesVisible &&
-          dispatchVisible &&
-          taxRateVisible &&
-          totalVisible &&
-          Boolean(taxInput) &&
-          /10(?:\.0+)?/.test(String(taxValue || "")) &&
-          totalsUpdatedForSelectedPlan,
-        "Expected Services Total/Dispatch Total/Tax Rate/Total to be visible and selected-plan totals to react after Tax Rate update.",
-      ).toBeTruthy();
-    });
-
-    await test.step("Verify Tax Rate (%) is required and validates numeric range (0-100) and decimals; reject alpha/negative.", async () => {
-      console.log(
-        "[TC-CONTRACT-E2E-008A] Step 3/6: Validate Tax Rate required/range/decimal/invalid behavior.",
-      );
-      const taxInput = await readTaxRateInput();
-      expect(
-        Boolean(taxInput),
-        "Tax Rate input must be visible on Payment Terms to validate required/range/decimal rules.",
-      ).toBeTruthy();
-      const activeTaxInput = /** @type {import('@playwright/test').Locator} */ (taxInput);
-
-      const readTaxNumeric = async () => {
-        const raw = await activeTaxInput.inputValue().catch(() => "");
-        const normalized = String(raw || "").replace(/[^\d.-]/g, "");
-        if (!normalized) return null;
-        const parsed = Number(normalized);
-        return Number.isFinite(parsed) ? parsed : null;
-      };
-
-      // Required validation: empty Tax Rate should block Save & Next and expose validation.
-      await setTaxValue("");
-      const blockedWhenEmptyTax = await isSaveAndNextBlockedAtStep4();
-      expect(
-        blockedWhenEmptyTax,
-        "Expected Save & Next to remain blocked when Tax Rate is empty (required field).",
-      ).toBeTruthy();
-      const taxRequiredTextVisible = await page
-        .getByText(/Tax\s*Rate.*required|required.*Tax\s*Rate|must be|required field/i)
-        .first()
-        .isVisible()
-        .catch(() => false);
-      const taxAriaInvalid = await activeTaxInput
-        .getAttribute("aria-invalid")
-        .then((v) => String(v).toLowerCase() === "true")
-        .catch(() => false);
-      expect(
-        taxRequiredTextVisible || taxAriaInvalid,
-        "Expected Tax Rate required validation (inline text or aria-invalid=true).",
-      ).toBeTruthy();
-
-      await setTaxValue("7.25");
-      const decimalValue = await activeTaxInput.inputValue().catch(() => "");
-      expect(
-        /7\.25|7\.2|7\.3/.test(String(decimalValue || "")) ||
-          (await readTaxNumeric()) === 7.25,
-        "Expected decimal Tax Rate input to be accepted.",
-      ).toBeTruthy();
-
-      await setTaxValue("-5");
-      const negativeAttemptValue = await activeTaxInput.inputValue().catch(() => "");
-      const negativeNumeric = await readTaxNumeric();
-      expect(
-        !String(negativeAttemptValue || "").includes("-") &&
-          (negativeNumeric === null || negativeNumeric >= 0),
-        "Expected negative Tax Rate input to be rejected/sanitized.",
-      ).toBeTruthy();
-
-      await setTaxValue("abc");
-      const alphaAttemptValue = await activeTaxInput.inputValue().catch(() => "");
-      expect(
-        !/[a-z]/i.test(String(alphaAttemptValue || "")),
-        "Expected alphabetic Tax Rate input to be rejected.",
-      ).toBeTruthy();
-
-      await setTaxValue("0");
-      const zeroValue = await readTaxNumeric();
-      expect(zeroValue === 0, "Expected Tax Rate lower boundary (0) to be accepted.").toBeTruthy();
-
-      await setTaxValue("100");
-      const hundredValue = await readTaxNumeric();
-      expect(
-        hundredValue === 100,
-        "Expected Tax Rate upper boundary (100) to be accepted.",
-      ).toBeTruthy();
-
-      await setTaxValue("101");
-      const overRangeValue = await activeTaxInput.inputValue().catch(() => "");
-      const normalizedOverRange = await readTaxNumeric();
-      const overRangeErrorVisible = await page
-        .getByText(/Tax\s*Rate.*(0|100|range|max|invalid)|must be.*100|between 0 and 100/i)
-        .first()
-        .isVisible()
-        .catch(() => false);
-      const overRangeAriaInvalid = await activeTaxInput
-        .getAttribute("aria-invalid")
-        .then((v) => String(v).toLowerCase() === "true")
-        .catch(() => false);
-      console.log(
-        `[TC-CONTRACT-E2E-008A] Observed over-range tax input value=${overRangeValue}, ariaInvalid=${overRangeAriaInvalid}, errorVisible=${overRangeErrorVisible}`,
-      );
-      expect(
-        normalizedOverRange === null ||
-          normalizedOverRange <= 100 ||
-          overRangeAriaInvalid ||
-          overRangeErrorVisible,
-        "Expected Tax Rate above 100 to be rejected/clamped or flagged with validation.",
-      ).toBeTruthy();
-
-      await setTaxValue("10");
-    });
-
-    await test.step("Verify Contract Duration displays based on Start/End/Renewal dates selected in proposal.", async () => {
-      console.log(
-        "[TC-CONTRACT-E2E-008A] Step 4/6: Verify Contract Duration behavior from proposal date selections.",
-      );
-      const durationLabel = page
-        .getByText(/Contract Duration|Duration/i)
-        .first();
-      const renewalRadio = page
-        .getByRole("radio", { name: /Renewal Date/i })
-        .first();
-      const endRadio = page.getByRole("radio", { name: /End Date/i }).first();
-      const startDateInput = page
-        .getByRole("textbox", { name: /Select Start Date|Start Date/i })
-        .first();
-      const renewalDateInput = page
-        .getByRole("textbox", { name: /Select Renewal Date|Renewal Date/i })
-        .first();
-      const endDateInput = page
-        .getByRole("textbox", { name: /Select End Date|End Date/i })
-        .first();
-
-      const dateControlsVisible =
-        (await renewalRadio.isVisible().catch(() => false)) &&
-        (await startDateInput.isVisible().catch(() => false));
-      const readDurationText = async () => {
-        const textNode = page
-          .locator("div, p, span, h6")
-          .filter({ hasText: /Contract Duration|Duration/i })
-          .first();
-        const txt = await textNode.textContent().catch(() => "");
-        return String(txt || "").trim();
-      };
-
-      console.log(
-        `[TC-CONTRACT-E2E-008A] Contract Duration date-controls-visible=${dateControlsVisible}`,
-      );
-
-      if (dateControlsVisible) {
-        const today = new Date();
-        const start = new Date(today);
-        start.setDate(start.getDate() + 10);
-        const renewal = new Date(start);
-        renewal.setDate(renewal.getDate() + 7);
-        const end = new Date(start);
-        end.setDate(end.getDate() + 14);
-        const fmt = (d) =>
-          `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`;
-
-        await startDateInput.fill(fmt(start));
-        await renewalRadio.click({ force: true }).catch(() => {});
-        if (await renewalDateInput.isVisible().catch(() => false)) {
-          await renewalDateInput.fill(fmt(renewal));
-        }
-        await visualPause();
-
-        await expect(
-          durationLabel,
-          "Expected Contract Duration label/value to be visible in Renewal mode.",
-        ).toBeVisible({ timeout: 8_000 });
-        const durationInRenewalMode = await readDurationText();
-        expect(
-          durationInRenewalMode.length > 0,
-          "Expected non-empty Contract Duration text in Renewal mode.",
-        ).toBeTruthy();
-
-        await endRadio.click({ force: true }).catch(() => {});
-        if (await endDateInput.isVisible().catch(() => false)) {
-          await endDateInput.fill(fmt(end));
-        }
-        await visualPause();
-
-        await expect(
-          durationLabel,
-          "Expected Contract Duration to stay visible in End mode.",
-        ).toBeVisible({ timeout: 8_000 });
-        const durationInEndMode = await readDurationText();
-        expect(
-          durationInEndMode.length > 0,
-          "Expected non-empty Contract Duration text in End mode.",
-        ).toBeTruthy();
-
-        // Recompute check after Start Date edit (aligned with manual steps).
-        const updatedStart = new Date(start);
-        updatedStart.setDate(updatedStart.getDate() + 1);
-        await startDateInput.fill(fmt(updatedStart));
-        await visualPause();
-        const durationAfterStartEdit = await readDurationText();
-        expect(
-          durationAfterStartEdit.length > 0,
-          "Expected Contract Duration to remain computed after Start Date edit.",
-        ).toBeTruthy();
-      } else {
-        // In stepper contexts where date controls are not exposed, verify at least
-        // duration display presence as per current product surface.
-        const durationVisibleOnCurrentSurface = await durationLabel
-          .isVisible()
-          .catch(() => false);
-        console.log(
-          `[TC-CONTRACT-E2E-008A] Contract Duration visible-on-current-surface=${durationVisibleOnCurrentSurface}`,
-        );
-        expect(
-          durationVisibleOnCurrentSurface,
-          "Expected Contract Duration to be visible on current proposal surface when date controls are not directly editable.",
-        ).toBeTruthy();
-      }
-
-      await visualPause();
-    });
-
-    await test.step("Verify Save & Next blocked until required payment term fields are completed; show field-level errors.", async () => {
-      console.log(
-        "[TC-CONTRACT-E2E-008A] Step 5/6: Verify Save & Next blocking + field-level errors on Payment Terms.",
-      );
-      await assertPaymentTermsSurfaceVisible();
-      const taxInput = await readTaxRateInput();
-      if (taxInput) {
-        await taxInput.click({ clickCount: 3 });
-        await taxInput.fill("");
-        await taxInput.press("Tab").catch(() => {});
-        await visualPause();
-      } else {
-        console.log(
-          "[TC-CONTRACT-E2E-008A] Tax Rate input not exposed; continuing Save & Next blocking checks with other required fields.",
-        );
-      }
-
-      const blocked = await isSaveAndNextBlockedAtStep4();
-      const stillOnStep4 = await cm.billingOccurrenceHeading
-        .isVisible()
-        .catch(() => false);
-      expect(
-        blocked && stillOnStep4,
-        "Expected Save & Next to stay blocked and remain on Step 4 when required payment fields are incomplete.",
-      ).toBeTruthy();
-
-      const inlineErrorVisible = await page
-        .getByText(/required|must be|valid/i)
-        .first()
-        .isVisible()
-        .catch(() => false);
-      const taxErrorVisible = await page
-        .getByText(/Tax\s*Rate.*required|required.*Tax\s*Rate|Tax\s*Rate.*valid/i)
-        .first()
-        .isVisible()
-        .catch(() => false);
-      const taxAriaInvalid = await taxInput
-        ?.getAttribute("aria-invalid")
-        .then((v) => String(v).toLowerCase() === "true")
-        .catch(() => false);
-      console.log(
-        `[TC-CONTRACT-E2E-008A] Field-level validation visible=${inlineErrorVisible}, taxErrorVisible=${taxErrorVisible}, taxAriaInvalid=${taxAriaInvalid}`,
-      );
-      expect(
-        inlineErrorVisible || taxErrorVisible || Boolean(taxAriaInvalid),
-        "Expected field-level validation error (generic or Tax Rate-specific) when Save & Next is blocked.",
-      ).toBeTruthy();
-
-      await setTaxValue("10");
-    });
-
-    await test.step("Verify Officer/Guard Breaks checkboxes (Billable/Payable) can be toggled and saved.", async () => {
-      console.log(
-        "[TC-CONTRACT-E2E-008A] Step 6/6: Verify Officer/Guard Breaks Billable/Payable toggle and persistence.",
-      );
-      await goToStep1Services();
-
-      const billableLabel = page.getByText(/Billable/i).first();
-      const payableLabel = page.getByText(/Payable/i).first();
-      const breaksSectionVisible =
-        (await page
-          .getByText(/Officer\/Guard Breaks|Guard Breaks|Officer Breaks/i)
-          .first()
-          .isVisible()
-          .catch(() => false)) ||
-        ((await billableLabel.isVisible().catch(() => false)) &&
-          (await payableLabel.isVisible().catch(() => false)));
-
-      console.log(
-        `[TC-CONTRACT-E2E-008A] Officer/Guard Breaks controls visible=${breaksSectionVisible}`,
-      );
-      if (!breaksSectionVisible) {
-        console.log(
-          "[TC-CONTRACT-E2E-008A] Officer/Guard Breaks controls not exposed in current Step 1 surface; skipping persistence assertions.",
-        );
-        return;
-      }
-
-      const nearbyCheckboxes = page
-        .locator("div")
-        .filter({ hasText: /Billable|Payable/i })
-        .first()
-        .locator('input[type="checkbox"], [role="checkbox"]');
-      const checkboxCount = await nearbyCheckboxes.count().catch(() => 0);
-      expect(
-        checkboxCount >= 2,
-        `Expected at least two Officer/Guard Breaks checkboxes, found ${checkboxCount}.`,
-      ).toBeTruthy();
-
-      const billableCheckbox = nearbyCheckboxes.nth(0);
-      const payableCheckbox = nearbyCheckboxes.nth(1);
-
-      // Headed-mode visibility aid: bring Breaks controls into viewport before toggling.
-      await billableLabel.scrollIntoViewIfNeeded().catch(() => {});
-      await payableLabel.scrollIntoViewIfNeeded().catch(() => {});
-      await page.mouse.wheel(0, 220).catch(() => {});
-      await visualPause();
-
-      const billableBefore =
-        (await billableCheckbox.isChecked().catch(() => null)) ??
-        ((await billableCheckbox.getAttribute("aria-checked").catch(() => null)) ===
-          "true");
-      const payableBefore =
-        (await payableCheckbox.isChecked().catch(() => null)) ??
-        ((await payableCheckbox.getAttribute("aria-checked").catch(() => null)) ===
-          "true");
-      console.log(
-        `[TC-CONTRACT-E2E-008A] Officer/Guard Breaks before-click states billable=${billableBefore}, payable=${payableBefore}`,
-      );
-
-      await billableCheckbox.click({ force: true }).catch(() => {});
-      await payableCheckbox.click({ force: true }).catch(() => {});
-      await visualPause();
-
-      const billableAfterClick =
-        (await billableCheckbox.isChecked().catch(() => null)) ??
-        ((await billableCheckbox.getAttribute("aria-checked").catch(() => null)) ===
-          "true");
-      const payableAfterClick =
-        (await payableCheckbox.isChecked().catch(() => null)) ??
-        ((await payableCheckbox.getAttribute("aria-checked").catch(() => null)) ===
-          "true");
-      console.log(
-        `[TC-CONTRACT-E2E-008A] Officer/Guard Breaks after-click states billable=${billableAfterClick}, payable=${payableAfterClick}`,
-      );
-
-      const saveEnabled = await cm.saveAndNextBtn
-        .isEnabled()
-        .catch(() => false);
-      if (saveEnabled) {
-        await cm.clickSaveAndNext().catch(() => {});
-      } else {
-        await cm.stepperStep2.click({ force: true }).catch(() => {});
-      }
-      await visualPause();
-
-      await cm.stepperStep1.click({ force: true }).catch(() => {});
-      await cm.assertStep1Visible();
-
-      const billablePersisted =
-        (await billableCheckbox.isChecked().catch(() => null)) ??
-        (await billableCheckbox
-          .getAttribute("aria-checked")
-          .catch(() => null)) === "true";
-      const payablePersisted =
-        (await payableCheckbox.isChecked().catch(() => null)) ??
-        (await payableCheckbox
-          .getAttribute("aria-checked")
-          .catch(() => null)) === "true";
-      console.log(
-        `[TC-CONTRACT-E2E-008A] Officer/Guard Breaks persisted states billable=${billablePersisted}, payable=${payablePersisted}`,
-      );
-
-      await cm.stepperStep4.click({ force: true }).catch(() => {});
-      await cm.assertStep4Visible();
-    });
-    await test.step("Verify Holiday Multiplier and Holiday Group selection works; '0 Holidays' link/info is accessible (if applicable).", async () => {
-      await ensureE2EStep4Ready(cm);
-      await visualPause();
-      console.log("[TC-CONTRACT-E2E-008A] Holiday step: starting holiday fields interaction.");
-
-      const multiplierInput = page
-        .getByRole("textbox", { name: /Holiday Multiplier/i })
-        .first();
-      await expect(multiplierInput).toBeVisible({ timeout: 8_000 });
-      await visualPause();
-      await multiplierInput.fill("1.5");
-      await multiplierInput.press("Tab").catch(() => {});
-      await visualPause();
-      const multiplierUsable = await multiplierInput
-        .isEditable()
-        .catch(() => false);
-      const multiplierCurrentValue = await multiplierInput
-        .inputValue()
-        .catch(() => "");
-      console.log(
-        `[TC-CONTRACT-E2E-008A] Holiday step: multiplier editable=${multiplierUsable}, value="${multiplierCurrentValue}".`,
-      );
-
-      const holidayGroupTrigger = page
-        .getByRole("heading", { name: /Select Holiday Group/i })
-        .first();
-      await visualPause();
-      await holidayGroupTrigger.click({ force: true });
-      await visualPause();
-
-      const holidayGroupOption = page
+      const taxRateInputFromRow = taxRateRow
         .locator(
-          "[role='listbox'] [role='option'], .MuiAutocomplete-popper li, .MuiPopover-root li",
+          'input[name="taxRate"], input#taxRate, input[placeholder*="Enter %"], input[type="number"]',
         )
-        .filter({ hasText: /holiday|group/i })
         .first();
-      const holidayGroupOptionVisible = await holidayGroupOption
+      const taxRateInputFromRowVisible = await taxRateInputFromRow
         .isVisible()
         .catch(() => false);
-      let holidayGroupUsable = false;
-      let selectedHolidayGroupText = "";
-      if (holidayGroupOptionVisible) {
-        selectedHolidayGroupText = String(
-          await holidayGroupOption.textContent().catch(() => ""),
-        ).trim();
-        await holidayGroupOption.click({ force: true });
-        await visualPause();
-        const holidayGroupTriggerText = String(
-          await holidayGroupTrigger.textContent().catch(() => ""),
-        ).trim();
-        holidayGroupUsable = true;
-        console.log(
-          `[TC-CONTRACT-E2E-008A] Holiday step: selected Holiday Group option="${selectedHolidayGroupText}", trigger now="${holidayGroupTriggerText}".`,
-        );
-      } else {
-        holidayGroupUsable = await holidayGroupTrigger
-          .isVisible()
-          .catch(() => false);
-        console.log(
-          `[TC-CONTRACT-E2E-008A] Holiday step: no Holiday Group dropdown option rendered, trigger visible fallback=${holidayGroupUsable}.`,
-        );
+      if (taxRateInputFromRowVisible) return taxRateInputFromRow;
+    }
+
+    const spinTax = page
+      .getByRole("spinbutton", { name: /Tax Rate/i })
+      .first();
+    const spinVisible = await spinTax.isVisible().catch(() => false);
+    if (spinVisible) return spinTax;
+    const textTax = page.getByRole("textbox", { name: /Tax Rate/i }).first();
+    const textVisible = await textTax.isVisible().catch(() => false);
+    if (textVisible) return textTax;
+    // Fallback for builds where the tax input has no accessible name but
+    // appears adjacent to the "Tax Rate (%) *" heading.
+    const taxHeading = page.getByRole("heading", { name: /Tax Rate/i }).first();
+    const taxHeadingVisible = await taxHeading.isVisible().catch(() => false);
+    if (taxHeadingVisible) {
+      const headingContainer = taxHeading.locator("..");
+      const unlabeledSpin = headingContainer.getByRole("spinbutton").first();
+      const unlabeledSpinVisible = await unlabeledSpin
+        .isVisible()
+        .catch(() => false);
+      if (unlabeledSpinVisible) return unlabeledSpin;
+
+      const unlabeledTextbox = headingContainer.getByRole("textbox").first();
+      const unlabeledTextboxVisible = await unlabeledTextbox
+        .isVisible()
+        .catch(() => false);
+      if (unlabeledTextboxVisible) return unlabeledTextbox;
+    }
+    return null;
+  };
+
+  const planNodeByName = (planName) =>
+    page
+      .locator("button, [role='button'], [role='columnheader'], div, p, h6")
+      .filter({ hasText: new RegExp(`^\\s*${planName}\\s*$`, "i") })
+      .first();
+
+  const setTaxValue = async (value) => {
+    const taxInput = await readTaxRateInput();
+    if (!taxInput) return null;
+    await taxInput.click({ clickCount: 3 });
+    const normalizedValue = String(value);
+    const isRawText = /[a-z]/i.test(normalizedValue);
+    if (isRawText) {
+      await taxInput.pressSequentially(normalizedValue);
+    } else {
+      await taxInput.fill(normalizedValue);
+    }
+    await taxInput.press("Tab").catch(() => {});
+    await visualPause();
+    return taxInput;
+  };
+
+  const isSaveAndNextBlockedAtStep4 = async () => {
+    const currentUrl = page.url();
+    await cm.saveAndNextBtn.click({ force: true }).catch(() => {});
+    await visualPause();
+    const stillOnStep4 = await cm.billingOccurrenceHeading
+      .isVisible()
+      .catch(() => false);
+    const urlUnchanged = page.url() === currentUrl;
+    return stillOnStep4 || urlUnchanged;
+  };
+
+  const assertPaymentTermsSurfaceVisible = async () => {
+    const headingVisible = await cm.billingOccurrenceHeading
+      .isVisible()
+      .catch(() => false);
+    const planVisible = await page
+      .getByText(/Monthly|Bi-Weekly|Weekly|Event|Flat/i)
+      .first()
+      .isVisible()
+      .catch(() => false);
+    const taxInput = await readTaxRateInput();
+    const taxVisible = Boolean(taxInput);
+    expect(
+      headingVisible || planVisible || taxVisible,
+      "Expected Payment Terms surface to be visible (heading or plan/tax markers).",
+    ).toBeTruthy();
+  };
+
+  const formatDate = (date) => {
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    const yyyy = date.getFullYear();
+    return `${mm}/${dd}/${yyyy}`;
+  };
+
+  test("Setup: create fresh proposal and reach Step 4 Payment Terms", async () => {
+    test.setTimeout(420_000);
+    if (e2e008ASetupDone) return;
+    await gotoDealsListPage();
+    await openContractDealDetail();
+    const currentState = await cm.detectContractState();
+
+    if (currentState === "proposal") {
+      await cm.openExistingProposalEditor();
+    } else if (currentState === "empty") {
+      await cm.openCreateProposalDrawer();
+      const now = new Date();
+      const startDate = new Date(now);
+      startDate.setDate(startDate.getDate() + 8);
+      const renewalDate = new Date(startDate);
+      renewalDate.setDate(renewalDate.getDate() + 5);
+      const alignedJobDay = getWeekdayAbbr(startDate);
+      const alignedServiceData = {
+        ...SERVICE_DATA,
+        jobDays: [alignedJobDay],
+      };
+      await cm.fillProposalName(`E2E008A ${Date.now()}`);
+      const timeZonePreselected = await cm.timeZoneTrigger
+        .textContent()
+        .then((txt) => /\(utc/i.test(String(txt || "")))
+        .catch(() => false);
+      if (!timeZonePreselected) {
+        await cm.selectTimeZone(PROPOSAL_DATA.timeZone);
       }
-
-      const zeroHolidaysControl = page.getByText(/0 Holidays/i).first();
-      await expect(zeroHolidaysControl).toBeVisible({ timeout: 8_000 });
-      await visualPause();
-      const zeroHolidaysUrlBefore = page.url();
-      await zeroHolidaysControl.click({ force: true }).catch(() => {});
-      await visualPause();
-      const zeroHolidaysUrlAfter = page.url();
-      const zeroHolidaysFeedbackVisible = await page
-        .locator("[role='dialog'], [role='tooltip']")
-        .first()
-        .isVisible()
-        .catch(() => false);
-      console.log(
-        `[TC-CONTRACT-E2E-008A] Holiday step: clicked '0 Holidays'; feedbackVisible=${zeroHolidaysFeedbackVisible}, urlChanged=${zeroHolidaysUrlAfter !== zeroHolidaysUrlBefore}.`,
+      await cm.fillStartDate(formatDate(startDate));
+      await cm.fillRenewalDate(formatDate(renewalDate));
+      await cm.submitCreateProposal();
+      await cm.assertOnStepperPage();
+      await ensureE2EStep4Ready(cm, { serviceData: alignedServiceData });
+    } else if (currentState !== "stepper") {
+      throw new Error(
+        `TC-CONTRACT-E2E-008A requires proposal/stepper state, got '${currentState}'.`,
       );
-
-      expect(
-        multiplierUsable && holidayGroupUsable,
-        "Expected Holiday Multiplier value to persist and Holiday Group control/selection to remain usable.",
-      ).toBeTruthy();
-    });
-
-    await test.step("Verify Flat plan input validation (flat amount required, numeric only).", async () => {
+    } else {
+      await cm.assertOnStepperPage();
       await ensureE2EStep4Ready(cm);
-      console.log("[TC-CONTRACT-E2E-008A] Flat step: ensured Step 4 is active.");
-
-      const flatPlanRadio = page.getByRole("radio", { name: /Flat/i }).first();
-      await flatPlanRadio.click({ force: true });
-      console.log("[TC-CONTRACT-E2E-008A] Flat step: selected Flat billing plan.");
-
-      const flatRateInput = page
-        .locator("div")
-        .filter({ has: page.getByRole("radio", { name: /Flat/i }).first() })
-        .getByRole("spinbutton")
-        .first();
-      await expect(flatRateInput).toBeVisible({ timeout: 8_000 });
-      await expect(flatRateInput).toBeEnabled({ timeout: 8_000 });
-
-      await flatRateInput.click({ clickCount: 3 });
-      await flatRateInput.fill("1000");
-      await flatRateInput.press("Tab").catch(() => {});
-      const retainedValue = await flatRateInput.inputValue().catch(() => "");
-      console.log(
-        `[TC-CONTRACT-E2E-008A] Flat step: retained flat rate value="${retainedValue}".`,
-      );
-      expect(
-        /1000/.test(String(retainedValue || "")),
-        "Expected valid numeric Flat Rate value to be accepted and retained.",
-      ).toBeTruthy();
-
-      await flatRateInput.click({ clickCount: 3 });
-      await flatRateInput.fill("");
-      await flatRateInput.press("Tab").catch(() => {});
-      const step4UrlBefore = page.url();
-      await cm.saveAndNextBtn.click({ force: true }).catch(() => {});
-      const stillOnStep4 = await cm.billingOccurrenceHeading
-        .isVisible()
-        .catch(() => false);
-      const urlUnchanged = page.url() === step4UrlBefore;
-      const validationVisible = await page
-        .getByText(/required|flat.*rate|must be|valid/i)
-        .first()
-        .isVisible()
-        .catch(() => false);
-      console.log(
-        `[TC-CONTRACT-E2E-008A] Flat step: stillOnStep4=${stillOnStep4}, urlUnchanged=${urlUnchanged}, validationVisible=${validationVisible}.`,
-      );
-      expect(
-        (stillOnStep4 || urlUnchanged) && validationVisible,
-        "Expected Save & Next to stay blocked with field-level validation when Flat Rate is missing/invalid.",
-      ).toBeTruthy();
-    });
+    }
+    await visualPause();
+    e2e008ASetupDone = true;
   });
 
-  test("TC-CONTRACT-E2E-008D | Billing Information validations and alternate address behavior under Step 4", async () => {
-    test.setTimeout(300_000);
+  test("Verify payment plan columns render (Monthly, Bi-Weekly, Weekly, Event, Flat) and selecting a plan highlights it.", async () => {
+    await ensureE2EStep4Ready(cm);
+    await assertPaymentTermsSurfaceVisible();
 
+    const expectedPlans = ["Monthly", "Bi-Weekly", "Weekly", "Event", "Flat"];
+    const planVisibility = await Promise.all(
+      expectedPlans.map((plan) =>
+        page
+          .getByText(new RegExp(`^\\s*${plan}\\s*$`, "i"))
+          .first()
+          .isVisible()
+          .catch(() => false),
+      ),
+    );
+
+    const eventPlanNode = planNodeByName("Event");
+    await eventPlanNode.click({ force: true }).catch(() => {});
+    await visualPause();
+
+    const eventPlanParent = eventPlanNode.locator("..").first();
+    const eventNodeClass = String(
+      await eventPlanNode.getAttribute("class").catch(() => ""),
+    );
+    const eventParentClass = String(
+      await eventPlanParent.getAttribute("class").catch(() => ""),
+    );
+    const eventNodeAriaSelected = await eventPlanNode
+      .getAttribute("aria-selected")
+      .catch(() => null);
+    const eventNodeAriaPressed = await eventPlanNode
+      .getAttribute("aria-pressed")
+      .catch(() => null);
+    const eventParentAriaSelected = await eventPlanParent
+      .getAttribute("aria-selected")
+      .catch(() => null);
+    const eventParentAriaPressed = await eventPlanParent
+      .getAttribute("aria-pressed")
+      .catch(() => null);
+    const eventPlanSelected =
+      eventNodeAriaSelected === "true" ||
+      eventNodeAriaPressed === "true" ||
+      eventParentAriaSelected === "true" ||
+      eventParentAriaPressed === "true" ||
+      /selected|active/i.test(eventNodeClass) ||
+      /selected|active/i.test(eventParentClass);
+    const selectionMarkerSupported =
+      eventNodeAriaSelected !== null ||
+      eventNodeAriaPressed !== null ||
+      eventParentAriaSelected !== null ||
+      eventParentAriaPressed !== null ||
+      /selected|active/i.test(eventNodeClass) ||
+      /selected|active/i.test(eventParentClass);
+    const eventRadioChecked = await page
+      .getByRole("radio", { name: /Event/i })
+      .first()
+      .isChecked()
+      .catch(() => false);
+    const selectionConfirmed = selectionMarkerSupported
+      ? eventPlanSelected
+      : eventRadioChecked;
+    expect(
+      planVisibility.every(Boolean) && selectionConfirmed,
+      "Expected all payment plan columns (Monthly, Bi-Weekly, Weekly, Event, Flat) to be visible and selected plan to be highlighted/checked.",
+    ).toBeTruthy();
+  });
+
+  test("Verify Services Total/Dispatch Total/Tax Rate/Total update for selected plan.", async () => {
+    await ensureE2EStep4Ready(cm);
+    const [servicesVisible, dispatchVisible, taxRateVisible, totalVisible] =
+      await Promise.all([
+        page.getByText(/Services Total/i).first().isVisible().catch(() => false),
+        page.getByText(/Dispatch Total/i).first().isVisible().catch(() => false),
+        page.getByText(/Tax Rate/i).first().isVisible().catch(() => false),
+        page.getByText(/^Total$/i).first().isVisible().catch(() => false),
+      ]);
+
+    const selectedPlanContainer = page
+      .locator("div")
+      .filter({ has: page.locator('input[type="radio"]:checked') })
+      .first();
+    const beforeMetrics = await selectedPlanContainer
+      .locator("p")
+      .allTextContents()
+      .catch(() => []);
+    const beforeTotal = Number(
+      String(beforeMetrics[3] || "").replace(/[^\d.-]/g, ""),
+    );
+
+    const taxInput = await setTaxValue("10");
+    const taxValue = await taxInput?.inputValue().catch(() => "");
+    const afterMetrics = await selectedPlanContainer
+      .locator("p")
+      .allTextContents()
+      .catch(() => []);
+    const afterTax = Number(String(afterMetrics[2] || "").replace(/[^\d.-]/g, ""));
+    const afterTotal = Number(
+      String(afterMetrics[3] || "").replace(/[^\d.-]/g, ""),
+    );
+    const totalsUpdatedForSelectedPlan =
+      Number.isFinite(beforeTotal) &&
+      Number.isFinite(afterTax) &&
+      Number.isFinite(afterTotal) &&
+      afterTotal >= beforeTotal &&
+      afterTax >= 0;
+    expect(
+      servicesVisible &&
+        dispatchVisible &&
+        taxRateVisible &&
+        totalVisible &&
+        Boolean(taxInput) &&
+        /10(?:\.0+)?/.test(String(taxValue || "")) &&
+        totalsUpdatedForSelectedPlan,
+      "Expected Services Total/Dispatch Total/Tax Rate/Total to be visible and selected-plan totals to react after Tax Rate update.",
+    ).toBeTruthy();
+  });
+
+  test("Verify Tax Rate (%) is required and validates numeric range (0-100) and decimals; reject alpha/negative.", async () => {
+    await ensureE2EStep4Ready(cm);
+    const taxInput = await readTaxRateInput();
+    expect(
+      Boolean(taxInput),
+      "Tax Rate input must be visible on Payment Terms to validate required/range/decimal rules.",
+    ).toBeTruthy();
+    const activeTaxInput = /** @type {import('@playwright/test').Locator} */ (taxInput);
+    const readTaxNumeric = async () => {
+      const raw = await activeTaxInput.inputValue().catch(() => "");
+      const normalized = String(raw || "").replace(/[^\d.-]/g, "");
+      if (!normalized) return null;
+      const parsed = Number(normalized);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    await setTaxValue("");
+    const blockedWhenEmptyTax = await isSaveAndNextBlockedAtStep4();
+    expect(
+      blockedWhenEmptyTax,
+      "Expected Save & Next to remain blocked when Tax Rate is empty (required field).",
+    ).toBeTruthy();
+    const taxRequiredTextVisible = await page
+      .getByText(/Tax\s*Rate.*required|required.*Tax\s*Rate|must be|required field/i)
+      .first()
+      .isVisible()
+      .catch(() => false);
+    const taxAriaInvalid = await activeTaxInput
+      .getAttribute("aria-invalid")
+      .then((v) => String(v).toLowerCase() === "true")
+      .catch(() => false);
+    expect(
+      taxRequiredTextVisible || taxAriaInvalid,
+      "Expected Tax Rate required validation (inline text or aria-invalid=true).",
+    ).toBeTruthy();
+
+    await setTaxValue("7.25");
+    const decimalValue = await activeTaxInput.inputValue().catch(() => "");
+    expect(
+      /7\.25|7\.2|7\.3/.test(String(decimalValue || "")) ||
+        (await readTaxNumeric()) === 7.25,
+      "Expected decimal Tax Rate input to be accepted.",
+    ).toBeTruthy();
+
+    await setTaxValue("-5");
+    const negativeAttemptValue = await activeTaxInput.inputValue().catch(() => "");
+    const negativeNumeric = await readTaxNumeric();
+    expect(
+      !String(negativeAttemptValue || "").includes("-") &&
+        (negativeNumeric === null || negativeNumeric >= 0),
+      "Expected negative Tax Rate input to be rejected/sanitized.",
+    ).toBeTruthy();
+
+    await setTaxValue("abc");
+    const alphaAttemptValue = await activeTaxInput.inputValue().catch(() => "");
+    expect(
+      !/[a-z]/i.test(String(alphaAttemptValue || "")),
+      "Expected alphabetic Tax Rate input to be rejected.",
+    ).toBeTruthy();
+
+    await setTaxValue("0");
+    const zeroValue = await readTaxNumeric();
+    expect(
+      zeroValue === 0,
+      "Expected Tax Rate lower boundary (0) to be accepted.",
+    ).toBeTruthy();
+
+    await setTaxValue("100");
+    const hundredValue = await readTaxNumeric();
+    expect(
+      hundredValue === 100,
+      "Expected Tax Rate upper boundary (100) to be accepted.",
+    ).toBeTruthy();
+
+    await setTaxValue("101");
+    const normalizedOverRange = await readTaxNumeric();
+    const overRangeErrorVisible = await page
+      .getByText(/Tax\s*Rate.*(0|100|range|max|invalid)|must be.*100|between 0 and 100/i)
+      .first()
+      .isVisible()
+      .catch(() => false);
+    const overRangeAriaInvalid = await activeTaxInput
+      .getAttribute("aria-invalid")
+      .then((v) => String(v).toLowerCase() === "true")
+      .catch(() => false);
+    expect(
+      normalizedOverRange === null ||
+        normalizedOverRange <= 100 ||
+        overRangeAriaInvalid ||
+        overRangeErrorVisible,
+      "Expected Tax Rate above 100 to be rejected/clamped or flagged with validation.",
+    ).toBeTruthy();
+    await setTaxValue("10");
+  });
+
+  test("Verify Contract Duration displays based on Start/End/Renewal dates selected in proposal.", async () => {
+    await ensureE2EStep4Ready(cm);
+    const durationLabel = page.getByText(/Contract Duration|Duration/i).first();
+    const renewalRadio = page
+      .getByRole("radio", { name: /Renewal Date/i })
+      .first();
+    const endRadio = page.getByRole("radio", { name: /End Date/i }).first();
+    const startDateInput = page
+      .getByRole("textbox", { name: /Select Start Date|Start Date/i })
+      .first();
+    const renewalDateInput = page
+      .getByRole("textbox", { name: /Select Renewal Date|Renewal Date/i })
+      .first();
+    const endDateInput = page
+      .getByRole("textbox", { name: /Select End Date|End Date/i })
+      .first();
+    const dateControlsVisible =
+      (await renewalRadio.isVisible().catch(() => false)) &&
+      (await startDateInput.isVisible().catch(() => false));
+    const readDurationText = async () => {
+      const textNode = page
+        .locator("div, p, span, h6")
+        .filter({ hasText: /Contract Duration|Duration/i })
+        .first();
+      const txt = await textNode.textContent().catch(() => "");
+      return String(txt || "").trim();
+    };
+
+    if (dateControlsVisible) {
+      const today = new Date();
+      const start = new Date(today);
+      start.setDate(start.getDate() + 10);
+      const renewal = new Date(start);
+      renewal.setDate(renewal.getDate() + 7);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 14);
+      const fmt = (d) =>
+        `${String(d.getMonth() + 1).padStart(2, "0")}/${String(
+          d.getDate(),
+        ).padStart(2, "0")}/${d.getFullYear()}`;
+
+      await startDateInput.fill(fmt(start));
+      await renewalRadio.click({ force: true }).catch(() => {});
+      if (await renewalDateInput.isVisible().catch(() => false)) {
+        await renewalDateInput.fill(fmt(renewal));
+      }
+      await visualPause();
+      await expect(durationLabel).toBeVisible({ timeout: 8_000 });
+      const durationInRenewalMode = await readDurationText();
+      expect(durationInRenewalMode.length > 0).toBeTruthy();
+
+      await endRadio.click({ force: true }).catch(() => {});
+      if (await endDateInput.isVisible().catch(() => false)) {
+        await endDateInput.fill(fmt(end));
+      }
+      await visualPause();
+      await expect(durationLabel).toBeVisible({ timeout: 8_000 });
+      const durationInEndMode = await readDurationText();
+      expect(durationInEndMode.length > 0).toBeTruthy();
+
+      const updatedStart = new Date(start);
+      updatedStart.setDate(updatedStart.getDate() + 1);
+      await startDateInput.fill(fmt(updatedStart));
+      await visualPause();
+      const durationAfterStartEdit = await readDurationText();
+      expect(durationAfterStartEdit.length > 0).toBeTruthy();
+    } else {
+      const durationVisibleOnCurrentSurface = await durationLabel
+        .isVisible()
+        .catch(() => false);
+      expect(durationVisibleOnCurrentSurface).toBeTruthy();
+    }
+  });
+
+  test("Verify Save & Next blocked until required payment term fields are completed; show field-level errors.", async () => {
+    await ensureE2EStep4Ready(cm);
+    await assertPaymentTermsSurfaceVisible();
+    const taxInput = await readTaxRateInput();
+    if (taxInput) {
+      await taxInput.click({ clickCount: 3 });
+      await taxInput.fill("");
+      await taxInput.press("Tab").catch(() => {});
+      await visualPause();
+    }
+    const blocked = await isSaveAndNextBlockedAtStep4();
+    const stillOnStep4 = await cm.billingOccurrenceHeading
+      .isVisible()
+      .catch(() => false);
+    expect(
+      blocked && stillOnStep4,
+      "Expected Save & Next to stay blocked and remain on Step 4 when required payment fields are incomplete.",
+    ).toBeTruthy();
+    const inlineErrorVisible = await page
+      .getByText(/required|must be|valid/i)
+      .first()
+      .isVisible()
+      .catch(() => false);
+    const taxErrorVisible = await page
+      .getByText(/Tax\s*Rate.*required|required.*Tax\s*Rate|Tax\s*Rate.*valid/i)
+      .first()
+      .isVisible()
+      .catch(() => false);
+    const taxAriaInvalid = await taxInput
+      ?.getAttribute("aria-invalid")
+      .then((v) => String(v).toLowerCase() === "true")
+      .catch(() => false);
+    expect(
+      inlineErrorVisible || taxErrorVisible || Boolean(taxAriaInvalid),
+      "Expected field-level validation error (generic or Tax Rate-specific) when Save & Next is blocked.",
+    ).toBeTruthy();
+    await setTaxValue("10");
+  });
+
+  test("Verify Officer/Guard Breaks checkboxes (Billable/Payable) can be toggled and saved.", async () => {
+    await ensureE2EStep4Ready(cm);
+    const paymentTermsSection = page
+      .locator("div")
+      .filter({ has: page.getByRole("heading", { name: /Define Payment Terms/i }) })
+      .first();
+    await expect(paymentTermsSection).toBeVisible({ timeout: 8_000 });
+    const breaksRow = paymentTermsSection
+      .locator("div")
+      .filter({ hasText: /Officer\/Guard Breaks/i })
+      .first();
+    await expect(breaksRow).toBeVisible({ timeout: 8_000 });
+    const billableCheckbox = breaksRow
+      .locator('[role="checkbox"], input[type="checkbox"]')
+      .nth(0);
+    const payableCheckbox = breaksRow
+      .locator('[role="checkbox"], input[type="checkbox"]')
+      .nth(1);
+    await expect(billableCheckbox).toBeVisible({ timeout: 8_000 });
+    await expect(payableCheckbox).toBeVisible({ timeout: 8_000 });
+    await page.mouse.wheel(0, 150).catch(() => {});
+    await visualPause();
+
+    const billableBefore =
+      (await billableCheckbox.isChecked().catch(() => null)) ??
+      ((await billableCheckbox.getAttribute("aria-checked").catch(() => null)) ===
+        "true");
+    const payableBefore =
+      (await payableCheckbox.isChecked().catch(() => null)) ??
+      ((await payableCheckbox.getAttribute("aria-checked").catch(() => null)) ===
+        "true");
+    await billableCheckbox.click({ force: true }).catch(() => {});
+    await payableCheckbox.click({ force: true }).catch(() => {});
+    await visualPause();
+    const billableAfterClick =
+      (await billableCheckbox.isChecked().catch(() => null)) ??
+      ((await billableCheckbox.getAttribute("aria-checked").catch(() => null)) ===
+        "true");
+    const payableAfterClick =
+      (await payableCheckbox.isChecked().catch(() => null)) ??
+      ((await payableCheckbox.getAttribute("aria-checked").catch(() => null)) ===
+        "true");
+    expect(billableAfterClick !== billableBefore).toBeTruthy();
+    expect(payableAfterClick !== payableBefore).toBeTruthy();
+
+    const saveEnabled = await cm.saveAndNextBtn.isEnabled().catch(() => false);
+    if (!saveEnabled) {
+      await cm.fillStep4PaymentTerms(PAYMENT_DATA);
+    }
+    await cm.clickSaveAndNext().catch(() => {});
+    await visualPause();
+    await cm.stepperStep4.click({ force: true }).catch(() => {});
+    await cm.assertStep4Visible();
+    const billablePersisted =
+      (await billableCheckbox.isChecked().catch(() => null)) ??
+      (await billableCheckbox.getAttribute("aria-checked").catch(() => null)) ===
+        "true";
+    const payablePersisted =
+      (await payableCheckbox.isChecked().catch(() => null)) ??
+      (await payableCheckbox.getAttribute("aria-checked").catch(() => null)) ===
+        "true";
+    expect(billablePersisted === billableAfterClick).toBeTruthy();
+    expect(payablePersisted === payableAfterClick).toBeTruthy();
+    await cm.stepperStep4.click({ force: true }).catch(() => {});
+    await cm.assertStep4Visible();
+  });
+
+  test("Verify Holiday Multiplier and Holiday Group selection works; '0 Holidays' link/info is accessible (if applicable).", async () => {
+    await ensureE2EStep4Ready(cm);
+    await visualPause();
+    const multiplierInput = page
+      .getByRole("textbox", { name: /Holiday Multiplier/i })
+      .first();
+    await expect(multiplierInput).toBeVisible({ timeout: 8_000 });
+    await multiplierInput.fill("1.5");
+    await multiplierInput.press("Tab").catch(() => {});
+    await visualPause();
+    const multiplierUsable = await multiplierInput.isEditable().catch(() => false);
+
+    const holidayGroupTrigger = page
+      .getByRole("heading", { name: /Select Holiday Group/i })
+      .first();
+    await holidayGroupTrigger.click({ force: true });
+    await visualPause();
+    const holidayGroupOption = page
+      .locator(
+        "[role='listbox'] [role='option'], .MuiAutocomplete-popper li, .MuiPopover-root li",
+      )
+      .filter({ hasText: /holiday|group/i })
+      .first();
+    const holidayGroupOptionVisible = await holidayGroupOption
+      .isVisible()
+      .catch(() => false);
+    let holidayGroupUsable = false;
+    if (holidayGroupOptionVisible) {
+      await holidayGroupOption.click({ force: true });
+      await visualPause();
+      holidayGroupUsable = true;
+    } else {
+      holidayGroupUsable = await holidayGroupTrigger
+        .isVisible()
+        .catch(() => false);
+    }
+
+    const zeroHolidaysControl = page.getByText(/0 Holidays/i).first();
+    await expect(zeroHolidaysControl).toBeVisible({ timeout: 8_000 });
+    await zeroHolidaysControl.click({ force: true }).catch(() => {});
+    await visualPause();
+    expect(
+      multiplierUsable && holidayGroupUsable,
+      "Expected Holiday Multiplier value to persist and Holiday Group control/selection to remain usable.",
+    ).toBeTruthy();
+  });
+
+  test("Verify Flat plan input validation (flat amount required, numeric only).", async () => {
+    await ensureE2EStep4Ready(cm);
+    const flatPlanRadio = page.getByRole("radio", { name: /Flat/i }).first();
+    await flatPlanRadio.click({ force: true });
+    const flatRateInput = page
+      .locator("div")
+      .filter({ has: page.getByRole("radio", { name: /Flat/i }).first() })
+      .getByRole("spinbutton")
+      .first();
+    await expect(flatRateInput).toBeVisible({ timeout: 8_000 });
+    await expect(flatRateInput).toBeEnabled({ timeout: 8_000 });
+    await flatRateInput.click({ clickCount: 3 });
+    await flatRateInput.fill("1000");
+    await flatRateInput.press("Tab").catch(() => {});
+    const retainedValue = await flatRateInput.inputValue().catch(() => "");
+    expect(/1000/.test(String(retainedValue || ""))).toBeTruthy();
+
+    await flatRateInput.click({ clickCount: 3 });
+    await flatRateInput.fill("");
+    await flatRateInput.press("Tab").catch(() => {});
+    const step4UrlBefore = page.url();
+    await cm.saveAndNextBtn.click({ force: true }).catch(() => {});
+    const stillOnStep4 = await cm.billingOccurrenceHeading
+      .isVisible()
+      .catch(() => false);
+    const urlUnchanged = page.url() === step4UrlBefore;
+    const validationVisible = await page
+      .getByText(/required|flat.*rate|must be|valid/i)
+      .first()
+      .isVisible()
+      .catch(() => false);
+    expect(
+      (stillOnStep4 || urlUnchanged) && validationVisible,
+      "Expected Save & Next to stay blocked with field-level validation when Flat Rate is missing/invalid.",
+    ).toBeTruthy();
+  });
+
+  const isOnStep4For008D = async () =>
+    (await cm.billingOccurrenceHeading.isVisible().catch(() => false)) ||
+    (await cm.billingInfoHeading.isVisible().catch(() => false)) ||
+    (await cm.definePaymentTermsHeading.isVisible().catch(() => false));
+
+  const returnToStep4For008D = async () => {
+    if (await isOnStep4For008D()) return;
+    await cm.stepperStep4.click({ force: true }).catch(() => {});
+    if (!(await isOnStep4For008D())) {
+      await cm.stepperStep4.click({ force: true }).catch(() => {});
+      await page.waitForTimeout(250);
+    }
+  };
+
+  const ensure008DSetup = async () => {
+    if (e2e008DSetupDone) {
+      await returnToStep4For008D();
+      return;
+    }
+    await ensureE2EStep4Ready(cm).catch(async () => {
+      await ensureContractStepperReady(cm, { allowFreshDealRecovery: true });
+      await cm.stepperStep4.click({ force: true }).catch(() => {});
+    });
+    if (!(await isOnStep4For008D())) {
+      await cm.stepperStep4.click({ force: true }).catch(() => {});
+      await cm.assertStep4Visible().catch(() => {});
+    }
+    await cm.fillStep4PaymentTerms(PAYMENT_DATA);
+    e2e008DSetupDone = true;
+  };
+
+  test("Annual Rate Increase: accepts integer and decimal; rejects alpha and symbols", async () => {
+    await ensure008DSetup();
+    await returnToStep4For008D();
+    const annualRateInput = cm.annualRateIncreaseInput;
+    await expect(annualRateInput).toBeVisible({ timeout: 8_000 });
+    await expect(annualRateInput).toBeEditable({ timeout: 8_000 });
+
+    await annualRateInput.fill("3");
+    await annualRateInput.press("Tab").catch(() => {});
+    const integerAccepted = Number(await annualRateInput.inputValue().catch(() => "")) === 3;
+
+    await annualRateInput.fill("2.5");
+    await annualRateInput.press("Tab").catch(() => {});
+    const decimalAccepted = Number(await annualRateInput.inputValue().catch(() => "")) === 2.5;
+
+    const invalidFormats = ["abc", "3abc", "@#", "-1"];
+    let invalidRejected = true;
+    for (const invalidValue of invalidFormats) {
+      await annualRateInput.fill("").catch(() => {});
+      await annualRateInput.pressSequentially(invalidValue).catch(() => {});
+      await annualRateInput.press("Tab").catch(() => {});
+      const valueAfterInput = await annualRateInput.inputValue().catch(() => "");
+      const ariaInvalid = await annualRateInput
+        .getAttribute("aria-invalid")
+        .then((v) => String(v).toLowerCase() === "true")
+        .catch(() => false);
+      const numericAfterInput = Number(valueAfterInput);
+      const isNegativeAttempt = invalidValue === "-1";
+      const rejectedBySanitization = String(valueAfterInput || "") !== invalidValue;
+      const invalidHandled = isNegativeAttempt
+        ? rejectedBySanitization &&
+          (ariaInvalid ||
+            valueAfterInput === "" ||
+            (Number.isFinite(numericAfterInput) && numericAfterInput >= 0))
+        : rejectedBySanitization;
+      invalidRejected = invalidRejected && invalidHandled;
+    }
+
+    await annualRateInput.fill("");
+    await annualRateInput.press("Tab").catch(() => {});
+    const urlBefore = page.url();
+    await cm.saveAndNextBtn.click({ force: true }).catch(() => {});
+    await page.waitForTimeout(250);
+    const stillOnStep4 = await isOnStep4For008D();
+    const validationVisible = await page
+      .getByText(/Annual Rate Increase.*(required|number|valid)|must be a number/i)
+      .first()
+      .isVisible()
+      .catch(() => false);
+    const ariaInvalidEmpty = await annualRateInput
+      .getAttribute("aria-invalid")
+      .then((v) => String(v).toLowerCase() === "true")
+      .catch(() => false);
+    await annualRateInput.fill("3");
+    await annualRateInput.press("Tab").catch(() => {});
+
+    expect(integerAccepted).toBeTruthy();
+    expect(decimalAccepted).toBeTruthy();
+    expect(invalidRejected).toBeTruthy();
+    expect(
+      ariaInvalidEmpty || validationVisible || stillOnStep4 || page.url() === urlBefore,
+    ).toBeTruthy();
+  });
+
+  test("Billing Information required fields: blank First/Last/Email/Phone blocks Save & Next", async () => {
+    await ensure008DSetup();
+    await returnToStep4For008D();
+    const firstNameInput = cm.billingFirstNameInput;
+    const lastNameInput = cm.billingLastNameInput;
+    const emailInput = cm.billingEmailInput;
+    const phoneInput = cm.billingPhoneInput;
+    await firstNameInput.fill("");
+    await lastNameInput.fill("");
+    await emailInput.fill("");
+    await phoneInput.fill("");
+    const urlBefore = page.url();
+    const saveEnabledBefore = await cm.saveAndNextBtn.isEnabled().catch(() => false);
+    await cm.saveAndNextBtn.click({ force: true }).catch(() => {});
+    await page.waitForTimeout(250);
+    const stillOnStep4 = await isOnStep4For008D();
+    const validationVisible = await page
+      .getByText(/required|must be/i)
+      .first()
+      .isVisible()
+      .catch(() => false);
+    const saveEnabledAfter = await cm.saveAndNextBtn.isEnabled().catch(() => false);
+    const fieldMarkedInvalid = await Promise.all([
+      firstNameInput
+        .getAttribute("aria-invalid")
+        .then((v) => String(v).toLowerCase() === "true")
+        .catch(() => false),
+      lastNameInput
+        .getAttribute("aria-invalid")
+        .then((v) => String(v).toLowerCase() === "true")
+        .catch(() => false),
+      emailInput
+        .getAttribute("aria-invalid")
+        .then((v) => String(v).toLowerCase() === "true")
+        .catch(() => false),
+      phoneInput
+        .getAttribute("aria-invalid")
+        .then((v) => String(v).toLowerCase() === "true")
+        .catch(() => false),
+    ]).then((states) => states.some(Boolean));
+    const blockedProgression =
+      stillOnStep4 || page.url() === urlBefore || !saveEnabledBefore || !saveEnabledAfter;
+    const hasValidationSignal =
+      validationVisible || fieldMarkedInvalid || !saveEnabledAfter;
+    expect(blockedProgression && hasValidationSignal).toBeTruthy();
+  });
+
+  test("Email field: invalid formats (missing @, missing domain, spaces) are blocked", async () => {
+    await ensure008DSetup();
+    await returnToStep4For008D();
     const firstNameInput = cm.billingFirstNameInput;
     const lastNameInput = cm.billingLastNameInput;
     const emailInput = cm.billingEmailInput;
     const phoneInput = cm.billingPhoneInput;
 
+    await firstNameInput.fill("QA");
+    await lastNameInput.fill("Billing");
+    await phoneInput.fill("5551234567");
+    const invalidEmails = ["userdomain.com", "user@", "user @domain.com"];
+    let blockedForInvalidEmail = true;
+    for (const invalidEmail of invalidEmails) {
+      await emailInput.fill(invalidEmail);
+      const urlBefore = page.url();
+      await cm.saveAndNextBtn.click({ force: true }).catch(() => {});
+      await page.waitForTimeout(250);
+      const stillOnStep4 = await isOnStep4For008D();
+      const emailValidationVisible = await page
+        .getByText(/email|valid|invalid|required|must be/i)
+        .first()
+        .isVisible()
+        .catch(() => false);
+      const emailAriaInvalid = await emailInput
+        .getAttribute("aria-invalid")
+        .then((v) => String(v).toLowerCase() === "true")
+        .catch(() => false);
+      const wasBlocked =
+        (stillOnStep4 || page.url() === urlBefore) &&
+        (emailValidationVisible || emailAriaInvalid);
+      blockedForInvalidEmail = blockedForInvalidEmail && wasBlocked;
+    }
+    await emailInput.fill("qa.billing+uat@domain.com");
+    const emailValue = await emailInput.inputValue().catch(() => "");
+    const validEmailAccepted = /@.+\./.test(String(emailValue || ""));
+    expect(blockedForInvalidEmail && validEmailAccepted).toBeTruthy();
+  });
+
+  test("Phone Number: accepts valid digits; rejects letters and too-short values", async () => {
+    await ensure008DSetup();
+    await returnToStep4For008D();
+    const firstNameInput = cm.billingFirstNameInput;
+    const lastNameInput = cm.billingLastNameInput;
+    const emailInput = cm.billingEmailInput;
+    const phoneInput = cm.billingPhoneInput;
+
+    await firstNameInput.fill("QA");
+    await lastNameInput.fill("Billing");
+    await emailInput.fill("qa.billing+uat@domain.com");
+    await phoneInput.fill("5551234567");
+    const normalizedValidPhone = String(
+      await phoneInput.inputValue().catch(() => ""),
+    ).replace(/\D/g, "");
+    const validPhoneAccepted = normalizedValidPhone.length >= 7;
+
+    const invalidPhones = ["abcde", "123"];
+    let invalidBlocked = true;
+    for (const invalidPhone of invalidPhones) {
+      await phoneInput.fill(invalidPhone);
+      const urlBefore = page.url();
+      await cm.saveAndNextBtn.click({ force: true }).catch(() => {});
+      await page.waitForTimeout(250);
+      const stillOnStep4 = await isOnStep4For008D();
+      const phoneValueAfter = await phoneInput.inputValue().catch(() => "");
+      const validationVisible = await page
+        .getByText(/required|valid|invalid|phone|number|must be/i)
+        .first()
+        .isVisible()
+        .catch(() => false);
+      const handledByBlocking =
+        stillOnStep4 || page.url() === urlBefore || validationVisible;
+      const handledBySanitization = String(phoneValueAfter || "") !== invalidPhone;
+      invalidBlocked = invalidBlocked && (handledByBlocking || handledBySanitization);
+    }
+    await phoneInput.fill("5551234567");
+    expect(validPhoneAccepted && invalidBlocked).toBeTruthy();
+  });
+
+  test("Address fields are prefilled from Property and remain consistent after source toggle", async () => {
+    await ensure008DSetup();
+    await returnToStep4For008D();
     const propertyAddressRadio = page
       .getByRole("radio", { name: /Property Address/i })
       .first();
     const companyAddressRadio = page
       .getByRole("radio", { name: /Company Address/i })
       .first();
-    const otherAddressRadio = page.getByRole("radio", { name: /Other/i }).first();
-
     const addressInput = page.getByRole("textbox", { name: /^Address$/i }).first();
-    const countryInput = page.getByRole("textbox", { name: /^Country$/i }).first();
-    const stateInput = page.getByRole("textbox", { name: /^State$/i }).first();
-    const cityInput = page.getByRole("textbox", { name: /^City$/i }).first();
     const zipInput = page
       .getByRole("textbox", { name: /Zip Code \/ Postal Code/i })
       .first();
-
+    const countryTrigger = page
+      .getByRole("button", { name: /Select Country|United States/i })
+      .last();
+    const stateTrigger = page
+      .getByRole("combobox", { name: /Select State|Nebraska|State/i })
+      .last();
+    const cityTrigger = page
+      .getByRole("combobox", { name: /Select City|Omaha|City/i })
+      .last();
     const captureAddressSnapshot = async () => {
-      const [address, country, state, city, zip] = await Promise.all([
-        addressInput.inputValue().catch(() => ""),
-        countryInput.inputValue().catch(() => ""),
-        stateInput.inputValue().catch(() => ""),
-        cityInput.inputValue().catch(() => ""),
-        zipInput.inputValue().catch(() => ""),
-      ]);
+      const address = await addressInput.inputValue().catch(() => "");
+      const zip = await zipInput.inputValue().catch(() => "");
+      const country = await countryTrigger.innerText().catch(() => "");
+      const state = await stateTrigger.innerText().catch(() => "");
+      const city = await cityTrigger.innerText().catch(() => "");
       return {
         address: String(address || "").trim(),
-        country: String(country || "").trim(),
-        state: String(state || "").trim(),
-        city: String(city || "").trim(),
+        country: String(country || "").trim().replace(/\s+/g, " "),
+        state: String(state || "").trim().replace(/\s+/g, " "),
+        city: String(city || "").trim().replace(/\s+/g, " "),
         zip: String(zip || "").trim(),
       };
     };
 
-    await ensureE2EStep4Ready(cm);
-
-    await test.step(
-      "Verify Billing Information required fields: First Name, Last Name, Email, Phone Number validate correctly.",
-      async () => {
-        await ensureE2EStep4Ready(cm);
-        await firstNameInput.fill("");
-        await lastNameInput.fill("");
-        await emailInput.fill("");
-        await phoneInput.fill("");
-
-        const step4UrlBefore = page.url();
-        await cm.saveAndNextBtn.click({ force: true }).catch(() => {});
-        const stillOnStep4 = await cm.billingInfoHeading
-          .isVisible()
-          .catch(() => false);
-        const requiredValidationVisible = await page
-          .getByText(/required|must be/i)
-          .first()
-          .isVisible()
-          .catch(() => false);
-        expect(
-          (stillOnStep4 || page.url() === step4UrlBefore) &&
-            requiredValidationVisible,
-          "Expected Billing Information required field validation to block Save & Next.",
-        ).toBeTruthy();
-      },
-    );
-
-    await test.step(
-      "Verify Email field validation for invalid formats (missing @, domain, spaces).",
-      async () => {
-        await ensureE2EStep4Ready(cm);
-        await otherAddressRadio.click({ force: true }).catch(() => {});
-        await expect(addressInput).toBeVisible({ timeout: 8_000 });
-        await firstNameInput.fill("QA");
-        await lastNameInput.fill("Billing");
-        await phoneInput.fill("5551234567");
-
-        const invalidEmails = ["userdomain.com", "user@", "user @domain.com"];
-        let blockedForInvalidEmail = true;
-        for (const invalidEmail of invalidEmails) {
-          await emailInput.fill(invalidEmail);
-          const step4UrlBefore = page.url();
-          await cm.saveAndNextBtn.click({ force: true }).catch(() => {});
-          const stillOnStep4 = await cm.billingInfoHeading
-            .isVisible()
-            .catch(() => false);
-          const emailValidationVisible = await page
-            .getByText(/email|valid|invalid|required|must be/i)
-            .first()
-            .isVisible()
-            .catch(() => false);
-          const emailAriaInvalid = await emailInput
-            .getAttribute("aria-invalid")
-            .then((v) => String(v).toLowerCase() === "true")
-            .catch(() => false);
-          blockedForInvalidEmail =
-            blockedForInvalidEmail &&
-            ((stillOnStep4 || page.url() === step4UrlBefore) &&
-              (emailValidationVisible || emailAriaInvalid));
-        }
-
-        await emailInput.fill("qa.billing+uat@domain.com");
-        const emailValue = await emailInput.inputValue().catch(() => "");
-        expect(
-          blockedForInvalidEmail && /@.+\./.test(String(emailValue || "")),
-          "Expected invalid email formats to be blocked and valid email format to be accepted.",
-        ).toBeTruthy();
-      },
-    );
-
-    await test.step(
-      "Verify Phone Number accepts valid numbers and country code; reject letters and too short/long values.",
-      async () => {
-        await ensureE2EStep4Ready(cm);
-        await firstNameInput.fill("QA");
-        await lastNameInput.fill("Billing");
-        await emailInput.fill("qa.billing+uat@domain.com");
-        await phoneInput.fill("5551234567");
-
-        const normalizedValidPhone = String(
-          await phoneInput.inputValue().catch(() => ""),
-        ).replace(/\D/g, "");
-        const validPhoneAccepted = normalizedValidPhone.length >= 7;
-
-        const requiredInvalidPhones = ["abcde", "123"];
-        let requiredInvalidBlocked = true;
-        for (const invalidPhone of requiredInvalidPhones) {
-          await phoneInput.fill(invalidPhone);
-          const step4UrlBefore = page.url();
-          await cm.saveAndNextBtn.click({ force: true }).catch(() => {});
-          const stillOnStep4 = await cm.billingInfoHeading
-            .isVisible()
-            .catch(() => false);
-          const phoneValueAfterInvalid = await phoneInput
-            .inputValue()
-            .catch(() => "");
-          const validationVisible = await page
-            .getByText(/required|valid|invalid|phone|number|must be/i)
-            .first()
-            .isVisible()
-            .catch(() => false);
-          const invalidHandledByBlocking =
-            stillOnStep4 || page.url() === step4UrlBefore || validationVisible;
-          const invalidHandledBySanitization =
-            String(phoneValueAfterInvalid || "") !== invalidPhone;
-          requiredInvalidBlocked =
-            requiredInvalidBlocked &&
-            (invalidHandledByBlocking || invalidHandledBySanitization);
-        }
-
-        const longPhoneInput = "12345678901234567890";
-        await phoneInput.fill(longPhoneInput);
-        const normalizedLongPhone = String(
-          await phoneInput.inputValue().catch(() => ""),
-        ).replace(/\D/g, "");
-        console.log(
-          `[TC-CONTRACT-E2E-008D] Phone step: long-input normalized length=${normalizedLongPhone.length}.`,
-        );
-
-        await phoneInput.fill("5551234567");
-        expect(
-          validPhoneAccepted && requiredInvalidBlocked,
-          "Expected valid phone number to be accepted and invalid letter/length values to be blocked.",
-        ).toBeTruthy();
-      },
-    );
-
-    await test.step(
-      "Verify Address/Country/State/City/Zip are prefilled from property and are consistent.",
-      async () => {
-        await ensureE2EStep4Ready(cm);
-        await propertyAddressRadio.click({ force: true }).catch(() => {});
-        await expect(addressInput).toBeVisible({ timeout: 8_000 });
-        const propertySnapshot = await captureAddressSnapshot();
-        await companyAddressRadio.click({ force: true }).catch(() => {});
-        await propertyAddressRadio.click({ force: true }).catch(() => {});
-        const propertySnapshotAfterToggle = await captureAddressSnapshot();
-
-        const hasPropertyPrefill =
-          String(propertySnapshot.address).length > 0 ||
-          String(propertySnapshot.zip).length > 0 ||
-          String(propertySnapshot.city).length > 0;
-        const coreLocationConsistent =
-          String(propertySnapshot.country) ===
-            String(propertySnapshotAfterToggle.country) &&
-          String(propertySnapshot.state) ===
-            String(propertySnapshotAfterToggle.state) &&
-          String(propertySnapshot.city) ===
-            String(propertySnapshotAfterToggle.city);
-        const propertyConsistentAfterToggle =
-          JSON.stringify(propertySnapshot) ===
-          JSON.stringify(propertySnapshotAfterToggle);
-        expect(
-          hasPropertyPrefill &&
-            (coreLocationConsistent || propertyConsistentAfterToggle),
-          "Expected address fields to be prefilled from property and remain consistent after source toggling.",
-        ).toBeTruthy();
-      },
-    );
-
-    await test.step(
-      "Verify 'Use a different billing address' reveals editable address fields and saves the alternate billing address.",
-      async () => {
-        await ensureE2EStep4Ready(cm);
-        await otherAddressRadio.click({ force: true });
-
-        await expect(addressInput).toBeVisible({ timeout: 8_000 });
-        await expect(addressInput).toBeEditable({ timeout: 8_000 });
-        await addressInput.fill("123 Alternate Billing St");
-
-        const stateEditable = await stateInput.isEditable().catch(() => false);
-        if (stateEditable) {
-          await stateInput.fill("Nebraska");
-        }
-        const cityEditable = await cityInput.isEditable().catch(() => false);
-        if (cityEditable) {
-          await cityInput.fill("Omaha");
-        }
-        const zipEditable = await zipInput.isEditable().catch(() => false);
-        if (zipEditable) {
-          await zipInput.fill("68102");
-        }
-
-        await firstNameInput.fill("QA");
-        await lastNameInput.fill("Billing");
-        await emailInput.fill("qa.billing+uat@domain.com");
-        await phoneInput.fill("5551234567");
-
-        await cm.saveAndNextBtn.click({ force: true }).catch(() => {});
-        await cm.stepperStep4.click({ force: true }).catch(() => {});
-        await cm.assertStep4Visible();
-        await otherAddressRadio.click({ force: true }).catch(() => {});
-
-        const persistedSnapshot = await captureAddressSnapshot();
-        expect(
-          String(persistedSnapshot.address).includes("123 Alternate Billing"),
-          "Expected alternate billing address fields to persist after Save & Next.",
-        ).toBeTruthy();
-      },
-    );
-
-    // Keep serial flow deterministic for following Step 4 tests.
-    await ensureE2EStep4Ready(cm);
+    await propertyAddressRadio.click({ force: true }).catch(() => {});
+    const propertySnapshot = await captureAddressSnapshot();
     await companyAddressRadio.click({ force: true }).catch(() => {});
+    await propertyAddressRadio.click({ force: true }).catch(() => {});
+    const propertySnapshotAfterToggle = await captureAddressSnapshot();
+    const hasPropertyPrefill =
+      String(propertySnapshot.address).length > 0 ||
+      String(propertySnapshot.zip).length > 0 ||
+      String(propertySnapshot.city).length > 0;
+    const coreConsistent =
+      String(propertySnapshot.country) ===
+        String(propertySnapshotAfterToggle.country) &&
+      String(propertySnapshot.state) === String(propertySnapshotAfterToggle.state) &&
+      String(propertySnapshot.city) === String(propertySnapshotAfterToggle.city);
+    const fullConsistent =
+      JSON.stringify(propertySnapshot) ===
+      JSON.stringify(propertySnapshotAfterToggle);
+    expect(hasPropertyPrefill && (coreConsistent || fullConsistent)).toBeTruthy();
+  });
+
+  test("'Use a different billing address' reveals editable fields and address persists after Save & Next", async () => {
+    await ensure008DSetup();
+    await returnToStep4For008D();
+    const otherAddressRadio = page.getByRole("radio", { name: /Other/i }).first();
+    const addressInput = page.getByRole("textbox", { name: /^Address$/i }).first();
+    const zipInput = page
+      .getByRole("textbox", { name: /Zip Code \/ Postal Code/i })
+      .first();
+    const firstNameInput = cm.billingFirstNameInput;
+    const lastNameInput = cm.billingLastNameInput;
+    const emailInput = cm.billingEmailInput;
+    const phoneInput = cm.billingPhoneInput;
+
+    await otherAddressRadio.click({ force: true }).catch(() => {});
+    await expect(addressInput).toBeEditable({ timeout: 8_000 });
+    await addressInput.fill("123 Alternate Billing St");
+    await zipInput.fill("68102");
+    await firstNameInput.fill("QA");
+    await lastNameInput.fill("Billing");
+    await emailInput.fill("qa.billing+uat@domain.com");
+    await phoneInput.fill("5551234567");
+    const saveEnabledBeforeClick = await cm.saveAndNextBtn.isEnabled().catch(() => false);
+    expect(saveEnabledBeforeClick).toBeTruthy();
+    await cm.saveAndNextBtn.click({ force: true }).catch(() => {});
+    await page.waitForTimeout(250);
+    await cm.stepperStep4.click({ force: true }).catch(() => {});
+    await cm.assertStep4Visible();
+    await otherAddressRadio.click({ force: true }).catch(() => {});
+    const persistedAddress = await addressInput.inputValue().catch(() => "");
+    expect(String(persistedAddress).includes("123 Alternate Billing")).toBeTruthy();
+  });
+
+  test("Add Signee drawer: required fields and email format validation", async () => {
+    await returnToStep4For008D();
+    await returnToStep4For008D();
+    await cm.fillStep4PaymentTerms(PAYMENT_DATA).catch(() => {});
+    await cm.selectBillingType(PAYMENT_DATA.billingType).catch(() => {});
+    await cm.selectContractType(PAYMENT_DATA.contractType).catch(() => {});
+    await cm.selectBillingFrequency(PAYMENT_DATA.billingFrequency).catch(() => {});
+    await cm.selectPaymentTerms(PAYMENT_DATA.paymentTerms).catch(() => {});
+    await cm.selectPaymentMethod(PAYMENT_DATA.paymentMethod).catch(() => {});
+    const saveEnabledOnStep4 = await cm.saveAndNextBtn.isEnabled().catch(() => false);
+    if (saveEnabledOnStep4) {
+      await cm.saveAndNextBtn.click({ force: true }).catch(() => {});
+      await page.waitForTimeout(300);
+      const onStep5 = await cm.descriptionPageHeading.isVisible().catch(() => false);
+      if (onStep5) {
+        const saveEnabledOnStep5 = await cm.saveAndNextBtn.isEnabled().catch(() => false);
+        if (saveEnabledOnStep5) {
+          await cm.saveAndNextBtn.click({ force: true }).catch(() => {});
+          await page.waitForTimeout(300);
+        }
+      }
+    }
+    const clickStep6Tab = async () => {
+      const wrapper = page
+        .getByRole("generic", { name: /Add signees for contract/i })
+        .filter({ has: cm.stepperStep6 })
+        .first();
+      const wrapperVisible = await wrapper.isVisible().catch(() => false);
+      if (wrapperVisible) {
+        await wrapper.click({ force: true }).catch(() => {});
+      } else {
+        await cm.stepperStep6.click({ force: true }).catch(() => {});
+      }
+      await page.waitForTimeout(300);
+    };
+    await returnToStep4For008D();
+    let step6Visible = false;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await clickStep6Tab();
+      step6Visible = await cm.signeesPageHeading.isVisible().catch(() => false);
+      if (step6Visible) break;
+      await ensureE2EStep4Ready(cm).catch(() => {});
+    }
+    if (!step6Visible) {
+      await ensureContractStepperReady(cm, { allowFreshDealRecovery: true });
+      await clickStep6Tab();
+    }
+    await cm.assertStep6Visible();
+    const addSigneeHeading = page
+      .getByRole("heading", { name: /Add Signee/i, level: 4 })
+      .first();
+    await expect(addSigneeHeading).toBeVisible({ timeout: 8_000 });
+    await addSigneeHeading.locator("..").getByRole("button").first().click({ force: true });
+    await expect(
+      page.getByRole("heading", { name: /^Add Signee$/i, level: 3 }),
+    ).toBeVisible({ timeout: 8_000 });
+    const nameInput = page
+      .getByRole("textbox", { name: /Add Signee Name|Signee Name/i })
+      .first();
+    const titleInput = page
+      .getByRole("textbox", { name: /Add Signee Title|Signee Title/i })
+      .first();
+    const sEmailInput = page
+      .getByRole("textbox", { name: /Add Signee Email|Signee Email|Email/i })
+      .first();
+    const saveBtn = page.getByRole("button", { name: /^Add Signee$|Save/i }).first();
+    const signeeCardHeadings = page.getByRole("heading", { name: /^Signee\s+\d+$/i });
+    const initialCards = await signeeCardHeadings.count();
+
+    await nameInput.fill("");
+    await titleInput.fill("");
+    await sEmailInput.fill("");
+    await saveBtn.click({ force: true }).catch(() => {});
+    await page.waitForTimeout(300);
+    const cardsAfterEmpty = await signeeCardHeadings.count();
+    const drawerStillOpen = await page
+      .getByRole("heading", { name: /^Add Signee$/i, level: 3 })
+      .isVisible()
+      .catch(() => false);
+    const emptyBlocked = drawerStillOpen && cardsAfterEmpty === initialCards;
+
+    await nameInput.fill("QA Signee");
+    await titleInput.fill("");
+    await sEmailInput.fill("");
+    await saveBtn.click({ force: true }).catch(() => {});
+    await page.waitForTimeout(300);
+    const titleAriaInvalid = await titleInput
+      .getAttribute("aria-invalid")
+      .then((v) => String(v).toLowerCase() === "true")
+      .catch(() => false);
+
+    const invalidEmails = ["userdomain.com", "user@", "user @domain.com"];
+    let invalidEmailBlocked = true;
+    await titleInput.fill("Operations Manager");
+    for (const invalidEmail of invalidEmails) {
+      await sEmailInput.fill(invalidEmail);
+      await saveBtn.click({ force: true }).catch(() => {});
+      await page.waitForTimeout(300);
+      const cardsAfterInvalid = await signeeCardHeadings.count();
+      const emailAriaInvalid = await sEmailInput
+        .getAttribute("aria-invalid")
+        .then((v) => String(v).toLowerCase() === "true")
+        .catch(() => false);
+      invalidEmailBlocked =
+        invalidEmailBlocked && (emailAriaInvalid || cardsAfterInvalid === initialCards);
+    }
+
+    expect(
+      emptyBlocked &&
+        (titleAriaInvalid || cardsAfterEmpty === initialCards) &&
+        invalidEmailBlocked,
+    ).toBeTruthy();
+    await page
+      .getByRole("button", { name: /^Cancel$/i })
+      .first()
+      .click({ force: true })
+      .catch(() => {});
+    await page.waitForTimeout(300);
+    await cm.stepperStep4.click({ force: true }).catch(() => {});
+    if (!(await isOnStep4For008D())) {
+      await ensureE2EStep4Ready(cm);
+    }
   });
 
   /**

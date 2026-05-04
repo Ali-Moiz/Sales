@@ -1394,6 +1394,46 @@ Edge scenarios:
 Manual assertion (single):
 - **Assert:** Under `Flat` plan, valid numeric amount is accepted, and missing/invalid amount blocks `Save & Next` with field-level validation.
 
+### Verify Annual Rate Increase validates numeric percent and rejects invalid formats.
+
+Execution steps:
+- Navigate to `Step 4 > Define Payment Terms`.
+- Keep all other required Step 4 fields valid so this check isolates `Annual Rate Increase`.
+- Verify field is visible and editable.
+- Enter valid numeric value `3`; blur the field.
+- Enter valid decimal value `2.5`; blur the field.
+- For each invalid value below, enter value, blur, and click `Save & Next`:
+  - `abc`
+  - `3abc`
+  - `@#`
+  - `-1`
+  - `   ` (spaces only)
+  - empty value (clear field)
+- Re-enter valid value `3` and click `Save & Next`.
+
+Expected result:
+- Numeric percent values are accepted.
+- Invalid formats are not accepted as valid field state.
+- `Save & Next` is blocked for invalid/empty `Annual Rate Increase`.
+- `Save & Next` proceeds after entering valid value.
+
+Positive scenarios:
+- Integer input is accepted and retained.
+- Decimal input is accepted when supported by field behavior.
+
+Negative scenarios:
+- Alphabetic, symbol, and mixed inputs fail validation.
+- Negative input fails validation.
+- Empty input fails validation.
+
+Edge scenarios:
+- Leading/trailing spaces are handled consistently.
+- Large numeric value (example `999`) follows defined field validation behavior.
+- High precision value (example `2.555`) follows defined precision behavior.
+
+Manual assertion (single):
+- **Assert:** `Annual Rate Increase` accepts valid numeric percent input only, and invalid/empty formats block `Save & Next` until corrected.
+
 ### Verify Billing Information required fields: First Name, Last Name, Email, Phone Number validate correctly.
 
 Execution steps:
@@ -1580,6 +1620,88 @@ Execution steps:
 
 Expected result:
 - Default signee and final actions are visible.
+
+### Verify Add Signee opens drawer and requires Name, Title, Email.
+
+Execution steps:
+- Navigate to `Step 6 > Signees`.
+- Click `Add Signee`.
+- Verify Add Signee drawer/modal opens.
+- Keep `Name`, `Title`, and `Email` empty.
+- Click drawer `Save`/`Add`.
+
+Expected result:
+- Add Signee drawer opens successfully.
+- Drawer save is blocked with required validation for `Name`, `Title`, and `Email`.
+- Drawer remains open and no signee is added.
+
+Positive scenarios:
+- Drawer opens reliably from Add Signee action.
+
+Negative scenarios:
+- Save with all required fields empty is blocked.
+- Save with partial required fields is blocked.
+
+Edge scenarios:
+- Rapid save clicks do not bypass required validation.
+
+Manual assertion (single):
+- **Assert:** `Add Signee` opens a drawer and cannot be submitted until `Name`, `Title`, and `Email` are provided.
+
+### Verify Add Signee cannot be saved with missing required fields; show validation messages.
+
+Execution steps:
+- Open `Add Signee` drawer from Step 6.
+- Fill `Name` only and click save.
+- Fill `Title` only and click save.
+- Fill `Email` only and click save.
+- Observe validation on the still-missing required fields for each attempt.
+
+Expected result:
+- Save is blocked for every partial required-field combination.
+- Missing fields show field-level validation.
+- No new signee row/card is created.
+
+Positive scenarios:
+- Save succeeds when all required fields are valid.
+
+Negative scenarios:
+- Partial input combinations do not allow save.
+
+Edge scenarios:
+- Validation clears for a field when corrected.
+
+Manual assertion (single):
+- **Assert:** Add Signee save is blocked with clear field-level validation whenever any required field is missing.
+
+### Verify Add Signee email validation prevents invalid email formats.
+
+Execution steps:
+- Open `Add Signee` drawer.
+- Fill valid `Name` and `Title`.
+- In `Email`, test invalid formats one by one and click save after each:
+  - `userdomain.com` (missing `@`)
+  - `user@` (missing domain)
+  - `user @domain.com` (space in email)
+- Enter a valid email (example: `signee.qa+uat@domain.com`) and click save.
+
+Expected result:
+- Invalid email formats are rejected with field-level validation and save remains blocked.
+- Valid email format is accepted and Add Signee can be saved.
+
+Positive scenarios:
+- Standard valid email saves successfully.
+
+Negative scenarios:
+- Missing `@` format is blocked.
+- Missing domain after `@` is blocked.
+- Email containing spaces is blocked.
+
+Edge scenarios:
+- Leading/trailing spaces are handled consistently (trimmed or rejected).
+
+Manual assertion (single):
+- **Assert:** Add Signee prevents save for invalid email formats and allows save only for valid email format.
 
 ### TC-CONTRACT-E2E-012 | Clicking Finish returns to Deal Detail with proposal card
 Execution steps:

@@ -694,10 +694,7 @@ class ContractModule {
     }
 
     if (!clicked) {
-      const primaryActionButton = this.updateProposalBtn;
-      await primaryActionButton.waitFor({ state: 'visible', timeout: 10_000 });
-      await expect(primaryActionButton).toBeEnabled({ timeout: 8_000 });
-      await primaryActionButton.click();
+      throw new Error('Save & Next button is not currently visible and enabled.');
     }
     await this.page.waitForTimeout(800);
     await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
@@ -751,18 +748,37 @@ class ContractModule {
     return finalVisible;
   }
 
-  /** Fill the service name field (placeholder "Service 1") */
+  /** Fill the service name field (accessible name "Service 1", "Service 2", …) */
   async fillServiceName(name, serviceIndex = 0) {
     console.log(`[fillServiceName] service ${serviceIndex}: filling with "${name}"`);
-    const serviceNameInput = this.page.getByRole('textbox', { name: /Service/ }).nth(serviceIndex);
+    const label = `Service ${serviceIndex + 1}`;
+    const serviceNameInput = this.page.getByRole('textbox', { name: label });
     await serviceNameInput.waitFor({ state: 'visible', timeout: 10_000 });
-    await serviceNameInput.click({ clickCount: 3, force: true });
-    await serviceNameInput.fill(String(name));
-    await serviceNameInput.press('Tab').catch(() => {});
-    const actual = await serviceNameInput.inputValue().catch(() => "");
-    if (actual.trim() !== String(name).trim()) {
+    const expected = String(name).trim();
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      await serviceNameInput.click({ clickCount: 3, force: true }).catch(() => {});
+      await serviceNameInput.fill(String(name)).catch(() => {});
+      await serviceNameInput.press('Tab').catch(() => {});
+      const actual = (await serviceNameInput.inputValue().catch(() => "")).trim();
+      if (actual === expected) {
+        return;
+      }
+      // Last fallback: set value via DOM events for sticky re-render cases.
+      if (attempt === 2) {
+        await serviceNameInput.evaluate((el, value) => {
+          if (!(el instanceof HTMLInputElement)) return;
+          el.value = value;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+          el.dispatchEvent(new Event('blur', { bubbles: true }));
+        }, String(name)).catch(() => {});
+      }
+      await this.page.waitForTimeout(200);
+    }
+    const finalActual = await serviceNameInput.inputValue().catch(() => "");
+    if (finalActual.trim() !== expected) {
       throw new Error(
-        `[fillServiceName] Expected "${name}" but got "${actual}" for service index ${serviceIndex}`,
+        `[fillServiceName] Expected "${name}" but got "${finalActual}" for service index ${serviceIndex}`,
       );
     }
   }
@@ -1101,6 +1117,14 @@ class ContractModule {
 
     const saveEnabled = await this.saveAndNextBtn.isEnabled().catch(() => false);
     if (!saveEnabled) {
+      const lineItemValue = await this.page
+        .locator("label[for='lineItem'] + div h6")
+        .nth(serviceIndex)
+        .textContent()
+        .catch(() => '');
+      if (!lineItemValue || /^select\s/i.test(String(lineItemValue).trim())) {
+        await this.selectFirstAvailableLineItem(serviceIndex).catch(() => {});
+      }
       await this.fillServiceName(serviceName, serviceIndex);
       await this.selectFirstAvailableLineItem(serviceIndex);
       await this.page.waitForTimeout(400);
@@ -1946,11 +1970,8 @@ class ContractModule {
   async assertContractPublishedSuccessfully() {
     await expect(this.contractPublishedBadge).toBeVisible({ timeout: 15_000 });
     await expect(this.publishContractBtn).not.toBeVisible({ timeout: 8_000 });
-    const actionVisible =
-      (await this.viewContractGeneric.isVisible().catch(() => false)) ||
-      (await this.terminateContractGeneric.isVisible().catch(() => false)) ||
-      (await this.signatureBtnOnCard.isVisible().catch(() => false));
-    expect(actionVisible).toBeTruthy();
+    await expect(this.terminateContractGeneric).toBeVisible({ timeout: 8_000 });
+    await expect(this.signatureBtnOnCard).toBeVisible({ timeout: 8_000 });
   }
 
   // ── Step 1 — Multi-Service Management ───────────────────────────────────
