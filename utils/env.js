@@ -10,9 +10,15 @@ const env = {
   password_sm: process.env.SIGNAL_PASSWORD_SM || "",
   email_sp: process.env.SIGNAL_EMAIL_SP || "",
   password_sp: process.env.SIGNAL_PASSWORD_SP || "",
-  // Display name of the HO user as shown in the CRM UI (e.g. "Moiz").
-  // Set HO_USERNAME in .env.[environment] to match the logged-in user's display name.
-  ho_username: process.env.HO_USERNAME || "",
+  email_fo: process.env.SIGNAL_EMAIL_FO || "",
+  password_fo: process.env.SIGNAL_PASSWORD_FO || "",
+  email_director: process.env.SIGNAL_EMAIL_DIRECTOR || "",
+  password_director: process.env.SIGNAL_PASSWORD_DIRECTOR || "",
+  email_supervisor: process.env.SIGNAL_EMAIL_SUPERVISOR || "",
+  password_supervisor: process.env.SIGNAL_PASSWORD_SUPERVISOR || "",
+  email_coordinator: process.env.SIGNAL_EMAIL_COORDINTOR || "",
+  password_coordinator: process.env.SIGNAL_PASSWORD_COORDINTOR || "",
+  ho_username: process.env.HO_USERNAME || ""
 };
 
 module.exports = { env };
