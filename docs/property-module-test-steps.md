@@ -87,6 +87,7 @@ Execution steps:
 Expected result:
 - Pagination is visible.
 - The pagination text follows the expected numeric format.
+- The total property count is greater than 0.
 
 ### TC-PROP-004 | Create Property drawer opens with all required fields
 
@@ -124,12 +125,16 @@ Expected result:
 
 Execution steps:
 - The script opens the `Create Property` drawer.
-- It enters a temporary property name.
-- It clicks `Cancel`.
+- It enters a unique temporary property name.
+- It clicks the `Cancel` button inside the drawer (not the backdrop).
 - It verifies that the drawer closes.
+- It searches the property list for the temporary name.
+- It verifies that no results are returned (the draft was not persisted).
+- It clears the search.
 
 Expected result:
-- The drawer closes successfully.
+- Clicking the Cancel button closes the drawer.
+- The temporary property name does not appear in the Properties list (data was not saved).
 - No property is created from the cancelled attempt.
 
 ### TC-PROP-007 | User can create a new property linked to existing company
@@ -154,6 +159,7 @@ Execution steps:
 
 Expected result:
 - A new property is created successfully.
+- A success toast ("Property Created Successfully") is visible after submission.
 - The created property is searchable from the list page.
 
 ### TC-PROP-008 | User can search and open an existing property
@@ -218,13 +224,13 @@ Execution steps:
 - The script opens the property detail page.
 - It clicks the `Edit` button.
 - It waits for the `Edit Property` drawer to open.
-- It verifies that the Property Name field is already filled.
+- It verifies that the Property Name field is already filled with a non-empty value matching the current property name.
 - It verifies that the `Save` button is disabled before any change is made.
 - It closes the edit drawer.
 
 Expected result:
 - The edit form opens correctly.
-- Existing property data is pre-filled.
+- The Property Name field is pre-filled with the current property name (non-empty value).
 - `Save` remains disabled until a change is made.
 
 ### TC-PROP-013 | User can edit property name and verify on detail page
@@ -339,6 +345,75 @@ Expected result:
 - The duplicate-address error message becomes visible.
 - The create drawer stays open for correction.
 - No new property is created.
+
+### TC-PROP-026 | User can select a Property Affiliation option and the selection state is clearly shown
+
+Execution steps:
+- The script opens the Create Property drawer and selects a company to reveal affiliation chips.
+- It verifies all six affiliation chips are visible.
+- For each of three chips (Managed, Tenant, Headquarters), it clicks the chip, verifies the visual state changed (selected), clicks again, and verifies the state returned to unselected.
+
+Expected result:
+- Each chip responds to click by toggling its selected visual state (`aria-pressed`, border-width, or class).
+- Clicking a chip a second time deselects it (toggle behaviour).
+- The drawer remains open throughout.
+
+---
+
+### TC-PROP-070 | Verify that changing the selected company updates dependent fields (Property Affiliation chips)
+
+**Preconditions:**
+- User is logged in as HO.
+- The Create Property drawer is accessible from the Properties list page.
+- At least two different companies exist in the system.
+
+**Execution steps:**
+1. Navigate to `/app/sales/locations`.
+2. Click `Create Property` to open the drawer.
+3. Select a known company (e.g. `targetCompanyName`) using the Company search trigger.
+4. Observe the Property Affiliation section — all six chips should now be visible.
+5. Open the Company search trigger again and select a **different** company.
+6. Observe the Property Affiliation section immediately after the second company is selected.
+7. Cancel the drawer.
+
+**Expected results:**
+- After the first company is selected, all six affiliation chips (Managed, Owned, Shared, Tenant, Headquarters, Regional Office) become visible.
+- After selecting a different company, the chips remain visible (refreshed for the new company) — no crash or blank state occurs.
+- The drawer remains open throughout the flow.
+- Cancelling the drawer closes it cleanly.
+
+---
+
+### TC-PROP-027 | User is able to assign levels to the property (stage persists after reload)
+
+Execution steps:
+- The script opens the created property detail page.
+- It verifies the stage bar is visible.
+- It clicks the "Approved" stage button.
+- It reloads the page.
+- It verifies the detail page re-opens and the stage bar still shows.
+- It verifies the "Approved" stage is the currently active/selected stage.
+
+Expected result:
+- The stage bar is visible on the detail page.
+- After clicking "Approved" and reloading, the "Approved" stage button shows as the active/selected stage (persisted).
+
+---
+
+### TC-PROP-019 | Create Property modal displays all expected fields, labels, and mandatory (*) indicators
+
+Execution steps:
+- The script opens the Create Property drawer.
+- It scrolls through the full form and verifies all required and optional fields are visible (Company, Property Name, Source, Stage, Franchise, Assignee, Contact triggers, Submit button).
+- It verifies that at least one mandatory field label carries a visible `*` marker (e.g. `Property Name *`, `Select Supervisor *`).
+- It closes the drawer via Cancel.
+
+Expected result:
+- All expected fields and controls are visible.
+- At least one mandatory `*` indicator is visible inside the drawer.
+- The drawer closes cleanly on Cancel.
+
+---
 
 ## Reusable Notes And Tasks CRUD Coverage
 
@@ -853,26 +928,27 @@ Step 2 — Search and select a contact:
 
 ---
 
-## Verify that submitting the Create Property form with all required fields empty shows validation errors and the drawer remains open
+## Verify that submitting the Create Property form with all required fields empty shows validation errors and the drawer remains open; Verify that the modal retains user input when a validation error occurs on submission
 
-### TC-PROP-058 | Submitting empty Create Property form shows validation errors and drawer stays open
+### TC-PROP-058 | Submitting form with missing required fields shows validation errors, drawer stays open, and pre-filled values are retained
 
 **Preconditions:**
 - User is logged in as HO (Home Officer).
 - The Create Property drawer is open.
-- No fields have been filled.
 
 **Steps:**
 1. Navigate to `/app/sales/locations`.
 2. Click `Create Property` to open the drawer.
-3. Wait for the "Create Property" heading (level=3) to be visible.
-4. Without filling any field, click the `Create Property` submit button (the last button in the drawer footer).
+3. Type a distinctive value (e.g. `TC-058-RETAIN-<timestamp>`) into the Property Name field.
+4. Without filling Address or other required fields, click the `Create Property` submit button.
 5. Observe the drawer state and any validation feedback.
+6. Verify the Property Name field still contains the value entered in step 3.
 
 **Expected results:**
 - The drawer remains open (the "Create Property" heading is still visible).
 - At least one required-field error message is visible in the drawer (e.g. `Address is required.` text).
 - No success toast appears.
+- The Property Name field retains the value entered before the failed submit (user input is preserved).
 
 ---
 
@@ -1169,19 +1245,20 @@ Step 2 — Verify search by property name:
 - At least one row with the searched property name is visible.
 - Clear the search field after verification.
 
-Step 3 — Verify Approved/Rejected stage filter options:
+Step 3 — Verify Approved/Rejected filter options and apply the Approved filter:
 7. Click the "All Affiliation" heading (level=6) trigger to open its tooltip.
 8. Observe the available options in the tooltip.
+9. Click the "Approved" option to apply it.
+10. Wait for the table to update.
 
 **Expected results (Step 3):**
-- The tooltip is visible.
-- The tooltip contains the option `Approved` (with a count).
-- The tooltip contains the option `Rejected` (with a count).
-- Close the tooltip by pressing Escape.
+- The tooltip is visible and contains `Approved` and `Rejected` options.
+- After clicking `Approved`, the table updates to show the filtered results.
+- Navigate back to the full list before proceeding.
 
 Step 4 — Verify All Properties dropdown (Assigned/Unassigned):
-9. Click the "All Properties" heading (level=6) trigger to open its tooltip.
-10. Observe the available options.
+11. Click the "All Properties" heading (level=6) trigger to open its tooltip.
+12. Observe the available options.
 
 **Expected results (Step 4):**
 - The tooltip is visible.
@@ -1190,14 +1267,15 @@ Step 4 — Verify All Properties dropdown (Assigned/Unassigned):
 - The tooltip contains a paragraph `Unassigned`.
 - Close the tooltip by pressing Escape.
 
-Step 5 — Verify Property Name column sorting:
-11. Click the "Property Name" sort button (column header button) once.
-12. Wait for the table to re-render.
+Step 5 — Verify Property Name column sorting (ascending order):
+13. Click the "Property Name" sort button (column header button) once.
+14. Wait for the table to re-render.
+15. Read the first and second rows' Property Name values.
 
 **Expected results (Step 5):**
 - The table re-renders after the sort click.
 - At least one row is still visible.
-- The "Property Name" column header sort button is still present and clickable.
+- The first row's Property Name value is alphabetically ≤ the second row's value (ascending order).
 
 Step 6 — Verify Property Affiliation tags:
 13. Observe the "Property Affiliation" column in the first visible data row.
@@ -1227,8 +1305,8 @@ Step 9 — Verify Bulk Assignment dialog opens:
 19. Wait for a dialog or modal to appear.
 
 **Expected results (Step 9):**
-- A dialog or modal opens (a dialog role element or visible overlay content becomes visible).
-- Close the dialog/modal by pressing Escape or clicking Cancel.
+- A dialog or overlay opens with a prompt "Select people to assign" (or equivalent).
+- Close the dialog by pressing Escape or clicking Cancel.
 
 Step 10 — Verify Review Leads button opens the review leads page:
 20. Navigate to `/app/sales/locations`.
@@ -1245,11 +1323,11 @@ Step 11 — Verify Stage badge, Assigned To, Franchise, Created Date, Last Modif
 24. Observe the first visible data row's Stage, Assigned To, Franchise, Created Date, and Last Modified Date cells.
 
 **Expected results (Step 11):**
-- The Stage cell contains a non-empty badge text (e.g. `Approved`, `Current Customer`, etc.).
-- The Assigned To cell contains either a user name or `N/A`.
-- The Franchise cell contains a text value or `N/A`.
-- The Created Date cell contains text matching the format `MM/DD/YYYY`.
-- The Last Modified Date cell contains text matching the format `MM/DD/YYYY`.
+- The Stage cell (column index 10) contains a non-empty badge text (e.g. `Approved`, `Current Customer`, etc.).
+- The `Assigned To` column header is visible in the table.
+- The `Franchise` column header is visible in the table.
+- The Created Date cell (column index 14) contains text matching the format `MM/DD/YYYY`.
+- The Last Modified Date cell (column index 15) contains text matching the format `MM/DD/YYYY`.
 
 ---
 
@@ -1395,8 +1473,8 @@ Step 15 — Verify Apply Filters becomes enabled and updates listing:
 **Expected results (Step 15):**
 - The "Apply Filters" button is enabled after at least one filter value is set.
 - After clicking Apply Filters, the More Filters panel closes.
-- The table updates (may show a different count or filtered rows).
-- The pagination count updates to reflect the filtered results.
+- The table updates and shows a valid pagination count.
+- The filtered result count is ≥ 0 and ≤ the unfiltered total count captured before applying filters.
 
 Step 16 — Verify Clear All resets filters:
 35. Click the "More Filters" button to reopen the panel.
@@ -1411,138 +1489,1124 @@ Step 16 — Verify Clear All resets filters:
 
 ---
 
-## Missing Assertions and New Test Cases
+## Activity Log entries in property detail — TC-PROP-070 through TC-PROP-103
 
-The following section documents gaps found during review of the existing automation against the stated requirements. Each entry either describes missing assertions in an existing TC or defines a brand-new TC that has no coverage at all.
+These test cases cover the Activities tab of a property detail page. The Activities tab aggregates log entries created from the Emails, Notes, Meetings, Calls, and Tasks tabs. Each log entry card shows a title (including the creator/sender username), a timestamp, a body preview, and See more / See less controls for long content.
 
----
+**Test property used:** `Regression Location Phase 2` (ID 13179) at `/app/sales/locations/location/13179`. This property has existing email data and is accessible to HO users.
 
-### TC-PROP-006 — Enhanced assertions required
-
-**Gap:** The current automation for TC-PROP-006 calls `dismissCreatePropertyViaBackdrop()` (a backdrop click) instead of actually clicking the Cancel button. The test title says "Cancel button" but a backdrop dismiss is a different UI interaction. Additionally, after closing the drawer, the test never searches the property list to confirm the partially-entered property was not saved.
-
-**What must be added:**
-1. Replace `dismissCreatePropertyViaBackdrop()` with an actual Cancel button click (`cancelCreatePropertyDrawer()`).
-2. After the drawer closes, navigate to the Properties list and search for the discarded property name (`CANCELLED — SHOULD NOT SAVE`).
-3. Assert that the search returns no results — confirming Cancel did not persist any data.
-
-**Updated expected results for TC-PROP-006:**
-- Clicking the Cancel button (not the backdrop) closes the Create Property drawer.
-- The drawer heading "Create Property" is no longer visible.
-- Searching the discarded property name on the Properties list page returns 0 results.
+**Preconditions for all tests in this group:**
+- User is logged in as HO (Home Officer) — username `Moiz`.
+- The property `Regression Location Phase 2` is accessible and its Activities tab loads.
 
 ---
 
-### TC-PROP-021 — Enhanced assertions required
+## Verify that email log title uses sender username
 
-**Gap:** The current automation for TC-PROP-021 calls `dismissCreatePropertyViaBackdrop()` (a backdrop click) and is titled "X icon closes drawer". No X/close-icon method exists for the Create Property drawer itself — the page object has a close-icon method only for the nested Create New Company sub-flow. The test never actually clicks any X icon.
+### TC-PROP-070 | Email log title displays sender username in Activities tab
 
-**What must be added:**
-1. Locate the X/close icon button on the Create Property drawer (a `button` containing an SVG close icon in the drawer header).
-2. Click it and verify the drawer closes (heading hidden, drawer panel removed from DOM).
-3. The existing post-close property search and no-results assertion is correct and must be retained.
+**Preconditions:**
+- User is logged in as HO.
+- Property `Regression Location Phase 2` (ID 13179) has at least one email logged.
 
-**Updated expected results for TC-PROP-021:**
-- Clicking the X/close icon button in the drawer header closes the Create Property drawer.
-- The drawer heading "Create Property" is no longer visible.
-- Searching the discarded draft property name returns 0 results in the Properties list.
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Activities` tab.
+3. Wait for the tabpanel to load (at least one activity card is visible).
+4. Locate the email log card (a card whose title contains "Email" and "by").
+5. Read the title text of the first email log card.
 
----
-
-### TC-PROP-024 — Enhanced assertions required
-
-**Gap:** TC-PROP-024 opens the Create New Company sub-flow and then closes it (via Cancel and via X), but never asserts that any values entered in the Create Property drawer *before* opening the sub-flow are preserved *after* returning. The requirement "Verify that returning from Create New Company flow preserves Create Property modal state" is completely untested.
-
-**What must be added:**
-1. Before opening `+ Create New`, fill the Property Name field with a distinctive value (e.g. `STATE-PRESERVE-<timestamp>`).
-2. Select a Property Source (e.g. `ALN`).
-3. Open the Create New Company sub-flow and then close it (via Cancel or X).
-4. After the sub-flow closes and the parent Create Property drawer is confirmed open, assert:
-   - The Property Name textbox still contains the value entered in step 1.
-   - The Property Source trigger still shows `ALN`.
-
-**Updated expected results for TC-PROP-024:**
-- `+ Create New` opens the Create New Company flow.
-- Closing the sub-flow (Cancel or X) returns the user to the Create Property drawer (drawer still open).
-- The Property Name entered before opening the sub-flow is still present in the field.
-- The Property Source selected before opening the sub-flow is still shown in the trigger.
+**Expected results:**
+- The Activities tab is active (`aria-selected="true"`).
+- At least one activity log card is visible in the panel.
+- The email log card title contains the phrase "by" followed by the sender's username (e.g. "Email logged by Moiz").
+- The username portion is rendered inside a `span` element within the title paragraph.
 
 ---
 
-### TC-PROP-028 — Enhanced assertions required
+## Verify that email subject matches email creation form
 
-**Gap:** TC-PROP-028 ("HO/SM/SP is able to link franchise") only asserts that the Associated Franchise control is *visible* inside the Edit Property form. It never selects a franchise, saves the edit, or verifies that the linked franchise appears in the property detail afterwards. A visibility check alone does not prove the linking functionality works.
+### TC-PROP-071 | Email log in Activities shows the same subject as entered in the New Email form
 
-**What must be added:**
-1. In the Edit Property form, open the Associated Franchise dropdown.
-2. Select a known franchise (e.g. `216 - Omaha, NE`).
-3. Click Save.
-4. Wait for the Edit Property drawer to close and the detail page to reload.
-5. Assert that the selected franchise name is now visible in the `Franchise Associated` sidebar section on the property detail page.
+**Preconditions:**
+- User is logged in as HO.
+- Property `Regression Location Phase 2` (ID 13179) is open.
 
-**Updated expected results for TC-PROP-028:**
-- The Associated Franchise dropdown is visible and interactive in the Edit Property form.
-- After selecting a franchise and saving, the Edit Property drawer closes.
-- The franchise name (e.g. `216 - Omaha, NE`) is visible in the `Franchise Associated` sidebar section on the property detail page.
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Emails` tab.
+3. Note the subject of the first email in the list (e.g. "Bug Report").
+4. Click the `Activities` tab.
+5. Wait for activity cards to load.
+6. Find the email log card whose body or title corresponds to the email noted in step 3.
 
----
-
-### TC-PROP-030 — Enhanced assertions required
-
-**Gap:** TC-PROP-030 ("user can select multiple property affiliation options at the same time") has its core assertion wrapped in a conditional `if (selectionStateDetectable)`. When the state-detection check returns equal flags for both chips (`managedSelectedAfterOwnedClick === ownedSelectedAfterOwnedClick`), the entire assertion is skipped and the test passes vacuously. The requirement is that *both* chips appear selected simultaneously — this is never definitively verified.
-
-Additionally, the test logic suggests single-selection (mutual exclusion) behaviour — it asserts `managedSelectedAfterOwnedClick === false` after selecting Owned, which is the opposite of "multiple selections at the same time". The requirement and the implementation are contradictory and must be reconciled.
-
-**What must be added:**
-1. After selecting company (to unlock chips), click the Managed chip and immediately assert it appears selected.
-2. Without deselecting Managed, click the Owned chip.
-3. Assert **both** Managed and Owned appear selected simultaneously (the app either supports multi-select or single-select — the assertion must match actual app behavior and not be conditional).
-4. If the app supports only single-select (mutual exclusion), rename the test to reflect that: "Verify that selecting a Property Affiliation option deselects any previously selected option (single-select behavior)".
-5. Also verify that clicking a selected chip a second time deselects it (toggle behavior).
-
-**Updated expected results for TC-PROP-030:**
-- If multi-select is supported: Managed and Owned chips both show a selected visual state simultaneously after clicking each in turn.
-- If single-select is enforced: clicking Owned deselects Managed (only one chip selected at a time) — this must be asserted deterministically, not conditionally.
-- Clicking a selected chip a second time returns it to unselected state.
+**Expected results:**
+- The email log card in the Activities tab shows the same subject text as the email in the Emails tab.
+- The subject is visible in the card title or body text area.
 
 ---
 
-### TC-PROP-070 | Changing the selected company updates dependent fields (Property Affiliation chips)
+## Verify that email HTML formatting: bold/italic/underline
+
+### TC-PROP-072 | Email log body renders bold, italic, and underline HTML formatting
+
+**Preconditions:**
+- An email with bold, italic, and underlined text exists in the property.
+- Property detail Activities tab is accessible.
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Activities` tab.
+3. Locate an email log card.
+4. If the card shows "See more", click "See more" to expand.
+5. Inspect the expanded body text area for `<strong>`, `<em>`, and `<u>` elements or equivalent styled spans.
+
+**Expected results:**
+- The body text area renders bold text with visible weight difference (or `<strong>` in DOM).
+- The body text area renders italic text with visible slant (or `<em>` in DOM).
+- The body text area renders underlined text (or `<u>` in DOM).
+- NOTE: If no email with rich formatting exists, this test is marked `test.fail()` with a TODO pending test data creation.
+
+---
+
+## Verify that email HTML formatting: lists
+
+### TC-PROP-073 | Email log body renders ordered and unordered list formatting
+
+**Preconditions:**
+- An email with list formatting (bullet points or numbered list) exists in the property.
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Activities` tab.
+3. Locate an email log card and expand it if truncated.
+4. Inspect the body text area for `<ul>`, `<ol>`, `<li>` elements.
+
+**Expected results:**
+- List elements (`<ul>` or `<ol>`) are rendered within the email body.
+- Individual list items (`<li>`) are visible.
+- NOTE: If no email with list formatting exists, this test is marked `test.fail()` with a TODO.
+
+---
+
+## Verify that email HTML formatting: links
+
+### TC-PROP-074 | Email log body renders hyperlinks as clickable anchors
+
+**Preconditions:**
+- An email containing a hyperlink in its body exists in the property.
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Activities` tab.
+3. Locate an email log card and expand it if truncated.
+4. Inspect the body for an `<a href>` anchor element.
+5. Verify the anchor is rendered with visible link styling (underline or color).
+
+**Expected results:**
+- At least one `<a>` element is rendered inside the email body.
+- The `href` attribute is non-empty.
+- The link text is visible and distinguishable from plain body text.
+- NOTE: If no email with link formatting exists, this test is marked `test.fail()` with a TODO.
+
+---
+
+## Verify that email long body truncation threshold
+
+### TC-PROP-075 | Email log body is truncated with "See more" when content exceeds threshold
+
+**Preconditions:**
+- An email with a body longer than the truncation threshold exists in the property (the existing "SET Regression" email has a multi-line body).
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Activities` tab.
+3. Locate an email log card whose body ends with `...` (truncated).
+4. Observe the "See more" toggle below the truncated body.
+
+**Expected results:**
+- The body text ends with an ellipsis (`...`) or is visibly cut off.
+- A "See more" button/text is visible below the truncated body.
+- The "See more" toggle is clickable.
+
+---
+
+## Verify that email See more expands without losing formatting
+
+### TC-PROP-076 | Clicking See more on email log expands full body and preserves HTML formatting
+
+**Preconditions:**
+- A truncated email log card exists in Activities.
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Activities` tab.
+3. Find an email log card with a "See more" toggle.
+4. Click "See more".
+5. Observe the expanded body text.
+
+**Expected results:**
+- The body expands to show the full content.
+- The "See more" text changes to "See less".
+- Any HTML formatting in the body (bold, italic, links, lists) is still rendered correctly after expansion.
+- No plain-text dump or escaped HTML tags are visible.
+
+---
+
+## Verify that email See less returns to original scroll position
+
+### TC-PROP-077 | Clicking See less on email log collapses body and restores scroll position
+
+**Preconditions:**
+- An email log card has been expanded ("See less" is visible).
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Activities` tab.
+3. Find a truncated email card and click "See more" to expand.
+4. Note the scroll position of the page before clicking "See less".
+5. Click "See less".
+6. Observe the card and scroll position.
+
+**Expected results:**
+- The body collapses back to the truncated preview.
+- The "See less" text changes back to "See more".
+- The scroll position returns approximately to where it was before expansion (the card is still in view).
+
+---
+
+## Verify that email timestamp displays and is correct
+
+### TC-PROP-078 | Email log card shows a correctly formatted timestamp
+
+**Preconditions:**
+- An email log card exists in the Activities tab.
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Activities` tab.
+3. Locate an email log card.
+4. Read the timestamp text below the card title.
+
+**Expected results:**
+- A timestamp is visible on the card.
+- The timestamp matches the format `MM/DD/YYYY HH:MM AM/PM` (e.g. `04/27/2026 08:28 AM`) OR a human-readable date-time string.
+- The timestamp is not empty, "N/A", or "Invalid Date".
+
+---
+
+## Verify that email log ordering relative to other logs
+
+### TC-PROP-079 | Email log entries appear in reverse-chronological order in Activities
+
+**Preconditions:**
+- The Activities tab has multiple log entries of any type (email, note, task, etc.).
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Activities` tab.
+3. Read the timestamps of the first two visible log cards.
+
+**Expected results:**
+- The first card (topmost) has a timestamp that is equal to or more recent than the second card.
+- Log entries are ordered newest-first (reverse chronological).
+- Date group headings (e.g. "March, 2026") reflect the correct time period of the entries beneath them.
+
+---
+
+## Verify that note log title uses creator username
+
+### TC-PROP-080 | Note log card title in Activities shows creator username
+
+**Preconditions:**
+- A note has been created on the property (or an existing one exists).
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Notes` tab, create a note with subject "AutoNote-{timestamp}" if no note exists.
+3. Click the `Activities` tab.
+4. Find a log card whose title contains "Note" and "by".
+5. Read the username portion of the card title.
+
+**Expected results:**
+- The note log card title contains "by" followed by the creator's username (e.g. "Note created by Moiz").
+- The username is correct and matches the logged-in user.
+
+---
+
+## Verify that note HTML formatting: bullets/links
+
+### TC-PROP-081 | Note log body renders bullet list and link formatting correctly
+
+**Preconditions:**
+- A note with bullet list and/or link in its body exists.
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Activities` tab.
+3. Find a note log card and expand it if truncated.
+4. Inspect the body for `<ul>`, `<li>` (bullet list) and `<a href>` (link) elements.
+
+**Expected results:**
+- Bullet list items are rendered as list items, not as raw `•` characters or plain text.
+- Hyperlinks are rendered as `<a>` elements with visible link styling.
+- NOTE: If no note with formatted content exists, this test is marked `test.fail()` with a TODO.
+
+---
+
+## Verify that note long text truncation + See more/less
+
+### TC-PROP-082 | Long note body is truncated with See more; clicking See more/less toggles correctly
+
+**Preconditions:**
+- A note with a body longer than the truncation threshold exists.
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Activities` tab.
+3. Find a note log card with "See more" visible.
+4. Click "See more" — verify body expands and toggle changes to "See less".
+5. Click "See less" — verify body collapses and toggle changes back to "See more".
+
+**Expected results:**
+- Before click: body is truncated, "See more" is visible.
+- After "See more": full body is shown, toggle reads "See less".
+- After "See less": body collapses to truncated view, toggle reads "See more".
+
+---
+
+## Verify that note update reflects new content + user + timestamp
+
+### TC-PROP-083 | Editing a note updates the log entry body, shows updater username, and refreshes timestamp
+
+**Preconditions:**
+- A note exists on the property. User can edit it.
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Notes` tab.
+3. Open the edit form for an existing note; update the subject to "Updated-{timestamp}".
+4. Save the note.
+5. Click the `Activities` tab.
+6. Find the note log card (it should now reflect the updated content).
+
+**Expected results:**
+- The note log card body contains the updated note content (or subject).
+- The card title or metadata shows the updater username (matching the logged-in user).
+- The card timestamp reflects the update time (not the original creation time).
+
+---
+
+## Verify that note update without content change
+
+### TC-PROP-084 | Saving a note edit without changing content still creates an update log entry
+
+**Preconditions:**
+- A note exists on the property.
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Notes` tab.
+3. Open edit form for an existing note.
+4. Click Save without making any text change.
+5. Click the `Activities` tab.
+6. Observe whether a new "note updated" log entry appears.
+
+**Expected results:**
+- Either: a new log entry appears indicating the note was updated (even without content change), OR
+- The existing note log card timestamp refreshes.
+- The Activities tab does not crash or show an error.
+- NOTE: The exact behaviour (new entry vs. no-op) should be captured; mark the test based on observed actual behaviour.
+
+---
+
+## Verify that meeting log title uses creator username
+
+### TC-PROP-085 | Meeting log card title in Activities shows creator username
+
+**Preconditions:**
+- A meeting has been created on the property (or exists).
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Meetings` tab — verify a meeting exists, or create one.
+3. Click the `Activities` tab.
+4. Find a log card whose title contains "Meeting" and "by".
+5. Read the username portion.
+
+**Expected results:**
+- The meeting log card title contains "by" followed by the creator's username.
+- The username matches the logged-in user.
+
+---
+
+## Verify that meeting displays meeting title field
+
+### TC-PROP-086 | Meeting log card body shows the meeting title
+
+**Preconditions:**
+- A meeting with a title exists on the property.
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Activities` tab.
+3. Find a meeting log card and expand it if needed.
+4. Look for the meeting title text in the card body.
+
+**Expected results:**
+- The meeting title is visible in the card body.
+- It is non-empty and matches the title set during meeting creation.
+
+---
+
+## Verify that meeting link displayed and clickable
+
+### TC-PROP-087 | Meeting log card shows a meeting link that is an active hyperlink
+
+**Preconditions:**
+- A meeting with a meeting link (URL) has been created.
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Activities` tab.
+3. Find a meeting log card and expand it.
+4. Look for a URL or "Join" link in the card body.
+5. Verify the link is an anchor with `href`.
+
+**Expected results:**
+- A meeting URL/link is visible in the card body.
+- The link is an `<a href>` element.
+- The `href` is non-empty and is a valid URL.
+- NOTE: If no meeting with a link exists, mark `test.fail()` with a TODO.
+
+---
+
+## Verify that meeting description displayed
+
+### TC-PROP-088 | Meeting log card shows the meeting description
+
+**Preconditions:**
+- A meeting with a description has been created.
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Activities` tab.
+3. Find a meeting log card and expand it.
+4. Look for description text in the card body.
+
+**Expected results:**
+- The meeting description text is visible in the expanded card body.
+- It matches the description entered during meeting creation.
+- NOTE: If no meeting with description exists, mark `test.fail()` with TODO.
+
+---
+
+## Verify that meeting guests displayed as tags
+
+### TC-PROP-089 | Meeting log card shows guest names as individual tags
+
+**Preconditions:**
+- A meeting with at least one invited guest (contact or user) has been created.
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Activities` tab.
+3. Find a meeting log card and expand it.
+4. Look for guest name chips/tags in the card body.
+
+**Expected results:**
+- Guest names appear as styled chips or tags (not as a plain comma-separated string).
+- At least one guest tag is visible.
+- Each tag contains a name.
+- NOTE: If no meeting with guests exists, mark `test.fail()` with TODO.
+
+---
+
+## Verify that meeting missing fields show N/A individually
+
+### TC-PROP-090 | Meeting log card shows N/A for each individually missing field
+
+**Preconditions:**
+- A meeting created with only the required title field (no link, no description, no guests).
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Meetings` tab.
+3. Create a minimal meeting (title only, no link/description/guests).
+4. Click the `Activities` tab.
+5. Find the new meeting log card and expand it.
+6. Observe the values for link, description, and guests fields.
+
+**Expected results:**
+- The link field shows "N/A" (not blank, not undefined).
+- The description field shows "N/A".
+- The guests field shows "N/A" or an empty tag area.
+- Each field is labelled individually (not one combined "N/A").
+
+---
+
+## Verify that meeting expand/collapse reveals full details
+
+### TC-PROP-091 | Meeting log card expand/collapse shows and hides full meeting details
+
+**Preconditions:**
+- A meeting log card exists in the Activities tab.
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Activities` tab.
+3. Find a meeting log card. Note its initial collapsed state.
+4. Click the expand control (chevron icon or "See more").
+5. Verify full details appear.
+6. Click the collapse control.
+7. Verify the card returns to its initial collapsed state.
+
+**Expected results:**
+- Collapsed state: only title and timestamp visible; meeting details hidden.
+- Expanded state: meeting title, link, description, and guests are all visible.
+- Collapse: card returns to the same compact view as before expansion.
+
+---
+
+## Verify that meeting update reflects changes + timestamp
+
+### TC-PROP-092 | Editing a meeting updates its log card content and refreshes the timestamp
+
+**Preconditions:**
+- A meeting exists on the property.
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Meetings` tab.
+3. Open an existing meeting's edit form; update the title to "Updated Meeting {timestamp}".
+4. Save the changes.
+5. Click the `Activities` tab.
+6. Find the meeting log card (it should reflect the update).
+
+**Expected results:**
+- The meeting log card body shows the updated meeting title.
+- The card timestamp reflects the update time.
+- The card title contains the updater's username.
+
+---
+
+## Verify that call log title uses logger username
+
+### TC-PROP-093 | Call log card title in Activities shows the logger's username
+
+**Preconditions:**
+- A call log has been created on the property.
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. If no call log exists, navigate to the appropriate call-logging UI on the property and log a call.
+3. Click the `Activities` tab.
+4. Find a log card whose title contains "Call" and "by".
+5. Read the username portion.
+
+**Expected results:**
+- The call log card title contains "by" followed by the logger's username.
+- The username matches the logged-in user.
+- NOTE: If no call log UI is accessible on properties, mark `test.fail()` with TODO.
+
+---
+
+## Verify that call long description truncation + toggle
+
+### TC-PROP-094 | Call log with long description is truncated; See more/less toggles correctly
+
+**Preconditions:**
+- A call log with a long description exists.
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Activities` tab.
+3. Find a call log card with "See more" visible (truncated body).
+4. Click "See more" — verify body expands.
+5. Click "See less" — verify body collapses.
+
+**Expected results:**
+- Truncated state: body ends with `...` and "See more" is visible.
+- After "See more": full description shown, toggle reads "See less".
+- After "See less": body collapses, toggle reads "See more".
+- NOTE: If no long call description exists, mark `test.fail()` with TODO.
+
+---
+
+## Verify that call timestamp correctness
+
+### TC-PROP-095 | Call log card timestamp matches the time of the logged call
+
+**Preconditions:**
+- A call log exists in the Activities tab.
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Activities` tab.
+3. Find a call log card.
+4. Read its timestamp.
+
+**Expected results:**
+- A timestamp is visible on the call log card.
+- The timestamp format is `MM/DD/YYYY HH:MM AM/PM` or similar date-time string.
+- It is not empty, "N/A", or "Invalid Date".
+- NOTE: If no call log exists, mark `test.fail()` with TODO.
+
+---
+
+## Verify that task log title uses creator username
+
+### TC-PROP-096 | Task log card title in Activities shows creator username
+
+**Preconditions:**
+- A task has been created on the property.
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Tasks` tab — verify a task exists (or create one: title "AutoTask-{timestamp}", type "To-do", priority "Medium").
+3. Click the `Activities` tab.
+4. Find a log card whose title contains "Task" and "by".
+5. Read the username portion.
+
+**Expected results:**
+- The task log card title contains "by" followed by the creator's username (e.g. "Task created by Moiz").
+- The username matches the logged-in user.
+
+---
+
+## Verify that task fields render: title/type/priority/description/status
+
+### TC-PROP-097 | Task log card body shows title, type, priority, description, and status fields
+
+**Preconditions:**
+- A task with all fields filled (title, type, priority, description) has been created.
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Create a task with: title "Full-Task-{timestamp}", type "To-do", priority "High", description "Test description for activity log".
+3. Click the `Activities` tab.
+4. Find the newly created task log card and expand it.
+5. Verify each field is visible.
+
+**Expected results:**
+- Task title is visible in the card body.
+- Task type ("To-do") is visible.
+- Task priority ("High") is visible.
+- Task description text is visible.
+- Task status (e.g. "Pending" or "To Do") is visible.
+
+---
+
+## Verify that task missing type shows N/A
+
+### TC-PROP-098 | Task log card shows N/A for Type when task was created without a type
+
+**Preconditions:**
+- A task created without a type selection exists (type field was left blank).
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Tasks` tab. Create a task with title only (no type).
+3. Click the `Activities` tab.
+4. Find the new task log card and expand it.
+5. Read the value in the Type field.
+
+**Expected results:**
+- The Type field in the card body shows "N/A".
+- It does not show "undefined", blank, or missing.
+- NOTE: If the UI prevents creating a task without a type, mark `test.fail()` with TODO.
+
+---
+
+## Verify that task missing priority shows N/A
+
+### TC-PROP-099 | Task log card shows N/A for Priority when task was created without a priority
+
+**Preconditions:**
+- A task created without a priority selection exists.
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Tasks` tab. Create a task with title only (no priority).
+3. Click the `Activities` tab.
+4. Find the new task log card and expand it.
+5. Read the value in the Priority field.
+
+**Expected results:**
+- The Priority field in the card body shows "N/A".
+- It does not show "undefined", blank, or missing.
+- NOTE: If the UI prevents creating a task without a priority, mark `test.fail()` with TODO.
+
+---
+
+## Verify that task long description truncation + toggle
+
+### TC-PROP-100 | Task log with long description is truncated; See more/less toggles correctly
+
+**Preconditions:**
+- A task with a long description (exceeding the truncation threshold) exists.
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Create a task with a very long description (200+ words).
+3. Click the `Activities` tab.
+4. Find the task log card — verify body is truncated ("See more" visible).
+5. Click "See more" → body expands.
+6. Click "See less" → body collapses.
+
+**Expected results:**
+- Truncated state: body ends with `...`, "See more" is visible.
+- After "See more": full description shown, toggle reads "See less".
+- After "See less": body collapses, toggle reads "See more".
+
+---
+
+## Verify that task update reflects new content + updater + timestamp
+
+### TC-PROP-101 | Editing a task updates its log card content, shows updater username, refreshes timestamp
+
+**Preconditions:**
+- A task exists on the property. User can edit it.
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Tasks` tab.
+3. Open edit form for an existing task; update the title to "Updated-Task-{timestamp}".
+4. Save the task.
+5. Click the `Activities` tab.
+6. Find the task log card (reflects the update).
+
+**Expected results:**
+- The task log card body shows the updated task title.
+- The card title or metadata shows the updater username.
+- The card timestamp reflects the update time (not the original creation time).
+
+---
+
+## Verify that real-time update without manual refresh
+
+### TC-PROP-102 | New activity log entries appear in Activities tab without requiring a page refresh
+
+**Preconditions:**
+- The Activities tab is open and showing existing entries.
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Activities` tab. Note the current number of visible log cards.
+3. Without refreshing the page, click the `Notes` tab.
+4. Create a new note with subject "RT-Test-{timestamp}".
+5. Save the note.
+6. Click the `Activities` tab again.
+7. Observe whether the new note log entry appears.
+
+**Expected results:**
+- The new note log entry appears in the Activities tab without requiring a full page reload.
+- The entry count in the Activities tab is greater than before the note was created.
+- NOTE: If the app requires a refresh to see the new entry, the test captures this as a bug and uses `test.fail()` with a TODO.
+
+---
+
+## Verify that permissions: unauthorized user cannot see logs
+
+### TC-PROP-103 | Unauthorized user (SM role) cannot view activity log entries
+
+**Preconditions:**
+- SM user credentials are available (`SIGNAL_EMAIL_SM`).
+- The property `Regression Location Phase 2` (ID 13179) is accessible to the SM role.
+
+**Steps:**
+1. Log in as SM user (`SIGNAL_EMAIL_SM` / `SIGNAL_PASSWORD_SM`).
+2. Navigate to `/app/sales/locations/location/13179`.
+3. Click the `Activities` tab.
+4. Observe what is displayed.
+
+**Expected results:**
+- Either: the Activities tab shows an empty state or "No access" message (SM cannot see logs), OR
+- The SM user is redirected away from the property detail page.
+- The Activities tab does not show HO-only activity data to an SM user.
+- NOTE: If SM CAN see the same logs as HO (no access restriction), the test is marked `test.fail()` with a TODO flagging a missing permission boundary.
+
+---
+
+## Verify that Description field is mandatory while creating a note | Verify that system shows validation error when Description is empty
+
+### TC-PROP-104 | Description field is mandatory and validation error appears when Description is empty
 
 **Preconditions:**
 - User is logged in as HO (Home Officer).
-- The Create Property drawer is accessible.
-- At least two different companies exist in the system.
+- A property detail page is accessible (e.g., `Regression Location Phase 2` at `/app/sales/locations/location/13179`).
+- The Notes tab is visible on the property detail page.
 
 **Steps:**
 
-Step 1 — Select first company and observe affiliation chips:
-1. Navigate to `/app/sales/locations`.
-2. Click `Create Property` to open the drawer.
-3. Wait for the "Create Property" heading (level=3) to be visible.
-4. Click the `Search Company` trigger and select the first known company (e.g. the `targetCompanyName` used in other tests).
-5. Observe the Property Affiliation section.
+Step 1 — Verify Description field has mandatory (*) indicator:
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Notes` tab.
+3. Wait for the Notes tab to become active (`aria-selected="true"`).
+4. Click `Create New Note` button.
+5. Wait for the `Add Notes` drawer heading (level=4) to be visible.
+6. Observe the Description editor section of the drawer.
 
 **Expected results (Step 1):**
-- All six affiliation chips (Managed, Owned, Shared, Tenant, Headquarters, Regional Office) become visible after the first company is selected.
+- The `Add Notes` drawer is open.
+- The Description field area has a mandatory asterisk (`*`) indicator visible (`.jss325` span).
+- The Description rich-text editor (`[aria-label="rdw-editor"]`) is visible and empty.
 
-Step 2 — Change to a different company and verify chips refresh:
-6. Click the `Search Company` trigger again (company is already selected).
-7. Clear the existing selection or type a different company name.
-8. Select a different company from the search results.
-9. Observe the Property Affiliation section immediately after the second company is selected.
+Step 2 — Verify validation error when both fields are empty and Save is clicked:
+7. Without filling any field, click the `Save` button.
+8. Observe the drawer and any validation feedback.
 
 **Expected results (Step 2):**
-- The Property Affiliation chips remain visible (or are refreshed) after changing the company.
-- No crash or blank state occurs when the company is changed mid-session.
-- The drawer remains open throughout.
+- The `Add Notes` drawer remains open (heading still visible).
+- A `Title is required.` error message is visible (`.MuiFormHelperText-root.Mui-error`).
+- A `Description is required.` error message is visible (paragraph with text "Description is required.").
+- No success toast appears.
 
-Step 3 — Verify chips reset if company is deselected (if the UI supports deselection):
-10. If the UI provides a way to clear the company selection, clear it.
-11. Observe the Property Affiliation section.
+Step 3 — Verify Description-only validation when Title is empty but Description is filled:
+9. Click the Cancel button to close the drawer.
+10. Click `Create New Note` again to reopen.
+11. Leave the Title (Subject) field empty.
+12. Click the Description editor and type any text (e.g., `Some description text`).
+13. Click `Save`.
 
 **Expected results (Step 3):**
-- If deselection is supported: affiliation chips return to the N/A / hidden state.
-- If deselection is not supported: the drawer shows chips from the most recently selected company.
+- The drawer remains open.
+- The `Title is required.` error is visible.
+- No `Description is required.` error is shown (description was filled).
+
+---
+
+## Verify that empty state is shown again after deleting last note
+
+### TC-PROP-105 | Empty state reappears after the last note is deleted
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- A property detail page is accessible (e.g., `Regression Location Phase 2` at `/app/sales/locations/location/13179`).
+- The property currently has no notes (empty state is showing), or any existing notes will be accounted for.
+
+**Steps:**
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Click the `Notes` tab and wait for it to become active.
+3. If notes already exist, delete them all until the empty state is visible — otherwise proceed.
+4. Click `Create New Note`.
+5. Wait for the `Add Notes` drawer to open.
+6. Fill the Subject field with a unique note title (e.g., `PAT {timestamp}`).
+7. Click the Description editor and type a body (e.g., `Temporary note for delete test.`).
+8. Click `Save`.
+9. Wait for the drawer to close and the note to appear in the notes list.
+10. Verify the created note is visible in the Notes tab panel.
+11. Click the `Delete` button on that note.
+12. Wait for the `Delete Note!` confirmation dialog to appear.
+13. Click the `Delete Note` confirm button.
+14. Wait for the success toast and dialog to close.
+15. Observe the Notes tab panel.
+
+**Expected results:**
+- After step 9: The `Add Notes` drawer is closed and the newly created note appears in the list.
+- After step 10: The note with the created subject is visible in the `Notes` tabpanel.
+- After step 12: The `Delete Note!` confirmation dialog is visible with the text "Are you sure you want to delete this note?".
+- After step 14: The note is removed from the list.
+- After step 15: The `Oops, It's Empty Here!` empty state heading is visible in the Notes tab panel.
+- The `Get Started and Fill It Up!` subtext is also visible.
+
+---
+
+## Verify that the system shows a success toast/message after property creation
+
+### TC-PROP-106 | Success toast appears after property is created
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- An existing company is available to link the property to (e.g., the company resolved via `readCreatedCompanyName()` or the fallback "Regression Phase 2").
+- The Properties list page is accessible at `/app/sales/locations`.
+
+**Steps:**
+
+Step 1 — Open the Create Property drawer:
+1. Navigate to `/app/sales/locations`.
+2. Wait for the `Create Property` button to be visible.
+3. Click `Create Property`.
+4. Wait for the `Create Property` drawer heading (level=3) to be visible.
+
+**Expected results (Step 1):**
+- The Create Property drawer is open.
+- The drawer heading "Create Property" (level=3) is visible.
+
+Step 2 — Fill required fields and submit:
+5. In the `Search Company` field, type the company name and select the first matching result.
+6. Fill the `Property / Property Name *` field with a unique name (e.g., `PAT {timestamp}`).
+7. Select a property source (e.g., click the source dropdown and pick any option).
+8. Select an Associated Franchise (e.g., pick the first available franchise option).
+9. Select a Stage (e.g., pick "Approved").
+10. Select at least one Property Affiliation chip (e.g., click "Managed").
+11. Select an Assignee.
+12. Enter a valid US address in the address autocomplete and select the first suggestion.
+13. Click the `Create Property` submit button.
+
+**Expected results (Step 2):**
+- The form submission triggers a POST request to the `/locations` API.
+- The drawer closes after successful submission.
+
+Step 3 — Verify success toast:
+14. Wait for the success toast notification to appear.
+15. Observe the toast message text.
+
+**Expected results (Step 3):**
+- A toast notification is visible with text matching `/created successfully|property created/i`.
+- The toast uses the `.Toastify__toast-body[role="alert"]` element.
+- The toast disappears automatically after a few seconds.
+
+---
+
+## Verify that Bulk Assignment assigns properties successfully
+
+### TC-PROP-107 | Bulk Assignment dialog opens, assignee is selected, and assignment completes
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- At least two properties exist in the system.
+- The Properties list page is accessible at `/app/sales/locations`.
+
+**Steps:**
+
+Step 1 — Select properties and open Bulk Assignment:
+1. Navigate to `/app/sales/locations`.
+2. Wait for the table to render (at least one data row visible).
+3. Click the checkbox cell of the first data row to select it.
+4. Verify `1 property selected.` message and `Bulk Assignment` button is enabled.
+5. Click the checkbox cell of the second data row.
+6. Verify the count updates to `2 properties selected.`.
+7. Click the `Bulk Assignment` button.
+8. Wait for the Bulk Assignment overlay/dialog to appear.
+
+**Expected results (Step 1):**
+- The Bulk Assignment overlay opens.
+- The overlay contains a `Select people to assign` prompt (or equivalent assignee search UI).
+
+Step 2 — Select an assignee and confirm assignment:
+9. In the Bulk Assignment overlay, type a known assignee name (e.g., `Moiz SM UAT`) into the search input.
+10. Wait for search results to appear.
+11. Click the first matching assignee result.
+12. Click the `Assign` (or `Save` / `Confirm`) button in the overlay.
+13. Wait for the overlay to close and for a success indicator.
+
+**Expected results (Step 2):**
+- The overlay closes after the assignment is confirmed.
+- A success toast or confirmation indicator is visible (e.g., `/assigned successfully|assignment complete/i`).
+
+---
+
+## Verify that activities logs load for different record types
+
+### TC-PROP-108 | Activities tab loads log entries for different record types (property, note, task, meeting, call, email)
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- A property detail page is accessible (use `Regression Location Phase 2` at `/app/sales/locations/location/13179` — this property has multiple activity types).
+- The property has existing activity log entries covering multiple record types.
+
+**Steps:**
+
+Step 1 — Open Activities tab:
+1. Navigate to `/app/sales/locations/location/13179`.
+2. Wait for the property detail page to load (stage bar is visible).
+3. Click the `Activities` tab.
+4. Wait for the `Activities` tabpanel to become active (`aria-selected="true"`).
+
+**Expected results (Step 1):**
+- The Activities tabpanel is visible.
+- At least one dated group heading (e.g., "March, 2026") is visible in the panel.
+- At least one activity card is rendered.
+
+Step 2 — Verify activity cards for different record types:
+5. Scroll through the activities list and observe the log entry cards.
+6. Identify at least 3 different activity types present (e.g., property creation, note, task, email, meeting, call).
+
+**Expected results (Step 2):**
+- At least one "property created" log entry is visible (card paragraph contains "property created").
+- The total count of activity cards is greater than 0.
+- Activity entries are grouped by date with a date heading visible above each group.
+- Each card shows: a title paragraph with creator username, a timestamp, and a body paragraph.
+
+---
+
+## Verify that Task Description field is mandatory while creating a task, Verify that Type field is mandatory while creating a task, Verify that Priority field is mandatory while creating a task, Verify that Due Date field is mandatory while creating a task
+
+### TC-PROP-109 | Task Description, Type, Priority, and Due Date fields are mandatory — validation errors appear when form is submitted empty
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Tasks listing page is accessible at `/app/sales/tasks`.
+- The `New Task` button is visible.
+
+**Steps:**
+
+Step 1 — Open Create New Task drawer and submit empty form:
+1. Navigate to `/app/sales/tasks`.
+2. Wait for the `New Task` button to be visible.
+3. Click `New Task`.
+4. Wait for the `Create New Task` drawer heading (level=3) to be visible.
+5. Do NOT fill any fields.
+6. Click the `Save` button.
+
+**Expected results (Step 1 — all required-field errors appear):**
+- The drawer remains open (heading "Create New Task" level=3 is still visible).
+- `Task For is required.` error message is visible.
+- `Task Title is required.` error message is visible.
+- `Task Description is required.` error message is visible.
+- `Task Type is required.` error message is visible.
+- `Task Priority is required.` error message is visible.
+
+Step 2 — Verify Task Description field is mandatory:
+7. Fill the `Task Title` field with a non-empty value.
+8. Do NOT fill the Task Description editor.
+9. Select "Property" for the "Create task for" radio.
+10. Open the Type dropdown and select "To-do".
+11. Open the Priority dropdown and select "High".
+12. Click `Save`.
+
+**Expected results (Step 2):**
+- The drawer remains open.
+- `Task Description is required.` error message is visible.
+- No `Task Title is required.` error (title was filled).
+- No `Task Type is required.` error.
+- No `Task Priority is required.` error.
+
+Step 3 — Verify Due Date field is mandatory when cleared:
+13. Click `Cancel` to close and reopen the drawer by clicking `New Task`.
+14. Clear the Due Date field (select all content and delete).
+15. Click `Save`.
+
+**Expected results (Step 3):**
+- The drawer remains open.
+- `Due Date is required.` error message is visible.
+
+---
+
+## Verify that user can filter tasks by Type, Verify that user can filter tasks by Priority, Verify that user can filter tasks by Status, Verify that user can filter tasks by Due Date range
+
+### TC-PROP-110 | Task list filters by Type, Priority, Status, and Due Date range each narrow the results correctly
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Tasks listing page is accessible at `/app/sales/tasks`.
+- At least one task of each type (To-do, Email, Call, LinkedIn) exists in the system.
+- At least one High priority task exists.
+- At least one Completed task exists.
+
+**Steps:**
+
+Step 1 — Filter by Type (To-do):
+1. Navigate to `/app/sales/tasks`.
+2. Wait for the table to render (at least one row visible).
+3. Note the current total record count from pagination (e.g., `1–10 of 2594`).
+4. Click the `All Types` filter trigger (heading level=6).
+5. Wait for the tooltip to appear containing `All Types`, `To-do`, `Email`, `Call`, `LinkedIn`.
+6. Click `To-do` in the tooltip.
+7. Wait for the table to update.
+
+**Expected results (Step 1):**
+- After selection, the table updates.
+- Each visible row in the Type column shows "To-do".
+- The pagination count may differ from the original total.
+- Navigate back to reset: click `All Types` → `All Types` to clear.
+
+Step 2 — Filter by Priority (High):
+8. Click the `Priority` filter trigger (heading level=6).
+9. Wait for the tooltip containing `All Priority`, `High`, `Medium`, `Low`.
+10. Click `High`.
+11. Wait for the table to update.
+
+**Expected results (Step 2):**
+- The table updates.
+- Each visible row in the Priority column shows `High`.
+- Reset: click `Priority` → `All Priority`.
+
+Step 3 — Filter by Status (Completed):
+12. Click the `To-do` status filter trigger (heading level=6).
+13. Wait for the tooltip containing `All Status`, `To-do`, `Completed`.
+14. Click `Completed`.
+15. Wait for the table to update.
+
+**Expected results (Step 3):**
+- The table updates.
+- Each visible row in the Type column shows a completed-state badge.
+- The pagination total updates.
+- Reset: click the status filter → `All Status`.
+
+Step 4 — Filter by Due Date range:
+16. Compute the current month's date range (e.g., `04/01/2026 - 04/30/2026`).
+17. Fill the Due Date range textbox (`MM/DD/YYYY - MM/DD/YYYY`) with the computed range.
+18. Wait for the table to update.
+
+**Expected results (Step 4):**
+- The table updates to show tasks with due dates within the entered range.
+- The pagination total may change.
+- Clear the date range field after verification.
+
+---
+
+## Verify that pagination works correctly in task listing, Verify that tasks are sorted correctly by Due Date
+
+### TC-PROP-111 | Task list pagination navigates pages correctly and Due Date column sorts ascending/descending
+
+**Preconditions:**
+- User is logged in as HO (Home Officer).
+- The Tasks listing page is accessible at `/app/sales/tasks`.
+- More than 10 tasks exist in the system (total > 10 to enable next-page navigation).
+
+**Steps:**
+
+Step 1 — Verify pagination controls and navigate to next page:
+1. Navigate to `/app/sales/tasks`.
+2. Wait for the table to render (at least one row visible).
+3. Read the pagination info text (e.g., `1–10 of 2594`).
+4. Verify the `Go to previous page` button is disabled (first page).
+5. Verify the `Go to next page` button is enabled.
+6. Click `Go to next page`.
+7. Wait for the table to update.
+
+**Expected results (Step 1):**
+- After step 3: Pagination text matches `/\d+–\d+ of \d+/` and total > 10.
+- After step 4: Previous page button is disabled.
+- After step 6–7: Pagination text updates to show the second page range (e.g., `11–20 of 2594`).
+- The table still has at least one visible row.
+
+Step 2 — Navigate back to first page:
+8. Click `Go to previous page`.
+9. Wait for the table to update.
+
+**Expected results (Step 2):**
+- Pagination text returns to first-page range (e.g., `1–10 of 2594`).
+- The `Go to previous page` button is disabled again.
+
+Step 3 — Change rows per page:
+10. Click the `Rows per page` combobox and select `25`.
+11. Wait for the table to update.
+
+**Expected results (Step 3):**
+- Pagination text shows up to 25 rows (e.g., `1–25 of 2594`).
+- The table has up to 25 visible rows.
+- Reset rows per page back to 10.
+
+Step 4 — Sort by Due Date ascending:
+12. Click the `Due Date` column header sort button.
+13. Wait for the table to re-render.
+14. Read the Due Date values from the first two visible rows.
+
+**Expected results (Step 4):**
+- The table re-renders after the sort click.
+- At least one row is visible.
+- The first row's Due Date is chronologically ≤ the second row's Due Date (ascending order, parsed as Date objects from `MM/DD/YYYY`).
+
+Step 5 — Sort by Due Date descending:
+15. Click the `Due Date` column header sort button again.
+16. Wait for the table to re-render.
+17. Read the Due Date values from the first two visible rows.
+
+**Expected results (Step 5):**
+- The table re-renders.
+- The first row's Due Date is chronologically ≥ the second row's Due Date (descending order).
 
 ---

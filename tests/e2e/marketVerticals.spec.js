@@ -5,15 +5,15 @@
 // ============================================================
 
 const { test, expect } = require('@playwright/test');
-const { MarketVerticalsPage } = require('../pages/marketVerticals.page');
+const { MarketVerticalsPage } = require('../../pages/marketVerticals.page');
 const { existsSync, mkdirSync } = require('node:fs');
-const { performLogin } = require('../utils/auth/login-action');
+const { performLogin } = require('../../utils/auth/login-action');
 
 // ─── Dynamic Test Data ──────────────────────────────────────────────────────
 // Using timestamps to ensure unique question names across runs
 const timestamp = Date.now();
 const TEST_QUESTION = `Smoke Test Question ${timestamp}`;
-const TEST_QUESTION_EDIT = `Edited Smoke Test Question ${timestamp}`;
+
 const authFile = 'playwright/.auth/user.json';
 
 async function ensureAuthState(browser) {

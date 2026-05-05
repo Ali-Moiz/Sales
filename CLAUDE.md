@@ -23,6 +23,7 @@ This is an End-to-End test automation framework for the Sales CRM application bu
 ### Multi-Environment & Multi-Role Setup
 
 Tests are designed to run against different environments and user roles:
+
 - **Environments**: UAT (default) and Prod
 - **User Roles**: HO (Head Office), SM (Scenario Manager), SP (another role)
 - Environment is set via `ENV_NAME` variable (e.g., `ENV_NAME=uat npm run test:uat`)
@@ -31,6 +32,7 @@ Tests are designed to run against different environments and user roles:
 ### Test Organization
 
 Tests follow a modular structure with separate specs for each functional area:
+
 - `login-module.spec.js` — Login and authentication tests
 - `company-module.spec.js` — Company management tests
 - `contact-module.spec.js` — Contact management tests
@@ -120,6 +122,7 @@ npm run report
 Before running tests, create environment files in the repo root:
 
 **`.env.uat`** — UAT environment credentials
+
 ```bash
 SIGNAL_EMAIL_HO=head.office@company.com
 SIGNAL_PASSWORD_HO=your_password_here
@@ -131,6 +134,7 @@ BASE_URL=https://uat.sales.teamsignal.com
 ```
 
 **`.env.prod`** — Production environment (if needed)
+
 ```bash
 SIGNAL_EMAIL_HO=prod.user@company.com
 SIGNAL_PASSWORD_HO=prod_password
@@ -142,12 +146,12 @@ BASE_URL=https://sales.teamsignal.com
 Credentials are automatically loaded via `utils/auth/load-env.js` and exposed by `utils/env.js`:
 
 ```javascript
-const { env } = require('../utils/env');
+const { env } = require("../utils/env");
 
 // Access credentials for different roles:
-const hoEmail = env.email;        // Head Office email
-const smEmail = env.email_sm;     // Scenario Manager email
-const password = env.password;    // Corresponding password
+const hoEmail = env.email; // Head Office email
+const smEmail = env.email_sm; // Scenario Manager email
+const password = env.password; // Corresponding password
 ```
 
 Always use `env` for credentials—never hardcode them in tests.
@@ -190,26 +194,32 @@ From `pages/contract-module.js` — notice ARIA-first selectors and descriptive 
 class ContractModule {
   constructor(page) {
     this.page = page;
-    
+
     // ── ARIA-based locators (accessible, resilient) ──
-    this.contractTermsTab = page.getByRole('tab', { name: 'Contract & Terms' });
-    this.createProposalBtn = page.getByRole('button', { name: 'Create Proposal' }).first();
-    this.dedicatedPatrolRadio = page.getByRole('radio', { name: /Dedicated\s*\/\s*Patrol/ });
-    this.proposalNameInput = page.getByRole('textbox', { name: 'Add Proposal Name' });
-    
+    this.contractTermsTab = page.getByRole("tab", { name: "Contract & Terms" });
+    this.createProposalBtn = page
+      .getByRole("button", { name: "Create Proposal" })
+      .first();
+    this.dedicatedPatrolRadio = page.getByRole("radio", {
+      name: /Dedicated\s*\/\s*Patrol/,
+    });
+    this.proposalNameInput = page.getByRole("textbox", {
+      name: "Add Proposal Name",
+    });
+
     // ── Fallback for complex selectors ──
     this.dealSearchInput = page
-      .getByRole('searchbox', { name: 'ID, Deal' })
+      .getByRole("searchbox", { name: "ID, Deal" })
       .or(page.locator('input[placeholder*="ID, Deal"]'))
       .first();
   }
-  
+
   async openDealDetail(dealName) {
     await this.dealSearchInput.fill(dealName);
-    await this.page.getByRole('button', { name: dealName }).click();
+    await this.page.getByRole("button", { name: dealName }).click();
     await expect(this.contractTermsTab).toBeVisible();
   }
-  
+
   async createProposal() {
     await this.createProposalBtn.click();
     await expect(this.createProposalDrawerHeading).toBeVisible();
@@ -218,6 +228,7 @@ class ContractModule {
 ```
 
 **Key principles:**
+
 - ✅ All selectors live-verified via browser (noted in comments with date)
 - ✅ Use `.or()` for resilience when element structure varies
 - ✅ No hardcoded indices (`.first()` is last resort, used with `.or()`)
@@ -241,12 +252,12 @@ class ContractModule {
 The `performLogin()` function handles Auth0 login with retry logic:
 
 ```javascript
-const { performLogin } = require('../utils/auth/login-action');
+const { performLogin } = require("../utils/auth/login-action");
 
 test.beforeAll(async ({ browser }) => {
   const context = await browser.newContext();
   const page = await context.newPage();
-  
+
   // Login with default HO credentials from .env
   await performLogin(page);
   // OR with custom credentials:
@@ -255,6 +266,7 @@ test.beforeAll(async ({ browser }) => {
 ```
 
 It automatically:
+
 - Detects Auth0 vs. internal login form
 - Handles image blocking for slider challenges
 - Retries up to 2 times on failure
@@ -267,10 +279,10 @@ It automatically:
 For optimal performance, use a **single browser session** for entire test suites:
 
 ```javascript
-test.describe('Module — Feature', () => {
+test.describe("Module — Feature", () => {
   let sharedPage;
   let module;
-  
+
   // ── Open browser ONCE ──
   test.beforeAll(async ({ browser }) => {
     const context = await browser.newContext();
@@ -278,19 +290,23 @@ test.describe('Module — Feature', () => {
     module = new MyModule(sharedPage);
     await performLogin(sharedPage);
   });
-  
+
   // ── Reuse session for all tests ──
   test.beforeEach(async () => {
-    await sharedPage.goto(`${baseUrl}/app/home`);  // Reset state only
+    await sharedPage.goto(`${baseUrl}/app/home`); // Reset state only
   });
-  
+
   // ── Close browser ONCE ──
   test.afterAll(async () => {
     await sharedPage.context().close();
   });
-  
-  test('TC-001', async () => { /* ... */ });
-  test('TC-002', async () => { /* ... */ });
+
+  test("TC-001", async () => {
+    /* ... */
+  });
+  test("TC-002", async () => {
+    /* ... */
+  });
 });
 ```
 
@@ -307,6 +323,7 @@ HEADLESS=false npx playwright codegen https://uat.sales.teamsignal.com
 ```
 
 Steps:
+
 1. Browser opens with codegen inspector
 2. Manually perform the test flow
 3. Codegen records all interactions + selectors
@@ -316,20 +333,26 @@ Steps:
 ## Common Issues & Solutions
 
 ### Auth0 Loading Issues
+
 The `LoginModule.goto()` includes a wait for Auth0 scripts to load. If login tests timeout, check:
+
 - Network idle state is reached
 - Auth0 service is accessible
 - Slider image blocking is enabled (see `utils/auth/slider-image-blocker.js`)
 
 ### Selector Finding
+
 If selectors break:
+
 1. Check if the page structure changed
 2. Use browser DevTools to inspect the element
 3. Prefer accessibility-based selectors (`getByRole`, `getByLabel`) over CSS selectors
 4. Update both the locator in the page object and potentially the test assertion
 
 ### Environment Variables Not Loading
+
 Ensure:
+
 - The `.env.[ENV_NAME]` file exists in the repo root
 - `ENV_NAME` is set correctly before running tests
 - Credentials in the env file are correct and not expired
@@ -361,42 +384,45 @@ npm run report
 
 ### Common First Tasks
 
-| Task | Command |
-|------|---------|
-| Run all tests | `npm run test:uat` |
-| Run specific module | `npm run test:uat:contract` |
-| Run single test file | `npx playwright test tests/e2e/contract-module.spec.js` |
-| Run tests matching pattern | `npx playwright test --grep "TC-CONTRACT-001"` |
-| Debug a failing test | `HEADLESS=false npx playwright test tests/e2e/contract-module.spec.js --debug` |
-| Generate selectors for a feature | `HEADLESS=false npx playwright codegen https://uat.sales.teamsignal.com` |
-| Lint code | `npm run lint` |
-| Auto-fix lint issues | `npm run lint:fix` |
+| Task                             | Command                                                                        |
+| -------------------------------- | ------------------------------------------------------------------------------ |
+| Run all tests                    | `npm run test:uat`                                                             |
+| Run specific module              | `npm run test:uat:contract`                                                    |
+| Run single test file             | `npx playwright test tests/e2e/contract-module.spec.js`                        |
+| Run tests matching pattern       | `npx playwright test --grep "TC-CONTRACT-001"`                                 |
+| Debug a failing test             | `HEADLESS=false npx playwright test tests/e2e/contract-module.spec.js --debug` |
+| Generate selectors for a feature | `HEADLESS=false npx playwright codegen https://uat.sales.teamsignal.com`       |
+| Lint code                        | `npm run lint`                                                                 |
+| Auto-fix lint issues             | `npm run lint:fix`                                                             |
 
 ### Where to Find Things
 
-| What | Where |
-|------|-------|
-| Test cases for a feature | `docs/*-test-steps.md` |
-| Page Object code | `pages/*-module.js` or `pages/*.page.js` |
-| Actual test specs | `tests/e2e/*-module.spec.js` |
-| Authentication helpers | `utils/auth/` |
-| Test data & config | `utils/env.js`, `utils/contract-test-data.js` |
-| Playwright config | `playwright.config.js` |
-| ESLint config | `eslint.config.mjs` |
+| What                     | Where                                         |
+| ------------------------ | --------------------------------------------- |
+| Test cases for a feature | `docs/*-test-steps.md`                        |
+| Page Object code         | `pages/*-module.js` or `pages/*.page.js`      |
+| Actual test specs        | `tests/e2e/*-module.spec.js`                  |
+| Authentication helpers   | `utils/auth/`                                 |
+| Test data & config       | `utils/env.js`, `utils/contract-test-data.js` |
+| Playwright config        | `playwright.config.js`                        |
+| ESLint config            | `eslint.config.mjs`                           |
 
 ### Common Gotchas
 
 **Auth0 Timeout:**
+
 - Check `.env.[ENV_NAME]` credentials are correct and not expired
 - Ensure internet connectivity to auth0.com
 - Slider image blocking is enabled in `utils/auth/slider-image-blocker.js`
 
 **Selector Not Found:**
+
 - Use codegen (`npx playwright codegen ...`) to record actual DOM
 - Prefer `getByRole()` over CSS or XPath
 - Check if element is conditionally rendered (may need visibility wait first)
 
 **Test Hangs or Timeouts:**
+
 - Check for `waitUntil: 'networkidle'` — may wait too long for slow responses
 - Use `HEADLESS=false` to see what's happening visually
 - Run with `--debug` flag to step through interactions
@@ -408,26 +434,30 @@ npm run report
 Use the `/generate-tests` command to automatically convert manual test cases into Playwright automation:
 
 **For Cursor IDE:**
+
 ```
 /generate-tests
 ```
 
 **For Claude Code (claude.ai/code):**
+
 ```
 /generate-test
 ```
 
 Both commands invoke the same agent. Answer 4 input prompts:
+
 1. **Requirement** — Feature to test (e.g., "Verify deleting a service updates totals")
 2. **Module** — Module name (e.g., "Contract Module")
 3. **Documentation file** — Where test cases are documented (e.g., `docs/contract-module-test-steps.md`)
 4. **Test output file** — Where to write automation (e.g., `tests/e2e/contract-module.spec.js`)
 
-The agent will run the full 8-phase workflow. 
+The agent will run the full 8-phase workflow.
 
 (CRITICAL) All test cases (TC codes) MUST be documented in the docs file first. Never invent TC codes — they must exist in documentation before automation.
 
 **Workflow (8 Phases):**
+
 - **Phase 0**: Pre-flight checks (parse docs, check existing tests, validate env)
 - **Phase 1** (optional): Record actual flow with Playwright codegen
 - **Phase 2**: Analyze codegen output, extract selectors, map to Page Objects
@@ -439,6 +469,7 @@ The agent will run the full 8-phase workflow.
 - **Phase 8**: Auto-fix failing tests (up to 3 attempts per test)
 
 **Authoritative references:**
+
 - `@.cursor/commands/generate-tests.md` — Main command documentation (all users)
 - `@.claude/agents/generate-playwright-tests.md` — Agent orchestration
 - `@.claude/skills/playwright-test-standards/SKILL.md` — All coding standards and constraints
