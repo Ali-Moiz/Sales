@@ -4179,8 +4179,7 @@ class PropertyModule {
    */
   activityCardTitles() {
     return this.page
-      .getByRole("tabpanel")
-      .first()
+      .getByRole("tabpanel", { name: /Activities/i })
       .locator("p")
       .filter({ hasText: /\bby\b/ });
   }
@@ -4191,8 +4190,7 @@ class PropertyModule {
    */
   activityCardTimestamps() {
     return this.page
-      .getByRole("tabpanel")
-      .first()
+      .getByRole("tabpanel", { name: /Activities/i })
       .locator("span.MuiTypography-body3");
   }
 
@@ -4201,8 +4199,7 @@ class PropertyModule {
    */
   activitySeeMoreToggle() {
     return this.page
-      .getByRole("tabpanel")
-      .first()
+      .getByRole("tabpanel", { name: /Activities/i })
       .locator("p")
       .filter({ hasText: /^See more$/i })
       .first();
@@ -4213,8 +4210,7 @@ class PropertyModule {
    */
   activitySeeLessToggle() {
     return this.page
-      .getByRole("tabpanel")
-      .first()
+      .getByRole("tabpanel", { name: /Activities/i })
       .locator("p")
       .filter({ hasText: /^See less$/i })
       .first();

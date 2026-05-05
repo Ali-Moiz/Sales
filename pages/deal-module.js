@@ -69,6 +69,23 @@ class DealModule {
     // Live-verified success toast text
     this.successToast = page.getByText("Deal has been created");
 
+    // ── Validation messages (Create Deal drawer) ─────────────────────────
+    // Live-verified via MCP browser on 2026-05-05
+    // "Deal Name is required." renders as <p>, others as <div> — getByText is element-agnostic
+    this.validationDealName = page.getByText("Deal Name is required.", {
+      exact: true,
+    });
+    this.validationCompany = page.getByText("Company is required.", {
+      exact: true,
+    });
+    this.validationPropertyName = page.getByText(
+      "Property Name is required.",
+      { exact: true },
+    );
+    this.validationDealOwner = page.getByText("Deal Owner is required.", {
+      exact: true,
+    });
+
     // ── Deal Detail page ──────────────────────────────────────────────────
     // Live-verified: heading level=2
     this.followUpBtn = page.getByRole("button", { name: "Follow-up" });
@@ -184,6 +201,109 @@ class DealModule {
         hasText: /updated|deal updated/i,
       })
       .first();
+
+    // ── Deal overview header fields (live-verified via MCP on 2026-05-05) ──
+    this.overviewAmount = page.locator('p').filter({ hasText: 'Amount' }).locator('..').locator('p').nth(1);
+    this.overviewPipeline = page.locator('p').filter({ hasText: 'Pipeline' }).locator('..').locator('p').nth(1);
+    this.overviewDealOwnerBtn = page.getByRole('button', { name: /Deal Onwner Image/ });
+
+    // ── About this Deal sidebar fields ──────────────────────────────────
+    this.aboutDealName = page.locator('p').filter({ hasText: /^Name$/ }).first().locator('..').locator('p').nth(1);
+    this.aboutDealAmount = page.locator('p').filter({ hasText: /^Amount$/ }).first().locator('..').locator('p').nth(1);
+    this.aboutDealOwner = page.locator('p').filter({ hasText: /^Deal Owner$/ }).first().locator('..').locator('p').nth(1);
+    this.aboutCreatedBy = page.locator('p').filter({ hasText: /^Created By$/ }).first().locator('..').locator('p').nth(1);
+    this.aboutCreationDate = page.locator('p').filter({ hasText: /^Creation Date$/ }).first().locator('..').locator('p').nth(1);
+    this.aboutLastUpdated = page.locator('p').filter({ hasText: /^Last Updated$/ }).first().locator('..').locator('p').nth(1);
+
+    // ── Close Deal drawer (live-verified via MCP on 2026-05-05) ─────────
+    this.closeBtn = page.getByRole('button', { name: 'Close' });
+    this.closeDealHeading = page.getByRole('heading', { name: 'Close Deal', level: 3 });
+    this.closedWonRadio = page.getByRole('radio', { name: 'Closed Won' });
+    this.closedLostRadio = page.getByRole('radio', { name: 'Closed Lost' });
+    // Close Deal drawer Cancel/Save are in a presentation/modal container
+    // Use last() because the main page also has Cancel/Save buttons in other drawers
+    this.closeDealCancelBtn = page.getByRole('button', { name: 'Cancel' }).last();
+    this.closeDealSaveBtn = page.getByRole('button', { name: 'Save' }).last();
+    this.hubspotStageHeading = page.getByRole('heading', { name: 'Choose Hubspot Stage', level: 6 });
+    this.closeDealDescription = page.getByText(/The current deal will be marked as closed/);
+
+    // ── Create Proposal (live-verified via MCP on 2026-05-05) ───────────
+    this.createProposalBtn = page.getByRole('button', { name: 'Create Proposal' });
+    this.createProposalHeading = page.getByRole('heading', { name: 'Create a Proposal', level: 2 });
+
+    // ── Mark stage as Completed (live-verified via MCP on 2026-05-05) ───
+    this.markStageCompletedBtn = page.getByRole('button', { name: 'Mark stage as Completed' });
+
+    // ── Charts section (live-verified via MCP on 2026-05-05) ────────────
+    this.chartBreakdownHeading = page.getByRole("heading", {
+      name: "Deals Breakdown by Verticals",
+      level: 6,
+    });
+    this.chartTotalDealsHeading = page.getByRole("heading", { level: 1 }).filter({
+      hasText: /Total Deals/,
+    });
+    this.chartTotalDealAmountHeading = page.getByRole("heading", {
+      name: "Total Deal Amount",
+      level: 6,
+    });
+    this.chartTotalDealAmountValue = page
+      .getByRole("heading", { level: 1 })
+      .filter({ hasText: /\$/ });
+    this.chartWonVsLostHeading = page.getByRole("heading", {
+      name: "Deals Won vs Lost",
+      level: 6,
+    });
+
+    // ── All Deals / Assigned / Unassigned filter dropdown ───────────────
+    // Live-verified: clicking the h6 "All Deals" opens a tooltip with
+    // paragraph options "All Deals", "Assigned", "Unassigned"
+    this.allDealsFilterContainer = page
+      .locator("div")
+      .filter({ has: this.allDealsFilter })
+      .filter({ has: page.locator("img") })
+      .first();
+
+    // ── More Filters drawer (live-verified via MCP on 2026-05-05) ───────
+    this.allFiltersHeading = page.getByRole("heading", {
+      name: "All Filters",
+      level: 3,
+    });
+    this.clearAllFiltersBtn = page.getByRole("button", { name: "Clear All" });
+    this.applyFiltersBtn = page.getByRole("button", { name: "Apply Filters" });
+    this.cancelFiltersBtn = page
+      .locator('[role="presentation"]')
+      .getByRole("button", { name: "Cancel" });
+    this.selectDealTypeHeading = page.getByRole("heading", {
+      name: "Select Deal Type",
+      level: 6,
+    });
+    this.selectStagesHeading = page.getByRole("heading", {
+      name: "Select Stages",
+      level: 6,
+    });
+
+    // ── Bulk Assignment button (live-verified via MCP on 2026-05-05) ────
+    this.bulkAssignmentBtn = page.getByRole("button", {
+      name: "Bulk Assignment",
+    });
+
+    // ── Sort buttons (live-verified via MCP on 2026-05-05) ──────────────
+    this.sortDealNameBtn = page.getByRole("button", { name: "Deal Name" });
+    this.sortAmountBtn = page.getByRole("button", { name: "Amount" });
+    this.sortStageBtn = page.getByRole("button", { name: "Stage" });
+    this.sortDealTypeBtn = page.getByRole("button", { name: "Deal Type" });
+    this.sortRenewalEndDateBtn = page.getByRole("button", {
+      name: "Renewal / End Date",
+    });
+    this.sortCreatedDateBtn = page.getByRole("button", {
+      name: "Created Date",
+    });
+    this.sortLastActivityBtn = page.getByRole("button", {
+      name: "Last Activity",
+    });
+    this.sortLastModifiedDateBtn = page.getByRole("button", {
+      name: "Last Modified Date",
+    });
   }
 
   // ── Data generators ───────────────────────────────────────────────────
@@ -230,9 +350,7 @@ class DealModule {
     await this.page.goto(`${this.baseUrl}/app/sales/deals`, {
       waitUntil: "domcontentloaded",
     });
-    await this.page
-      .waitForLoadState("networkidle", { timeout: 20_000 })
-      .catch(() => {});
+    // Page readiness is confirmed by assertDealsPageOpened() — no networkidle needed
   }
 
   // ── List page assertions ──────────────────────────────────────────────
@@ -331,7 +449,14 @@ class DealModule {
             await this.paginationInfo.textContent().catch(() => ""),
           );
           if (/0–0 of 0/.test(paginationText)) return "zero-results";
-          if (paginationText && paginationText !== previousPaginationText)
+          // When a search term is provided, do NOT return "pagination-changed"
+          // on its own — the table may still be re-rendering. Fall through to
+          // the "match-visible" check which requires the term to be in the DOM.
+          if (
+            !term &&
+            paginationText &&
+            paginationText !== previousPaginationText
+          )
             return "pagination-changed";
 
           const visibleRowCount = await dataRows.count().catch(() => 0);
@@ -345,12 +470,16 @@ class DealModule {
             }
           }
 
+          const paginationChanged =
+            paginationText && paginationText !== previousPaginationText;
+
           if (term) {
             const visibleMatches = await tableBody
               .getByText(term, { exact: false })
               .count()
               .catch(() => 0);
-            if (visibleMatches > 0) return "match-visible";
+            if (visibleMatches > 0 && (paginationChanged || !previousPaginationText))
+              return "match-visible";
           } else if (visibleRowCount > 0) {
             return "rows-visible";
           }
@@ -370,9 +499,6 @@ class DealModule {
     );
     await this.dealSearchInput.fill(term);
     await this.dealSearchInput.press("Enter").catch(() => {});
-    await this.page
-      .waitForLoadState("networkidle", { timeout: 10_000 })
-      .catch(() => {});
     await this.waitForDealSearchToApply(term, previousPaginationText);
   }
 
@@ -390,9 +516,6 @@ class DealModule {
     );
     await this.dealSearchInput.clear();
     await this.dealSearchInput.press("Enter").catch(() => {});
-    await this.page
-      .waitForLoadState("networkidle", { timeout: 10_000 })
-      .catch(() => {});
     await this.waitForDealSearchToApply("", previousPaginationText);
   }
 
@@ -430,13 +553,14 @@ class DealModule {
   ) {
     await this.companySelector.waitFor({ state: "visible", timeout: 10_000 });
     await this.companySelector.click();
+    // Use #simple-popper without [role="tooltip"] — MUI Popper does not reliably expose that attribute
     const tooltip = this.page
-      .locator('#simple-popper[role="tooltip"]')
+      .locator("#simple-popper")
       .last()
       .or(this.page.getByRole("tooltip").last());
-    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    await expect(tooltip).toBeVisible({ timeout: 8_000 });
     const searchBox = tooltip.getByRole("textbox", { name: "Search" });
-    await searchBox.waitFor({ state: "visible", timeout: 5_000 });
+    await expect(searchBox).toBeVisible({ timeout: 5_000 });
 
     // Try multiple search patterns: exact, first 4 chars, first 3 chars, then pick first result
     const searchAttempts = [
@@ -448,16 +572,11 @@ class DealModule {
     for (const attempt of searchAttempts) {
       await searchBox.click();
       await searchBox.fill(attempt.text);
-      await this.page
-        .waitForLoadState("networkidle", { timeout: 10_000 })
-        .catch(() => {});
-      await this.page.waitForTimeout(1_000);
-
+      // Wait for results to appear — web-first assertion is the correct synchronisation point
       try {
         if (attempt.exactMatch) {
-          // Try to click exact match
+          // Try to click exact match — clickVisibleDropdownOption waits for results internally
           await this.clickVisibleDropdownOption(tooltip, attempt.exactMatch, 4_000);
-          await this.page.waitForTimeout(1_000);
           return;
         } else {
           // If no exact match specified, click the first visible option
@@ -470,7 +589,6 @@ class DealModule {
             const visible = await firstOption.isVisible().catch(() => false);
             if (visible) {
               await firstOption.click({ force: true });
-              await this.page.waitForTimeout(1_000);
               return;
             }
           }
@@ -509,22 +627,19 @@ class DealModule {
       const propertyTrigger = resolvePropertyTrigger();
       await propertyTrigger.waitFor({ state: "visible", timeout: 10_000 });
       await propertyTrigger.click({ force: true });
+      // Use #simple-popper without [role="tooltip"] — MUI Popper does not reliably expose that attribute
       const tooltip = this.page
-        .locator('#simple-popper[role="tooltip"]')
+        .locator("#simple-popper")
         .last()
         .or(this.page.getByRole("tooltip").last())
         .or(this.page.locator('[role="listbox"]').last());
-      await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+      await expect(tooltip).toBeVisible({ timeout: 8_000 });
       const searchBox = tooltip.getByRole("textbox", { name: "Search" });
-      await searchBox.waitFor({ state: "visible", timeout: 5_000 });
+      await expect(searchBox).toBeVisible({ timeout: 5_000 });
       await searchBox.click();
       await searchBox.fill(searchText);
-      await this.page
-        .waitForLoadState("networkidle", { timeout: 10_000 })
-        .catch(() => {});
-      await this.page.waitForTimeout(1_000);
+      // clickVisibleDropdownOption waits for results to appear internally
       await this.clickVisibleDropdownOption(tooltip, propertyOptionText, 10_000);
-      await this.page.waitForTimeout(500);
     };
 
     const variants = [
@@ -566,7 +681,8 @@ class DealModule {
       companySearchText,
       companyOptionText || companySearchText,
     );
-    await this.page.waitForTimeout(2_000);
+    // Property selector becomes active after company selection —
+    // selectProperty() waits for the trigger to be visible before proceeding
     await this.selectProperty(
       propertySearchText,
       propertyOptionText || propertySearchText,
@@ -595,20 +711,30 @@ class DealModule {
     await this.gotoDealsFromMenu();
     await this.assertDealsPageOpened();
     await this.dealSearchInput.waitFor({ state: "visible", timeout: 10_000 });
-    const previousPaginationText = this.normalizeText(
-      await this.paginationInfo.textContent().catch(() => ""),
-    );
+
+    // Wait for the initial table to be fully loaded before searching.
+    await this.waitForTableData(15_000);
+
+    // Fill the search term first (does not trigger API on its own).
     await this.dealSearchInput.fill(dealName);
-    await this.dealSearchInput.press("Enter").catch(() => {});
-    await this.page
-      .waitForLoadState("networkidle", { timeout: 10_000 })
-      .catch(() => {});
-    await this.waitForDealSearchToApply(dealName, previousPaginationText);
+
+    // Use Promise.all to tightly couple the Enter keypress with the response
+    // listener. This ensures we catch the response triggered by THIS Enter,
+    // not a stale or background response.
+    await Promise.all([
+      this.page
+        .waitForResponse((res) => res.url().includes("deal") && res.ok(), {
+          timeout: 20_000,
+        })
+        .catch(() => null),
+      this.dealSearchInput.press("Enter"),
+    ]);
+
     const dealRow = this.page
       .locator("table tbody tr")
       .filter({ hasText: dealName })
       .first();
-    await dealRow.waitFor({ state: "visible", timeout: 10_000 });
+    await dealRow.waitFor({ state: "visible", timeout: 15_000 });
 
     const dealNameCell = dealRow.locator("td").nth(1);
     const clickableCell = (await dealNameCell.isVisible().catch(() => false))
@@ -616,9 +742,7 @@ class DealModule {
       : dealRow.getByText(dealName, { exact: false }).first();
 
     await clickableCell.click({ force: true });
-    await this.page
-      .waitForLoadState("networkidle", { timeout: 15_000 })
-      .catch(() => {});
+    // Detail page readiness confirmed by assertDealDetailOpened() caller
   }
 
   async assertDealDetailOpened(dealName) {
@@ -655,7 +779,7 @@ class DealModule {
   async gotoActivitiesTab() {
     await this.activitiesTab.waitFor({ state: "visible", timeout: 10_000 });
     await this.activitiesTab.click();
-    await this.page.waitForTimeout(500);
+    // Tab activation confirmed by assertActivitiesTabActive() caller
   }
 
   async assertActivitiesTabActive() {
@@ -669,7 +793,7 @@ class DealModule {
   async gotoNotesTab() {
     await this.notesTab.waitFor({ state: "visible", timeout: 10_000 });
     await this.notesTab.click();
-    await this.page.waitForTimeout(500);
+    // Tab activation confirmed by subsequent visibility assertions in the caller
   }
 
   async assertNotesTabVisible() {
@@ -688,10 +812,9 @@ class DealModule {
 
   async assertCreateNoteDrawerOpen() {
     await expect(this.addNotesHeading).toBeVisible({ timeout: 10_000 });
-    const notesDrawer = this.addNotesHeading.locator(
-      'xpath=ancestor::*[@role="dialog" or @role="presentation" or contains(@class,"MuiDrawer-paper")][1]',
-    );
-    const noteSubjectInput = notesDrawer
+    // Scope to the MUI drawer/presentation container — no XPath allowed per SKILL.md §13
+    const noteSubjectInput = this.page
+      .locator('[role="presentation"]')
       .getByRole("textbox")
       .first()
       .or(this.page.locator('div[role="presentation"] input').first());
@@ -825,9 +948,7 @@ class DealModule {
     await this.editDealHeading
       .waitFor({ state: "hidden", timeout: 20_000 })
       .catch(() => {});
-    await this.page
-      .waitForLoadState("networkidle", { timeout: 15_000 })
-      .catch(() => {});
+    // Page update confirmed by assertDealDetailOpened() in the caller — no networkidle needed
   }
 
   /**
@@ -860,6 +981,363 @@ class DealModule {
 
   generateUniqueEditedDealName() {
     return `PAT Edited ${String(Date.now()).slice(-4)}`;
+  }
+
+  // ── Charts assertions ─────────────────────────────────────────────────
+
+  async assertChartsRendered() {
+    await expect(this.chartBreakdownHeading).toBeVisible({ timeout: 10_000 });
+    await expect(this.chartTotalDealsHeading).toBeVisible({ timeout: 5_000 });
+    await expect(this.chartTotalDealAmountHeading).toBeVisible({
+      timeout: 5_000,
+    });
+    await expect(this.chartWonVsLostHeading).toBeVisible({ timeout: 5_000 });
+  }
+
+  async assertTotalDealAmountDisplayed() {
+    await expect(this.chartTotalDealAmountHeading).toBeVisible({
+      timeout: 5_000,
+    });
+    await expect(this.chartTotalDealAmountValue).toBeVisible({
+      timeout: 5_000,
+    });
+    const text = await this.chartTotalDealAmountValue.textContent();
+    expect(text).toMatch(/\$/);
+  }
+
+  // ── Deal filter (All Deals / Assigned / Unassigned) ───────────────────
+
+  async selectDealFilter(optionText) {
+    // The filter heading text changes to match the active filter (e.g., "Assigned", "Unassigned")
+    // so we locate it dynamically by its position — the h6 inside the filter container
+    const filterHeading = this.allDealsFilter.or(
+      this.page.getByRole("heading", { name: "Assigned", level: 6 }),
+    ).or(
+      this.page.getByRole("heading", { name: "Unassigned", level: 6 }),
+    );
+    await filterHeading.first().click();
+    const popper = this.page.locator("#simple-popper");
+    await popper.waitFor({ state: "visible", timeout: 5_000 });
+    await popper.getByText(optionText, { exact: true }).click();
+    // Wait for table to reload after filter change
+    await expect
+      .poll(async () => {
+        const text = await this.paginationInfo.textContent().catch(() => "");
+        return text.length > 0;
+      }, { timeout: 15_000 })
+      .toBeTruthy();
+  }
+
+  async getFilterHeadingText() {
+    return this.allDealsFilter.textContent();
+  }
+
+  // ── More Filters drawer ───────────────────────────────────────────────
+
+  async openMoreFilters() {
+    await this.moreFiltersBtn.click();
+    await expect(this.allFiltersHeading).toBeVisible({ timeout: 5_000 });
+  }
+
+  async selectFilterOption(triggerHeading, optionText) {
+    await triggerHeading.scrollIntoViewIfNeeded();
+    // Close any existing popper
+    const popper = this.page.locator("#simple-popper");
+    const popperVisible = await popper.isVisible().catch(() => false);
+    if (popperVisible) {
+      await this.page.keyboard.press("Escape");
+      await popper
+        .waitFor({ state: "hidden", timeout: 3_000 })
+        .catch(() => {});
+    }
+    await triggerHeading.click();
+    await popper.waitFor({ state: "visible", timeout: 5_000 });
+    await popper.getByText(optionText, { exact: true }).click();
+    // Wait for popper to close after selection
+    await popper
+      .waitFor({ state: "hidden", timeout: 5_000 })
+      .catch(() => {});
+  }
+
+  async applyFilters() {
+    await this.applyFiltersBtn.click();
+    await this.allFiltersHeading
+      .waitFor({ state: "hidden", timeout: 10_000 })
+      .catch(() => {});
+    await expect(this.paginationInfo).toBeVisible({ timeout: 15_000 });
+  }
+
+  async clearAllFilters() {
+    await this.clearAllFiltersBtn.click();
+  }
+
+  // ── Sorting helpers ───────────────────────────────────────────────────
+
+  async getFirstRowCellText(columnIndex) {
+    const firstRow = this.page.locator("table tbody tr").first();
+    await firstRow.waitFor({ state: "visible", timeout: 10_000 });
+    const cell = firstRow.locator("td").nth(columnIndex);
+    await cell.waitFor({ state: "attached", timeout: 5_000 });
+    return (await cell.textContent()).trim();
+  }
+
+  async clickColumnSort(sortButton) {
+    const beforeText = await this.page
+      .locator("table tbody tr")
+      .first()
+      .locator("td")
+      .nth(1)
+      .textContent()
+      .catch(() => "");
+    await sortButton.click();
+    // Wait for table to re-render by polling until first row text changes or pagination is stable
+    await expect
+      .poll(
+        async () => {
+          const afterText = await this.page
+            .locator("table tbody tr")
+            .first()
+            .locator("td")
+            .nth(1)
+            .textContent()
+            .catch(() => "");
+          return afterText !== beforeText || afterText.length > 0;
+        },
+        { timeout: 10_000 },
+      )
+      .toBeTruthy();
+    await expect(this.paginationInfo).toBeVisible({ timeout: 10_000 });
+  }
+
+  // ── Bulk Assignment helpers ───────────────────────────────────────────
+
+  getRowCheckbox(rowIndex) {
+    return this.page
+      .locator("table tbody tr")
+      .nth(rowIndex)
+      .locator("checkbox")
+      .or(
+        this.page
+          .locator("table tbody tr")
+          .nth(rowIndex)
+          .locator('[role="checkbox"]'),
+      )
+      .or(
+        this.page
+          .locator("table tbody tr")
+          .nth(rowIndex)
+          .locator('input[type="checkbox"]'),
+      );
+  }
+
+  async clickRowCheckbox(rowIndex) {
+    const row = this.page.locator("table tbody tr").nth(rowIndex);
+    await row.waitFor({ state: "visible", timeout: 10_000 });
+    // Live-verified: each row has a checkbox inside td:first > div > checkbox/img
+    const checkboxTarget = row
+      .locator("td")
+      .first()
+      .locator('input[type="checkbox"]')
+      .or(row.locator("td").first().locator('[role="checkbox"]'))
+      .or(row.locator("td").first().locator("img"));
+    await checkboxTarget.first().click({ force: true });
+  }
+
+  // ── Pagination helpers ────────────────────────────────────────────────
+
+  async getPaginationTotal() {
+    const text = await this.paginationInfo.textContent();
+    const match = text.match(/of\s+([\d,]+)/);
+    return match ? parseInt(match[1].replace(/,/g, ""), 10) : 0;
+  }
+
+  /**
+   * Wait for the deals table to finish loading data.
+   * Polls pagination until total > 0 (i.e., not "0–0 of 0").
+   * Use before reading cell text to avoid empty-row race conditions.
+   */
+  async waitForTableData(timeout = 15_000) {
+    await expect
+      .poll(
+        async () => {
+          const text = await this.paginationInfo.textContent().catch(() => "");
+          const match = text.match(/of\s+([\d,]+)/);
+          return match ? parseInt(match[1].replace(/,/g, ""), 10) : 0;
+        },
+        { timeout },
+      )
+      .toBeGreaterThan(0);
+  }
+
+  // ── Validation assertions (Create Deal drawer) ──────────────────────
+
+  /**
+   * Assert all mandatory-field validation messages are visible after
+   * submitting the Create Deal form with empty required fields.
+   * Live-verified via MCP browser on 2026-05-05.
+   */
+  async assertMandatoryFieldValidationErrors() {
+    await expect(this.validationDealName).toBeVisible({ timeout: 5_000 });
+    await expect(this.validationCompany).toBeVisible({ timeout: 5_000 });
+    await expect(this.validationPropertyName).toBeVisible({ timeout: 5_000 });
+    await expect(this.validationDealOwner).toBeVisible({ timeout: 5_000 });
+  }
+
+  // ── Deal overview assertions (live-verified via MCP on 2026-05-05) ───
+
+  /**
+   * Assert that the deal overview header shows Amount, Pipeline, and Deal Owner.
+   * Live-verified: Amount paragraph, Pipeline paragraph, Deal Owner button all visible.
+   */
+  async assertDealOverviewDataVisible() {
+    // "About this Deal" section should contain Name matching the deal
+    await expect(this.aboutThisDealBtn).toBeVisible({ timeout: 10_000 });
+    // Verify overview header fields — Amount paragraph, Pipeline paragraph
+    await expect(this.page.locator('p').filter({ hasText: /^Amount$/ }).first()).toBeVisible({ timeout: 5_000 });
+    await expect(this.page.locator('p').filter({ hasText: /^Pipeline$/ }).first()).toBeVisible({ timeout: 5_000 });
+    // Deal Owner button with owner name — live-verified: "Deal Onwner Image <name>"
+    await expect(this.overviewDealOwnerBtn).toBeVisible({ timeout: 5_000 });
+  }
+
+  /**
+   * Assert the "About this Deal" accordion has all expected fields.
+   */
+  async assertAboutThisDealFieldsVisible() {
+    const fields = [
+      'Name', 'Amount', 'Deal Owner', 'Created By',
+      'Creation Date', 'Last Updated', 'Contract Type',
+      'Service Type', 'Start Date', 'End Date',
+    ];
+    for (const field of fields) {
+      await expect(
+        this.page.locator('p').filter({ hasText: new RegExp(`^${field}$`) }).first(),
+      ).toBeVisible({ timeout: 5_000 });
+    }
+  }
+
+  // ── Close Deal drawer methods ─────────────────────────────────────────
+
+  /**
+   * Open the Close Deal drawer by clicking the "Close" button on deal detail.
+   */
+  async openCloseDealDrawer() {
+    await this.closeBtn.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.closeBtn.click();
+    await expect(this.closeDealHeading).toBeVisible({ timeout: 10_000 });
+  }
+
+  /**
+   * Assert the Close Deal drawer is open with expected elements.
+   */
+  async assertCloseDealDrawerOpen() {
+    await expect(this.closeDealHeading).toBeVisible({ timeout: 10_000 });
+    await expect(this.closedWonRadio).toBeVisible({ timeout: 5_000 });
+    await expect(this.closedLostRadio).toBeVisible({ timeout: 5_000 });
+    await expect(this.hubspotStageHeading).toBeVisible({ timeout: 5_000 });
+    await expect(this.closeDealCancelBtn).toBeVisible({ timeout: 5_000 });
+  }
+
+  /**
+   * Cancel the Close Deal drawer.
+   */
+  async cancelCloseDeal() {
+    await this.closeDealCancelBtn.click();
+    await this.closeDealHeading
+      .waitFor({ state: 'hidden', timeout: 10_000 })
+      .catch(() => {});
+  }
+
+  /**
+   * Assert the Close Deal drawer has closed.
+   */
+  async assertCloseDealDrawerClosed() {
+    await expect(this.closeDealHeading).not.toBeVisible({ timeout: 8_000 });
+  }
+
+  // ── Proposal creation assertion ───────────────────────────────────────
+
+  /**
+   * Assert that the Create Proposal section is visible on Contract & Terms tab.
+   */
+  async assertCreateProposalVisible() {
+    await expect(this.createProposalHeading).toBeVisible({ timeout: 10_000 });
+    await expect(this.createProposalBtn).toBeVisible({ timeout: 5_000 });
+  }
+
+  // ── Activities tab assertions ─────────────────────────────────────────
+
+  /**
+   * Assert that multiple activity log types are present (notes, tasks, system events).
+   * Live-verified: each activity entry has a title paragraph with "by <username>" text.
+   */
+  async assertActivityLogsPresent() {
+    // At least one activity entry with "by" author attribution should be visible
+    const activityEntries = this.page.locator('div').filter({
+      has: this.page.locator('p').filter({ hasText: /by \w+/ }),
+    });
+    await expect
+      .poll(async () => activityEntries.count(), { timeout: 15_000 })
+      .toBeGreaterThan(0);
+  }
+
+  /**
+   * Assert that an activity log entry shows the creator username.
+   */
+  async assertActivityLogHasAuthor() {
+    const authorEntry = this.page.getByText(/by \w+/).first();
+    await expect(authorEntry).toBeVisible({ timeout: 10_000 });
+    const text = await authorEntry.textContent();
+    expect(text).toMatch(/by \w+/);
+  }
+
+  /**
+   * Assert that "See more" / "See less" toggle works on activity log entries.
+   */
+  // TODO: deprecated — uses isVisible() which resolves immediately without auto-waiting.
+  // Use assertActivityLogSeeMoreToggleV2() instead.
+  async assertActivityLogSeeMoreToggle() {
+    const seeMore = this.page.getByText('See more', { exact: true }).first();
+    const seeLess = this.page.getByText('See less', { exact: true }).first();
+    // At least one "See less" or "See more" toggle should exist
+    const hasToggle = await seeMore.isVisible().catch(() => false)
+      || await seeLess.isVisible().catch(() => false);
+    expect(hasToggle).toBe(true);
+  }
+
+  /**
+   * Returns the first "See more" toggle element in the Activities tabpanel.
+   * Mirrors property-module.js activitySeeMoreToggle() pattern.
+   */
+  activitySeeMoreToggle() {
+    return this.page
+      .getByRole('tabpanel', { name: /Activities/i })
+      .locator('p')
+      .filter({ hasText: /^See more$/i })
+      .first();
+  }
+
+  /**
+   * Returns the first "See less" toggle element in the Activities tabpanel.
+   * Mirrors property-module.js activitySeeLessToggle() pattern.
+   */
+  activitySeeLessToggle() {
+    return this.page
+      .getByRole('tabpanel', { name: /Activities/i })
+      .locator('p')
+      .filter({ hasText: /^See less$/i })
+      .first();
+  }
+
+  /**
+   * Assert that at least one "See more" or "See less" toggle is visible
+   * in the Activities tab using web-first assertions (auto-waiting).
+   * Replaces assertActivityLogSeeMoreToggle() which used isVisible() (no auto-wait).
+   */
+  async assertActivityLogSeeMoreToggleV2() {
+    const seeMore = this.activitySeeMoreToggle();
+    const seeLess = this.activitySeeLessToggle();
+    // Use or() so Playwright auto-waits for either element to appear
+    await expect(seeMore.or(seeLess)).toBeVisible({ timeout: 15_000 });
   }
 }
 

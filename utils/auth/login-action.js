@@ -37,7 +37,7 @@ async function gotoBaseUrl(page) {
     .catch(() => {});
 }
 
-async function performLoginAttempt(page) {
+async function performLoginAttempt(page, creds = env) {
   await enableSliderImageBlocking(page);
 
   try {
@@ -83,8 +83,8 @@ async function performLoginAttempt(page) {
     }
 
     if (await appEmail.isVisible().catch(() => false)) {
-      await appEmail.fill(env.email);
-      await appPassword.fill(env.password);
+      await appEmail.fill(creds.email);
+      await appPassword.fill(creds.password);
 
       const submitAttempts = [
         async () => appLogIn.click(),
@@ -115,8 +115,8 @@ async function performLoginAttempt(page) {
       /auth0\.com/.test(page.url()) ||
       (await auth0User.isVisible().catch(() => false))
     ) {
-      await auth0User.fill(env.email);
-      await auth0Pass.fill(env.password);
+      await auth0User.fill(creds.email);
+      await auth0Pass.fill(creds.password);
       if (/auth0\.com/.test(page.url())) {
         const authSubmitAttempts = [
           async () => auth0Submit.click({ timeout: 5_000 }),

@@ -37,7 +37,6 @@ test.describe('Contact Module', () => {
     await contactPage.navigateDirectly();
     await contactPage.createContact(VALID_CONTACT);
     createdContactFullName = `${VALID_CONTACT.firstName} ${VALID_CONTACT.lastName}`;
-    process.env.CREATED_CONTACT_NAME = createdContactFullName;
     writeCreatedContactName(createdContactFullName);
     await contactPage.navigateDirectly();
     return createdContactFullName;
