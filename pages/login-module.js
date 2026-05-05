@@ -93,6 +93,7 @@ class LoginModule {
     await this.forgotPasswordLink.click();
   }
 
+  // TODO: deprecated — jss51 and /user/i selectors are stale, use openUserMenuV2
   async openUserMenu() {
     const candidates = [
       this.userMenuAvatar,
@@ -142,6 +143,20 @@ class LoginModule {
   async logout() {
     await this.openUserMenu();
     await this.logoutButton.waitFor({ state: "visible", timeout: 10_000 });
+    await this.logoutButton.click();
+  }
+
+  // Verified via MCP DOM snapshot 2026-05-04 — username heading (level 6) inside banner
+  async openUserMenuV2() {
+    const banner = this.page.getByRole("banner");
+    const userHeading = banner.getByRole("heading", { level: 6 }).first();
+    await userHeading.waitFor({ state: "visible", timeout: 10_000 });
+    await userHeading.click();
+    await this.logoutButton.waitFor({ state: "visible", timeout: 5_000 });
+  }
+
+  async logoutV2() {
+    await this.openUserMenuV2();
     await this.logoutButton.click();
   }
 

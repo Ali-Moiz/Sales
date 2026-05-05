@@ -11,14 +11,15 @@ Orchestrates test generation for the Sales CRM. Load the **`playwright-test-stan
 
 ## Non-Negotiable Rules
 
-1. **Describe title = short summary** — never concatenated requirement strings. Each requirement string appears as `test()` title, `test.step()` title, or `//` comment. (Skill §9.4)
-2. **TC names = user's EXACT requirement text** — never shortened or paraphrased. (Skill §9.5)
-3. **TC codes come from the doc file, never invented.** (Skill §9.5)
-4. **Playwright MCP is REQUIRED for selector discovery only.** Halt at Phase 0 if not connected.
-5. **Doc-review pause between Phase 3 and Phase 4 is mandatory.** Do NOT auto-resume.
-6. **All tests must pass headless before delivery.** Run via CLI (`npx playwright test`), NOT MCP browser. Failures trigger auto-fix (Skill §12).
-7. **Already-implemented requirements are NOT skipped.** Update title, add missing assertions, add `//` comment.
-8. **Token budget:** Prefer CLI test runs over MCP browser interactions. MCP is for selector discovery (Phase 0) and targeted debugging only — never for running test suites.
+1. **Single session, single window.** All tests in a spec file share ONE browser context, ONE page, ONE login. Use `beforeAll` for setup, `beforeEach` for navigation reset. Never create separate contexts per sub-describe. (Skill §9.1)
+2. **Describe title = short summary** — never concatenated requirement strings. Each requirement string appears as `test()` title, `test.step()` title, or `//` comment. (Skill §9.3)
+3. **TC names = user's EXACT requirement text** — never shortened or paraphrased. (Skill §9.4)
+4. **TC codes come from the doc file, never invented.** (Skill §9.4)
+5. **Playwright MCP is REQUIRED for selector discovery only.** Halt at Phase 0 if not connected.
+6. **Doc-review pause between Phase 3 and Phase 4 is mandatory.** Do NOT auto-resume.
+7. **All tests must pass headless before delivery.** Run via CLI (`npx playwright test`), NOT MCP browser. Failures trigger auto-fix (Skill §12).
+8. **Already-implemented requirements are NOT skipped.** Update title, add missing assertions, add `//` comment.
+9. **Token budget:** Prefer CLI test runs over MCP browser interactions. MCP is for selector discovery (Phase 0) and targeted debugging only — never for running test suites.
 
 ---
 
@@ -88,9 +89,10 @@ Add new selectors to constructor, new methods below existing ones. Never modify/
 
 ## Phase 5: Generate Tests
 
-1. Structure per Skill §9: describe title = short summary; requirement strings in `test()`/`test.step()` titles.
+1. Structure per Skill §9: single session pattern (§9.1), describe title = short summary (§9.3); requirement strings in `test()`/`test.step()` titles.
 2. NEW requirements → full test/step. ALREADY IMPLEMENTED → update title + add missing assertions + add `//` comment.
-3. Apply: locator-first selectors (§2), event-based waits (§5), critical-point assertions (§7), unique test data (§6), `test.step()` logging, tags `@smoke`/`@regression` (§9.7).
+3. Apply: single session/single window (§9.1), locator-first selectors (§2), event-based waits (§5), critical-point assertions (§7), unique test data (§6), `test.step()` logging, tags `@smoke`/`@regression` (§9.5).
+4. Do NOT add per-test `goto` to the module listing page — the parent `beforeEach` handles state reset (§9.6).
 
 ---
 
@@ -112,25 +114,24 @@ Run tests via **CLI** (`npx playwright test --grep "TC-CODE"` via Bash tool), NO
 
 ---
 
-## Phase 8: Auto-Fix (Token-Efficient)
+## Phase 8: Delegate Failures to Playwright Debugger
 
-Hard cap: **2 attempts per failing test.** Prioritize CLI error messages over MCP exploration.
+When any test fails in Phase 7, **do NOT attempt to fix it yourself.** Instead, delegate to the **Playwright Debugger** agent.
 
-```
-Attempt 1 — Read CLI error output. Fix based on error message alone (selector typo, missing await, wrong locator).
-  Re-run via CLI.
-  ↓ still failing?
-Attempt 2 — Use MCP DOM snapshot on the SPECIFIC failing element only (not full page). Fix selector/wait.
-  Re-run via CLI.
-  ↓ still failing?
-Auto-mark test.fail() with TODO. No further attempts, no user pause.
-```
+1. Capture the full CLI error output from Phase 7 (test name, error message, stack trace, line numbers).
+2. Spawn the `Playwright Debugger` agent via the **Agent tool** with:
+   - The complete failure log as input.
+   - The spec file path and POM file path for context.
+   - A brief summary of what the test was trying to do.
+3. Wait for the Playwright Debugger agent to complete its fix.
+4. After the debugger agent finishes, re-run the fixed tests via CLI (`npx playwright test --grep "TC-CODE"`) to confirm the fix.
+5. If tests still fail after the debugger's fix, report the remaining failures to the user — do NOT retry or attempt further fixes.
 
 **Rules:**
-- Always re-run via CLI, never MCP browser.
-- MCP snapshots: only in attempt 2, only on the specific area of failure — never full-page snapshots.
-- Never bump timeouts to fix flakiness. Investigate root cause.
-- `test.fail()` TODO format per Skill §12.
+- Never self-fix failing tests. Always delegate to the Playwright Debugger agent.
+- Pass the raw CLI error output — do not summarize or truncate it.
+- One debugger agent call per batch of failures is sufficient (include all failure logs together).
+- Never bump timeouts to fix flakiness. The debugger agent will investigate root causes.
 
 ---
 

@@ -522,10 +522,13 @@ class PropertyModule {
       .first()
       .or(drawer.getByRole("button", { name: /^close$/i }).first());
     await closeBtn.waitFor({ state: "visible", timeout: 8_000 });
-    await closeBtn.click({ force: true });
-    await this.createPropertyHeading
-      .waitFor({ state: "hidden", timeout: 12_000 })
-      .catch(() => {});
+    // Do NOT use force:true — it bypasses focus/blur sequencing and prevents the
+    // React onClick handler from firing when an input field is focused (MCP-verified 2026-05-04).
+    await closeBtn.click();
+    await this.createPropertyHeading.waitFor({
+      state: "hidden",
+      timeout: 12_000,
+    });
   }
 
   /**
@@ -613,10 +616,13 @@ class PropertyModule {
       .or(modal.locator('a[href="#"]').first())
       .or(modal.locator("button:has(svg)").first());
     await closeBtn.waitFor({ state: "visible", timeout: 10_000 });
-    await closeBtn.click({ force: true });
-    await this.createNewCompanyHeading()
-      .waitFor({ state: "hidden", timeout: 10_000 })
-      .catch(() => {});
+    // Do NOT use force:true — it bypasses focus/blur sequencing and can
+    // prevent the React onClick handler from firing (MCP-verified 2026-05-04).
+    await closeBtn.click();
+    await this.createNewCompanyHeading().waitFor({
+      state: "hidden",
+      timeout: 10_000,
+    });
   }
 
   /**
@@ -2420,7 +2426,19 @@ class PropertyModule {
         .catch(() => {}),
       this.propertySearchInput.fill(propertyName),
     ]);
-    const propertyRow = this.page.locator("table tbody tr").first();
+    // Find the row whose name cell exactly matches the property name.
+    // The search is substring-based so multiple rows may match (e.g. "PAT 177789"
+    // matches both "PAT 1777898582375" and "PAT 1777899307052"). Locate the exact
+    // row to avoid clicking the wrong property.
+    const allRows = this.page.locator("table tbody tr");
+    await allRows.first().waitFor({ state: "visible", timeout: 10_000 });
+    // Look for a row that contains a cell with the exact property name text
+    const exactRow = allRows.filter({
+      has: this.page.locator("td").getByText(propertyName, { exact: true }),
+    });
+    // Fall back to first row if exact match not found (e.g. name truncated in the UI)
+    const hasExact = await exactRow.first().isVisible().catch(() => false);
+    const propertyRow = hasExact ? exactRow.first() : allRows.first();
     await propertyRow.waitFor({ state: "visible", timeout: 10_000 });
     const propertyNameCell = propertyRow.locator("td").nth(1);
     await expect(propertyNameCell).toContainText(propertyName, {
@@ -2434,6 +2452,9 @@ class PropertyModule {
     const clickTarget = propertyNameCell
       .getByText(propertyName, { exact: false })
       .first();
+    // Wait for the text element to be fully visible before clicking — search results
+    // can render skeleton rows where the DOM node exists but isn't painted yet.
+    await expect(clickTarget).toBeVisible({ timeout: 10_000 });
     await Promise.all([
       this.page.waitForURL(/\/app\/sales\/locations\/location\//, {
         timeout: 25_000,
@@ -3543,7 +3564,21 @@ class PropertyModule {
     await trigger.waitFor({ state: "visible", timeout: 8_000 });
     const tooltip = this.referredByTooltip();
     for (let attempt = 0; attempt < 2; attempt++) {
-      await trigger.click({ force: true });
+      // Dispatch click on the h6's immediate parent (bypasses overlay interception)
+      await this.page.evaluate(() => {
+        const allH6 = document.querySelectorAll("h6");
+        for (const h6 of allH6) {
+          if (/Select Property \/ Property Name/i.test(h6.textContent.trim())) {
+            const parent = h6.parentElement;
+            if (parent) {
+              parent.dispatchEvent(
+                new MouseEvent("click", { bubbles: true, cancelable: true }),
+              );
+              return;
+            }
+          }
+        }
+      });
       const visible = await tooltip
         .waitFor({ state: "visible", timeout: 4_000 })
         .then(() => true)
@@ -4231,6 +4266,68 @@ class PropertyModule {
     const tab = this.page.getByRole("tab", { name: "Emails" });
     await tab.click();
     await expect(tab).toHaveAttribute("aria-selected", "true", { timeout: 8_000 });
+  }
+
+  /**
+   * Returns the Emails tabpanel locator.
+   */
+  emailsPanel() {
+    return this.page.getByRole("tabpanel", { name: "Emails" });
+  }
+
+  /**
+   * Compose and send a new email from the Emails tab.
+   * Assumes the Emails tab is already active.
+   */
+  async composeAndSendEmail({ to, subject, body }) {
+    await this.emailsPanel()
+      .getByRole("button", { name: "New Email" })
+      .click();
+    await expect(
+      this.page.getByRole("heading", { name: "New Message", level: 3 }),
+    ).toBeVisible({ timeout: 8_000 });
+    // Fill the To field if no recipients are pre-populated
+    const toInput = this.page.getByRole("textbox", { name: "To", exact: true });
+    if (to) {
+      await toInput.fill(to);
+      await toInput.press("Enter");
+    }
+    await this.page
+      .getByRole("textbox", { name: "Subject Description" })
+      .fill(subject);
+    const editor = this.page.getByRole("textbox", { name: "rdw-editor" });
+    await editor.click();
+    await editor.pressSequentially(body, { delay: 0 });
+    await this.page.getByRole("button", { name: "Send Email" }).click();
+    await expect(
+      this.page.getByText("Email has been sent successfully!"),
+    ).toBeVisible({ timeout: 10_000 });
+  }
+
+  /**
+   * Switch the email direction filter (Received / All / Sent).
+   * Clicks the direction dropdown (the one showing "Received", "All", or "Sent")
+   * and selects the given option from the tooltip.
+   */
+  async switchEmailDirectionFilter(option) {
+    const panel = this.emailsPanel();
+    // The direction dropdown is the heading that shows "Received" / "All" / "Sent"
+    const currentFilter = panel
+      .getByRole("heading", { level: 6 })
+      .filter({ hasText: /^(Received|All|Sent)$/ });
+    await currentFilter.click();
+    const tooltip = this.page.getByRole("tooltip");
+    await expect(tooltip).toBeVisible({ timeout: 5_000 });
+    await tooltip.getByText(option, { exact: true }).click();
+  }
+
+  /**
+   * Returns the first email list item's preview text (truncated body).
+   */
+  emailListPreviewText() {
+    return this.emailsPanel()
+      .getByRole("listitem")
+      .first();
   }
 
   /**
