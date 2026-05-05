@@ -98,15 +98,22 @@ test('TC-FEATURE-001 | Create proposal with name', async () => {
 
 ## Example: Device Quantity Test
 
+**1. Launch codegen:**
+
 ```bash
-# 1. Launch codegen
 HEADLESS=false npx playwright codegen https://uat.sales.teamsignal.com
+```
 
-# 2. Login, navigate to devices, interact with + button
-# Codegen captures:
-# await page.getByRole('button', { name: '+' }).click();
+**2. Login, navigate to devices, interact with + button.** Codegen captures:
 
-# 3. Extract selector and add to Page Object:
+```javascript
+await page.getByRole('button', { name: '+' }).click();
+```
+
+**3. Extract selector and add to Page Object:**
+
+```javascript
+// pages/my-module.js
 async addDeviceQuantity(deviceName, count) {
   const heading = this.page.getByRole('heading', { name: deviceName, level: 6 });
   const plusBtn = heading.locator('..').locator('button', { hasText: '+' });
@@ -114,8 +121,11 @@ async addDeviceQuantity(deviceName, count) {
     await plusBtn.click();
   }
 }
+```
 
-# 4. Write test:
+**4. Write test:**
+
+```javascript
 test('TC-DEVICE-002 | Increment device quantity', async () => {
   await module.addDeviceQuantity('NFC Tags', 3);
   const qty = await module.getDeviceQuantity('NFC Tags');

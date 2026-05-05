@@ -163,7 +163,7 @@ Always use `env` for credentials—never hardcode them in tests.
 Tests use dynamic data resolution to select or create entities:
 
 - **Deal Target Resolution** (`utils/shared-run-state.js`): Tests search for a reusable deal; if none exists, create one fresh and reuse it across all contract tests
-- **Company/Property Fallbacks** (`utils/property-company-selector.js`): When required entity not found, fall back to hardcoded fallback company/property (e.g., "Regression Phase 2")
+- **Company/Property Fallbacks** (`utils/property-company-selector.js`): When required entity not found, partially search for PAT and pick the first one
 - **Contract Stepper Data** (`utils/contract-test-data.js`): Service types, pricing, payment terms, and signee templates
 
 ### Contract-Specific Test Data
@@ -346,7 +346,7 @@ If selectors break:
 
 1. Check if the page structure changed
 2. Use browser DevTools to inspect the element
-3. Prefer accessibility-based selectors (`getByRole`, `getByLabel`) over CSS selectors
+3. Follow selector priority from `.claude/skills/playwright-test-standards/SKILL.md` §2: `[data-testid]` > CSS/class > text > chained/filtered > `getByRole`/`getByLabel`
 4. Update both the locator in the page object and potentially the test assertion
 
 ### Environment Variables Not Loading
@@ -471,7 +471,7 @@ The agent will run the full 8-phase workflow.
 **Authoritative references:**
 
 - `@.cursor/commands/generate-tests.md` — Main command documentation (all users)
-- `@.claude/agents/generate-playwright-tests.md` — Agent orchestration
+- `@.claude/agents/tests-generator.md` — Agent orchestration
 - `@.claude/skills/playwright-test-standards/SKILL.md` — All coding standards and constraints
 
 ## Performance Notes

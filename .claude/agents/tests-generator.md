@@ -1,5 +1,5 @@
 ---
-name: generate-playwright-tests
+name: tests-generator
 description: Convert comma-separated user requirements into a Playwright test suite. Generates manual steps in a doc file, pauses for user review, then generates test code based on the edited doc. Uses Playwright MCP for selector discovery. Uses CLI for test execution. All rules live in the `playwright-test-standards` skill — this agent references, never duplicates.
 ---
 
@@ -33,7 +33,7 @@ Module is inferred from spec path: `contract-module.spec.js` → `pages/contract
 
 ---
 
-## Phase 0: Pre-Flight & Discovery (merged)
+## Phase 0: Pre-Flight
 
 1. Load `playwright-test-standards` skill.
 2. Verify Playwright MCP is connected. If NOT → STOP with: `[PHASE 0] BLOCKED — Playwright MCP not connected.`
@@ -41,10 +41,18 @@ Module is inferred from spec path: `contract-module.spec.js` → `pages/contract
 4. Infer module from spec path.
 5. Check files: doc (existing TC codes?), spec (existing tests?), POM (exists?).
 6. Read `.env.uat` for `BASE_URL`. Fail if missing.
-7. Launch browser via MCP, navigate to feature, snapshot DOM, identify selectors per Skill §2 priority.
-8. Record selector map + interaction sequence per requirement.
 
-Report: 1-line status per item (MCP status, requirements count, module, files, selectors found).
+Report: 1-line status per item (MCP status, requirements count, module, files found).
+
+---
+
+## Phase 1: Selector Discovery via MCP
+
+1. Launch browser via MCP, navigate to feature, snapshot DOM.
+2. Identify selectors per Skill §2 priority.
+3. Record selector map + interaction sequence per requirement.
+
+Report: selectors found per requirement.
 
 ---
 
@@ -63,14 +71,19 @@ Report: 1-line summary (structure decision, POM methods to add, assertion count)
 
 1. Open doc file (create if missing).
 2. For each requirement, add:
+
    ```markdown
    ### TC-{{PREFIX}}-{{number}} | {{exact requirement text as provided by the user}}
+
    **Preconditions:** {{list}}
    **Steps:**
+
    1. {{step}}
-   **Expected results / Assertion points:**
+      **Expected results / Assertion points:**
+
    - After step X: {{expected}}
    ```
+
 3. Save. Then STOP and tell user to review. Do NOT proceed until user says "proceed"/"continue"/"go ahead".
 
 ---
@@ -114,21 +127,22 @@ Run tests via **CLI** (`npx playwright test --grep "TC-CODE"` via Bash tool), NO
 
 ---
 
-## Phase 8: Delegate Failures to Playwright Debugger
+## Phase 8: Delegate Failures to Debugger
 
-When any test fails in Phase 7, **do NOT attempt to fix it yourself.** Instead, delegate to the **Playwright Debugger** agent.
+When any test fails in Phase 7, **do NOT attempt to fix it yourself.** Instead, delegate to the **Debugger** agent.
 
 1. Capture the full CLI error output from Phase 7 (test name, error message, stack trace, line numbers).
-2. Spawn the `Playwright Debugger` agent via the **Agent tool** with:
+2. Spawn the `Debugger` agent via the **Agent tool** with:
    - The complete failure log as input.
    - The spec file path and POM file path for context.
    - A brief summary of what the test was trying to do.
-3. Wait for the Playwright Debugger agent to complete its fix.
+3. Wait for the Debugger agent to complete its fix.
 4. After the debugger agent finishes, re-run the fixed tests via CLI (`npx playwright test --grep "TC-CODE"`) to confirm the fix.
 5. If tests still fail after the debugger's fix, report the remaining failures to the user — do NOT retry or attempt further fixes.
 
 **Rules:**
-- Never self-fix failing tests. Always delegate to the Playwright Debugger agent.
+
+- Never self-fix failing tests. Always delegate to the Debugger agent.
 - Pass the raw CLI error output — do not summarize or truncate it.
 - One debugger agent call per batch of failures is sufficient (include all failure logs together).
 - Never bump timeouts to fix flakiness. The debugger agent will investigate root causes.

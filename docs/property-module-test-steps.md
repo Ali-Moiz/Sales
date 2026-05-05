@@ -26,9 +26,9 @@ It is based on:
 
 ## Dynamic Test Data
 
-- Property name format: `S-P ####`
-- Edited property name format: `S-P ####`
-- Standalone fallback company: `Regression Phase`
+- Property name format: `PAT ####`
+- Edited property name format: `PAT edited ####`
+- Standalone fallback company: Search for PAT and pick first one
 - Runtime state file: `.tmp/shared-run-state.json`
 - Create-property flow uses a unique Omaha address strategy to avoid duplicate-address collisions.
 - Duplicate-address validation uses a known blocked geocoded address on purpose.
@@ -969,7 +969,7 @@ Step 2 — Search and select a contact:
 6. Observe the Property Source trigger row — verify the text fits within its container without overlapping adjacent elements.
 7. Open the Associated Franchise dropdown, search for a franchise with a long name (e.g. `9001- Collin Franchise, NE`), select it.
 8. Observe the Associated Franchise trigger row — verify the text is contained within the drawer without horizontal overflow.
-9. Open the Company dropdown, type a partial name with many characters (e.g. `Regression Phase`) to search, observe the result list items for any layout overflow.
+9. Open the Company dropdown, type a partial name with many characters (e.g. `PAT`) to search, observe the result list items for any layout overflow.
 10. Verify the drawer panel itself has no horizontal scrollbar and no elements protrude outside its bounds.
 
 **Expected results:**
@@ -1493,11 +1493,8 @@ Step 16 — Verify Clear All resets filters:
 
 These test cases cover the Activities tab of a property detail page. The Activities tab aggregates log entries created from the Emails, Notes, Meetings, Calls, and Tasks tabs. Each log entry card shows a title (including the creator/sender username), a timestamp, a body preview, and See more / See less controls for long content.
 
-**Test property used:** `Regression Location Phase 2` (ID 13179) at `/app/sales/locations/location/13179`. This property has existing email data and is accessible to HO users.
-
 **Preconditions for all tests in this group:**
-- User is logged in as HO (Home Officer) — username `Moiz`.
-- The property `Regression Location Phase 2` is accessible and its Activities tab loads.
+- User is logged in as HO (Home Officer).
 
 ---
 
@@ -1507,7 +1504,6 @@ These test cases cover the Activities tab of a property detail page. The Activit
 
 **Preconditions:**
 - User is logged in as HO.
-- Property `Regression Location Phase 2` (ID 13179) has at least one email logged.
 
 **Steps:**
 1. Navigate to `/app/sales/locations/location/13179`.
@@ -1530,7 +1526,6 @@ These test cases cover the Activities tab of a property detail page. The Activit
 
 **Preconditions:**
 - User is logged in as HO.
-- Property `Regression Location Phase 2` (ID 13179) is open.
 
 **Steps:**
 1. Navigate to `/app/sales/locations/location/13179`.
@@ -2212,7 +2207,6 @@ These test cases cover the Activities tab of a property detail page. The Activit
 
 **Preconditions:**
 - SM user credentials are available (`SIGNAL_EMAIL_SM`).
-- The property `Regression Location Phase 2` (ID 13179) is accessible to the SM role.
 
 **Steps:**
 1. Log in as SM user (`SIGNAL_EMAIL_SM` / `SIGNAL_PASSWORD_SM`).
@@ -2234,7 +2228,6 @@ These test cases cover the Activities tab of a property detail page. The Activit
 
 **Preconditions:**
 - User is logged in as HO (Home Officer).
-- A property detail page is accessible (e.g., `Regression Location Phase 2` at `/app/sales/locations/location/13179`).
 - The Notes tab is visible on the property detail page.
 
 **Steps:**
@@ -2282,7 +2275,6 @@ Step 3 — Verify Description-only validation when Title is empty but Descriptio
 
 **Preconditions:**
 - User is logged in as HO (Home Officer).
-- A property detail page is accessible (e.g., `Regression Location Phase 2` at `/app/sales/locations/location/13179`).
 - The property currently has no notes (empty state is showing), or any existing notes will be accounted for.
 
 **Steps:**
@@ -2318,7 +2310,7 @@ Step 3 — Verify Description-only validation when Title is empty but Descriptio
 
 **Preconditions:**
 - User is logged in as HO (Home Officer).
-- An existing company is available to link the property to (e.g., the company resolved via `readCreatedCompanyName()` or the fallback "Regression Phase 2").
+- An existing company is available to link the property to (e.g., the company resolved via `readCreatedCompanyName()`.
 - The Properties list page is accessible at `/app/sales/locations`.
 
 **Steps:**
@@ -2403,7 +2395,6 @@ Step 2 — Select an assignee and confirm assignment:
 
 **Preconditions:**
 - User is logged in as HO (Home Officer).
-- A property detail page is accessible (use `Regression Location Phase 2` at `/app/sales/locations/location/13179` — this property has multiple activity types).
 - The property has existing activity log entries covering multiple record types.
 
 **Steps:**

@@ -9,9 +9,13 @@ Optimized configuration for generating Playwright tests via `/generate-test`.
 ├── README.md                                          # This file
 ├── settings.json                                      # Scoped hooks (test files only)
 ├── agents/
-│   └── generate-playwright-tests.md                   # 9-phase workflow with doc-review pause
+│   ├── tests-generator.md                   # 9-phase workflow with doc-review pause
+│   ├── debugger.md                          # Playwright failure debugging (MCP-based)
+│   └── code-fixer.md                        # Standards compliance reviewer
 ├── commands/
-│   └── generate-test.md                               # Thin router
+│   ├── generate-test.md                               # Thin router → tests-generator agent
+│   ├── fix-playwright-failure.md                      # Thin router → debugger agent
+│   └── verify-test-coverage.md                        # Coverage verification
 └── skills/
     └── playwright-test-standards/
         └── SKILL.md                                   # Authoritative standards
@@ -47,21 +51,28 @@ Agent continues:
 ## Key Behaviors
 
 ### Multi-requirement handling (shared describe)
+
 Pass `"Verify X, Verify Y, Verify Z"` and you get ONE `test.describe()` block titled with your exact string. Inside:
+
 - **Shared flow** → one test with `test.step()` per requirement
 - **Independent flows** → separate tests in the same describe
 
 ### Module inference
+
 Module comes from the spec path: `tests/e2e/contract-module.spec.js` → `contract` → `pages/contract-module.js`. Agent only asks if the path doesn't match this pattern.
 
 ### Doc-review pause
+
 After Phase 3 writes manual steps to your doc, the agent STOPS. You can edit TC codes, steps, expected results, test names — anything. On resume ("proceed"), the agent re-reads the doc and uses your edited version as the source of truth.
 
 ### Playwright MCP required
+
 The agent halts at Phase 0 if Playwright MCP is not connected. No silent fallback — MCP is how Claude actually inspects your DOM and runs tests.
 
 ### Bounded auto-fix
+
 If a test fails: attempt 1 (selectors) → attempt 2 (waits) → **PAUSE and ask you** with rich context (what was tried, error, hypothesis). You pick:
+
 - `[a]` Try attempt 3 (logic/import/typo)
 - `[b]` Mark `test.fail()` with TODO, continue
 - `[c]` Stop for manual debugging
@@ -89,5 +100,5 @@ Before running `/generate-test`:
 ## Key Files
 
 - **For rules:** `skills/playwright-test-standards/SKILL.md` (authoritative)
-- **For workflow:** `agents/generate-playwright-tests.md`
+- **For workflow:** `agents/tests-generator.md`
 - **For invocation:** `commands/generate-test.md`

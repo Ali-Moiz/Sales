@@ -85,7 +85,7 @@ Expected results / Assertion points:
 
 Execution steps:
 
-- The script generates a unique deal name in the format `A-D ####`.
+- The script generates a unique deal name in the format `PAT ####`.
 - It validates that a usable company and property pair exists.
 - If the resolved property is not selectable for the resolved company, the script creates a fresh property first.
 - It opens the `Create Deal` drawer.
@@ -479,7 +479,7 @@ Expected result:
 
 Execution steps:
 
-- The script generates a unique edited deal name in the format `A-D Edited ####`.
+- The script generates a unique edited deal name in the format `PAT Edited ####`.
 - It opens the created deal detail page.
 - It opens the `Edit Deal` drawer.
 - It clears the current deal name.
