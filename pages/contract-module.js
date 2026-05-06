@@ -468,7 +468,7 @@ class ContractModule {
   async selectTimeZone(searchText = 'Eastern') {
     await this.openTimeZoneDropdown();
 
-    const popper = this.page.locator('#simple-popper').last().or(this.page.getByRole('tooltip').last());
+    const popper = this.page.locator('#simple-popper').last();
     await popper.waitFor({ state: 'visible', timeout: 8_000 });
 
     const searchBox = popper.getByRole('textbox').first();
@@ -694,10 +694,7 @@ class ContractModule {
     }
 
     if (!clicked) {
-      const primaryActionButton = this.updateProposalBtn;
-      await primaryActionButton.waitFor({ state: 'visible', timeout: 10_000 });
-      await expect(primaryActionButton).toBeEnabled({ timeout: 8_000 });
-      await primaryActionButton.click();
+      throw new Error('Save & Next button is not currently visible and enabled.');
     }
     await this.page.waitForTimeout(800);
     await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
@@ -751,18 +748,37 @@ class ContractModule {
     return finalVisible;
   }
 
-  /** Fill the service name field (placeholder "Service 1") */
+  /** Fill the service name field (accessible name "Service 1", "Service 2", …) */
   async fillServiceName(name, serviceIndex = 0) {
     console.log(`[fillServiceName] service ${serviceIndex}: filling with "${name}"`);
-    const serviceNameInput = this.page.getByRole('textbox', { name: /Service/ }).nth(serviceIndex);
+    const label = `Service ${serviceIndex + 1}`;
+    const serviceNameInput = this.page.getByRole('textbox', { name: label });
     await serviceNameInput.waitFor({ state: 'visible', timeout: 10_000 });
-    await serviceNameInput.click({ clickCount: 3, force: true });
-    await serviceNameInput.fill(String(name));
-    await serviceNameInput.press('Tab').catch(() => {});
-    const actual = await serviceNameInput.inputValue().catch(() => "");
-    if (actual.trim() !== String(name).trim()) {
+    const expected = String(name).trim();
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      await serviceNameInput.click({ clickCount: 3, force: true }).catch(() => {});
+      await serviceNameInput.fill(String(name)).catch(() => {});
+      await serviceNameInput.press('Tab').catch(() => {});
+      const actual = (await serviceNameInput.inputValue().catch(() => "")).trim();
+      if (actual === expected) {
+        return;
+      }
+      // Last fallback: set value via DOM events for sticky re-render cases.
+      if (attempt === 2) {
+        await serviceNameInput.evaluate((el, value) => {
+          if (!(el instanceof HTMLInputElement)) return;
+          el.value = value;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+          el.dispatchEvent(new Event('blur', { bubbles: true }));
+        }, String(name)).catch(() => {});
+      }
+      await this.page.waitForTimeout(200);
+    }
+    const finalActual = await serviceNameInput.inputValue().catch(() => "");
+    if (finalActual.trim() !== expected) {
       throw new Error(
-        `[fillServiceName] Expected "${name}" but got "${actual}" for service index ${serviceIndex}`,
+        `[fillServiceName] Expected "${name}" but got "${finalActual}" for service index ${serviceIndex}`,
       );
     }
   }
@@ -1101,6 +1117,14 @@ class ContractModule {
 
     const saveEnabled = await this.saveAndNextBtn.isEnabled().catch(() => false);
     if (!saveEnabled) {
+      const lineItemValue = await this.page
+        .locator("label[for='lineItem'] + div h6")
+        .nth(serviceIndex)
+        .textContent()
+        .catch(() => '');
+      if (!lineItemValue || /^select\s/i.test(String(lineItemValue).trim())) {
+        await this.selectFirstAvailableLineItem(serviceIndex).catch(() => {});
+      }
       await this.fillServiceName(serviceName, serviceIndex);
       await this.selectFirstAvailableLineItem(serviceIndex);
       await this.page.waitForTimeout(400);
@@ -1441,8 +1465,26 @@ class ContractModule {
     await trigger.waitFor({ state: 'visible', timeout: 8_000 });
     await trigger.click();
     await this.page.waitForTimeout(300);
-    // Options appear in a tooltip/popper; click by exact text
-    await this.page.getByText(optionText, { exact: true }).first().click();
+
+    // Options appear in a tooltip/popper; scope lookup to popper first to avoid
+    // matching disabled labels elsewhere on the page (e.g., Payment Plans "Weekly").
+    const popper = this.page.locator('#simple-popper').last();
+    const popperVisible = await popper.isVisible().catch(() => false);
+    if (popperVisible) {
+      const popperOption = popper.getByText(optionText, { exact: true }).first();
+      await popperOption.waitFor({ state: 'visible', timeout: 8_000 });
+      await popperOption.click({ force: true });
+      await this.page.waitForTimeout(300);
+      return;
+    }
+
+    // Fallback when popper id is not available in current build.
+    const fallbackOption = this.page
+      .locator('[role="option"], li, p, div')
+      .filter({ hasText: new RegExp(`^\\s*${String(optionText).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`) })
+      .first();
+    await fallbackOption.waitFor({ state: 'visible', timeout: 8_000 });
+    await fallbackOption.click({ force: true });
     await this.page.waitForTimeout(300);
   }
 
@@ -1549,34 +1591,20 @@ class ContractModule {
 
   /**
    * Select the Billing Frequency.
-   * Uses #simple-popper scoping to avoid matching "Weekly" billing cycle elsewhere.
+   * Uses the Step 4 custom dropdown trigger and option selection.
    * @param {'Weekly'|'Bi Weekly'|'Monthly'|'Semi Monthly'} freq
    */
   async selectBillingFrequency(freq) {
-    const normalizedFreq = freq.replace(/\s+/g, '-');
-    const targetRadio = this.page.getByRole('radio', { name: new RegExp(`^${normalizedFreq}$|^${freq}$`, 'i') });
-    const targetVisible = await targetRadio.isVisible().catch(() => false);
+    const normalized = String(freq || '').trim();
+    const optionText =
+      /^bi\s*weekly$/i.test(normalized) ? 'Bi-Weekly'
+      : /^semi\s*monthly$/i.test(normalized) ? 'Semi Monthly'
+      : normalized;
 
-    if (targetVisible) {
-      const targetDisabled = await targetRadio.isDisabled().catch(() => false);
-      if (!targetDisabled) {
-        await targetRadio.click({ force: true });
-        await this.page.waitForTimeout(300);
-        return;
-      }
-    }
-
-    const checkedRadio = this.page.locator('input[type="radio"]:checked').first();
-    const checkedExists = await checkedRadio.isVisible().catch(() => false);
-    if (checkedExists) {
-      return;
-    }
-
-    const eventRadio = this.page.getByRole('radio', { name: 'Event' });
-    if (await eventRadio.isVisible().catch(() => false)) {
-      await eventRadio.click({ force: true });
-      await this.page.waitForTimeout(300);
-    }
+    await this._selectFromCustomDropdown(
+      /Select Billing Frequency|Weekly|Bi-Weekly|Bi Weekly|Monthly|Semi Monthly/i,
+      optionText,
+    );
   }
 
   /**
@@ -1942,11 +1970,8 @@ class ContractModule {
   async assertContractPublishedSuccessfully() {
     await expect(this.contractPublishedBadge).toBeVisible({ timeout: 15_000 });
     await expect(this.publishContractBtn).not.toBeVisible({ timeout: 8_000 });
-    const actionVisible =
-      (await this.viewContractGeneric.isVisible().catch(() => false)) ||
-      (await this.terminateContractGeneric.isVisible().catch(() => false)) ||
-      (await this.signatureBtnOnCard.isVisible().catch(() => false));
-    expect(actionVisible).toBeTruthy();
+    await expect(this.terminateContractGeneric).toBeVisible({ timeout: 8_000 });
+    await expect(this.signatureBtnOnCard).toBeVisible({ timeout: 8_000 });
   }
 
   // ── Step 1 — Multi-Service Management ───────────────────────────────────

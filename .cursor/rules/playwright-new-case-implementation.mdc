@@ -1,0 +1,64 @@
+---
+description: Playwright new test implementation standards from contract refactor learnings
+alwaysApply: true
+---
+
+# Playwright New Case Rule (Contract Module Standards)
+
+Apply these rules for new implementations, especially in:
+- `tests/e2e/**/*.spec.js`
+- `pages/**/*-module.js`
+- `utils/**/*test-helpers.js`
+- `docs/**/*test-steps.md`
+
+## Core Guardrails
+- Keep `test.describe.serial` flow, test count, and execution order intact.
+- Do not change business behavior while refactoring; remove only redundant steps.
+- Each test should validate only its own title requirement.
+- Keep setup minimal: max one focused setup path, one action path, one to two assertions.
+
+## Redundancy Rules
+- Avoid duplicate navigation (do not reopen pages/drawers if already in required state).
+- Avoid duplicate assertions for already guaranteed UI states.
+- Do not add stale-state reopen/cancel loops unless explicitly required by test title.
+- Do not add cross-feature permutations (`N1/N2/...`) inside a single requirement test.
+
+## Selector + Wait Standards
+- Prefer existing POM locators; no XPath.
+- Use role/label based selectors first, then stable CSS fallback only when needed.
+- Avoid arbitrary waits; prefer state-based waits/assertions.
+- Keep retry/visual debug logic only if already intentional and required.
+
+## No-Assumption Validation Protocol (Mandatory)
+- Never invent UI flow, selector context, or step location when requirement details are unclear.
+- If any required control/step is not confidently found, stop implementation and ask for evidence before coding further.
+- Evidence request order:
+  1. Ask user for screenshot/video of the exact UI area (or confirm existing screenshot scope),
+  2. Ask for page/step context (e.g., Step 1 vs Step 4),
+  3. Ask for expected behavior after action (toggle/save/error).
+- Do not "auto-skip" unclear validations in automated tests. Either:
+  - make a strict assertion with clear failure reason, or
+  - pause and request missing details from user first.
+- When screenshot and DOM output conflict, trust live DOM placement for locator scoping and report the mismatch to user before finalizing.
+
+## New Test Case Implementation Checklist
+- Test ID exists in docs before automation.
+- Test title maps 1:1 to the automated validation scope.
+- Shared helpers contain reusable parsing/format logic; DOM-heavy reuse stays in POM methods.
+- Assertions are explicit, non-skippable for required validations.
+- Before writing automation from manual steps, confirm all required details are known:
+  - exact page/step,
+  - exact field/control name in UI,
+  - expected pass/fail behavior.
+- If any of above is missing, ask clarifying questions first and request screenshot evidence; do not proceed on assumptions.
+- Any manual scenario expansion is documented in `docs/*-test-steps.md` with:
+  - execution steps
+  - expected result
+  - positive/negative/edge coverage
+  - one clear assertion statement per requirement point
+
+## Review Gate Before Finalizing
+- Confirm no duplicate `open*` then immediate redundant `assertOpen*`.
+- Confirm no repeated tab clicks/search actions without state change.
+- Confirm no refactor changed downstream serial-state dependencies.
+- Run a focused grep test slice for changed TC IDs before sign-off.
