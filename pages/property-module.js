@@ -691,6 +691,23 @@ class PropertyModule {
    * M-PROP-07 / M-PROP-08 — all six affiliation buttons visible after company selection.
    */
   async assertAllSixAffiliationChipsVisible() {
+    // After company (re-)selection the affiliation section briefly shows "N/A"
+    // while dependent data loads. Wait for that transient state to clear first.
+    const drawer = this.createPropertyDrawerRoot();
+    const affiliationNA = drawer
+      .locator(':has(> [class*="heading"]):has-text("Property Affiliation")')
+      .getByText(/^N\/A$/)
+      .first()
+      .or(
+        drawer
+          .getByRole("heading", { name: /Property Affiliation/i, level: 5 })
+          .locator("..")
+          .getByText(/^N\/A$/)
+          .first(),
+      );
+    await affiliationNA
+      .waitFor({ state: "hidden", timeout: 15_000 })
+      .catch(() => {});
     await expect(this.managedButton).toBeVisible({ timeout: 10_000 });
     await expect(this.ownedButton).toBeVisible({ timeout: 5_000 });
     await expect(this.regionalOfficeButton).toBeVisible({ timeout: 5_000 });
@@ -875,7 +892,12 @@ class PropertyModule {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
-  async clickVisibleDropdownOption(container, optionText, timeout = 10_000) {
+  async clickVisibleDropdownOption(
+    container,
+    optionText,
+    timeout = 10_000,
+    skipCount = 0,
+  ) {
     const exactOptions = container.locator('p, h6, [role="option"]').filter({
       hasText: new RegExp(`^\\s*${this.escapeRegex(optionText)}\\s*$`, "i"),
     });
@@ -898,10 +920,16 @@ class PropertyModule {
       }
 
       const optionCount = await options.count();
+      let skipped = 0;
       for (let i = 0; i < optionCount; i++) {
         const option = options.nth(i);
         const isVisible = await option.isVisible().catch(() => false);
         if (!isVisible) continue;
+
+        if (skipped < skipCount) {
+          skipped++;
+          continue;
+        }
 
         try {
           await option.click({ force: true });
@@ -923,7 +951,7 @@ class PropertyModule {
    * Results appear as paragraph elements — clicks the first match.
    * @param {string} companyName - company name to search (dynamic, from company suite)
    */
-  async selectCompanyInCreateForm(companyName) {
+  async selectCompanyInCreateForm(companyName, { optionIndex = 0 } = {}) {
     const drawer = this.createPropertyDrawerRoot();
     const companySectionTrigger = drawer
       .getByRole("heading", { level: 6 })
@@ -966,6 +994,7 @@ class PropertyModule {
         tooltip,
         companyName,
         5_000,
+        optionIndex,
       )
         .then(() => true)
         .catch(() => false);
@@ -973,6 +1002,23 @@ class PropertyModule {
       if (optionSelected) {
         await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
         return;
+      }
+
+      // If an alternate index was requested but not enough results existed,
+      // retry the same search text with index 0 (pick the first match).
+      if (optionIndex > 0) {
+        const fallbackSelected = await this.clickVisibleDropdownOption(
+          tooltip,
+          companyName,
+          3_000,
+          0,
+        )
+          .then(() => true)
+          .catch(() => false);
+        if (fallbackSelected) {
+          await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+          return;
+        }
       }
     }
 

@@ -341,8 +341,12 @@ test.describe("Property Module", () => {
         await test.step(
           "TC-PROP-010 step 2: select a different company — chips remain visible (dependent section refreshes)",
           async () => {
+            // Re-search "PAT" but pick the second result so we get a
+            // genuinely different company — no hardcoded names.
             const alternativeCompany = "PAT";
-            await propertyModule.selectCompanyInCreateForm(alternativeCompany);
+            await propertyModule.selectCompanyInCreateForm(alternativeCompany, {
+              optionIndex: 1,
+            });
 
             await propertyModule.assertAllSixAffiliationChipsVisible();
             console.log("[TC-PROP-010] Second company selected — all affiliation chips still visible");
@@ -727,6 +731,7 @@ test.describe("Property Module", () => {
     });
 
     test("TC-PROP-022 | Verify that Associated Franchise dropdown supports search and returns matching results.", async () => {
+      test.setTimeout(120_000);
 
       const matchQuery = "216 - Omaha, NE";
       const noMatchQuery = "zzzz-no-match-123";

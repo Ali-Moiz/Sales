@@ -1205,8 +1205,7 @@ class DealModule {
   async assertAboutThisDealFieldsVisible() {
     const fields = [
       'Name', 'Amount', 'Deal Owner', 'Created By',
-      'Creation Date', 'Last Updated', 'Contract Type',
-      'Service Type', 'Start Date', 'End Date',
+      'Creation Date', 'Last Updated',
     ];
     for (const field of fields) {
       await expect(

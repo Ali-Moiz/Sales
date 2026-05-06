@@ -61,23 +61,16 @@ const {
   writeCreatedDealName,
 } = require("../../utils/shared-run-state");
 const {
-  parseMoneyValue: parseMoneyValueHelper,
-  parseFirstCurrencyFromText: parseFirstCurrencyFromTextHelper,
   readGrandTotalValue: readGrandTotalValueHelper,
   readVisibleServiceAmounts: readVisibleServiceAmountsHelper,
-  resolveCheckbox: resolveCheckboxHelper,
   scrollUntilVisible: scrollUntilVisibleHelper,
   resolveCheckboxFromLabel: resolveCheckboxFromLabelHelper,
   toggleLabelBasedCheckbox: toggleLabelBasedCheckboxHelper,
 } = require("../../utils/contract-test-helpers");
 
-const SHORT_TIMEOUT = 5_000;
 const MED_TIMEOUT = 10_000;
-const LONG_TIMEOUT = 20_000;
-const NETWORK_TIMEOUT = 15_000;
-const STEPPER_TIMEOUT = 30_000;
 
-test.describe.serial("Contract Module", () => {
+test.describe("Contract Module", () => {
   const DEFAULT_COMPANY_NAME = "Regression Phase 2";
   const DEFAULT_PROPERTY_NAME = "Regression Location Phase 2";
   const sharedStatePropertyName = readCreatedPropertyName();
@@ -761,7 +754,7 @@ test.describe.serial("Contract Module", () => {
       onStepper = await contractModuleInstance.isOnStepperPage();
     }
 
-    await expect(
+    expect(
       onStepper,
       "Expected contract stepper to be open before navigating to Step 4.",
     ).toBeTruthy();
@@ -930,7 +923,7 @@ test.describe.serial("Contract Module", () => {
       });
       return;
     }
-    await expect(
+    expect(
       step4Visible,
       "Expected Step 4 Payment Terms to be reachable before executing payment-term validations.",
     ).toBeTruthy();
@@ -956,15 +949,6 @@ test.describe.serial("Contract Module", () => {
     await ensureContractTargetDeal();
   });
 
-  test.afterAll(async () => {
-    console.log("[Contract Module] afterAll: closing shared browser context");
-    await context?.close();
-    console.log("[Contract Module] afterAll: shared browser context closed");
-  });
-  // ══════════════════════════════════════════════════════════════════════════
-  //  SECTION 1 — TAB VISIBILITY & SELECTION
-  // ══════════════════════════════════════════════════════════════════════════
-
   test.beforeEach(async ({}, testInfo) => {
     test.setTimeout(180_000);
     if (
@@ -975,6 +959,17 @@ test.describe.serial("Contract Module", () => {
     }
     await gotoDealsListPage();
   });
+
+  test.afterAll(async () => {
+    console.log("[Contract Module] afterAll: closing shared browser context");
+    await context?.close();
+    console.log("[Contract Module] afterAll: shared browser context closed");
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  //  SECTION 1 — TAB VISIBILITY & SELECTION
+  // ══════════════════════════════════════════════════════════════════════════
+
   /**
    * TC-CONTRACT-001 | Contract & Terms tab is visible on the deal detail page
    *
@@ -1242,6 +1237,7 @@ test.describe.serial("Contract Module", () => {
       "Proposal Name should show a required validation indicator (error text or aria-invalid=true).",
     ).toBeTruthy();
 
+    /* eslint-disable no-undef */
     const focusedTagName = await page.evaluate(
       () => document.activeElement?.tagName?.toLowerCase() || "",
     );
@@ -1251,6 +1247,7 @@ test.describe.serial("Contract Module", () => {
         document.activeElement?.id ||
         "",
     );
+    /* eslint-enable no-undef */
     console.log(
       `[TC-CONTRACT-023] Active element after failed submit: tag=${focusedTagName}, id/name=${focusedName}`,
     );
@@ -1621,52 +1618,7 @@ test.describe.serial("Contract Module", () => {
       return `${mm}/${dd}/${yyyy}`;
     };
 
-    const parseMoneyValue = (valueText) =>
-      parseMoneyValueHelper(page, valueText);
-    const parseFirstCurrencyFromText = (valueText) =>
-      parseFirstCurrencyFromTextHelper(page, valueText);
-    const readGrandTotalValue = async () =>
-      readGrandTotalValueHelper(page, contractModule);
-    const readVisibleServiceAmounts = async () =>
-      readVisibleServiceAmountsHelper(page);
-    const resolveCheckbox = async (nameRegex) =>
-      resolveCheckboxHelper(page, nameRegex);
-    const scrollUntilVisible = async (locator, label, maxScrolls = 20) =>
-      scrollUntilVisibleHelper(page, locator, label, maxScrolls);
-    const resolveCheckboxFromLabel = async (labelRegex, labelTextForLogs) =>
-      resolveCheckboxFromLabelHelper(page, labelRegex, labelTextForLogs);
-    const toggleLabelBasedCheckbox = async (
-      labelRegex,
-      labelText,
-      targetChecked,
-    ) =>
-      toggleLabelBasedCheckboxHelper(
-        page,
-        labelRegex,
-        labelText,
-        targetChecked,
-      );
 
-    const ensureStep1Surface = async (label = "step1") => {
-      await expect(contractModule.stepperStep1).toBeVisible({
-        timeout: 10_000,
-      });
-      await contractModule.stepperStep1.click({ force: true }).catch(() => {});
-      await page.waitForTimeout(400);
-      const serviceNameVisible = await contractModule.serviceNameInput
-        .isVisible()
-        .catch(() => false);
-      if (serviceNameVisible) return;
-      const addAnotherServiceVisible = await page
-        .getByRole("heading", { name: /Add another service/i })
-        .first()
-        .isVisible()
-        .catch(() => false);
-      expect(
-        serviceNameVisible || addAnotherServiceVisible,
-        `Expected Step 1 surface to be visible during ${label}.`,
-      ).toBeTruthy();
-    };
 
     const now = new Date();
     const startDate = new Date(now);
@@ -2100,25 +2052,6 @@ test.describe.serial("Contract Module", () => {
       isolatedDealName = resolvedContractDealName;
       await gotoDealsListPage();
       await openContractDealDetail(isolatedDealName);
-      tc030ContractState = await contractModule.detectContractState(10_000);
-    }
-    expect(tc030ContractState).toBe("empty");
-
-    // Guard: this TC requires an empty Contract & Terms state.
-    // If a reused/colliding deal name lands on an existing proposal, recover by
-    // resolving a fresh target deal and re-opening it before attempting drawer open.
-    let tc030ContractState = await contractModule.detectContractState(10_000);
-    for (
-      let recoveryAttempt = 0;
-      tc030ContractState !== "empty" && recoveryAttempt < 2;
-      recoveryAttempt += 1
-    ) {
-      resolvedContractDealName = "";
-      await ensureContractTargetDeal();
-      isolatedDealName = resolvedContractDealName;
-      await gotoDealsListPage();
-      await openContractDealDetail(isolatedDealName);
-      await contractModule.clickContractTermsTab().catch(() => {});
       tc030ContractState = await contractModule.detectContractState(10_000);
     }
     expect(tc030ContractState).toBe("empty");
@@ -2644,16 +2577,10 @@ test.describe.serial("Contract Module", () => {
       return `${mm}/${dd}/${yyyy}`;
     };
 
-    const parseMoneyValue = (valueText) =>
-      parseMoneyValueHelper(page, valueText);
-    const parseFirstCurrencyFromText = (valueText) =>
-      parseFirstCurrencyFromTextHelper(page, valueText);
     const readGrandTotalValue = async () =>
       readGrandTotalValueHelper(page, contractModule);
     const readVisibleServiceAmounts = async () =>
       readVisibleServiceAmountsHelper(page);
-    const resolveCheckbox = async (nameRegex) =>
-      resolveCheckboxHelper(page, nameRegex);
     const scrollUntilVisible = async (locator, label, maxScrolls = 20) =>
       scrollUntilVisibleHelper(page, locator, label, maxScrolls);
     const resolveCheckboxFromLabel = async (labelRegex, labelTextForLogs) =>
@@ -2787,7 +2714,7 @@ test.describe.serial("Contract Module", () => {
     const startDateText = formatDate(startDate);
     const renewalDateText = formatDate(renewalDate);
 
-    await test.step("Step 1: Open single isolated deal and Create Proposal drawer", async () => {
+    await test.step("1: Open single isolated deal and Create Proposal drawer", async () => {
       console.log(
         "[TC-CONTRACT-031] Step 1: Open single isolated deal and Create Proposal drawer",
       );
@@ -2795,7 +2722,7 @@ test.describe.serial("Contract Module", () => {
       await visualPause();
     });
 
-    await test.step("Step 2: Fill proposal drawer and open stepper", async () => {
+    await test.step("2: Fill proposal drawer and open stepper", async () => {
       console.log(
         "[TC-CONTRACT-031] Step 2: Fill proposal drawer and open stepper",
       );
@@ -2812,7 +2739,7 @@ test.describe.serial("Contract Module", () => {
       await visualPause();
     });
 
-    await test.step("Step 3: Verify Service Name is required; leaving blank shows 'Service Name is required'.", async () => {
+    await test.step("3: Verify Service Name is required; leaving blank shows 'Service Name is required'.", async () => {
       console.log(
         "[TC-CONTRACT-031] Step 3: Verify blocked Save & Next + Service Name required message",
       );
@@ -2826,30 +2753,26 @@ test.describe.serial("Contract Module", () => {
       await visualPause();
     });
 
-    await test.step("Step 4: Verify required field validations for Resource Type, Line Item, Service Start Date, Officer/Guard, Hourly Rate, Job Day, and Start/End Time", async () => {
+    await test.step("4.1: Verify Resource Type is required; leaving blank shows 'Resource Type is required'.", async () => {
       console.log(
-        "[TC-CONTRACT-031] Step 4: Expanded Step 1 required validations",
+        "[TC-CONTRACT-031] 4.1 Resource Type/Line Item required baseline",
       );
+      await fillStep1CoreFields();
+      await assertStep1Blocked("Resource Type + Line Item missing");
+    });
 
-      await test.step("Step 4.1: Verify Resource Type is required; leaving blank shows 'Resource Type is required'.", async () => {
-        console.log(
-          "[TC-CONTRACT-031] 4.1 Resource Type/Line Item required baseline",
-        );
-        await fillStep1CoreFields();
-        await assertStep1Blocked("Resource Type + Line Item missing");
-      });
+    await test.step("4.2: Verify Line Item is required; leaving blank shows 'Line Item is required'.", async () => {
+      console.log(
+        "[TC-CONTRACT-031] 4.2 Line Item required when Resource Type is selected",
+      );
+      await contractModule._selectCustomDropdownIfEmpty(
+        contractModule.resourceTypeTriggerDiv,
+        "Resource Type",
+      );
+      await assertStep1Blocked("Line Item missing");
+    });
 
-      await test.step("Step 4.2: Verify Line Item is required; leaving blank shows 'Line Item is required'.", async () => {
-        console.log(
-          "[TC-CONTRACT-031] 4.2 Line Item required when Resource Type is selected",
-        );
-        await contractModule._selectCustomDropdownIfEmpty(
-          contractModule.resourceTypeTriggerDiv,
-          "Resource Type",
-        );
-        await assertStep1Blocked("Line Item missing");
-      });
-
+    await test.step("4.3: Select Line Item to recover required state", async () => {
       console.log(
         "[TC-CONTRACT-031] 4.3 Select Line Item to recover required state",
       );
@@ -2858,161 +2781,161 @@ test.describe.serial("Contract Module", () => {
         "Line Item",
       );
       await visualPause();
-
-      await test.step("Step 4.4: Verify Service Start Date is required; leaving blank shows validation.", async () => {
-        console.log(
-          "[TC-CONTRACT-031] 4.4 Service Start Date required (if field is exposed on Step 1)",
-        );
-        const step1ServiceStartDateInput = page
-          .getByRole("textbox", {
-            name: /Service Start Date|Select Start Date/i,
-          })
-          .first();
-        const serviceStartDateVisible = await step1ServiceStartDateInput
-          .isVisible()
-          .catch(() => false);
-        if (serviceStartDateVisible) {
-          await step1ServiceStartDateInput.fill("");
-          await assertStep1Blocked("Step 1 Service Start Date missing");
-          await step1ServiceStartDateInput.fill(startDateText);
-        } else {
-          console.log(
-            "[TC-CONTRACT-031] Step 1 Service Start Date field not exposed in this UI state; skipped with log.",
-          );
-        }
-        await visualPause();
-      });
-
-      await test.step("Step 4.5: Verify Officer/Guard count is required and must be a positive integer.", async () => {
-        console.log(
-          "[TC-CONTRACT-031] 4.5 Officer/Guard count required and positive integer",
-        );
-        await contractModule.fillOfficerCount("");
-        await assertStep1Blocked("Officer/Guard missing");
-        await contractModule.fillOfficerCount("0");
-        await assertStep1Blocked("Officer/Guard equals 0");
-        await contractModule.fillOfficerCount("-1").catch(() => {});
-        await assertStep1Blocked("Officer/Guard negative");
-        await contractModule.fillOfficerCount("1");
-        await visualPause();
-      });
-
-      await test.step("Step 4.6: Verify Hourly Rate is required and accepts valid currency format; reject letters/special chars.", async () => {
-        console.log(
-          "[TC-CONTRACT-031] 4.6 Hourly Rate required and numeric/currency format",
-        );
-        await contractModule.fillHourlyRate("");
-        await assertStep1Blocked("Hourly Rate missing");
-
-        const assertHourlyRateRejectsInvalid = async (value, label) => {
-          const rateInput = contractModule.hourlyRateInput;
-          await rateInput.click({ clickCount: 3 });
-          let fillErrored = false;
-          try {
-            await rateInput.fill(value);
-          } catch (error) {
-            fillErrored = true;
-          }
-          const resultingValue = await rateInput.inputValue().catch(() => "");
-          const valueRejectedByControl =
-            fillErrored ||
-            resultingValue === "" ||
-            /^-?\d*\.?\d*$/.test(resultingValue);
-          expect(valueRejectedByControl).toBe(
-            true,
-          );
-          await assertStep1Blocked(`Hourly Rate ${label}`);
-        };
-
-        await assertHourlyRateRejectsInvalid("abc", "letters only");
-        await assertHourlyRateRejectsInvalid("@#$", "special chars only");
-        await assertHourlyRateRejectsInvalid("12ab", "mixed alphanumeric");
-        await contractModule.fillHourlyRate("15.00");
-        await visualPause();
-      });
-
-      await test.step("Step 4.7: Verify at least one Job Day selection is required (if applicable); show validation if none selected.", async () => {
-        if (primaryJobDay) {
-          console.log("[TC-CONTRACT-031] 4.7 Job Day required");
-          await contractModule.clickJobDay(primaryJobDay);
-          await assertStep1Blocked("Job Day missing");
-          const dayChipPressed = await page
-            .getByText(primaryJobDay, { exact: true })
-            .first()
-            .getAttribute("aria-pressed")
-            .catch(() => null);
-          expect(dayChipPressed === "false" || dayChipPressed === null).toBe(
-            true,
-          );
-          await contractModule.clickJobDay(primaryJobDay);
-          await visualPause();
-        } else {
-          console.log(
-            "[TC-CONTRACT-031] No jobDays configured in SERVICE_DATA; skipping Job Day validation block.",
-          );
-        }
-      });
-
-      await test.step("Step 4.8: Verify Start Time and End Time validations: end time must be after start time (including overnight rules if supported).", async () => {
-        console.log(
-          "[TC-CONTRACT-031] 4.8 Start/End Time chronology validation",
-        );
-        const startTimeTriggerVisible = await page
-          .getByRole("button", { name: /Choose time/ })
-          .first()
-          .isVisible()
-          .catch(() => false);
-        if (startTimeTriggerVisible) {
-          try {
-            await setServiceTimes(
-              { hours: "10", minutes: "00", meridiem: "AM" },
-              { hours: "09", minutes: "00", meridiem: "AM" },
-              "invalid chronology",
-            );
-            await assertStep1Blocked("End Time earlier than Start Time");
-
-            // Overnight behavior observation: some environments allow this, others block it.
-            await setServiceTimes(
-              { hours: "10", minutes: "00", meridiem: "PM" },
-              { hours: "06", minutes: "00", meridiem: "AM" },
-              "overnight observation",
-            );
-            await contractModule.saveAndNextBtn
-              .click({ force: true })
-              .catch(() => {});
-            const movedToStep2WithOvernight =
-              await contractModule.devicesPageHeading
-                .isVisible()
-                .catch(() => false);
-            console.log(
-              `[TC-CONTRACT-031] Overnight time behavior (10:00 PM -> 06:00 AM) movedToStep2=${movedToStep2WithOvernight}`,
-            );
-            if (movedToStep2WithOvernight) {
-              await contractModule.stepperStep1.click({ force: true });
-              await contractModule.assertStep1Visible();
-            }
-
-            // Restore deterministic valid same-day order for remaining flow.
-            await setServiceTimes(
-              SERVICE_DATA.startTime,
-              SERVICE_DATA.endTime,
-              "restore valid chronology",
-            );
-          } catch (timeValidationError) {
-            console.log(
-              `[TC-CONTRACT-031] Time validation controls became unstable/unavailable: ${timeValidationError.message}`,
-            );
-          }
-        } else {
-          console.log(
-            "[TC-CONTRACT-031] Start/End time controls are not visible in current Step 1 state; chronology check skipped.",
-          );
-        }
-        await visualPause();
-      });
     });
 
-    await test.step("Step 5: Verify user can select Dedicated Service vs Patrol Service and relevant fields display accordingly.", async () => {
+    await test.step("4.4: Verify Service Start Date is required; leaving blank shows validation.", async () => {
+      console.log(
+        "[TC-CONTRACT-031] 4.4 Service Start Date required (if field is exposed on Step 1)",
+      );
+      const step1ServiceStartDateInput = page
+        .getByRole("textbox", {
+          name: /Service Start Date|Select Start Date/i,
+        })
+        .first();
+      const serviceStartDateVisible = await step1ServiceStartDateInput
+        .isVisible()
+        .catch(() => false);
+      if (serviceStartDateVisible) {
+        await step1ServiceStartDateInput.fill("");
+        await assertStep1Blocked("Step 1 Service Start Date missing");
+        await step1ServiceStartDateInput.fill(startDateText);
+      } else {
+        console.log(
+          "[TC-CONTRACT-031] Step 1 Service Start Date field not exposed in this UI state; skipped with log.",
+        );
+      }
+      await visualPause();
+    });
+
+    await test.step("4.5: Verify Officer/Guard count is required and must be a positive integer.", async () => {
+      console.log(
+        "[TC-CONTRACT-031] 4.5 Officer/Guard count required and positive integer",
+      );
+      await contractModule.fillOfficerCount("");
+      await assertStep1Blocked("Officer/Guard missing");
+      await contractModule.fillOfficerCount("0");
+      await assertStep1Blocked("Officer/Guard equals 0");
+      await contractModule.fillOfficerCount("-1").catch(() => {});
+      await assertStep1Blocked("Officer/Guard negative");
+      await contractModule.fillOfficerCount("1");
+      await visualPause();
+    });
+
+    await test.step("4.6: Verify Hourly Rate is required and accepts valid currency format; reject letters/special chars.", async () => {
+      console.log(
+        "[TC-CONTRACT-031] 4.6 Hourly Rate required and numeric/currency format",
+      );
+      await contractModule.fillHourlyRate("");
+      await assertStep1Blocked("Hourly Rate missing");
+
+      const assertHourlyRateRejectsInvalid = async (value, label) => {
+        const rateInput = contractModule.hourlyRateInput;
+        await rateInput.click({ clickCount: 3 });
+        let fillErrored = false;
+        try {
+          await rateInput.fill(value);
+        } catch (error) {
+          fillErrored = true;
+        }
+        const resultingValue = await rateInput.inputValue().catch(() => "");
+        const valueRejectedByControl =
+          fillErrored ||
+          resultingValue === "" ||
+          /^-?\d*\.?\d*$/.test(resultingValue);
+        expect(valueRejectedByControl).toBe(
+          true,
+        );
+        await assertStep1Blocked(`Hourly Rate ${label}`);
+      };
+
+      await assertHourlyRateRejectsInvalid("abc", "letters only");
+      await assertHourlyRateRejectsInvalid("@#$", "special chars only");
+      await assertHourlyRateRejectsInvalid("12ab", "mixed alphanumeric");
+      await contractModule.fillHourlyRate("15.00");
+      await visualPause();
+    });
+
+    await test.step("4.7: Verify at least one Job Day selection is required (if applicable); show validation if none selected.", async () => {
+      if (primaryJobDay) {
+        console.log("[TC-CONTRACT-031] 4.7 Job Day required");
+        await contractModule.clickJobDay(primaryJobDay);
+        await assertStep1Blocked("Job Day missing");
+        const dayChipPressed = await page
+          .getByText(primaryJobDay, { exact: true })
+          .first()
+          .getAttribute("aria-pressed")
+          .catch(() => null);
+        expect(dayChipPressed === "false" || dayChipPressed === null).toBe(
+          true,
+        );
+        await contractModule.clickJobDay(primaryJobDay);
+        await visualPause();
+      } else {
+        console.log(
+          "[TC-CONTRACT-031] No jobDays configured in SERVICE_DATA; skipping Job Day validation block.",
+        );
+      }
+    });
+
+    await test.step("4.8: Verify Start Time and End Time validations: end time must be after start time (including overnight rules if supported).", async () => {
+      console.log(
+        "[TC-CONTRACT-031] 4.8 Start/End Time chronology validation",
+      );
+      const startTimeTriggerVisible = await page
+        .getByRole("button", { name: /Choose time/ })
+        .first()
+        .isVisible()
+        .catch(() => false);
+      if (startTimeTriggerVisible) {
+        try {
+          await setServiceTimes(
+            { hours: "10", minutes: "00", meridiem: "AM" },
+            { hours: "09", minutes: "00", meridiem: "AM" },
+            "invalid chronology",
+          );
+          await assertStep1Blocked("End Time earlier than Start Time");
+
+          // Overnight behavior observation: some environments allow this, others block it.
+          await setServiceTimes(
+            { hours: "10", minutes: "00", meridiem: "PM" },
+            { hours: "06", minutes: "00", meridiem: "AM" },
+            "overnight observation",
+          );
+          await contractModule.saveAndNextBtn
+            .click({ force: true })
+            .catch(() => {});
+          const movedToStep2WithOvernight =
+            await contractModule.devicesPageHeading
+              .isVisible()
+              .catch(() => false);
+          console.log(
+            `[TC-CONTRACT-031] Overnight time behavior (10:00 PM -> 06:00 AM) movedToStep2=${movedToStep2WithOvernight}`,
+          );
+          if (movedToStep2WithOvernight) {
+            await contractModule.stepperStep1.click({ force: true });
+            await contractModule.assertStep1Visible();
+          }
+
+          // Restore deterministic valid same-day order for remaining flow.
+          await setServiceTimes(
+            SERVICE_DATA.startTime,
+            SERVICE_DATA.endTime,
+            "restore valid chronology",
+          );
+        } catch (timeValidationError) {
+          console.log(
+            `[TC-CONTRACT-031] Time validation controls became unstable/unavailable: ${timeValidationError.message}`,
+          );
+        }
+      } else {
+        console.log(
+          "[TC-CONTRACT-031] Start/End time controls are not visible in current Step 1 state; chronology check skipped.",
+        );
+      }
+      await visualPause();
+    });
+
+    await test.step("5: Verify user can select Dedicated Service vs Patrol Service and relevant fields display accordingly.", async () => {
       console.log(
         "[TC-CONTRACT-031] Step 5: Verify Dedicated vs Patrol selection and field behavior",
       );
@@ -3070,7 +2993,7 @@ test.describe.serial("Contract Module", () => {
       await visualPause();
     });
 
-    await test.step("Step 6: Verify Save & Next progresses to next step and preserves entered data when navigating back.", async () => {
+    await test.step("6: Verify Save & Next progresses to next step and preserves entered data when navigating back.", async () => {
       console.log(
         "[TC-CONTRACT-031] Step 6: Fill valid Step 1 data and progress",
       );
@@ -3309,7 +3232,7 @@ test.describe.serial("Contract Module", () => {
       await visualPause();
     });
 
-    await test.step("Step 7: Verify Include Fuel Surcharge and Include Vehicle toggles can be enabled and reflect in totals/pricing where applicable.", async () => {
+    await test.step("7: Verify Include Fuel Surcharge and Include Vehicle toggles can be enabled and reflect in totals/pricing where applicable.", async () => {
       console.log(
         "[TC-CONTRACT-031] Step 7: Validate Include Fuel Surcharge + Include Vehicle toggle behavior",
       );
@@ -3397,7 +3320,7 @@ test.describe.serial("Contract Module", () => {
       await visualPause();
     });
 
-    await test.step("Step 8: Verify Add Instructions rich text supports formatting (bold/italic/list/headings) and content saves.", async () => {
+    await test.step("8: Verify Add Instructions rich text supports formatting (bold/italic/list/headings) and content saves.", async () => {
       console.log(
         "[TC-CONTRACT-031] Step 8: Validate Add Instructions rich text behavior",
       );
@@ -3472,7 +3395,7 @@ test.describe.serial("Contract Module", () => {
       await visualPause();
     });
 
-    await test.step("Step 9: Verify Additional Services toggles (e.g., Visitor Management, Load Management) can be selected and persist.", async () => {
+    await test.step("9: Verify Additional Services toggles (e.g., Visitor Management, Load Management) can be selected and persist.", async () => {
       console.log(
         "[TC-CONTRACT-031] Step 9: Validate Additional Services toggles persistence",
       );
@@ -3643,7 +3566,7 @@ test.describe.serial("Contract Module", () => {
       await visualPause();
     });
 
-    await test.step("Step 10: Verify user can add multiple services (Service #1, Service #2) and totals reflect aggregated services.", async () => {
+    await test.step("10: Verify user can add multiple services (Service #1, Service #2) and totals reflect aggregated services.", async () => {
       console.log(
         "[TC-CONTRACT-031] Step 10: Validate multi-service aggregation (Service 1 + Service 2)",
       );

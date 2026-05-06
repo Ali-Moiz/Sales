@@ -3034,12 +3034,10 @@ test.describe('Company Module E2E Tests', () => {
     test('TC-COMP-110 | System activities have labels and timestamps @regression', async () => {
       await test.step('Switch to Activities tab and verify entries', async () => {
         await companyModule.gotoActivitiesTab();
-        // Look for any activity text with a date pattern or "Company created" pattern
         const tabPanel = sharedPage.locator('[role="tabpanel"]').first();
         await expect(tabPanel).toBeVisible({ timeout: 10_000 });
-        const panelText = await tabPanel.innerText().catch(() => '');
-        // Activities should contain some text content
-        expect(panelText.length).toBeGreaterThan(0);
+        // Wait for activity content to render (auto-retrying assertion)
+        await expect(tabPanel).not.toBeEmpty({ timeout: 15_000 });
       });
     });
 

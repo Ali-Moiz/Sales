@@ -337,10 +337,8 @@ class TasksModule {
     const firstDealCell = this.page.locator('table tbody tr:first-child td:nth-child(2)');
     await expect(firstDealCell).toBeVisible({ timeout: 10_000 });
     await firstDealCell.scrollIntoViewIfNeeded();
-    // Read the deal name for the text-based click fallback
-    const dealName = (await firstDealCell.textContent()).trim();
-    // Click using getByText to target the innermost clickable element
-    await this.page.getByRole('cell', { name: dealName }).first().click({ force: true });
+    // Click the already-located cell directly (avoids truncated text mismatch with getByRole name)
+    await firstDealCell.click();
     await this.page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
     // SPA navigation -- use polling-based URL assertion
     await expect(this.page).toHaveURL(/\/app\/sales\/deals\/deal\/\d+/, { timeout: 15_000 });
