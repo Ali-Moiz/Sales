@@ -61,7 +61,6 @@ function normalizeText(value) {
 }
 
 function debugLog(message, meta = {}) {
-  // eslint-disable-next-line no-console
   console.log(`[dynamic_address] ${message}`, JSON.stringify(meta));
 }
 
@@ -88,14 +87,30 @@ function buildSearchVariants(addressText) {
 async function clearAddressInput(addressInput) {
   await addressInput.click().catch(() => {});
   await addressInput.fill("").catch(() => {});
+  // Dismiss any open autocomplete dropdown so the widget resets its internal
+  // cached query; without this the Maps widget replays the previous suggestion
+  // mid-type(), appending residual keystrokes to the committed value.
+  // NOTE: Do NOT use press("Escape") here — MUI Drawer/Modal has a document-
+  // level Escape handler that closes the entire drawer when the Google Maps
+  // .pac-container dropdown is not open to absorb the event first.
+  // Instead, blur + refocus the input, which dismisses the pac-container
+  // without triggering MUI's Escape-to-close behavior.
+  await addressInput.press("Tab").catch(() => {});
+  await addressInput.click().catch(() => {});
   await addressInput.press("ControlOrMeta+a").catch(() => {});
   await addressInput.press("Backspace").catch(() => {});
+  await addressInput.page().waitForTimeout(200);
 }
 
 function looksLikeCommittedAddress(value) {
   const text = String(value || "").trim();
   // "123 Main St, Austin, TX" style sanity check.
-  return /\d/.test(text) && /,/.test(text) && text.length >= 10;
+  if (!/\d/.test(text) || !/,/.test(text) || text.length < 10) return false;
+  // Reject corruption fingerprint: a 5-digit zip immediately followed by letters
+  // (e.g. "…, OH 43215Dr") indicates the Maps widget replayed a cached suggestion
+  // while type() was still feeding keystrokes.
+  if (/\d{5}[A-Za-z]/.test(text)) return false;
+  return true;
 }
 
 function scoreSuggestion({ suggestion, typedVariant, addressText }) {
@@ -303,4 +318,3 @@ module.exports = {
   selectAddressFromAutocomplete,
   selectDynamicAddressWithRetry,
 };
-

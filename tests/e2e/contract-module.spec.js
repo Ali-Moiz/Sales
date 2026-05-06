@@ -426,10 +426,7 @@ test.describe.serial("Contract Module", () => {
     });
     const editDealOpen = await editDealHeading.isVisible().catch(() => false);
     if (editDealOpen) {
-      const editDealPanel = page
-        .locator("div")
-        .filter({ has: editDealHeading })
-        .last();
+      const editDealPanel = page.locator("div").filter({ has: editDealHeading }).last();
       const closeInPanel = editDealPanel.getByRole("link").first();
       const cancelInPanel = editDealPanel
         .getByRole("button", { name: "Cancel" })
@@ -2103,6 +2100,25 @@ test.describe.serial("Contract Module", () => {
       isolatedDealName = resolvedContractDealName;
       await gotoDealsListPage();
       await openContractDealDetail(isolatedDealName);
+      tc030ContractState = await contractModule.detectContractState(10_000);
+    }
+    expect(tc030ContractState).toBe("empty");
+
+    // Guard: this TC requires an empty Contract & Terms state.
+    // If a reused/colliding deal name lands on an existing proposal, recover by
+    // resolving a fresh target deal and re-opening it before attempting drawer open.
+    let tc030ContractState = await contractModule.detectContractState(10_000);
+    for (
+      let recoveryAttempt = 0;
+      tc030ContractState !== "empty" && recoveryAttempt < 2;
+      recoveryAttempt += 1
+    ) {
+      resolvedContractDealName = "";
+      await ensureContractTargetDeal();
+      isolatedDealName = resolvedContractDealName;
+      await gotoDealsListPage();
+      await openContractDealDetail(isolatedDealName);
+      await contractModule.clickContractTermsTab().catch(() => {});
       tc030ContractState = await contractModule.detectContractState(10_000);
     }
     expect(tc030ContractState).toBe("empty");

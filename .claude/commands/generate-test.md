@@ -5,7 +5,7 @@ description: Generate Playwright tests from comma-separated requirements. Writes
 
 # Generate Test (Claude Code)
 
-Thin router that invokes the `generate-playwright-tests` agent. All logic lives in the agent + skill.
+Thin router that invokes the `tests-generator` agent. All logic lives in the agent + skill.
 
 ---
 
@@ -27,18 +27,18 @@ The **module** is inferred from the spec file path (e.g., `contract-module.spec.
 
 ## Workflow
 
-| Phase | Purpose | Interactive? |
-|---|---|---|
-| 0    | Pre-flight (verify Playwright MCP, parse requirements, infer module) | Halts if MCP missing |
-| 1    | Selector discovery via Playwright MCP | — |
-| 2    | Analyze & plan POM methods, test structure, assertion points | May ask about missing POM |
-| 3    | Write manual steps to doc → **STOP** | **Waits for user review** |
-| 3.5  | Re-read doc after user says "proceed" — edits override original plan | — |
-| 4    | Append new methods to POM (never modifies existing) | — |
-| 5    | Generate test code (shared describe block with `test.step()` or separate tests) | — |
-| 6    | Validate syntax and standards compliance | — |
-| 7    | Execute tests headless via Playwright MCP | — |
-| 8    | Auto-fix failures (attempt 1 → attempt 2 → **pause & ask** → optional attempt 3 → `test.fail()`) | Pauses after 2 attempts |
+| Phase | Purpose                                                                                          | Interactive?              |
+| ----- | ------------------------------------------------------------------------------------------------ | ------------------------- |
+| 0     | Pre-flight (verify Playwright MCP, parse requirements, infer module)                             | Halts if MCP missing      |
+| 1     | Selector discovery via Playwright MCP                                                            | —                         |
+| 2     | Analyze & plan POM methods, test structure, assertion points                                     | May ask about missing POM |
+| 3     | Write manual steps to doc → **STOP**                                                             | **Waits for user review** |
+| 3.5   | Re-read doc after user says "proceed" — edits override original plan                             | —                         |
+| 4     | Append new methods to POM (never modifies existing)                                              | —                         |
+| 5     | Generate test code (shared describe block with `test.step()` or separate tests)                  | —                         |
+| 6     | Validate syntax and standards compliance                                                         | —                         |
+| 7     | Execute tests headless via Playwright MCP                                                        | —                         |
+| 8     | Auto-fix failures (attempt 1 → attempt 2 → **pause & ask** → optional attempt 3 → `test.fail()`) | Pauses after 2 attempts   |
 
 ---
 
@@ -63,7 +63,7 @@ After Phase 3, the agent writes manual steps and STOPS. You can edit:
 - Manual steps (add/remove/reorder)
 - TC codes (renumber, rename)
 - Expected results / assertion points
-- TC names (the part after the ` | ` in test titles)
+- TC names (the part after the `|` in test titles)
 
 Reply **"proceed"** (or "continue" / "go ahead") to resume. The agent re-reads the doc and uses your edited version as the source of truth. Reply **"cancel"** to abort.
 
@@ -97,10 +97,10 @@ What should I do?
 
 ## References
 
-| File | Purpose |
-|---|---|
-| `.claude/agents/generate-playwright-tests.md` | Workflow orchestration (9 phases) |
-| `.claude/skills/playwright-test-standards/SKILL.md` | All standards, rules, patterns |
+| File                                                | Purpose                           |
+| --------------------------------------------------- | --------------------------------- |
+| `.claude/agents/tests-generator.md`                 | Workflow orchestration (9 phases) |
+| `.claude/skills/playwright-test-standards/SKILL.md` | All standards, rules, patterns    |
 
 ---
 

@@ -81,7 +81,7 @@ const today = new Date();
 const e2eDealName =
   process.env.CONTRACT_E2E_DEAL  ||
   process.env.CREATED_DEAL_NAME  ||
-  (cd.e2eDealName ?? 'Regression Phase 2');
+  cd.e2eDealName;
 
 // ── Proposal data ─────────────────────────────────────────────────────────────
 

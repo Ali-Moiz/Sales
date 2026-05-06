@@ -111,19 +111,28 @@ class NotesTaskPage {
       .or(page.getByRole("searchbox").first());
 
     // Filter dropdowns inside the tasks tab toolbar
-    // Why: h6 with exact text is the rendered trigger for each custom dropdown
+    // Why: h6 text changes to the active filter value after selection (e.g. "Type" → "Email"),
+    //       so we match both the default label AND all possible active-value texts.
+    // Fix: 2026-05-05 — locator timed out because h6 showed "Email" instead of "Type" after filtering.
     this.typeFilterTrigger = page
       .locator("h6")
-      .filter({ hasText: /^Type$/ })
+      .filter({ hasText: /^(Type|All|To-do|Email|Call|LinkedIn)$/ })
       .first();
     this.priorityFilterTrigger = page
       .locator("h6")
-      .filter({ hasText: /^Priority$/ })
+      .filter({ hasText: /^(Priority|All|High|Medium|Low)$/ })
       .first();
     this.statusFilterTrigger = page
       .locator("h6")
-      .filter({ hasText: /^Status$/ })
+      .filter({ hasText: /^(Status|All Status|All|To-do|To Do|Completed|In Progress)$/ })
       .first();
+
+    // Due Date range picker (MUI DateRangePicker)
+    // Live-verified via MCP browser on 2026-05-05
+    this.dueDateRangeInput = page.locator(
+      'input[placeholder="MM/DD/YYYY - MM/DD/YYYY"]',
+    );
+    this.dueDatePickerBtn = page.getByRole("button", { name: "Choose date" });
 
     // ── Create / Edit Task Drawer ────────────────────────────────
     // Why: heading level 3 + exact name uniquely identifies the drawer mode
@@ -575,6 +584,22 @@ class NotesTaskPage {
     await this.taskSearchInput.waitFor({ state: "visible", timeout: 15_000 });
     await this.taskSearchInput.clear();
     await this.page.waitForTimeout(800);
+  }
+
+  /**
+   * Select an option from a task filter dropdown (Type, Priority, Status).
+   * @param {import('@playwright/test').Locator} triggerLocator - the h6 filter trigger
+   * @param {string} optionText - exact text of the option to select
+   */
+  async selectTaskFilterOption(triggerLocator, optionText) {
+    await triggerLocator.waitFor({ state: "visible", timeout: 10_000 });
+    await triggerLocator.click();
+    const popper = this.page
+      .locator("#simple-popper")
+      .or(this.page.getByRole("tooltip"));
+    await popper.waitFor({ state: "visible", timeout: 5_000 });
+    await popper.getByText(optionText, { exact: true }).click();
+    await this.page.waitForTimeout(600);
   }
 
   /**
