@@ -65,14 +65,15 @@ class ContractModule {
       .last();
 
     // Create Proposal Drawer — Fields
-    this.autoRenewalText = page.getByText(
-      'Auto Renewal of Contract',
-      { exact: true },
-    );
-    this.contractDatesTBDText = page.getByText(
-      'Contract Dates to be decided',
-      { exact: true },
-    );
+    // Live-verified 2026-05-07: checkbox inside generic[cursor=pointer] wrapper, paragraph label is a sibling.
+    // Locate via paragraph text → parent container → checkbox inside.
+    this.autoRenewalText = page.getByText('Auto Renewal of Contract', { exact: true });
+    this.autoRenewalCheckbox = page.locator('p').filter({ hasText: /^Auto Renewal of Contract$/ }).locator('..').getByRole('checkbox');
+    this.contractDatesTBDText = page.getByText('Contract Dates to be decided', { exact: true });
+    this.contractDatesTBDCheckbox = page.locator('p').filter({ hasText: /^Contract Dates to be decided$/ }).locator('..').getByRole('checkbox');
+    // Live-verified 2026-05-07: these two fields replace notifyRenewalInput when Auto Renewal is checked.
+    this.draftsBeforeDaysInput = page.getByRole('spinbutton').nth(0);
+    this.autoPublishBeforeDaysInput = page.getByRole('spinbutton').nth(1);
     this.dedicatedPatrolRadio = page.getByRole('radio', {
       name: /Dedicated\s*\/\s*Patrol/,
     });
@@ -80,6 +81,9 @@ class ContractModule {
       name: /Dispatch Only/,
     });
     this.endDateRadio = page.getByRole('radio', { name: 'End Date' });
+    // Live-verified 2026-05-07: label is "Notify for Auto-Renewal Before (Days)" when Auto Renewal is unchecked.
+    // When Auto Renewal is checked, this field is replaced by "Drafts Before (Days)" (default:10) + "Auto Publish Before (Days)" (default:5).
+    // .first() is safe here: this is the only spinbutton visible when the Create Proposal drawer is open.
     this.notifyRenewalInput = page.getByRole('spinbutton').first();
     this.proposalNameInput = page.getByRole('textbox', {
       name: 'Add Proposal Name',
@@ -177,6 +181,12 @@ class ContractModule {
     this.cloneProposalAction = cardActionSiblings.nth(1);
     this.editProposalAction = cardActionSiblings.nth(0);
     this.previewPdfAction = cardActionSiblings.nth(2);
+    // MCP-verified 2026-05-07: card action elements are <div aria-label="..."> with SVG children
+    // and NO text content — getByText() never matches them. Use CSS [aria-label] selectors (SKILL.md §2 priority 2).
+    this.deleteProposalActionByAriaLabel = this.contractTermsTabpanel.locator('[aria-label="Delete"]').first();
+    this.editProposalActionByAriaLabel = this.contractTermsTabpanel.locator('[aria-label="Edit"]').first();
+    this.cloneProposalActionByAriaLabel = this.contractTermsTabpanel.locator('[aria-label="Clone"]').first();
+    this.previewPdfActionByAriaLabel = this.contractTermsTabpanel.locator('[aria-label="Preview PDF"]').first();
 
     // Publish Flow — Step A
     this.closeDealModalHeading = page.getByRole('heading', { name: 'Close Deal', level: 3 });
@@ -198,14 +208,108 @@ class ContractModule {
       'Do you confirm to activate this contract?',
     );
 
+    // Step 1 — Toggles & Additional Services (live-verified 2026-05-06)
+    this.fuelSurchargeCheckbox = page.locator('input[name="addFuelSurcharge"]');
+    this.includeVehicleCheckbox = page.locator('input[name="includeVehicle"]');
+    this.visitorManagementCheckbox = page.locator('input[name="visitorManagement"]');
+    this.loadManagementCheckbox = page.locator('input[name="loadManagement"]');
+    this.fuelSurchargeLabel = page.getByText('Include Fuel Surcharge', { exact: false });
+    this.includeVehicleLabel = page.getByText('Include Vehicle', { exact: false });
+    this.visitorManagementLabel = page.getByText('Visitor Management', { exact: true });
+    this.loadManagementLabel = page.getByText('Load Management', { exact: true });
+    // MUI Switch visible wrappers — use label paragraph's parent to scope the checkbox
+    // The hidden <input> does not reflect checked state when clicked with force:true;
+    // click the visible switch wrapper instead (live-verified 2026-05-07)
+    this.fuelSurchargeSwitch = this.fuelSurchargeLabel.locator('..').getByRole('checkbox');
+    this.includeVehicleSwitch = this.includeVehicleLabel.locator('..').getByRole('checkbox');
+    this.visitorManagementSwitch = this.visitorManagementLabel.locator('..').getByRole('checkbox');
+    this.loadManagementSwitch = this.loadManagementLabel.locator('..').getByRole('checkbox');
+    // Rich text toolbar — rdw-editor toolbar options (live-verified 2026-05-06)
+    this.boldToolbarBtn = page.locator('[title="Bold"]');
+    this.italicToolbarBtn = page.locator('[title="Italic"]');
+    this.unorderedListToolbarBtn = page.locator('[title="Unordered"]');
+    this.orderedListToolbarBtn = page.locator('[title="Ordered"]');
+    this.h1ToolbarBtn = page.locator('[class*="rdw-option"]').filter({ hasText: 'H1' });
+    this.h2ToolbarBtn = page.locator('[class*="rdw-option"]').filter({ hasText: 'H2' });
+    // "Add another service" card (live-verified 2026-05-06)
+    this.addAnotherServiceHeading = page.getByRole('heading', {
+      name: 'Add another service',
+      level: 3,
+    });
+
+    // Step 2 — "Billed in first invoice only" note (live-verified 2026-05-06)
+    this.billedFirstInvoiceNote = page.getByRole('heading', {
+      name: 'Billed in first invoice only',
+      level: 6,
+    });
+
+    // Step 3 — On Demand fields (live-verified 2026-05-06)
+    this.dispatchBillingTypeLabel = page.locator('label').filter({ hasText: 'Billing Type' }).first();
+    this.dispatchRateInput = page.locator('input[name="price"][placeholder="Rate"]');
+    this.extraJobPricePerHourInput = page.locator('input[placeholder="Add Price Per Hour"]');
+    this.addLineItemBtn = page.getByRole('button', { name: 'Line Item' });
+
+    // Step 4 — Payment Plans (live-verified 2026-05-06)
+    this.monthlyPlanRadio = page.getByRole('radio', { name: 'Monthly' });
+    this.biWeeklyPlanRadio = page.getByRole('radio', { name: 'Bi-Weekly' });
+    // Live-verified 2026-05-07: 'Weekly' without exact:true also matches 'Bi-Weekly' — use exact:true.
+    this.weeklyPlanRadio = page.getByRole('radio', { name: 'Weekly', exact: true });
+    this.eventPlanRadio = page.getByRole('radio', { name: 'Event' });
+    this.flatPlanRadio = page.getByRole('radio', { name: 'Flat' });
+    this.taxRateInput = page.locator('input[name="taxRate"]');
+    this.flatRateInput = page.locator('input[name="flatRate"]');
+    this.contractDurationText = page.getByText(/Contract Duration:/);
+    this.servicesTotalHeading = page.getByRole('heading', { name: 'Services Total ($)', level: 6 });
+    this.dispatchTotalHeading = page.getByRole('heading', { name: 'Dispatch Total ($)', level: 6 });
+    this.totalColumnHeading = page.getByRole('heading', { name: 'Total', level: 4 });
+    // Officer/Guard Breaks
+    this.officerBreaksLabel = page.locator('label').filter({ hasText: 'Officer/Guard Breaks' });
+    this.billableCheckbox = page.locator('input[name="billable"]');
+    this.payableCheckbox = page.locator('input[name="payable"]');
+    this.billableLabel = page.getByText('Billable', { exact: true });
+    this.payableLabel = page.getByText('Payable', { exact: true });
+    // Holiday
+    this.holidayMultiplierLabel = page.locator('label').filter({ hasText: 'Holiday Multiplier' });
+    this.holidayMultiplierInput = page.locator('input[name="holidayMultiplier"]');
+    this.holidayGroupLabel = page.locator('label').filter({ hasText: 'Holiday Group' });
+    this.holidayGroupTrigger = page.getByRole('heading', {
+      name: /Select Holiday Group/,
+      level: 6,
+    });
+    this.holidaysInfoText = page.getByText(/\d+\s*Holidays/);
+    // Services Profitable
+    this.servicesProfitableText = page.getByText('Services Profitable', { exact: true });
+    // Billing address radios
+    this.propertyAddressRadio = page.getByRole('radio', { name: 'Property Address' });
+    this.companyAddressRadio = page.getByRole('radio', { name: 'Company Address' });
+    this.otherAddressRadio = page.getByRole('radio', { name: 'Other' });
+
+    // Step 5 — Description extras (live-verified 2026-05-06)
+    this.uploadBannerHeading = page.getByRole('heading', {
+      name: /Upload Banner Image/,
+      level: 3,
+    });
+    this.clickToUploadText = page.getByRole('heading', { name: 'Click to Upload', level: 6 });
+    this.bannerFileInput = page.locator('input[type="file"]');
+    this.bannerConstraintsText = page.getByText('16:9 or 1920 x 1080px (max. 10MB)');
+
+    // Step 6 — Signees extras (live-verified 2026-05-06)
+    this.addSigneeCard = page.getByRole('heading', { name: 'Add Signee', level: 4 });
+    this.addSigneeDrawerHeading = page.getByRole('heading', { name: 'Add Signee', level: 3 });
+    this.addSigneeNameInput = page.getByRole('textbox', { name: 'Add Signee Name' });
+    this.addSigneeTitleInput = page.getByRole('textbox', { name: 'Add Signee Title' });
+    this.addSigneeEmailInput = page.getByRole('textbox', { name: 'Add Signee Email' });
+    this.addSigneeCancelBtn = page.getByRole('button', { name: 'Cancel' });
+    this.addSigneeSubmitBtn = page.getByRole('button', { name: 'Add Signee' });
+
     // Published State
+    // Live-verified 2026-05-07: published card action order is Signature(btn), View, Addendum, Clone, Preview PDF, Terminate.
+    // Draft card action order (no Signature): Edit(btn), Clone, Preview PDF, Delete.
+    // Use aria-label selectors (SKILL.md §2 priority 2) — these are generic elements with aria-label.
     this.contractPublishedBadge = page.getByText('Published without sign', { exact: true });
-    this.terminateContractGeneric = this.contractTermsTabpanel
-      .getByText('Terminate', { exact: true })
-      .first();
-    this.viewContractGeneric = this.contractTermsTabpanel
-      .getByText('View', { exact: true })
-      .first();
+    this.terminateContractGeneric = this.contractTermsTabpanel.locator('[aria-label="Terminate"]').first();
+    this.viewContractGeneric = this.contractTermsTabpanel.locator('[aria-label="View"]').first();
+    this.addendumContractGeneric = this.contractTermsTabpanel.locator('[aria-label="Addendum"]').first();
   }
 
   // ── Navigation ──────────────────────────────────────────────────────────
@@ -223,7 +327,7 @@ class ContractModule {
       await this.page.goto('/app/sales/deals', { waitUntil: 'domcontentloaded' });
     }
 
-    await this.page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {});
+    await this.page.waitForLoadState('domcontentloaded', { timeout: 20_000 }).catch(() => {});
   }
 
   /**
@@ -234,20 +338,29 @@ class ContractModule {
   async openDealDetail(dealName) {
     await this.dealSearchInput.waitFor({ state: 'visible', timeout: 10_000 });
     await this.dealSearchInput.fill(dealName);
-    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
-    await this.page.waitForTimeout(1_500);
-
+    // Wait for the search results to render — expect(dealRow).toBeVisible auto-waits
     const dealRow = this.page.locator('table tbody tr').filter({ hasText: dealName }).first();
     await expect(dealRow).toBeVisible({ timeout: 15_000 });
 
+    // td.nth(1) is the Deal Name cell (cursor:pointer, live-verified 2026-05-07).
+    // Scroll into view before clicking — the row may be below the viewport fold
+    // (e.g. last row of a 10-row table at 48px each exceeds a 909px viewport).
+    // isVisible() is banned (snapshot, not web-first) — SKILL.md §4.
+    // force:true is removed; scrollIntoViewIfNeeded() makes the click actionable.
     const dealNameCell = dealRow.locator('td').nth(1);
-    const clickableCell = await dealNameCell.isVisible().catch(() => false)
-      ? dealNameCell
-      : dealRow.getByText(dealName, { exact: false }).first();
+    await expect(dealNameCell).toBeVisible({ timeout: 5_000 });
+    // .catch() handles the narrow React re-render window where the row detaches
+    // between visibility check and scroll (table virtualization race).
+    await dealNameCell.scrollIntoViewIfNeeded().catch(() => {});
 
-    await clickableCell.click({ force: true });
-
-    await this.page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+    // Use Promise.all to wait for the React Router URL change concurrently with the click.
+    // waitForLoadState('domcontentloaded') is banned here — on SPA navigation it resolves
+    // in ~2ms (page already loaded) before React Router has pushed the new URL, causing
+    // assertOnDealDetailPage() to race against an in-flight pushState. SKILL.md §4.
+    await Promise.all([
+      this.page.waitForURL(/\/deals\/deal\/\d+/, { timeout: 20_000 }),
+      dealNameCell.click(),
+    ]);
   }
 
   /** Assert the current page is a deal detail page */
@@ -261,7 +374,7 @@ class ContractModule {
   async clickContractTermsTab() {
     await this.contractTermsTab.waitFor({ state: 'visible', timeout: 10_000 });
     await this.contractTermsTab.click();
-    await this.page.waitForTimeout(500);
+    // Tab panel switches synchronously in MUI; the next caller's assertion auto-waits
   }
 
   /** Assert the Contract & Terms tab is visible in the tablist */
@@ -306,16 +419,17 @@ class ContractModule {
       return true;
     }
 
-    const tabPanel = this.page.getByRole('tabpanel', { name: 'Contract & Terms' });
+    // MCP-verified 2026-05-07: card actions are <div aria-label="..."> with empty text content.
+    // getByText() never matches them — use [aria-label] CSS selectors (SKILL.md §2 priority 2).
     const editVisible =
-      (await this.editProposalAction.isVisible().catch(() => false)) ||
-      (await tabPanel.getByText('Edit', { exact: true }).first().isVisible().catch(() => false));
+      (await this.editProposalActionByAriaLabel.isVisible().catch(() => false)) ||
+      (await this.editProposalAction.isVisible().catch(() => false));
     const cloneVisible =
-      (await this.cloneProposalAction.isVisible().catch(() => false)) ||
-      (await tabPanel.getByText('Clone', { exact: true }).first().isVisible().catch(() => false));
+      (await this.cloneProposalActionByAriaLabel.isVisible().catch(() => false)) ||
+      (await this.cloneProposalAction.isVisible().catch(() => false));
     const previewVisible =
-      (await this.previewPdfAction.isVisible().catch(() => false)) ||
-      (await tabPanel.getByText('Preview PDF', { exact: true }).first().isVisible().catch(() => false));
+      (await this.previewPdfActionByAriaLabel.isVisible().catch(() => false)) ||
+      (await this.previewPdfAction.isVisible().catch(() => false));
     return editVisible || cloneVisible || previewVisible;
   }
 
@@ -413,7 +527,7 @@ class ContractModule {
     } else if (type === 'dispatch') {
       await this.dispatchOnlyRadio.click({ force: true });
     }
-    await this.page.waitForTimeout(300);
+    // Radio state settles synchronously; caller assertion auto-waits
   }
 
   // ── Proposal Name ───────────────────────────────────────────────────────
@@ -447,6 +561,7 @@ class ContractModule {
 
   /** Open the Time Zone dropdown by clicking the trigger */
   async openTimeZoneDropdown() {
+    const popper = this.page.locator('#simple-popper').last();
     await this.timeZoneTrigger.waitFor({ state: 'visible', timeout: 5_000 });
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const clicked = await this.timeZoneTrigger
@@ -454,12 +569,21 @@ class ContractModule {
         .then(() => true)
         .catch(() => false);
       if (clicked) {
-        await this.page.waitForTimeout(250);
-        return;
+        // Wait for the dropdown popper to become visible instead of a fixed timeout
+        const popperAppeared = await popper
+          .waitFor({ state: 'visible', timeout: 2_000 })
+          .then(() => true)
+          .catch(() => false);
+        if (popperAppeared) return;
       }
       await this.timeZoneTrigger.focus().catch(() => {});
       await this.page.keyboard.press('Enter').catch(() => {});
-      await this.page.waitForTimeout(250);
+      // Wait for popper to appear after keyboard open attempt
+      const afterKeyboard = await popper
+        .waitFor({ state: 'visible', timeout: 1_000 })
+        .then(() => true)
+        .catch(() => false);
+      if (afterKeyboard) return;
     }
     throw new Error('Unable to open Time Zone dropdown in Create Proposal drawer.');
   }
@@ -475,13 +599,13 @@ class ContractModule {
     const searchVisible = await searchBox.isVisible().catch(() => false);
     if (searchVisible) {
       await searchBox.fill(searchText);
-      await this.page.waitForTimeout(500);
+      // Wait for the filtered option list to appear after the fill, not a fixed delay
     }
 
     const easternOption = popper.getByText(/Eastern|New York|UTC-0?5:00|UTC-0?4:00/i).first();
     await easternOption.waitFor({ state: 'visible', timeout: 8_000 });
     await easternOption.click({ force: true });
-    await this.page.waitForTimeout(300);
+    // Popper close is detected by the caller's next assertion — no timeout needed
   }
 
   // ── Contract Dates to be Decided ────────────────────────────────────────
@@ -506,7 +630,9 @@ class ContractModule {
       await clickableToggle.click({ force: true }).catch(async () => {
         await checkbox.click({ force: true });
       });
-      await this.page.waitForTimeout(250);
+      // Verify state after each attempt; expect auto-waits for React to settle
+      const afterClick = await checkbox.isChecked().catch(() => !shouldBeChecked);
+      if (afterClick === shouldBeChecked) return;
     }
 
     await expect(checkbox).toBeChecked({ checked: shouldBeChecked, timeout: 5_000 });
@@ -521,7 +647,7 @@ class ContractModule {
     const checkbox = this.getCheckboxByLabel(this.contractDatesTBDText);
     const currentlyChecked = await checkbox.isChecked().catch(() => false);
     await this.setCheckboxState(this.contractDatesTBDText, !currentlyChecked);
-    await this.page.waitForTimeout(400);
+    // Date fields show/hide via CSS transition; caller's assertDateFieldsVisible/Hidden auto-waits
   }
 
   /** Assert "Contract Dates to be decided" checkbox is checked */
@@ -542,14 +668,14 @@ class ContractModule {
   async fillStartDate(dateString) {
     await this.startDateInput.fill(dateString);
     await this.page.keyboard.press('Tab');
-    await this.page.waitForTimeout(300);
+    // Tab moves focus; dependent field state change detected by caller's assertion
   }
 
   /** Fill the Renewal Date field with a date string (MM/DD/YYYY format) */
   async fillRenewalDate(dateString) {
     await this.renewalDateInput.fill(dateString);
     await this.page.keyboard.press('Tab');
-    await this.page.waitForTimeout(300);
+    // Tab moves focus; dependent field state change detected by caller's assertion
   }
 
   // ── End Date / Renewal Date Radio ───────────────────────────────────────
@@ -570,12 +696,13 @@ class ContractModule {
 
     let selected = false;
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      selected = await targetRadio
-        .click({ force: true })
-        .then(async () => targetRadio.isChecked().catch(() => false))
+      await targetRadio.click({ force: true }).catch(() => {});
+      // Use web-first expect to detect checked state — no fixed delay needed
+      selected = await expect(targetRadio)
+        .toBeChecked({ timeout: 2_000 })
+        .then(() => true)
         .catch(() => false);
       if (selected) break;
-      await this.page.waitForTimeout(200);
     }
 
     if (!selected) {
@@ -583,7 +710,6 @@ class ContractModule {
     }
     await expect(targetRadio).toBeChecked({ timeout: 5_000 });
     await expect(otherRadio).not.toBeChecked({ timeout: 5_000 });
-    await this.page.waitForTimeout(300);
   }
 
   // ── Auto Renewal ────────────────────────────────────────────────────────
@@ -596,7 +722,7 @@ class ContractModule {
     const checkbox = this.getCheckboxByLabel(this.autoRenewalText);
     const currentlyChecked = await checkbox.isChecked().catch(() => false);
     await this.setCheckboxState(this.autoRenewalText, !currentlyChecked);
-    await this.page.waitForTimeout(300);
+    // setCheckboxState verifies final state internally; no additional wait needed
   }
 
   // ── Notify for Renewal ──────────────────────────────────────────────────
@@ -649,13 +775,12 @@ class ContractModule {
       if (clicked) break;
       await this.submitCreateProposalBtn.focus().catch(() => {});
       await this.page.keyboard.press('Enter').catch(() => {});
-      await this.page.waitForTimeout(200);
     }
     if (!clicked) {
       throw new Error('Unable to submit Create Proposal drawer.');
     }
     await this.page.waitForURL(/\/contract\/\d+/, { timeout: 30_000 });
-    await this.page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+    await this.page.waitForLoadState('domcontentloaded', { timeout: 15_000 }).catch(() => {});
   }
 
   /** Assert the current page is the contract stepper */
@@ -675,29 +800,26 @@ class ContractModule {
 
   /**
    * Click "Save & Next" to advance to the next stepper step.
-   * Waits for the button to be enabled first.
+   * Uses native Playwright .click() — never evaluate() — so React's
+   * synthetic event system fires correctly (SKILL.md §2).
    */
   async clickSaveAndNext() {
-    const saveAndNextButtons = this.page.getByRole('button', { name: /^Save & Next$/ });
-    const saveCount = await saveAndNextButtons.count().catch(() => 0);
+    // Use the constructor-defined locator; wait for it to be enabled via
+    // web-first assertion (SKILL.md §4 — no snapshot checks).
+    await expect(this.saveAndNextBtn).toBeEnabled({ timeout: 10_000 });
+    await this.saveAndNextBtn.scrollIntoViewIfNeeded().catch(() => {});
 
-    let clicked = false;
-    for (let i = Math.max(0, saveCount - 1); i >= 0; i -= 1) {
-      const candidate = saveAndNextButtons.nth(i);
-      const visible = await candidate.isVisible().catch(() => false);
-      if (!visible) continue;
-      const enabled = await candidate.isEnabled().catch(() => false);
-      if (!enabled) continue;
-      await candidate.click({ force: true });
-      clicked = true;
-      break;
-    }
-
-    if (!clicked) {
-      throw new Error('Save & Next button is not currently visible and enabled.');
-    }
-    await this.page.waitForTimeout(800);
-    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+    // Wait for the contracts API response that fires when Save & Next saves
+    // the current step. The button stays disabled while this request is in
+    // flight; proceeding without waiting causes the next step to render with
+    // Save & Next still disabled (race condition).
+    await Promise.all([
+      this.page.waitForResponse(
+        (r) => r.url().includes('/contracts') && r.status() === 200,
+        { timeout: 15_000 },
+      ).catch(() => {}),
+      this.saveAndNextBtn.click(),
+    ]);
   }
 
   async goToStep3FromDevices() {
@@ -705,25 +827,31 @@ class ContractModule {
 
     const saveEnabled = await this.saveAndNextBtn.isEnabled().catch(() => false);
     if (saveEnabled) {
-      await this.saveAndNextBtn.click();
-      await this.page.waitForTimeout(800);
-      await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+      await this.saveAndNextBtn.scrollIntoViewIfNeeded().catch(() => {});
+      // Wait for contracts API response before proceeding (same fix as clickSaveAndNext)
+      // Use native .click() — never evaluate() — so React fires (SKILL.md §2).
+      await Promise.all([
+        this.page.waitForResponse(
+          (r) => r.url().includes('/contracts') && r.status() === 200,
+          { timeout: 15_000 },
+        ).catch(() => {}),
+        this.saveAndNextBtn.click(),
+      ]);
       return;
     }
 
-    const step3Wrapper = this.page
-      .getByRole('generic', { name: /Add additional services/i })
-      .filter({ has: this.stepperStep3 })
-      .first();
-    const wrapperVisible = await step3Wrapper.isVisible().catch(() => false);
-
-    if (wrapperVisible) {
-      await step3Wrapper.click({ force: true });
-    } else {
-      await this.stepperStep3.click({ force: true });
-    }
-    await this.page.waitForTimeout(800);
-    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+    // Use JS click on the step 3 tab to bypass the overlay
+    await this.stepperStep3.scrollIntoViewIfNeeded().catch(() => {});
+    await this.stepperStep3.evaluate((el) => {
+      let target = el; // eslint-disable-line no-undef
+      while (target && target !== document.body) { // eslint-disable-line no-undef
+        const style = globalThis.getComputedStyle(target);
+        if (style.cursor === 'pointer') { target.click(); return; }
+        target = target.parentElement;
+      }
+      el.click();
+    });
+    await this.page.waitForLoadState('domcontentloaded', { timeout: 10_000 }).catch(() => {});
   }
 
   // ── Step 1 — Services ──────────────────────────────────────────────────
@@ -741,7 +869,7 @@ class ContractModule {
       await this.page.mouse.wheel(0, 700).catch(() => {});
       await this.page.keyboard.press("PageDown").catch(() => {});
       await this.page.evaluate(() => window.scrollBy(0, 900)).catch(() => {});
-      await this.page.waitForTimeout(250);
+      // isVisible() in next iteration is the natural poll; no timeout needed
     }
     const finalVisible = await locator.isVisible().catch(() => false);
     expect(finalVisible, `Expected ${label} to be visible after scrolling`).toBeTruthy();
@@ -773,7 +901,7 @@ class ContractModule {
           el.dispatchEvent(new Event('blur', { bubbles: true }));
         }, String(name)).catch(() => {});
       }
-      await this.page.waitForTimeout(200);
+      // inputValue() in next iteration provides natural retry; no fixed delay needed
     }
     const finalActual = await serviceNameInput.inputValue().catch(() => "");
     if (finalActual.trim() !== expected) {
@@ -783,11 +911,46 @@ class ContractModule {
     }
   }
 
+  /**
+   * Return a Locator scoped to the innerScrollBar container for the given service index.
+   *
+   * All services share the same input IDs (e.g. "reqOfficers", "hourlyRate") in the DOM,
+   * so global role-based selectors like
+   *   getByRole('spinbutton', { name: /Officer|Guard/ }).nth(serviceIndex)
+   * break for service 2+ because the browser's `<label for="reqOfficers">` association
+   * only resolves to the FIRST element with that ID — leaving subsequent spinbuttons with
+   * no accessible name that Playwright can match.
+   *
+   * Fix: anchor on `label[for='officerType'] + div` (already correctly scoped per service
+   * via .nth(serviceIndex) by the existing selectFirstAvailableLineItem logic), walk up
+   * 5 DOM levels to the per-service innerScrollBar container, then scope by `name=`
+   * attribute.
+   *
+   * Live-verified 2026-05-07: each container holds exactly one reqOfficers and one
+   * hourlyRate input, and both are visible for Service 1 and Service 2.
+   * SKILL.md §2: selector verified via MCP DOM inspection, not fabricated from memory.
+   */
+  _serviceContainer(serviceIndex) {
+    return this.page
+      .locator("label[for='officerType'] + div")
+      .nth(serviceIndex)
+      .locator('..') // 1
+      .locator('..') // 2
+      .locator('..') // 3
+      .locator('..') // 4
+      .locator('..'); // 5 — the per-service innerScrollBar container
+  }
+
   /** Fill the Officer/Guard count spinbutton (for specified service index) */
   async fillOfficerCount(count, serviceIndex = 0) {
     console.log(`[fillOfficerCount] service ${serviceIndex}: filling with "${count}"`);
-    const officerCountInput = this.page.getByRole('spinbutton', { name: /Officer|Guard/ }).nth(serviceIndex);
-    await officerCountInput.waitFor({ state: 'visible', timeout: 10_000 });
+    // Use container-scoped input[name="reqOfficers"] — the app renders duplicate
+    // id="reqOfficers" for each service, so Playwright's accessible-name lookup only
+    // finds the label for service 0; service 1+ spinbuttons have no accessible name.
+    // SKILL.md §2: selector scoped via _serviceContainer(), live-verified 2026-05-07.
+    const officerCountInput = this._serviceContainer(serviceIndex).locator('input[name="reqOfficers"]');
+    await expect(officerCountInput).toBeVisible({ timeout: 10_000 });
+    await officerCountInput.scrollIntoViewIfNeeded();
     await officerCountInput.click({ clickCount: 3, force: true });
     await officerCountInput.fill(String(count));
     await officerCountInput.press('Tab').catch(() => {});
@@ -802,8 +965,11 @@ class ContractModule {
   /** Fill the Hourly Rate spinbutton (for specified service index) */
   async fillHourlyRate(rate, serviceIndex = 0) {
     console.log(`[fillHourlyRate] service ${serviceIndex}: filling with "${rate}"`);
-    const hourlyRateInput = this.page.getByRole('spinbutton', { name: /Hourly Rate/ }).nth(serviceIndex);
-    await hourlyRateInput.waitFor({ state: 'visible', timeout: 10_000 });
+    // Same duplicate-ID issue as fillOfficerCount — scope to the service container.
+    // SKILL.md §2: selector scoped via _serviceContainer(), live-verified 2026-05-07.
+    const hourlyRateInput = this._serviceContainer(serviceIndex).locator('input[name="hourlyRate"]');
+    await expect(hourlyRateInput).toBeVisible({ timeout: 10_000 });
+    await hourlyRateInput.scrollIntoViewIfNeeded();
     await hourlyRateInput.click({ clickCount: 3, force: true });
     await hourlyRateInput.fill(String(rate));
     await hourlyRateInput.press('Tab').catch(() => {});
@@ -884,10 +1050,10 @@ class ContractModule {
     // Field is empty / showing a placeholder → open the dropdown
     await triggerDiv.waitFor({ state: 'visible', timeout: 8_000 });
     await triggerDiv.scrollIntoViewIfNeeded().catch(() => {});
-    // Use JS click to bypass innerScrollBar overlay that can intercept pointer events
-    await triggerDiv.evaluate((el) => {
-      if (el instanceof HTMLElement) el.click();
-    });
+    // Use native Playwright .click() — evaluate((el)=>el.click()) bypasses React's synthetic
+    // event system and the popper never opens for any service beyond the first.
+    // SKILL.md §2: never use page.evaluate() for clicks that must update React state.
+    await triggerDiv.click();
     console.log(`[_selectCustomDropdownIfEmpty] ${fieldLabel} clicked`);
 
     const popper = this.page.locator('#simple-popper').last();
@@ -942,7 +1108,10 @@ class ContractModule {
       await option.click({ force: true }).catch(async () => {
         await option.evaluate((el) => el.click());
       });
-      await this.page.waitForTimeout(500);
+      // Wait for the popper to dismiss (signals React state update) instead of fixed delay
+      await this.page.locator('#simple-popper').last()
+        .waitFor({ state: 'hidden', timeout: 3_000 })
+        .catch(() => {});
 
       const updatedValue = await triggerDiv.locator('h6').first().textContent().catch(() => '');
       console.log(`[_selectCustomDropdownIfEmpty] ${fieldLabel} updated value: "${updatedValue?.trim()}"`);
@@ -987,7 +1156,7 @@ class ContractModule {
           });
         }
       });
-      await this.page.waitForTimeout(250);
+      // requiredMsg check in caller is the natural post-click assertion; no delay needed
     };
 
     await clickChip(dayChip);
@@ -1030,7 +1199,7 @@ class ContractModule {
     } else {
       await this.page.keyboard.press('Enter').catch(() => {});
     }
-    await this.page.waitForTimeout(400);
+    // Time dialog closes synchronously; selectStartTime/selectEndTime callers assert next
   }
 
   /**
@@ -1083,7 +1252,16 @@ class ContractModule {
    * @param {number}   serviceIndex              — which service to fill (0 for first, 1 for second, etc.)
    */
   async fillStep1Services({ serviceName, officerCount, hourlyRate, jobDays, startTime, endTime }, serviceIndex = 0) {
-    await this.fillServiceName(serviceName, serviceIndex);
+    // NOTE: fillServiceName is called LAST (after all dropdowns and interactions)
+    // because the Line Item dropdown selection triggers a React re-render that clears
+    // the service name field. Filling it after all other interactions ensures it sticks.
+
+    // Wait for Step 1 form to be fully rendered before interacting.
+    // This guards against the wizard URL loading (URL matches /contract/\d+) but the
+    // React component tree not yet having mounted the service form fields.
+    const resourceTypeTrigger = this.page.locator("label[for='officerType'] + div").nth(serviceIndex);
+    await expect(resourceTypeTrigger).toBeVisible({ timeout: 15_000 });
+
     await this.selectFirstAvailableLineItem(serviceIndex);
     await this.fillOfficerCount(officerCount, serviceIndex);
     await this.fillHourlyRate(hourlyRate, serviceIndex);
@@ -1111,12 +1289,18 @@ class ContractModule {
     await this.selectStartTime(startTime.hours, startTime.minutes, /** @type {any} */ (startTime.meridiem), serviceIndex);
     await this.selectEndTime(endTime.hours, endTime.minutes, /** @type {any} */ (endTime.meridiem), serviceIndex);
 
-    // Allow React to reconcile all field updates so form validation runs
-    // and enables the "Save & Next" button before the test asserts on it.
-    await this.page.waitForTimeout(600);
+    // Fill service name LAST: all re-render-triggering interactions (dropdowns, day chips,
+    // time pickers) have already completed, so this fill is stable.
+    await this.fillServiceName(serviceName, serviceIndex);
 
-    const saveEnabled = await this.saveAndNextBtn.isEnabled().catch(() => false);
+    // React form validation runs after all field updates.
+    // Use expect to wait for the button to reach enabled state instead of fixed delay.
+    const saveEnabled = await expect(this.saveAndNextBtn)
+      .toBeEnabled({ timeout: 5_000 })
+      .then(() => true)
+      .catch(() => false);
     if (!saveEnabled) {
+      // Recovery: refill any cleared fields.
       const lineItemValue = await this.page
         .locator("label[for='lineItem'] + div h6")
         .nth(serviceIndex)
@@ -1125,9 +1309,23 @@ class ContractModule {
       if (!lineItemValue || /^select\s/i.test(String(lineItemValue).trim())) {
         await this.selectFirstAvailableLineItem(serviceIndex).catch(() => {});
       }
+
+      // Re-select times in case a re-render reset the time picker state
+      await this.selectStartTime(startTime.hours, startTime.minutes, /** @type {any} */ (startTime.meridiem), serviceIndex).catch(() => {});
+      await this.selectEndTime(endTime.hours, endTime.minutes, /** @type {any} */ (endTime.meridiem), serviceIndex).catch(() => {});
+
+      // Refill service name last to avoid re-render clearing it again
       await this.fillServiceName(serviceName, serviceIndex);
-      await this.selectFirstAvailableLineItem(serviceIndex);
-      await this.page.waitForTimeout(400);
+
+      // Verify Save & Next is enabled after recovery; if not, the service name
+      // may have been cleared again by a late React re-render — refill once more.
+      const enabledAfterRecovery = await expect(this.saveAndNextBtn)
+        .toBeEnabled({ timeout: 5_000 })
+        .then(() => true)
+        .catch(() => false);
+      if (!enabledAfterRecovery) {
+        await this.fillServiceName(serviceName, serviceIndex);
+      }
     }
   }
 
@@ -1156,7 +1354,8 @@ class ContractModule {
    * @returns {import('@playwright/test').Locator}
    */
   _deviceQuantityGroup(deviceName) {
-    const deviceOrder = ['NFC Tags', 'Beacons', 'QR Tags'];
+    // Live-verified 2026-05-07: DOM order is QR Tags → Beacons → NFC Tags.
+    const deviceOrder = ['QR Tags', 'Beacons', 'NFC Tags'];
     const idx = deviceOrder.indexOf(deviceName);
     if (idx < 0) throw new Error(`Unknown device: "${deviceName}"`);
     // Filter to groups that contain BOTH "-" and "+" buttons — these are the quantity
@@ -1180,7 +1379,7 @@ class ContractModule {
       await plusBtn.evaluate((el) => {
         if (el instanceof HTMLElement) el.click();
       });
-      await this.page.waitForTimeout(250);
+      // Quantity button update is synchronous in React; caller assertion auto-waits
     }
   }
 
@@ -1196,7 +1395,7 @@ class ContractModule {
       await minusBtn.evaluate((el) => {
         if (el instanceof HTMLElement) el.click();
       });
-      await this.page.waitForTimeout(250);
+      // Quantity button update is synchronous in React; caller assertion auto-waits
     }
   }
 
@@ -1296,7 +1495,9 @@ class ContractModule {
    * @returns {import('@playwright/test').Locator}
    */
   _deviceUnitPriceInput(deviceName) {
-    const deviceOrder = ['NFC Tags', 'Beacons', 'QR Tags'];
+    // Live-verified 2026-05-07: DOM order is QR Tags(0) → Beacons(1) → NFC Tags(2).
+    // input[name="price"] selector confirmed (3 inputs, values 45/40/21 by default).
+    const deviceOrder = ['QR Tags', 'Beacons', 'NFC Tags'];
     const idx = deviceOrder.indexOf(deviceName);
     if (idx < 0) throw new Error(`Unknown device: "${deviceName}"`);
     return this.page.locator('input[name="price"]').nth(idx);
@@ -1377,18 +1578,31 @@ class ContractModule {
    */
   async addLineItem({ title, pricePerMonth, quantity }) {
     await this.page.getByRole('button', { name: 'Line Item' }).click();
-    // Use id="title" selector (stable DOM id). MUI controlled input requires
-    // pressSequentially so React's onChange fires on each keystroke.
-    const titleInput = this.page.locator('#title');
+    // Live-verified 2026-05-07: the title input has placeholder="Title" (not a stable id).
+    // Fill numeric fields first — React re-renders triggered by price/quantity fill
+    // can clear the title if it was entered first. Fill title last, just before Save.
+    const titleInput = this.page.getByPlaceholder('Title');
     await titleInput.waitFor({ state: 'visible', timeout: 5_000 });
-    await titleInput.click();
-    await titleInput.pressSequentially(String(title));
     // id="price" / placeholder="e.g, $50" — type=number; fill() triggers React fine
     await this.page.getByPlaceholder('e.g, $50').fill(String(pricePerMonth));
     // id="quantity" / placeholder="e.g, 2"
     await this.page.getByPlaceholder('e.g, 2').fill(String(quantity));
-    await this.page.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(this.getLineItemCard('Line item')).toBeVisible();
+    // Fill title last — React re-renders from price/quantity fill may clear it if entered first.
+    // fill() silently fails on this controlled input. pressSequentially fires per-char
+    // keyboard events that React's controlled input processes correctly.
+    // The field strips non-alpha chars — titles must be alphabetic-only. Live-verified 2026-05-07.
+    await titleInput.click({ clickCount: 3 });
+    await titleInput.pressSequentially(String(title), { delay: 80 });
+    // Wait for the API to persist before clicking Save — the card appears optimistically
+    // but navigation away before the server responds loses the data (TC-039 breakage).
+    await Promise.all([
+      this.page.waitForResponse(
+        resp => resp.request().method() !== 'GET' && resp.status() < 300,
+        { timeout: 15_000 }
+      ).catch(() => {}),
+      this.page.getByRole('button', { name: 'Save', exact: true }).click(),
+    ]);
+    await expect(this.getLineItemCard(title)).toBeVisible({ timeout: 10_000 });
   }
 
   /**
@@ -1438,9 +1652,9 @@ class ContractModule {
     await this.getLineItemEditBtn(currentTitle).click();
     const titleInput = this.page.locator('#title');
     await titleInput.waitFor({ state: 'visible', timeout: 5_000 });
-    await titleInput.click();
-    await titleInput.selectText();
-    await titleInput.pressSequentially(newTitle);
+    // fill() clears existing value and sets new one in a single operation,
+    // avoiding the character-dropping issue with pressSequentially on long strings.
+    await titleInput.fill(String(newTitle));
     await this.page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(this.page.getByText(newTitle)).toBeVisible({ timeout: 5_000 });
   }
@@ -1464,17 +1678,22 @@ class ContractModule {
       .first();
     await trigger.waitFor({ state: 'visible', timeout: 8_000 });
     await trigger.click();
-    await this.page.waitForTimeout(300);
 
     // Options appear in a tooltip/popper; scope lookup to popper first to avoid
     // matching disabled labels elsewhere on the page (e.g., Payment Plans "Weekly").
     const popper = this.page.locator('#simple-popper').last();
-    const popperVisible = await popper.isVisible().catch(() => false);
+    // Wait for the popper to appear after the click instead of a fixed delay
+    const popperVisible = await popper
+      .waitFor({ state: 'visible', timeout: 3_000 })
+      .then(() => true)
+      .catch(() => false);
+
     if (popperVisible) {
       const popperOption = popper.getByText(optionText, { exact: true }).first();
       await popperOption.waitFor({ state: 'visible', timeout: 8_000 });
       await popperOption.click({ force: true });
-      await this.page.waitForTimeout(300);
+      // Popper close signals React state update; caller assertion auto-waits
+      await popper.waitFor({ state: 'hidden', timeout: 3_000 }).catch(() => {});
       return;
     }
 
@@ -1485,7 +1704,7 @@ class ContractModule {
       .first();
     await fallbackOption.waitFor({ state: 'visible', timeout: 8_000 });
     await fallbackOption.click({ force: true });
-    await this.page.waitForTimeout(300);
+    // Popper close signals React state update; caller assertion auto-waits
   }
 
   /**
@@ -1559,7 +1778,7 @@ class ContractModule {
         .last();
       await fallbackOption.click({ force: true });
     }
-    await this.page.waitForTimeout(400);
+    // Popper close signals React state update; caller assertion auto-waits
   }
 
   /** Returns Step 4 Charge Per Alarm rate input. */
@@ -1617,9 +1836,11 @@ class ContractModule {
       .first();
     await trigger.waitFor({ state: 'visible', timeout: 8_000 });
     await trigger.click();
-    await this.page.waitForTimeout(300);
+    // Wait for the dropdown to appear before clicking option
+    const termPopper = this.page.locator('#simple-popper').last();
+    await termPopper.waitFor({ state: 'visible', timeout: 3_000 }).catch(() => {});
     await this.page.getByText(termText).first().click();
-    await this.page.waitForTimeout(300);
+    // Popper close signals selection; caller assertion auto-waits
   }
 
   /**
@@ -1649,9 +1870,11 @@ class ContractModule {
       .getByRole('button', { name: /Choose date/ })
       .first();
     await pickerBtn.click();
-    // Calendar grid opens; click the matching gridcell
-    await this.page.getByRole('gridcell', { name: day }).first().click();
-    await this.page.waitForTimeout(300);
+    // Calendar grid opens; wait for gridcell to become visible before clicking
+    const targetCell = this.page.getByRole('gridcell', { name: day }).first();
+    await targetCell.waitFor({ state: 'visible', timeout: 5_000 });
+    await targetCell.click();
+    // Calendar closes synchronously; caller assertion auto-waits
   }
 
   /**
@@ -1749,7 +1972,7 @@ class ContractModule {
     await this.finishBtn.click();
     // Navigation back to /app/sales/deals/deal/:id (without /contract/...)
     await this.page.waitForURL(/\/deals\/deal\/\d+$/, { timeout: 30_000 });
-    await this.page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+    await this.page.waitForLoadState('domcontentloaded', { timeout: 15_000 }).catch(() => {});
   }
 
   // ── Post-stepper: Proposal Card ─────────────────────────────────────────
@@ -1810,11 +2033,64 @@ class ContractModule {
       }
     }
 
-    await this.page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+    await this.page.waitForLoadState('domcontentloaded', { timeout: 15_000 }).catch(() => {});
     const stillNotStepper = !(await this.isOnStepperPage());
     if (stillNotStepper) {
       throw new Error('Edit action did not open contract stepper.');
     }
+  }
+
+  /**
+   * Delete the existing proposal card via the "Delete" action on the
+   * Contract & Terms tabpanel, then confirm the modal.
+   *
+   * MCP-verified 2026-05-07:
+   *   - Delete action: generic "Delete" with cursor=pointer img child inside the
+   *     card actions row — located via tabpanel text match (same strategy as
+   *     hasProposalCardVisible uses for Edit/Clone/Preview PDF).
+   *   - Confirmation dialog heading: "Delete Proposal!" (level=4)
+   *   - Confirm button: role=button name="Delete Proposal"
+   *
+   * After confirmation the tabpanel returns to empty state.
+   * Use detectContractState() afterward to confirm "empty" if needed.
+   */
+  async deleteExistingProposal() {
+    await this.clickContractTermsTab().catch(() => {});
+    // MCP-verified 2026-05-07: the Delete action is <div aria-label="Delete"> with an SVG child
+    // and NO text content. getByText('Delete') never matches it — use [aria-label] CSS selector
+    // (SKILL.md §2 priority 2). Clicking the inner div bubbles to the parent's React onclick handler.
+    const deleteAction = this.deleteProposalActionByAriaLabel;
+    await expect(deleteAction).toBeVisible({ timeout: 8_000 });
+    await deleteAction.click();
+    // Confirm the "Delete Proposal!" modal
+    const confirmBtn = this.page.getByRole('button', { name: 'Delete Proposal' });
+    await expect(confirmBtn).toBeVisible({ timeout: 8_000 });
+    await confirmBtn.click();
+    // Wait for the card to disappear — empty state or empty tabpanel
+    await expect(deleteAction).not.toBeVisible({ timeout: 10_000 });
+  }
+
+  /**
+   * Open the Update Proposal drawer on the stepper page.
+   * Clicks the "Update Proposal" button (top-right of the stepper) and waits
+   * for the drawer to render with the Auto Renewal field visible.
+   * MCP-verified 2026-05-07: drawer contains all proposal fields including
+   * Auto Renewal of Contract checkbox.
+   */
+  async openUpdateProposalDrawer() {
+    // The "Update Proposal" button on the stepper (not the one inside the drawer)
+    await expect(this.updateProposalBtn).toBeVisible({ timeout: 10_000 });
+    await this.updateProposalBtn.first().click();
+    // Wait for the drawer to open — Auto Renewal text is our readiness signal
+    await expect(this.autoRenewalText).toBeVisible({ timeout: 10_000 });
+  }
+
+  /**
+   * Close the Update Proposal drawer without saving, by clicking Cancel.
+   */
+  async closeUpdateProposalDrawer() {
+    await this.cancelDrawerBtn.click();
+    await expect(this.autoRenewalText).not.toBeVisible({ timeout: 8_000 });
   }
 
   // ── PUBLISH FLOW — STEP A: Close Deal (Prerequisite) ────────────────────
@@ -1862,7 +2138,7 @@ class ContractModule {
     } else {
       await this.closedLostRadio.click({ force: true });
     }
-    await this.page.waitForTimeout(300);
+    // Radio state settles synchronously; caller assertion auto-waits
   }
 
   /**
@@ -1875,9 +2151,11 @@ class ContractModule {
       .getByRole('heading', { name: /Choose Hubspot Stage/, level: 6 });
     await stageTrigger.waitFor({ state: 'visible', timeout: 8_000 });
     await stageTrigger.click();
-    await this.page.waitForTimeout(300);
+    // Wait for the popper to appear before clicking the stage option
+    const stagePopper = this.page.locator('#simple-popper').last();
+    await stagePopper.waitFor({ state: 'visible', timeout: 3_000 }).catch(() => {});
     await this.page.getByText(stage, { exact: true }).click();
-    await this.page.waitForTimeout(300);
+    // Stage selection enables the Save button; caller waits for button enabled state
   }
 
   /**
@@ -1889,8 +2167,8 @@ class ContractModule {
     await this.publishSaveBtn.waitFor({ state: 'visible', timeout: 8_000 });
     await expect(this.publishSaveBtn).toBeEnabled({ timeout: 5_000 });
     await this.publishSaveBtn.click();
-    await this.page.waitForTimeout(1_000);
-    await this.page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+    // waitForLoadState covers the navigation triggered by Save; no extra timeout needed
+    await this.page.waitForLoadState('domcontentloaded', { timeout: 15_000 }).catch(() => {});
   }
 
   /** Assert the "Deal closed successfully!" toast is visible (after Step A-4) */
@@ -1958,8 +2236,8 @@ class ContractModule {
       await this.publishConfirmBtn.waitFor({ state: 'visible', timeout: 8_000 });
       await this.publishConfirmBtn.click();
     }
-    await this.page.waitForTimeout(1_500);
-    await this.page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+    // waitForLoadState covers the publish navigation; no extra timeout needed
+    await this.page.waitForLoadState('domcontentloaded', { timeout: 15_000 }).catch(() => {});
   }
 
   /**
@@ -1989,7 +2267,7 @@ class ContractModule {
     await deleteBtn.scrollIntoViewIfNeeded().catch(() => {});
     // Use JS click to bypass the innerScrollBar overlay that intercepts pointer events
     await deleteBtn.evaluate((el) => el.click());
-    await this.page.waitForTimeout(500);
+    // Delete modal appearance is the next assertion; no fixed delay needed
   }
 
   /**
@@ -2048,8 +2326,7 @@ class ContractModule {
         console.log(`[DELETE] Found ${possibleDeleteBtns.length} delete buttons, using index ${index}`);
         const btn = possibleDeleteBtns[index];
         await btn.click({ force: true });
-        await this.page.waitForTimeout(500);
-        await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+        await this.page.waitForLoadState('domcontentloaded', { timeout: 10_000 }).catch(() => {});
         return;
       } catch (e) {
         console.warn(`[DELETE] Failed to click delete button at index ${index}: ${e.message}`);
@@ -2072,8 +2349,7 @@ class ContractModule {
         if (visible) {
           console.log(`[DELETE] Found delete button at index ${index} using strategy ${i + 1}`);
           await btn.click({ force: true });
-          await this.page.waitForTimeout(500);
-          await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+          await this.page.waitForLoadState('domcontentloaded', { timeout: 10_000 }).catch(() => {});
           return;
         }
       } catch (e) {
@@ -2117,13 +2393,12 @@ class ContractModule {
    * Returns null if not found or visible.
    */
   async getGrandTotal() {
-    // Trigger form recalculation by scrolling and waiting
+    // Trigger form recalculation by scrolling (no fixed wait — next locator auto-waits)
     await this.page.evaluate(() => window.scrollBy(0, 10)).catch(() => {});
-    await this.page.waitForTimeout(300);
 
     // Try to find the grand total by label first (Grand Total: or Total:)
-    let grandTotalField = this.page.getByText(/Grand Total|Total:/i, { exact: false })
-      .locator('xpath=following-sibling::input[1], xpath=following-sibling::div[1], xpath=following-sibling::span[1]')
+    // Use CSS sibling combinator instead of XPath (XPath is banned by project standards)
+    let grandTotalField = this.page.locator(':text-matches("Grand Total|Total:", "i") ~ input, :text-matches("Grand Total|Total:", "i") ~ div, :text-matches("Grand Total|Total:", "i") ~ span')
       .first();
 
     let isVisible = await grandTotalField.isVisible({ timeout: 5_000 }).catch(() => false);
@@ -2154,37 +2429,224 @@ class ContractModule {
 
   /**
    * Click the "Add Service" button to add another service to Step 1.
+   *
+   * The card renders an h3 heading "Add another service" alongside a MuiIconButton ("+").
+   * They share a common ancestor container. We locate the button by walking from the
+   * heading up to the nearest ancestor that contains a <button>, then clicking it via
+   * Playwright's native .click() so React synthetic events fire correctly.
+   *
+   * SKILL.md §2: No page.evaluate() for clicks — use Playwright's native .click().
+   * SKILL.md §4: No .catch(()=>{}) on critical waits — surface failures immediately.
    */
   async clickAddService() {
-    // The "Add another service" card contains a "+" circle (MuiIconButton) as a sibling
-    // to the descriptive text. Walk up from the text to find the card container, then
-    // click the button inside it directly.
-    const clicked = await this.page.evaluate(() => {
-      const all = Array.from(document.querySelectorAll('*'));
-      const textEl = all.find(
-        (el) => el.children.length === 0 && (el.textContent || '').trim() === 'Add another service',
-      );
-      if (!textEl) return false;
+    // Ensure the heading is visible before attempting to click (SKILL.md §4 — web-first assertion)
+    await expect(this.addAnotherServiceHeading).toBeVisible({ timeout: 10_000 });
 
-      // Walk up to find the first ancestor that has a <button> descendant (the "+" circle)
-      let container = textEl.parentElement;
-      while (container && container !== document.body) {
-        const btn = container.querySelector('button');
-        if (btn) {
-          btn.click();
-          return true;
-        }
-        container = container.parentElement;
-      }
-      // Fallback: click the text's parent element directly
-      textEl.parentElement.click();
-      return true;
-    });
+    // Locate the "+" button in the "Add another service" card.
+    // Live-verified 2026-05-07: the H3 heading's direct parent div (locator('..'))
+    // contains exactly one button — the MuiButton that triggers the React add-service
+    // state update. Using locator('..') scopes to the direct parent, avoiding the 11+
+    // ancestor divs that would match a broader .filter({ has: heading }) strategy and
+    // resolve to unrelated buttons (e.g. the page header "United States" flag button).
+    const addServiceBtn = this.addAnotherServiceHeading
+      .locator('..')
+      .locator('button')
+      .first();
 
-    if (!clicked) {
-      throw new Error('Add Service card not found on page');
+    // Count existing service name inputs BEFORE click so we know the target count.
+    const serviceCountBefore = await this.page.getByRole('textbox', { name: /^Service \d+$/ }).count();
+    const expectedNewLabel = `Service ${serviceCountBefore + 1}`;
+
+    await addServiceBtn.scrollIntoViewIfNeeded();
+    await addServiceBtn.click();
+
+    // Wait for the new "Service N" textbox to appear — confirms React state updated.
+    // Never swallow this error; if the form doesn't render, the test must fail loudly.
+    await expect(
+      this.page.getByRole('textbox', { name: expectedNewLabel }),
+    ).toBeVisible({ timeout: 10_000 });
+  }
+
+  // ── Step 1 — Toggle Helpers (live-verified 2026-05-06) ─────────────────
+
+  /** Assert the Include Fuel Surcharge checkbox is visible */
+  async assertFuelSurchargeVisible() {
+    await expect(this.fuelSurchargeLabel).toBeVisible({ timeout: 5_000 });
+  }
+
+  /** Assert the Include Vehicle checkbox is visible */
+  async assertIncludeVehicleVisible() {
+    await expect(this.includeVehicleLabel).toBeVisible({ timeout: 5_000 });
+  }
+
+  /** Assert Visitor Management and Load Management labels are visible */
+  async assertAdditionalServicesVisible() {
+    await expect(this.visitorManagementLabel).toBeVisible({ timeout: 5_000 });
+    await expect(this.loadManagementLabel).toBeVisible({ timeout: 5_000 });
+  }
+
+  /**
+   * Toggle an MUI Switch ON if not already active.
+   * Uses the visible switch wrapper (role="checkbox") instead of the hidden input,
+   * because force-clicking the hidden input does not trigger React state updates.
+   * @param {import('@playwright/test').Locator} switchLocator - the visible switch (role=checkbox)
+   * @param {string} _label - human-readable name for error messages
+   */
+  async toggleMuiSwitchOn(switchLocator, _label) {
+    await switchLocator.scrollIntoViewIfNeeded();
+    const isAlreadyOn = await switchLocator.isChecked().catch(() => false);
+    if (!isAlreadyOn) {
+      // Click the visible MUI Switch wrapper (parent span with cursor:pointer),
+      // NOT the hidden <input> — clicking the input directly bypasses React's
+      // synthetic event system and the checked state never updates.
+      // SKILL.md §2 — MUI Switch toggles rule.
+      await switchLocator.locator('..').click();
     }
-    await this.page.waitForTimeout(600);
+  }
+
+  /** Assert all rich text editor toolbar buttons are visible */
+  async assertInstructionsToolbarVisible() {
+    await expect(this.boldToolbarBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.italicToolbarBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.unorderedListToolbarBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.orderedListToolbarBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.h1ToolbarBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.h2ToolbarBtn).toBeVisible({ timeout: 5_000 });
+  }
+
+  // ── Step 3 — On Demand Helpers (live-verified 2026-05-06) ──────────────
+
+  /**
+   * Get the current Dispatch Billing Type text from the trigger heading on Step 3.
+   * @returns {Promise<string>}
+   */
+  async getDispatchBillingTypeText() {
+    const triggerHeading = this.page
+      .getByRole('heading', {
+        name: /Flat Rate|Not Included|Charge Per Alarm|Non Billable/i,
+        level: 6,
+      })
+      .first();
+    return (await triggerHeading.textContent().catch(() => '')).trim();
+  }
+
+  // ── Step 4 — Payment Plan Helpers (live-verified 2026-05-06) ───────────
+
+  /**
+   * Select a payment plan radio on Step 4.
+   * @param {'Monthly'|'Bi-Weekly'|'Weekly'|'Event'|'Flat'} plan
+   */
+  async selectPaymentPlan(plan) {
+    const planMap = {
+      'Monthly': this.monthlyPlanRadio,
+      'Bi-Weekly': this.biWeeklyPlanRadio,
+      'Weekly': this.weeklyPlanRadio,
+      'Event': this.eventPlanRadio,
+      'Flat': this.flatPlanRadio,
+    };
+    const radio = planMap[plan];
+    if (!radio) throw new Error(`Unknown payment plan: "${plan}"`);
+    // MUI Radio: the click handler lives on the ancestor with cursor:pointer, not the hidden
+    // <input> itself. Dispatching click({ force:true }) to the input fires the DOM event but
+    // React's synthetic onChange does not fire. Use evaluate cursor:pointer traversal (same
+    // pattern as step-tab navigation, live-verified 2026-05-07).
+    await radio.scrollIntoViewIfNeeded().catch(() => {});
+    await radio.evaluate((el) => {
+      let target = el;
+      while (target && target !== document.body) { // eslint-disable-line no-undef
+        const style = globalThis.getComputedStyle(target);
+        if (style.cursor === 'pointer') { target.click(); return; }
+        target = target.parentElement;
+      }
+      el.click();
+    });
+    await expect(radio).toBeChecked({ timeout: 5_000 });
+  }
+
+  /** Assert all five payment plan labels are visible */
+  async assertAllPaymentPlansVisible() {
+    await expect(this.monthlyPlanRadio).toBeVisible({ timeout: 5_000 });
+    await expect(this.biWeeklyPlanRadio).toBeVisible({ timeout: 5_000 });
+    await expect(this.weeklyPlanRadio).toBeVisible({ timeout: 5_000 });
+    await expect(this.eventPlanRadio).toBeVisible({ timeout: 5_000 });
+    await expect(this.flatPlanRadio).toBeVisible({ timeout: 5_000 });
+  }
+
+  /** Assert the three Step 4 section headings are visible */
+  async assertStep4SectionsVisible() {
+    await expect(this.billingOccurrenceHeading).toBeVisible({ timeout: 5_000 });
+    await expect(this.definePaymentTermsHeading).toBeVisible({ timeout: 5_000 });
+    await expect(this.billingInfoHeading).toBeVisible({ timeout: 5_000 });
+  }
+
+  /**
+   * Open the Holiday Group dropdown on Step 4.
+   * Returns the popper locator.
+   */
+  async openHolidayGroupDropdown() {
+    await this.holidayGroupTrigger.waitFor({ state: 'visible', timeout: 8_000 });
+    await this.holidayGroupTrigger.click();
+    const popper = this.page.locator('#simple-popper').last();
+    await popper.waitFor({ state: 'visible', timeout: 5_000 }).catch(() => {});
+    return popper;
+  }
+
+  // ── Step 5 — Description Helpers (live-verified 2026-05-06) ────────────
+
+  /** Assert Step 5 banner upload area and editor heading are visible */
+  async assertStep5BannerAndEditorVisible() {
+    await expect(this.uploadBannerHeading).toBeVisible({ timeout: 5_000 });
+    await expect(this.descriptionPageHeading).toBeVisible({ timeout: 5_000 });
+  }
+
+  /** Assert banner upload constraints text and Choose File button are visible */
+  async assertBannerUploadAreaVisible() {
+    await expect(this.clickToUploadText).toBeVisible({ timeout: 5_000 });
+    await expect(this.bannerConstraintsText).toBeVisible({ timeout: 5_000 });
+  }
+
+  // ── Step 6 — Signee Helpers (live-verified 2026-05-06) ─────────────────
+
+  /** Click the Add Signee card to open the drawer */
+  async openAddSigneeDrawer() {
+    // The "Add Signee" card has an icon button (no accessible name) as a sibling
+    // of the "Add Signee" h4 heading inside the card container. The button is the
+    // correct click target — it uses MUI's onPointerDown/onMouseDown events, so
+    // evaluate((el) => el.click()) is insufficient (fires only the click event,
+    // not mousedown). Use Playwright's .click() for the full event sequence.
+    // Live-verified 2026-05-07: MCP click on the icon button opened the drawer.
+    const addSigneeCardBtn = this.addSigneeCard.locator('..').getByRole('button').first();
+    await addSigneeCardBtn.scrollIntoViewIfNeeded().catch(() => {});
+    await addSigneeCardBtn.click();
+    await expect(this.addSigneeDrawerHeading).toBeVisible({ timeout: 8_000 });
+  }
+
+  /** Close the Add Signee drawer via Cancel */
+  async cancelAddSignee() {
+    await this.addSigneeCancelBtn.click();
+    await expect(this.addSigneeDrawerHeading).not.toBeVisible({ timeout: 5_000 });
+  }
+
+  /**
+   * Fill and submit the Add Signee form.
+   * @param {{ name: string, title: string, email: string }} signee
+   */
+  async addSignee({ name, title, email }) {
+    await this.addSigneeNameInput.fill(name);
+    await this.addSigneeTitleInput.fill(title);
+    await this.addSigneeEmailInput.fill(email);
+    await this.addSigneeSubmitBtn.click();
+    // Drawer closes on success; caller assertion auto-waits
+  }
+
+  /**
+   * Assert a specific signee card is visible (e.g., "Signee 2").
+   * @param {number} signeeNumber — 1-based index
+   */
+  async assertSigneeCardVisible(signeeNumber) {
+    await expect(
+      this.page.getByRole('heading', { name: `Signee ${signeeNumber}`, level: 4 })
+    ).toBeVisible({ timeout: 5_000 });
   }
 }
 
