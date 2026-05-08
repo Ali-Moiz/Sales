@@ -3206,9 +3206,18 @@ test.describe('Company Module E2E Tests', () => {
   test.describe('Notes Management — TC-COMP-121 through TC-COMP-132', () => {
     const testNoteSubject = `PAT Note ${Date.now()}`;
     const testNoteDescription = 'Automated test note description for E2E validation.';
+    let pinnedCompanyUrl;
 
     test.beforeEach(async () => {
-      await companyModule.openFirstCompanyFromList();
+      if (pinnedCompanyUrl) {
+        // Navigate directly to the same company used by previous tests in this
+        // block — the companies list sort order is non-deterministic for ties,
+        // so "open first" can return a different company each time.
+        await sharedPage.goto(pinnedCompanyUrl, { waitUntil: 'domcontentloaded' });
+      } else {
+        await companyModule.openFirstCompanyFromList();
+        pinnedCompanyUrl = sharedPage.url();
+      }
       await companyModule.assertCompanyDetailOpened();
       await companyModule.gotoNotesTab();
     });
@@ -3380,9 +3389,15 @@ test.describe('Company Module E2E Tests', () => {
   test.describe('Tasks Management — TC-COMP-133 through TC-COMP-149', () => {
     const testTaskTitle = `PAT Task ${Date.now()}`;
     const testTaskDesc = 'Automated test task for E2E validation.';
+    let pinnedCompanyUrl;
 
     test.beforeEach(async () => {
-      await companyModule.openFirstCompanyFromList();
+      if (pinnedCompanyUrl) {
+        await sharedPage.goto(pinnedCompanyUrl, { waitUntil: 'domcontentloaded' });
+      } else {
+        await companyModule.openFirstCompanyFromList();
+        pinnedCompanyUrl = sharedPage.url();
+      }
       await companyModule.assertCompanyDetailOpened();
       await companyModule.gotoTasksTab();
     });

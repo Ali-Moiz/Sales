@@ -188,7 +188,6 @@ class MarketVerticalsPage {
   async searchSidebarVertical(term) {
     await this.sidebarSearchInput.clear();
     await this.sidebarSearchInput.fill(term);
-    await this.page.waitForTimeout(500);
     await this.waitForSkeletonsToClear(10_000);
   }
 
@@ -243,17 +242,18 @@ class MarketVerticalsPage {
    * @returns {Promise<string[]>}
    */
   async getQuestionStatements() {
-    // Why getByRole('cell') inside the questions table: stable semantic role
-    const rows = await this.questionsTable.getByRole('row').all();
-    const statements = [];
-    for (const row of rows.slice(1)) {
-      const cells = await row.getByRole('cell').all();
-      if (cells.length > 1) {
-        const text = await cells[1].textContent();
-        if (text?.trim()) statements.push(text.trim());
-      }
-    }
-    return statements;
+    // Extract all question statements in a single evaluate() call to avoid
+    // stale element handles when the table re-renders during iteration.
+    await this.questionsTable.waitFor({ state: 'visible', timeout: 15_000 });
+    return this.questionsTable.evaluate((table) => {
+      const rows = Array.from(table.querySelectorAll('tbody tr'));
+      return rows
+        .map((row) => {
+          const cells = row.querySelectorAll('td');
+          return cells.length > 1 ? (cells[1].textContent ?? '').trim() : '';
+        })
+        .filter(Boolean);
+    });
   }
 
   /**
@@ -734,20 +734,26 @@ class MarketVerticalsPage {
    * @returns {Promise<Array<{name: string, companyCount: string}>>}
    */
   async getSidebarIndustryButtons() {
-    // Sidebar buttons have accessible names like "Commercial No. of Companies: 2597"
-    const buttons = await this.page.getByRole('button', { name: /No\. of Companies/i }).all();
-    const result = [];
-    for (const btn of buttons) {
-      const heading = btn.getByRole('heading');
-      const name = (await heading.textContent())?.trim() ?? '';
-      const fullText = (await btn.textContent()) ?? '';
-      const countMatch = fullText.match(/No\. of Companies:\s*(\d+)/);
-      result.push({
-        name,
-        companyCount: countMatch ? countMatch[1] : '0',
-      });
-    }
-    return result;
+    // Wait for at least one sidebar button to render
+    await this.page.getByRole('button', { name: /No\. of Companies/i }).first().waitFor({ state: 'visible', timeout: 15_000 });
+    // Use evaluate() to read all button data atomically, avoiding stale handles
+    const sidebarList = this.page.locator('ul, ol, [role="list"]').filter({
+      has: this.page.getByRole('button', { name: /No\. of Companies/i }),
+    }).first();
+    return sidebarList.evaluate((list) => {
+      const buttons = Array.from(list.querySelectorAll('button, [role="button"]'));
+      return buttons
+        .filter((btn) => /No\. of Companies/i.test(btn.textContent))
+        .map((btn) => {
+          const heading = btn.querySelector('h1, h2, h3, h4, h5, h6');
+          const name = heading ? heading.textContent.trim() : btn.textContent.replace(/No\. of Companies:\s*\d+/gi, '').trim();
+          const countMatch = btn.textContent.match(/No\. of Companies:\s*(\d+)/i);
+          return {
+            name,
+            companyCount: countMatch ? countMatch[1] : '0',
+          };
+        });
+    });
   }
 
   /**
@@ -768,15 +774,24 @@ class MarketVerticalsPage {
    * @returns {Promise<string[]>}
    */
   async getVisibleSidebarIndustryNames() {
-    // Sidebar buttons have accessible names like "Commercial No. of Companies: 2597"
-    const buttons = await this.page.getByRole('button', { name: /No\. of Companies/i }).all();
-    const names = [];
-    for (const btn of buttons) {
-      const heading = btn.getByRole('heading');
-      const name = (await heading.textContent())?.trim() ?? '';
-      if (name) names.push(name);
-    }
-    return names;
+    // Wait for at least one sidebar button to render
+    await this.page.getByRole('button', { name: /No\. of Companies/i }).first().waitFor({ state: 'visible', timeout: 15_000 });
+    // Use evaluate() to read all names atomically, avoiding stale handles
+    // when the sidebar re-renders during iteration.
+    const sidebarList = this.page.locator('ul, ol, [role="list"]').filter({
+      has: this.page.getByRole('button', { name: /No\. of Companies/i }),
+    }).first();
+    return sidebarList.evaluate((list) => {
+      const buttons = Array.from(list.querySelectorAll('button, [role="button"]'));
+      return buttons
+        .map((btn) => {
+          const heading = btn.querySelector('h1, h2, h3, h4, h5, h6');
+          if (heading) return heading.textContent.trim();
+          // Fallback: strip "No. of Companies: NNN" from full text
+          return btn.textContent.replace(/No\. of Companies:\s*\d+/gi, '').trim();
+        })
+        .filter(Boolean);
+    });
   }
 
   // ══════════════════════════════════════════════════════════════════════════

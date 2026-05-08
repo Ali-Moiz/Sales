@@ -1068,3 +1068,494 @@
 5. Verify both "Preview" and "Finish" buttons are visible in the step footer. (Live-verified 2026-05-07: footer has "Preview" button then "Finish" button.)
    **Expected results / Assertion points:**
    - After step 3-5: Step 6 heading, Signee 1 card, Preview button, and Finish button all visible.
+
+## Publish Contract & Request Signatures — TC-CONTRACT-096 through TC-CONTRACT-112
+
+### TC-CONTRACT-096 | Verify that proposal card is visible with Publish Contract button and expected actions
+
+**Preconditions:** Deal has a completed contract proposal (wizard finished). User is on deal detail page, Contract & Terms tab.
+**Steps:**
+
+1. Navigate to the deal detail page with the completed proposal.
+2. Verify the Contract & Terms tab is selected.
+3. Verify the proposal card is visible with: proposal name heading (h4), billing amount heading (h4), created date text.
+4. Verify "Publish Contract" button is visible on the card.
+5. Verify action icons are visible: Signature button, Edit, Clone, Preview PDF, Delete.
+   **Expected results / Assertion points:**
+   - After step 3: Proposal name and billing headings visible.
+   - After step 4: "Publish Contract" button visible.
+   - After step 5: Signature button and action icons (Edit, Clone, Preview PDF, Delete) all visible.
+
+### TC-CONTRACT-097 | Verify Publish Contract button is visible after contract creation and opens publish flow successfully
+
+**Preconditions:** Deal has a completed contract proposal in Draft state. Deal has NOT been closed yet.
+**Steps:**
+
+1. Navigate to the deal detail page with the draft proposal.
+2. Verify "Publish Contract" button is visible.
+3. Click "Publish Contract".
+4. Verify a modal or dialog opens (Close Deal modal with heading "Close Deal" if deal is not closed, or Publish confirmation modal if deal is already closed).
+5. Close/cancel the modal.
+   **Expected results / Assertion points:**
+   - After step 2: "Publish Contract" button visible.
+   - After step 4: Close Deal modal heading or Publish confirmation modal heading visible.
+
+### TC-CONTRACT-098 | Verify attempting to Publish with incomplete required contract fields is blocked and shows error (if applicable)
+
+**Preconditions:** Deal has a contract proposal. Deal is not yet closed.
+**Steps:**
+
+1. Navigate to the deal detail page.
+2. Click "Publish Contract" button.
+3. If the system requires all contract fields to be complete before publishing, verify that an error/validation message appears blocking the publish.
+4. If the system allows publishing regardless (no field validation at publish time), note this as "no client-side validation" and verify the Close Deal modal opens normally.
+   **Expected results / Assertion points:**
+   - After step 3-4: Either validation error is visible OR Close Deal modal opens (documenting actual behavior).
+
+### TC-CONTRACT-099 | Verify if user publishes contract before manually updating stage system shows deal stages update popup and handles update
+
+**Preconditions:** Deal is in "Proposal Creation" stage (not yet closed). Deal has a completed contract proposal.
+**Steps:**
+
+1. Navigate to the deal detail page.
+2. Verify deal stage shows "Proposal Creation" as current/active.
+3. Click "Publish Contract" button.
+4. Verify "Close Deal" modal appears with heading "Close Deal" (level=3).
+5. Verify "Closed Won" and "Closed Lost" radio options are visible.
+6. Select "Closed Won" radio.
+7. Select a Hubspot Stage from the dropdown (e.g., "Closed Won (Sales Pipeline)").
+8. Click "Save" button.
+9. Verify "Deal closed successfully!" heading appears or deal stage updates to "Closed Won".
+   **Expected results / Assertion points:**
+   - After step 4-5: Close Deal modal open with both radio options.
+   - After step 8-9: Deal closed successfully toast/heading visible, or deal stage reflects "Closed Won".
+
+### TC-CONTRACT-100 | Verify that Publish Contract after deal close opens confirmation modal
+
+**Preconditions:** Deal has been closed (Closed Won). Contract is still in Draft state. "Publish Contract" button is still visible.
+**Steps:**
+
+1. Navigate to the deal detail page (deal already closed).
+2. Verify "Publish Contract" button is visible.
+3. Click "Publish Contract" button.
+4. Verify "Publish contract!" confirmation modal appears with heading (h4) "Publish contract!".
+5. Verify confirmation text "Do you confirm to activate this contract?" is visible.
+6. Verify "Publish Contract" confirm button is visible inside the modal.
+7. Close/cancel the modal without confirming.
+   **Expected results / Assertion points:**
+   - After step 4-5: "Publish contract!" heading and confirmation text visible.
+   - After step 6: Confirm "Publish Contract" button visible.
+
+### TC-CONTRACT-101 | Verify that confirming Publish Contract marks the contract as Published
+
+**Preconditions:** Deal is closed (Closed Won). Contract is in Draft state. "Publish Contract" button visible.
+**Steps:**
+
+1. Navigate to the deal detail page.
+2. Click "Publish Contract" button.
+3. Verify "Publish contract!" confirmation modal opens.
+4. Click the "Publish Contract" confirm button inside the modal.
+5. Verify "Published without sign" badge appears on the proposal card.
+6. Verify "Publish Contract" button is no longer visible.
+7. Verify "Signature" button is still visible on the card.
+   **Expected results / Assertion points:**
+   - After step 5: "Published without sign" badge visible.
+   - After step 6: "Publish Contract" button gone.
+   - After step 7: "Signature" button still visible.
+
+### TC-CONTRACT-102 | Verify Request Signatures opens selection modal listing all signees with status tags
+
+**Preconditions:** Contract is published. User is on deal detail page, Contract & Terms tab.
+**Steps:**
+
+1. Click "Signature" button on the proposal card.
+2. Verify a dropdown menu appears with "Add Sign" and "Request Sign" options.
+3. Click "Request Sign" menuitem.
+4. Verify "Select Signees to request for signature" modal opens (heading level=4).
+5. Verify at least one signee row is visible with: checkbox, avatar, name paragraph, email paragraph.
+6. Verify "Select All" option is visible.
+7. Verify "Cancel" and "Request Signatures" buttons are visible.
+   **Expected results / Assertion points:**
+   - After step 4: Modal heading visible.
+   - After step 5-7: Signee row, Select All, Cancel, and Request Signatures buttons all visible.
+
+### TC-CONTRACT-103 | Verify default status tag is Not Requested for signees who were not sent a request
+
+**Preconditions:** Contract is published. No signature requests sent yet.
+**Steps:**
+
+1. Open the Request Signatures modal (Signature > Request Sign).
+2. Verify the signee row is visible.
+3. Verify the status tag next to the signee shows "Not Requested".
+4. Close the modal.
+   **Expected results / Assertion points:**
+   - After step 3: "Not Requested" status tag visible for each signee.
+
+### TC-CONTRACT-104 | Verify selecting a signee and clicking Request Signatures sends email and updates status tag to Requested
+
+**Preconditions:** Contract is published. Signee has "Not Requested" status.
+**Steps:**
+
+1. Open the Request Signatures modal.
+2. Check the checkbox next to a signee.
+3. Click "Request Signatures" button.
+4. Verify a success toast or confirmation appears.
+5. Reopen the Request Signatures modal.
+6. Verify the signee's status tag has changed from "Not Requested" to "Requested".
+   **Expected results / Assertion points:**
+   - After step 3-4: Request sent successfully (toast or modal closes).
+   - After step 6: Status tag shows "Requested".
+
+### TC-CONTRACT-105 | Verify Request Signatures is blocked if no signee is selected show validation/toast
+
+**Preconditions:** Contract is published. Request Signatures modal is open.
+**Steps:**
+
+1. Open the Request Signatures modal.
+2. Ensure no signee checkbox is checked.
+3. Click "Request Signatures" button.
+4. Verify a validation message or toast appears indicating that at least one signee must be selected.
+5. Verify the modal remains open (request was not sent).
+   **Expected results / Assertion points:**
+   - After step 4: Validation/toast error visible.
+   - After step 5: Modal still open with heading visible.
+
+### TC-CONTRACT-106 | Verify when a signee signs status tag updates to Signed in Request Signatures modal
+
+**Preconditions:** Contract is published. Signature request has been sent to a signee (status "Requested"). Signee has completed signing externally.
+**Steps:**
+
+1. Open the Request Signatures modal.
+2. Verify the signee who has signed shows status tag "Signed".
+   **Expected results / Assertion points:**
+   - After step 2: Status tag shows "Signed" for the signee who completed signing.
+   - Note: This test depends on external signing action. If not feasible in automation, mark as manual verification.
+
+### TC-CONTRACT-107 | Verify email delivery failure shows error and status does not incorrectly change to Requested
+
+**Preconditions:** Contract is published. A signee has an invalid or unreachable email.
+**Steps:**
+
+1. Open the Request Signatures modal.
+2. Select the signee with invalid email.
+3. Click "Request Signatures" button.
+4. Verify an error toast/message appears indicating email delivery failure.
+5. Reopen the modal and verify the signee's status tag remains "Not Requested" (did not change to "Requested").
+   **Expected results / Assertion points:**
+   - After step 4: Error message visible.
+   - After step 5: Status tag still "Not Requested".
+   - Note: Requires a signee with invalid email. If not testable in current environment, mark as conditional.
+
+### TC-CONTRACT-108 | Verify deal stage auto-moves to Negotiation after sending signature request when deal was in Proposal Creation
+
+**Preconditions:** Deal is in "Proposal Creation" stage. Contract is published. Signature request is about to be sent.
+**Steps:**
+
+1. Verify deal stage shows "Proposal Creation" as current.
+2. Open the Request Signatures modal.
+3. Select a signee and click "Request Signatures".
+4. After request is sent, verify the deal stage area updates to show "Negotiation" as the current/active stage.
+   **Expected results / Assertion points:**
+   - After step 4: Deal stage shows "Negotiation" as active.
+   - Note: This test requires the deal to be in Proposal Creation before sending. May need a fresh deal.
+
+### TC-CONTRACT-109 | Verify with multiple signees partial signing keeps stage as Negotiation and tags reflect Requested/Signed/Not Requested correctly
+
+**Preconditions:** Contract has multiple signees. Some have been requested, some have signed, some not requested.
+**Steps:**
+
+1. Open the Request Signatures modal.
+2. Verify that signees show mixed status tags: "Not Requested", "Requested", and/or "Signed" as applicable.
+3. Verify deal stage remains "Negotiation" (not yet "Closed Won") since not all signees have signed.
+   **Expected results / Assertion points:**
+   - After step 2: Mixed status tags visible.
+   - After step 3: Deal stage shows "Negotiation".
+   - Note: Requires multiple signees and partial signing state. May require manual setup.
+
+### TC-CONTRACT-110 | Verify with multiple signees deal does NOT move to Closed Won until all signees have Signed
+
+**Preconditions:** Contract has multiple signees. Not all have signed.
+**Steps:**
+
+1. Verify deal stage is "Negotiation" (or not "Closed Won").
+2. Open the Request Signatures modal.
+3. Verify at least one signee has status other than "Signed".
+4. Close the modal.
+5. Verify deal stage is still not "Closed Won".
+   **Expected results / Assertion points:**
+   - After step 3: At least one signee not "Signed".
+   - After step 5: Deal stage is NOT "Closed Won".
+   - Note: Depends on multi-signee setup with partial signing.
+
+### TC-CONTRACT-111 | Verify once all signees sign deal stage moves to Closed Won automatically
+
+**Preconditions:** Contract has signees. All signees have completed signing.
+**Steps:**
+
+1. Verify all signees have "Signed" status in the Request Signatures modal.
+2. Close the modal.
+3. Verify deal stage shows "Closed Won" as active.
+   **Expected results / Assertion points:**
+   - After step 1: All signee status tags show "Signed".
+   - After step 3: Deal stage is "Closed Won".
+   - Note: Requires all signees to have signed. External signing action needed.
+
+### TC-CONTRACT-112 | Verify once all signees sign Request Signatures text disappears from contract card
+
+**Preconditions:** All signees have signed. Contract is fully executed.
+**Steps:**
+
+1. Navigate to the deal detail page.
+2. Verify the contract card is visible.
+3. Verify "Request Signatures" button or "Signature" button is no longer visible on the card (or its text has changed to reflect completed state).
+4. Verify the contract status reflects fully signed state.
+   **Expected results / Assertion points:**
+   - After step 3: Signature/Request Signatures text no longer visible on card.
+   - After step 4: Contract status reflects completed signing.
+   - Note: Requires all signees to have completed signing.
+
+## Close Deal & Contract Actions — TC-CONTRACT-113 through TC-CONTRACT-129
+
+### TC-CONTRACT-113 | Verify Close button opens Close Deal modal with options Closed Won / Closed Lost
+
+**Preconditions:** Deal has a draft contract (Publish Contract button visible). Deal is not yet closed.
+**Steps:**
+
+1. Navigate to the deal detail page with a draft contract.
+2. Click "Publish Contract" button.
+3. Verify the Close Deal modal opens with heading "Close Deal".
+4. Verify "Closed Won" radio option is visible.
+5. Verify "Closed Lost" radio option is visible.
+6. Cancel/dismiss the modal.
+   **Expected results / Assertion points:**
+   - After step 3: Close Deal modal heading is visible.
+   - After step 4-5: Both "Closed Won" and "Closed Lost" radio options are visible.
+
+### TC-CONTRACT-114 | Verify Save is disabled until HubSpot Stage to map is selected
+
+**Preconditions:** Close Deal modal is open.
+**Steps:**
+
+1. Open the Close Deal modal by clicking "Publish Contract".
+2. Select "Closed Won" radio.
+3. Verify the Save button is disabled (no HubSpot Stage selected yet).
+4. Open the "Choose Hubspot Stage" dropdown and select a stage (e.g., "Closed Won (Sales Pipeline)").
+5. Verify the Save button becomes enabled after selecting a HubSpot Stage.
+6. Cancel/dismiss the modal.
+   **Expected results / Assertion points:**
+   - After step 3: Save button is disabled.
+   - After step 5: Save button is enabled.
+
+### TC-CONTRACT-115 | Verify closing as Closed Won updates stage and shows confirmation/toast
+
+**Preconditions:** Deal is not yet closed. Close Deal modal is open.
+**Steps:**
+
+1. Open the Close Deal modal by clicking "Publish Contract".
+2. Select "Closed Won" radio.
+3. Select a HubSpot Stage (e.g., "Closed Won (Sales Pipeline)").
+4. Click Save.
+5. Verify the "Deal closed successfully!" toast or confirmation appears.
+6. Verify the deal stage area shows "Closed Won" as active.
+   **Expected results / Assertion points:**
+   - After step 5: Success toast/confirmation visible or deal stage updated.
+   - After step 6: Deal stage shows "Closed Won".
+
+### TC-CONTRACT-116 | Verify closing as Closed Lost updates stage and shows confirmation/toast
+
+**Preconditions:** Deal is not yet closed. Close Deal modal is open.
+**Steps:**
+
+1. Open the Close Deal modal by clicking "Publish Contract".
+2. Select "Closed Lost" radio.
+3. Select a HubSpot Stage (e.g., "Closed Lost (Sales Pipeline)").
+4. Click Save.
+5. Verify the deal stage area updates accordingly or a confirmation/toast appears.
+   **Expected results / Assertion points:**
+   - After step 5: Deal stage updates or confirmation appears.
+   - Note: This test may change deal state. Use an isolated deal or verify with the existing deal if already in the correct state.
+
+### TC-CONTRACT-117 | Verify cancel closes modal without changing deal stage
+
+**Preconditions:** Close Deal modal is open. Deal stage is known before opening.
+**Steps:**
+
+1. Note the current deal stage before opening the modal.
+2. Open the Close Deal modal by clicking "Publish Contract".
+3. Select "Closed Won" radio.
+4. Click Cancel to dismiss the modal.
+5. Verify the Close Deal modal is no longer visible.
+6. Verify the deal stage has not changed from its original value.
+   **Expected results / Assertion points:**
+   - After step 5: Modal heading is not visible.
+   - After step 6: Deal stage remains unchanged.
+
+### TC-CONTRACT-118 | Verify refreshing the Deal Details page retains contract card and statuses remain correct
+
+**Preconditions:** Deal has a contract card (draft or published).
+**Steps:**
+
+1. Navigate to the deal detail page.
+2. Verify the contract card is visible (Publish Contract button or Published badge).
+3. Reload the page (full refresh).
+4. Verify the contract card is still visible after reload.
+5. Verify the deal stage is still visible and unchanged.
+   **Expected results / Assertion points:**
+   - After step 4: Contract card (Publish Contract button or Published badge) is visible.
+   - After step 5: Deal stage buttons are visible.
+
+### TC-CONTRACT-119 | Verify unauthorized user/role cannot edit/publish/request signatures when permissions are restricted (if roles exist)
+
+**Preconditions:** A user role with restricted permissions exists. Contract is available.
+**Steps:**
+
+1. Log in as a user with restricted permissions.
+2. Navigate to the deal detail page with a contract.
+3. Verify that edit/publish/request signatures actions are not available or disabled.
+   **Expected results / Assertion points:**
+   - After step 3: Restricted actions are hidden or disabled.
+   - Note: Not automatable without a dedicated restricted role account in the test environment. Mark as skipped with TODO.
+
+### TC-CONTRACT-120 | Verify that the Clone button is visible when the contract is created and that the user is able to clone the contract
+
+**Preconditions:** Deal has a contract card (draft or published).
+**Steps:**
+
+1. Navigate to the deal detail page with a contract card.
+2. Verify the Clone action icon (aria-label="Clone") is visible on the card.
+3. Click the Clone action icon.
+4. Verify the "Clone Contract" confirmation dialog appears with heading "Clone Contract".
+5. Verify the dialog has Cancel and Proceed buttons.
+6. Click Cancel to dismiss the dialog without cloning.
+   **Expected results / Assertion points:**
+   - After step 2: Clone action icon is visible.
+   - After step 4: "Clone Contract" heading is visible.
+   - After step 5: Cancel and Proceed buttons are visible.
+
+### TC-CONTRACT-121 | Verify that the PDF View button is visible to the user and allows the user to view the contract in PDF format
+
+**Preconditions:** Deal has a contract card (draft or published).
+**Steps:**
+
+1. Navigate to the deal detail page with a contract card.
+2. Verify the Preview PDF action icon (aria-label="Preview PDF") is visible on the card.
+3. Click the Preview PDF action icon.
+4. Verify a new tab opens with the PDF document (URL contains ".pdf" or blob URL with PDF content type).
+5. Close the new tab and return to the deal detail page.
+   **Expected results / Assertion points:**
+   - After step 2: Preview PDF action icon is visible.
+   - After step 4: New tab opened with PDF URL.
+
+### TC-CONTRACT-122 | Verify that the Delete Contract button is visible before the contract is published and that the user is able to delete the contract
+
+**Preconditions:** Deal has a draft contract (not yet published). Delete action is visible.
+**Steps:**
+
+1. Navigate to the deal detail page with a draft contract card.
+2. Verify the Delete action icon (aria-label="Delete") is visible on the card.
+3. Click the Delete action icon.
+4. Verify the "Delete Proposal!" confirmation dialog appears.
+5. Click "No" to cancel the deletion.
+6. Verify the contract card is still visible after canceling.
+   **Expected results / Assertion points:**
+   - After step 2: Delete action icon is visible.
+   - After step 4: "Delete Proposal!" heading is visible with confirmation text.
+   - After step 6: Contract card is still visible.
+
+### TC-CONTRACT-123 | Verify that when the user attempts to delete the contract a confirmation popup appears asking whether to delete the proposal or not
+
+**Preconditions:** Deal has a draft contract.
+**Steps:**
+
+1. Navigate to the deal detail page with a draft contract.
+2. Click the Delete action icon.
+3. Verify the confirmation popup heading "Delete Proposal!" is visible.
+4. Verify the confirmation text "Do you want to delete this contract? This action can not be undone." is visible.
+5. Verify "No" and "Delete Proposal" buttons are visible.
+6. Click "No" to dismiss the popup.
+   **Expected results / Assertion points:**
+   - After step 3: Heading "Delete Proposal!" is visible.
+   - After step 4: Confirmation text is visible.
+   - After step 5: Both "No" and "Delete Proposal" buttons are visible.
+
+### TC-CONTRACT-124 | Verify that once the contract is published the user is able to terminate the contract
+
+**Preconditions:** Contract is published. Terminate action icon is visible on the card.
+**Steps:**
+
+1. Navigate to the deal detail page with a published contract.
+2. Verify the Terminate action icon (aria-label="Terminate") is visible.
+3. Click the Terminate action icon.
+4. Verify the Terminate dialog opens with heading containing "Terminate".
+5. Verify the Termination Date input and Reason input are visible.
+6. Verify "No" and "Terminate Contract" buttons are visible.
+7. Click "No" to dismiss the dialog without terminating.
+   **Expected results / Assertion points:**
+   - After step 2: Terminate action icon is visible.
+   - After step 4: Terminate dialog heading is visible.
+   - After step 5-6: Form fields and action buttons are visible.
+
+### TC-CONTRACT-125 | Verify that the Addendum button is visible once the contract has started
+
+**Preconditions:** Contract is published. Addendum action icon is visible on the card.
+**Steps:**
+
+1. Navigate to the deal detail page with a published contract.
+2. Verify the Addendum action icon (aria-label="Addendum") is visible on the card.
+3. Click the Addendum action icon.
+4. Verify the "Addendum Contract" confirmation dialog appears with heading "Addendum Contract".
+5. Verify Cancel and Proceed buttons are visible.
+6. Click Cancel to dismiss the dialog.
+   **Expected results / Assertion points:**
+   - After step 2: Addendum action icon is visible.
+   - After step 4: "Addendum Contract" heading is visible.
+   - After step 5: Cancel and Proceed buttons are visible.
+
+### TC-CONTRACT-126 | Verify that when a user creates an addendum for a proposal the user is able to edit the proposal
+
+**Preconditions:** Contract is published. Addendum action is available.
+**Steps:**
+
+1. Navigate to the deal detail page with a published contract.
+2. Click the Addendum action icon.
+3. Click "Proceed" in the Addendum Contract dialog.
+4. Verify the user is navigated to the contract stepper/editor page (URL contains /contract/).
+5. Verify the stepper tabs or editor elements are visible, confirming edit capability.
+6. Navigate back to the deal detail page.
+   **Expected results / Assertion points:**
+   - After step 4: URL contains /contract/ pattern.
+   - After step 5: Stepper/editor elements are visible.
+   - Note: This test creates an addendum which may change contract state. Use with caution.
+
+### TC-CONTRACT-127 | Verify that once the user publishes the addendum proposal the status tag Not Acknowledged appears on the Edge site
+
+**Preconditions:** Addendum proposal has been published.
+**Steps:**
+
+1. Publish the addendum proposal.
+2. Verify the "Not Acknowledged" status tag appears on the Edge site.
+   **Expected results / Assertion points:**
+   - After step 2: "Not Acknowledged" tag visible on Edge site.
+   - Note: Not automatable — requires access to the Edge site which is a separate application. Mark as skipped with TODO.
+
+### TC-CONTRACT-128 | Verify that after the addendum contract is acknowledged on the Edge site the Acknowledged tag appears on the proposal
+
+**Preconditions:** Addendum has been published and acknowledged on Edge site.
+**Steps:**
+
+1. After acknowledgment on Edge site, navigate to the deal detail page.
+2. Verify the "Acknowledged" tag appears on the proposal card.
+   **Expected results / Assertion points:**
+   - After step 2: "Acknowledged" tag visible on proposal card.
+   - Note: Not automatable — requires external acknowledgment on Edge site. Mark as skipped with TODO.
+
+### TC-CONTRACT-129 | Verify that once the addendum contract is acknowledged on the Edge site the parent contracts deal stage on the SET side is marked as Expired
+
+**Preconditions:** Addendum has been acknowledged on Edge site.
+**Steps:**
+
+1. After acknowledgment on Edge site, navigate to the parent contract's deal detail page.
+2. Verify the deal stage shows "Expired" as the current stage.
+   **Expected results / Assertion points:**
+   - After step 2: Deal stage shows "Expired".
+   - Note: Not automatable — requires external acknowledgment on Edge site and verification of parent deal state. Mark as skipped with TODO.

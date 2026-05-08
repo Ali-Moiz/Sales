@@ -1769,7 +1769,7 @@ class CompanyModule {
 
   async getChartContainerBoxes() {
     // Returns bounding boxes of the three chart containers for overlap checks
-    
+
     // The chart section has three direct children with h6 headings
     const chartSection = this.page.locator('div').filter({
       has: this.chartByContractsHeading,
@@ -2096,14 +2096,15 @@ class CompanyModule {
 
   async createNote({ subject, description }) {
     await this.openCreateNoteDrawer();
-    // Subject input is the first textbox inside the Add Notes drawer
-    const notesDrawer = this.addNotesHeading.locator('xpath=ancestor::*[@role="dialog" or @role="presentation" or contains(@class,"MuiDrawer-paper")][1]');
-    const subjectInput = notesDrawer.getByRole('textbox').first().or(this.page.locator('div[role="presentation"] input').first());
+    // Subject input has id="title" (verified via DOM inspection)
+    const subjectInput = this.page.locator('#title');
     await subjectInput.fill(subject);
     await this.noteDescEditor.click();
+
     await this.noteDescEditor.fill(description);
     await this.noteSaveBtn.click();
-    await this.addNotesHeading.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => {});
+    // Ensure the drawer actually closes — don't silently swallow save failures
+    await this.addNotesHeading.waitFor({ state: 'hidden', timeout: 15_000 });
     await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
   }
 

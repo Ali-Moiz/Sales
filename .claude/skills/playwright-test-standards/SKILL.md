@@ -103,6 +103,8 @@ await Promise.all([page.waitForURL(/\/deals\/\d+/), createBtn.click()]);
 
 **`waitForLoadState('domcontentloaded')` is a no-op on SPA navigation:** After a React Router client-side navigation (pushState), `waitForLoadState('domcontentloaded')` resolves in ~2ms because the page is already loaded — it does NOT wait for the URL to change. Symptom: `expect(page).toHaveURL(/\/deals\/deal\/\d+/)` fails with the old deals-list URL, even though the click completed without error. Root cause: `waitForLoadState` is event-based on page lifecycle events; SPA navigation emits no `domcontentloaded` event. Rule: for any click that triggers a React Router URL change, use `Promise.all([page.waitForURL(/pattern/), locator.click()])` instead. Never follow a navigation-triggering click with `waitForLoadState('domcontentloaded')` alone when the app is a SPA. Example: `await Promise.all([page.waitForURL(/\/deals\/deal\/\d+/, { timeout: 20_000 }), dealNameCell.click()]);`
 
+**Intercepting modals after action clicks (e.g., "Associate Franchise!"):** When a button click (e.g., "Create Proposal") may open either the expected UI (drawer/dialog) or a blocking modal depending on data state, use `.or()` to race between both outcomes, then branch on which one appeared. Symptom: `waitFor` on the expected heading times out because a prerequisite modal appeared instead. Root cause: the deal's property has no franchise associated, so the app shows an "Associate Franchise!" modal instead of the Create Proposal drawer. Rule: in the POM method, use `expectedHeading.or(blockingModalHeading).waitFor()` then check `blockingModalHeading.isVisible()` to branch. Handle the modal (select option, submit), then wait for or re-trigger the original action. See `openCreateProposalDrawer()` and `_handleAssociateFranchiseModal()` in `pages/contract-module.js`.
+
 ---
 
 ## 5. Test Isolation & Data
@@ -436,3 +438,19 @@ test("TC-072 | ...", async () => {
 - **Symptom:** `expect(footerAmount).toBeGreaterThan(0)` fails even though the stepper is open and shows a valid service. The footer text is `"USD 0.00 Weekly"`.
 - **Root cause:** When reopening a saved contract stepper via `openExistingProposalEditor()`, React renders the stepper shell (including footer heading) with initial defaults (`0.00`) before the saved service data loads and triggers a recalculation. Reading `textContent()` immediately captures the pre-calculation state.
 - **Rule:** When reading a calculated total from a React component that loads asynchronously, wait for a non-zero value using a web-first assertion: `await expect(locator).toHaveText(/[1-9][\d,]*\.\d{2}/, { timeout: 15_000 })`. Do not use `/\d+\.\d{2}/` as it matches `0.00`. Only then read `textContent()` for comparison.
+
+---
+
+## 19. MUI ListItemButton in `evaluate()` -- Use `[role="button"]`, Not `'button'` Tag Selector
+
+- **Symptom:** `getVisibleSidebarIndustryNames()` (or similar `evaluate()` method) returns `[]` even though the accessibility snapshot shows button elements with the expected text.
+- **Root cause:** MUI `ListItemButton` renders as `<div role="button">`, not as a native `<button>` element. Inside `evaluate()`, `querySelectorAll('button')` matches only native `<button>` tags and returns zero results for MUI ListItemButton divs.
+- **Rule:** In any `evaluate()` callback that searches for buttons inside MUI components, use `querySelectorAll('[role="button"]')` instead of `querySelectorAll('button')`. This matches both native buttons and ARIA role-based buttons. Note: Playwright's `getByRole('button')` already handles this correctly outside of `evaluate()` -- the issue only affects raw DOM queries inside `evaluate()` callbacks.
+
+---
+
+## 20. Reset Shared State on Non-Fatal beforeAll Failures
+
+- **Symptom:** Test searches for a deal (e.g., "PAT 4436") and the table shows "No Record Found", even though `ensureContractTargetDeal()` ran in `beforeAll`.
+- **Root cause:** `ensureContractTargetDeal()` sets `resolvedContractDealName` to a generated name *before* confirming the deal was actually created. When creation fails and `beforeAll` catches the error non-fatally, the variable still holds the name of a deal that was never created. Downstream tests then search for a non-existent deal.
+- **Rule:** When a `beforeAll` setup helper (e.g., `ensureContractTargetDeal`) is wrapped in `.catch()` to make it non-fatal, the catch block MUST reset any shared state variables (e.g., `resolvedContractDealName = ""`) that the helper may have set optimistically. Additionally, any function that consumes that shared state (e.g., `openContractDealDetail`) should guard against empty/falsy values with a fast, descriptive error rather than proceeding to search for a non-existent entity.

@@ -255,7 +255,7 @@ test.describe("Property Module", () => {
     });
 
     test("TC-PROP-005 | Verify that the Cancel button closes the Create Property modal without saving any data.", async () => {
-      const cancelledName = `CANCELLED-${Date.now()}`;
+      const cancelledName = `PAT-${Date.now()}`;
       await openCreatePropertyDrawerFromList();
       await propertyModule.fillPropertyName(cancelledName);
       await propertyModule.cancelCreatePropertyDrawer();
@@ -271,7 +271,7 @@ test.describe("Property Module", () => {
       await propertyModule.submitCreateDrawerExpectingValidation();
       await propertyModule.assertEmptyCreatePropertyValidationMessages();
 
-      await propertyModule.fillPropertyName(`GAP-VAL-${Date.now()}`);
+      await propertyModule.fillPropertyName(`PAT-${Date.now()}`);
       await propertyModule.submitCreateDrawerExpectingValidation();
       const drawer = propertyModule.createPropertyDrawerRoot();
       await expect(drawer.getByText(/Address is required/i)).toBeVisible({
@@ -483,7 +483,7 @@ test.describe("Property Module", () => {
       await openCreatePropertyDrawerFromList();
       console.log("[TC-PROP-015] Create Property drawer opened");
 
-      const statePreserveName = `STATE-PRESERVE-${Date.now()}`;
+      const statePreserveName = `PAT-${Date.now()}`;
       await propertyModule.fillPropertyName(statePreserveName);
       await propertyModule.openPropertySourceDropdown();
       await propertyModule.selectPropertySourceByText("ALN");
@@ -640,7 +640,7 @@ test.describe("Property Module", () => {
       console.log(
         "[TC-PROP-020] Step 4: Change other field and verify source remains unchanged",
       );
-      await propertyModule.fillPropertyName(`SRC-POP-${Date.now()}`);
+      await propertyModule.fillPropertyName(`PAT-${Date.now()}`);
       await propertyModule.assertPropertySourceTriggerValue("Referral");
 
       console.log(
@@ -871,7 +871,7 @@ test.describe("Property Module", () => {
       console.log(
         "[TC-PROP-023] Step 4: Edit other fields and verify franchise value persists",
       );
-      await propertyModule.fillPropertyName(`AF-PERSIST-${Date.now()}`);
+      await propertyModule.fillPropertyName(`PAT-${Date.now()}`);
       await propertyModule.assertAssociatedFranchiseTriggerValue(secondFranchise);
 
       console.log(
@@ -1008,7 +1008,7 @@ test.describe("Property Module", () => {
       console.log(
         "[TC-PROP-025] Step 4: Edit other field and verify stage value persists",
       );
-      await propertyModule.fillPropertyName(`STAGE-POP-${Date.now()}`);
+      await propertyModule.fillPropertyName(`PAT-${Date.now()}`);
       await propertyModule.assertStageTriggerValue(secondStage);
 
       console.log(
@@ -1042,7 +1042,7 @@ test.describe("Property Module", () => {
       console.log(
         "[TC-PROP-026] Step 2: Interact with non-company fields and ensure Property Affiliation stays N/A",
       );
-      await propertyModule.fillPropertyName(`AFF-NA-${Date.now()}`);
+      await propertyModule.fillPropertyName(`PAT-${Date.now()}`);
       await propertyModule.openPropertySourceDropdown();
       await propertyModule.dismissPropertySourceDropdownWithoutSelection();
       await propertyModule.openStageDropdown();
@@ -1527,7 +1527,7 @@ test.describe("Property Module", () => {
       console.log(
         "[TC-PROP-033] Step 5: Fill core required fields and re-submit without supervisor to isolate supervisor mandatory gate",
       );
-      const mandatoryProbePropertyName = `M-PROP-04O-${Date.now()}`;
+      const mandatoryProbePropertyName = `PAT-${Date.now()}`;
       await propertyModule.selectCompanyInCreateForm(targetCompanyName);
       await propertyModule.fillPropertyName(mandatoryProbePropertyName);
       const addressSelected = await propertyModule.fillAddress(
@@ -3678,7 +3678,7 @@ test.describe("Property Module", () => {
       "TC-PROP-126 | Verify that note log title uses creator username",
       async () => {
         test.setTimeout(90_000);
-        const noteSubject = `AutoNote-${Date.now()}`;
+        const noteSubject = `PAT-${Date.now()}`;
 
         await test.step("Navigate to property and create a note", async () => {
           await resolveActivityPropertyPath();
@@ -3689,18 +3689,19 @@ test.describe("Property Module", () => {
         });
 
         await test.step("Open Activities tab and verify note log card title contains 'by' and username", async () => {
+          // Reload to ensure backend has generated the activity log entry
+          await page.reload({ waitUntil: "domcontentloaded" });
           await propertyModule.openActivitiesTab();
-          await expect(
-            page.getByRole("tabpanel").first().locator("p").filter({ hasText: /note.*by/i }).first(),
-          ).toBeVisible({ timeout: 15_000 });
-          const noteCardTitle = await page
+          // Activity card title = note subject + "by <username>" (word "note" never appears).
+          const noteCard = page
             .getByRole("tabpanel")
             .first()
             .locator("p")
-            .filter({ hasText: /note.*by/i })
-            .first()
-            .innerText();
-          expect(noteCardTitle).toMatch(/note.*by\s+\S+/i);
+            .filter({ hasText: new RegExp(noteSubject) })
+            .first();
+          await expect(noteCard).toBeVisible({ timeout: 15_000 });
+          const noteCardTitle = await noteCard.innerText();
+          expect(noteCardTitle).toMatch(new RegExp(`${noteSubject}.*by\\s+\\S+`, "i"));
         });
       },
     );
@@ -3724,7 +3725,7 @@ test.describe("Property Module", () => {
         test.setTimeout(90_000);
         const longBody =
           "This is a very long note body that exceeds the truncation threshold. ".repeat(10);
-        const noteSubject = `LongNote-${Date.now()}`;
+        const noteSubject = `PAT-${Date.now()}`;
 
         await test.step("Create a note with a long body", async () => {
           await resolveActivityPropertyPath();
@@ -3907,7 +3908,7 @@ test.describe("Property Module", () => {
       "TC-PROP-142 | Verify that task log title uses creator username",
       async () => {
         test.setTimeout(90_000);
-        const taskTitle = `AutoTask-${Date.now()}`;
+        const taskTitle = `PAT-${Date.now()}`;
 
         await test.step("Navigate to property and create a task", async () => {
           await resolveActivityPropertyPath();
@@ -3919,17 +3920,15 @@ test.describe("Property Module", () => {
 
         await test.step("Open Activities tab and verify task log card title contains 'by' and username", async () => {
           await propertyModule.openActivitiesTab();
-          await expect(
-            page.getByRole("tabpanel").first().locator("p").filter({ hasText: /task.*by/i }).first(),
-          ).toBeVisible({ timeout: 15_000 });
-          const taskCardTitle = await page
-            .getByRole("tabpanel")
-            .first()
+          // Activity card title = task title + "by <username>" — use named tabpanel (SKILL.md §2)
+          const taskCard = page
+            .getByRole("tabpanel", { name: /Activities/i })
             .locator("p")
-            .filter({ hasText: /task.*by/i })
-            .first()
-            .innerText();
-          expect(taskCardTitle).toMatch(/task.*by\s+\S+/i);
+            .filter({ hasText: new RegExp(taskTitle) })
+            .first();
+          await expect(taskCard).toBeVisible({ timeout: 15_000 });
+          const taskCardTitle = await taskCard.innerText();
+          expect(taskCardTitle).toMatch(new RegExp(`${taskTitle}.*by\\s+\\S+`, "i"));
         });
       },
     );
@@ -3938,7 +3937,7 @@ test.describe("Property Module", () => {
       "TC-PROP-143 | Verify that task fields render: title/type/priority/description/status",
       async () => {
         test.setTimeout(90_000);
-        const taskTitle = `Full-Task-${Date.now()}`;
+        const taskTitle = `PAT-${Date.now()}`;
         const taskDesc = "Test description for activity log";
 
         await test.step("Create a task with all fields filled", async () => {
@@ -3956,10 +3955,11 @@ test.describe("Property Module", () => {
 
         await test.step("Open Activities tab, find task log card and verify all fields visible", async () => {
           await propertyModule.openActivitiesTab();
-          const panel = page.getByRole("tabpanel").first();
+          // Use named tabpanel per SKILL.md §2
+          const panel = page.getByRole("tabpanel", { name: /Activities/i });
           await expect(panel.locator(`text=${taskTitle}`)).toBeVisible({ timeout: 15_000 });
           await expect(
-            panel.locator("p").filter({ hasText: /task.*by/i }).first(),
+            panel.locator("p").filter({ hasText: new RegExp(taskTitle) }).first(),
           ).toBeVisible({ timeout: 10_000 });
         });
       },
@@ -3996,7 +3996,7 @@ test.describe("Property Module", () => {
       async () => {
         test.setTimeout(90_000);
         const longDesc = "This is a very long task description. ".repeat(15);
-        const taskTitle = `LongTask-${Date.now()}`;
+        const taskTitle = `PAT-${Date.now()}`;
 
         await test.step("Create a task with a long description", async () => {
           await resolveActivityPropertyPath();
@@ -4041,7 +4041,7 @@ test.describe("Property Module", () => {
       "TC-PROP-148 | Verify that real-time update without manual refresh",
       async () => {
         test.setTimeout(90_000);
-        const rtNoteSubject = `RT-Test-${Date.now()}`;
+        const rtNoteSubject = `PAT-${Date.now()}`;
 
         await test.step("Open Activities tab and count current entries", async () => {
           await resolveActivityPropertyPath();
@@ -4057,8 +4057,12 @@ test.describe("Property Module", () => {
 
         await test.step("Switch back to Activities tab and verify new entry appears", async () => {
           await propertyModule.openActivitiesTab();
+          // Activity card title = note subject + "by <username>" — use named tabpanel (SKILL.md §2)
           await expect(
-            page.getByRole("tabpanel").first().locator("p").filter({ hasText: /note.*by/i }).first(),
+            page.getByRole("tabpanel", { name: /Activities/i })
+              .locator("p")
+              .filter({ hasText: new RegExp(rtNoteSubject) })
+              .first(),
           ).toBeVisible({ timeout: 20_000 });
         });
       },
@@ -4098,7 +4102,8 @@ test.describe("Property Module", () => {
         });
 
         await test.step("Verify SM cannot see HO activity log entries", async () => {
-          const panel = smPage.getByRole("tabpanel").first();
+          // Use named tabpanel per SKILL.md §2
+          const panel = smPage.getByRole("tabpanel", { name: /Activities/i });
           const panelText = await panel.innerText().catch(() => "");
           const canSeeHOEntries =
             panelText.includes("moiz User") || panelText.includes(env.ho_username);
@@ -4333,7 +4338,7 @@ test.describe("Property Module", () => {
         });
 
         await test.step("Fill Title, Type, Priority — only Description error remains", async () => {
-          const taskTitle = `Validation-${Date.now()}`;
+          const taskTitle = `PAT Validation-${Date.now()}`;
           await propertyModule.taskTitleInput.fill(taskTitle);
           await propertyModule.selectTaskType("To-do");
           await propertyModule.selectTaskPriority("High");

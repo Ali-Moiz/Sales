@@ -4339,7 +4339,7 @@ class PropertyModule {
       .fill(subject);
     const editor = this.page.getByRole("textbox", { name: "rdw-editor" });
     await editor.click();
-    await editor.pressSequentially(body, { delay: 0 });
+    await editor.fill(body);
     await this.page.getByRole("button", { name: "Send Email" }).click();
     await expect(
       this.page.getByText("Email has been sent successfully!"),

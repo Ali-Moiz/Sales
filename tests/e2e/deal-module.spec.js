@@ -443,6 +443,8 @@ test.describe('Deal Module', () => {
       let initialTotal;
 
       await test.step('Record initial pagination and switch to Assigned', async () => {
+        // Ensure table data is fully loaded before capturing baseline total
+        await dealModule.waitForTableData();
         initialTotal = await dealModule.getPaginationTotal();
         await dealModule.selectDealFilter('Assigned');
         const assignedTotal = await dealModule.getPaginationTotal();
@@ -451,8 +453,11 @@ test.describe('Deal Module', () => {
 
       await test.step('Switch back to All Deals and verify count restored', async () => {
         await dealModule.selectDealFilter('All Deals');
-        const restoredTotal = await dealModule.getPaginationTotal();
-        expect(restoredTotal).toBeGreaterThanOrEqual(initialTotal);
+        // Poll until the full "All Deals" count loads — the table may still
+        // show the Assigned filter's stale count immediately after switching.
+        await expect
+          .poll(async () => dealModule.getPaginationTotal(), { timeout: 15_000 })
+          .toBeGreaterThanOrEqual(initialTotal);
       });
     });
 

@@ -310,6 +310,78 @@ class ContractModule {
     this.terminateContractGeneric = this.contractTermsTabpanel.locator('[aria-label="Terminate"]').first();
     this.viewContractGeneric = this.contractTermsTabpanel.locator('[aria-label="View"]').first();
     this.addendumContractGeneric = this.contractTermsTabpanel.locator('[aria-label="Addendum"]').first();
+
+    // Contract Renewal Modal (live-verified 2026-05-08)
+    // Appears on renewal deals when clicking "Publish Contract" — shows service changes summary.
+    this.contractRenewalModalHeading = page.getByRole('heading', { name: 'Contract Renewal', level: 4 });
+    this.contractRenewalPublishBtn = page.getByRole('button', { name: 'Publish', exact: true });
+
+    // Signature Dropdown Menu (live-verified 2026-05-08)
+    this.addSignMenuitem = page.getByRole('menuitem', { name: 'Add Sign' });
+    this.requestSignMenuitem = page.getByRole('menuitem', { name: 'Request Sign' });
+
+    // Request Signatures Modal (live-verified 2026-05-08)
+    this.requestSignaturesModalHeading = page.getByRole('heading', {
+      name: 'Select Signees to request for signature',
+      level: 4,
+    });
+    this.selectAllCheckboxLabel = page.getByText('Select All', { exact: true });
+    this.requestSignaturesBtn = page.getByRole('button', { name: 'Request Signatures' });
+    this.requestSignaturesCancelBtn = page.getByRole('button', { name: 'Cancel' });
+    this.notRequestedTag = page.getByText('Not Requested', { exact: true });
+    this.requestedTag = page.getByText('Requested', { exact: true });
+    this.pendingSignTag = page.getByText('Pending Sign', { exact: true });
+    this.signedTag = page.getByText('Signed', { exact: true });
+
+    // Deal stage buttons (live-verified 2026-05-08)
+    this.proposalCreationStageBtn = page.locator('button').filter({ hasText: /Proposal Creation/ });
+    this.negotiationStageBtn = page.locator('button').filter({ hasText: /^Negotiation$/ });
+    this.closedWonStageBtn = page.locator('button').filter({ hasText: /^Closed Won$/ });
+    this.closedLostStageBtn = page.locator('button').filter({ hasText: /^Closed Lost$/ });
+
+    // Clone Contract Dialog (MCP-verified 2026-05-08)
+    this.cloneContractHeading = page.getByRole('heading', { name: 'Clone Contract', level: 4 });
+    this.cloneContractText = page.getByText('Are you sure you want to clone this contract?', { exact: false });
+    this.cloneContractCancelBtn = page.getByRole('button', { name: 'Cancel' });
+    this.cloneContractProceedBtn = page.getByRole('button', { name: 'Proceed' });
+
+    // Delete Proposal Dialog (MCP-verified 2026-05-08)
+    this.deleteProposalHeading = page.getByRole('heading', { name: 'Delete Proposal!', level: 4 });
+    this.deleteProposalText = page.getByText('Do you want to delete this contract? This action can not be undone.', { exact: false });
+    this.deleteProposalNoBtn = page.getByRole('button', { name: 'No' });
+    this.deleteProposalConfirmBtn = page.getByRole('button', { name: 'Delete Proposal' });
+
+    // Terminate Contract Dialog (MCP-verified 2026-05-08)
+    // Heading is dynamic: "Terminate {deal name}" — use regex
+    this.terminateDialogHeading = page.getByRole('heading', { name: /Terminate/, level: 4 });
+    this.terminationDateInput = page.getByRole('textbox', { name: 'Select Termination Date' });
+    this.terminationReasonInput = page.getByRole('textbox', { name: 'Reason *' });
+    this.terminateContractNoBtn = page.getByRole('button', { name: 'No' });
+    this.terminateContractConfirmBtn = page.getByRole('button', { name: 'Terminate Contract' });
+
+    // Addendum Contract Dialog (MCP-verified 2026-05-08)
+    this.addendumContractHeading = page.getByRole('heading', { name: 'Addendum Contract', level: 4 });
+    this.addendumContractText = page.getByText('Are you sure you want to update the terms of your existing contract?', { exact: false });
+    this.addendumContractCancelBtn = page.getByRole('button', { name: 'Cancel' });
+    this.addendumContractProceedBtn = page.getByRole('button', { name: 'Proceed' });
+
+    // Deal detail action buttons (MCP-verified 2026-05-08)
+    // The "Close" button in the action group (Edit, Close, Follow-up) — only visible when deal is not yet closed
+    this.dealCloseBtn = page.getByRole('button', { name: 'Close', exact: true });
+
+    // Associate Franchise Modal (MCP-verified 2026-05-08)
+    // Appears when clicking "Create Proposal" on a deal whose property has no franchise.
+    // The modal blocks the Create Proposal drawer until a franchise is selected.
+    this.associateFranchiseModalHeading = page.getByRole('heading', {
+      name: 'Associate Franchise!',
+      level: 4,
+    });
+    this.chooseFranchiseTrigger = page.getByRole('heading', {
+      name: 'Choose Franchise',
+      level: 6,
+    });
+    this.associateFranchiseBtn = page.getByRole('button', { name: 'Associate Franchise' });
+    this.associateFranchiseCancelBtn = page.getByRole('button', { name: 'Cancel' });
   }
 
   // ── Navigation ──────────────────────────────────────────────────────────
@@ -467,11 +539,63 @@ class ContractModule {
 
   // ── Create Proposal Drawer — Open & Validate ───────────────────────────
 
-  /** Open the Create Proposal drawer by clicking the empty-state button */
+  /** Open the Create Proposal drawer by clicking the empty-state button.
+   *  Handles the "Associate Franchise!" modal that appears when the deal's property
+   *  has no franchise — selects the first available franchise and associates it,
+   *  then waits for the Create Proposal drawer to open.
+   */
   async openCreateProposalDrawer() {
     await this.createProposalBtn.waitFor({ state: 'visible', timeout: 10_000 });
     await this.createProposalBtn.click();
-    await this.createProposalDrawerHeading.waitFor({ state: 'visible', timeout: 10_000 });
+
+    // After clicking "Create Proposal", either the drawer opens or the
+    // "Associate Franchise!" modal appears. Race between the two.
+    const drawerOrModal = this.createProposalDrawerHeading.or(this.associateFranchiseModalHeading);
+    await drawerOrModal.waitFor({ state: 'visible', timeout: 10_000 });
+
+    const franchiseModalVisible = await this.associateFranchiseModalHeading
+      .isVisible()
+      .catch(() => false);
+
+    if (franchiseModalVisible) {
+      await this._handleAssociateFranchiseModal();
+      // After associating, the Create Proposal drawer should open automatically.
+      // If not, re-click the Create Proposal button.
+      const drawerOpened = await this.createProposalDrawerHeading
+        .waitFor({ state: 'visible', timeout: 10_000 })
+        .then(() => true)
+        .catch(() => false);
+      if (!drawerOpened) {
+        await this.createProposalBtn.waitFor({ state: 'visible', timeout: 10_000 });
+        await this.createProposalBtn.click();
+        await this.createProposalDrawerHeading.waitFor({ state: 'visible', timeout: 10_000 });
+      }
+    }
+    // else: drawer already visible — nothing to do
+  }
+
+  /**
+   * Handle the "Associate Franchise!" modal by selecting the first available franchise
+   * from the "Choose Franchise" dropdown and clicking "Associate Franchise".
+   * @private
+   */
+  async _handleAssociateFranchiseModal() {
+    await expect(this.associateFranchiseModalHeading).toBeVisible({ timeout: 5_000 });
+    // Click the "Choose Franchise" dropdown trigger to open the franchise list
+    await this.chooseFranchiseTrigger.click();
+    // Select the first option from the popper/dropdown — franchise options render as
+    // list items or paragraphs inside #simple-popper (MUI Popper pattern, SKILL.md §2).
+    const popper = this.page.locator('#simple-popper');
+    await popper.waitFor({ state: 'visible', timeout: 5_000 });
+    // Pick the first selectable franchise option (p or [role="option"] inside popper)
+    const firstOption = popper.locator('p, [role="option"]').first();
+    await firstOption.waitFor({ state: 'visible', timeout: 5_000 });
+    await firstOption.click();
+    // The "Associate Franchise" button should now be enabled
+    await expect(this.associateFranchiseBtn).toBeEnabled({ timeout: 5_000 });
+    await this.associateFranchiseBtn.click();
+    // Wait for the modal to close
+    await expect(this.associateFranchiseModalHeading).not.toBeVisible({ timeout: 10_000 });
   }
 
   /**
@@ -2647,6 +2771,248 @@ class ContractModule {
     await expect(
       this.page.getByRole('heading', { name: `Signee ${signeeNumber}`, level: 4 })
     ).toBeVisible({ timeout: 5_000 });
+  }
+
+  // ── Contract Renewal Helpers (live-verified 2026-05-08) ──────────────────
+
+  /** Assert the Contract Renewal modal is open */
+  async assertContractRenewalModalOpen() {
+    await expect(this.contractRenewalModalHeading).toBeVisible({ timeout: 10_000 });
+    await expect(this.contractRenewalPublishBtn).toBeVisible({ timeout: 5_000 });
+  }
+
+  /**
+   * Click "Publish Contract" and detect which modal opens.
+   * Returns: 'closeDeal' | 'publishConfirm' | 'contractRenewal' | 'unknown'
+   */
+  async clickPublishAndDetectModal() {
+    await this.publishContractBtn.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.publishContractBtn.click();
+    // Wait for any modal to appear
+    const closeDeal = await this.closeDealModalHeading
+      .waitFor({ state: 'visible', timeout: 8_000 })
+      .then(() => 'closeDeal')
+      .catch(() => null);
+    if (closeDeal) return closeDeal;
+    const publishConfirm = await this.publishConfirmModalHeading
+      .isVisible().catch(() => false);
+    if (publishConfirm) return 'publishConfirm';
+    const renewal = await this.contractRenewalModalHeading
+      .isVisible().catch(() => false);
+    if (renewal) return 'contractRenewal';
+    return 'unknown';
+  }
+
+  /**
+   * Confirm publish through whatever modal is currently open.
+   * Handles Close Deal, Publish Confirm, and Contract Renewal flows.
+   * @param {string} modalType — from clickPublishAndDetectModal()
+   */
+  async confirmPublishViaModal(modalType) {
+    if (modalType === 'closeDeal') {
+      await this.selectCloseStatus('Closed Won');
+      await this.selectHubspotStage('Closed Won (Sales Pipeline)');
+      await this.saveCloseDeal();
+      // After closing, need to click Publish Contract again for the confirm step
+      await this.clickPublishContractToConfirm();
+      await this.confirmPublishContract();
+    } else if (modalType === 'publishConfirm') {
+      await this.confirmPublishContract();
+    } else if (modalType === 'contractRenewal') {
+      await this.contractRenewalPublishBtn.click();
+      await this.page.waitForLoadState('domcontentloaded', { timeout: 15_000 }).catch(() => {});
+    }
+  }
+
+  /**
+   * Dismiss whatever publish-related modal is currently open.
+   */
+  async dismissPublishModal() {
+    const cancelBtn = this.page.getByRole('button', { name: 'Cancel' }).first();
+    const cancelVisible = await cancelBtn.isVisible().catch(() => false);
+    if (cancelVisible) {
+      await cancelBtn.click();
+    } else {
+      await this.page.keyboard.press('Escape');
+    }
+  }
+
+  // ── Publish & Request Signatures Helpers (live-verified 2026-05-08) ─────
+
+  /** Open the Signature dropdown menu by clicking the Signature button */
+  async openSignatureDropdown() {
+    await this.signatureBtnOnCard.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.signatureBtnOnCard.click();
+    await expect(this.addSignMenuitem).toBeVisible({ timeout: 5_000 });
+  }
+
+  /** Click "Request Sign" menuitem from the Signature dropdown to open the modal */
+  async openRequestSignaturesModal() {
+    await this.openSignatureDropdown();
+    await this.requestSignMenuitem.click();
+    await expect(this.requestSignaturesModalHeading).toBeVisible({ timeout: 10_000 });
+  }
+
+  /** Assert the Request Signatures modal is open with expected elements */
+  async assertRequestSignaturesModalOpen() {
+    await expect(this.requestSignaturesModalHeading).toBeVisible({ timeout: 10_000 });
+    await expect(this.selectAllCheckboxLabel).toBeVisible({ timeout: 5_000 });
+    await expect(this.requestSignaturesBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.requestSignaturesCancelBtn).toBeVisible({ timeout: 5_000 });
+  }
+
+  /** Close the Request Signatures modal via Cancel button */
+  async cancelRequestSignatures() {
+    await this.requestSignaturesCancelBtn.click();
+    await expect(this.requestSignaturesModalHeading).not.toBeVisible({ timeout: 5_000 });
+  }
+
+  /**
+   * Get signee rows from the Request Signatures modal.
+   * Each row has a checkbox, avatar, name paragraph, and email paragraph.
+   * Returns locator for all signee row containers (excludes the Select All row).
+   */
+  getSigneeRows() {
+    // Signee rows are siblings of the modal heading that contain a paragraph with
+    // an email pattern. The Select All row has paragraph text "Select All".
+    // Scope to the modal container and exclude Select All.
+    const modalContainer = this.requestSignaturesModalHeading.locator('..');
+    return modalContainer.locator('> div').filter({
+      has: this.page.locator('img'),
+    }).filter({
+      hasNot: this.page.getByText('Select All', { exact: true }),
+    }).filter({
+      hasNot: this.requestSignaturesBtn,
+    });
+  }
+
+  /**
+   * Select a signee by index (0-based) in the Request Signatures modal.
+   * Clicks the checkbox in the signee row.
+   * @param {number} index — 0-based signee index
+   */
+  async selectSigneeByIndex(index) {
+    const signeeRows = this.getSigneeRows();
+    const row = signeeRows.nth(index);
+    await row.waitFor({ state: 'visible', timeout: 5_000 });
+    const checkbox = row.getByRole('checkbox');
+    await checkbox.click();
+  }
+
+  /** Click the Select All checkbox in the Request Signatures modal */
+  async selectAllSignees() {
+    const selectAllRow = this.requestSignaturesModalHeading.locator('..').locator('> div').filter({
+      has: this.page.getByText('Select All', { exact: true }),
+    });
+    const checkbox = selectAllRow.getByRole('checkbox');
+    await checkbox.click();
+  }
+
+  /** Click Request Signatures submit button in the modal */
+  async submitRequestSignatures() {
+    await this.requestSignaturesBtn.click();
+  }
+
+  /**
+   * Assert deal stage is currently showing a specific stage as active/visible.
+   * @param {'Proposal Creation'|'Negotiation'|'Closed Won'} stage
+   */
+  async assertDealStageActive(stage) {
+    const stageBtn = this.page.locator('button').filter({ hasText: new RegExp(`^${stage}$`) });
+    await expect(stageBtn).toBeVisible({ timeout: 10_000 });
+  }
+
+  // ── Clone Contract Dialog (MCP-verified 2026-05-08) ───────────────────
+
+  /** Click the Clone action icon on the proposal card and wait for dialog */
+  async clickCloneAction() {
+    await expect(this.cloneProposalActionByAriaLabel).toBeVisible({ timeout: 8_000 });
+    await this.cloneProposalActionByAriaLabel.click();
+    await expect(this.cloneContractHeading).toBeVisible({ timeout: 8_000 });
+  }
+
+  /** Assert the Clone Contract dialog is open with all expected elements */
+  async assertCloneContractDialogOpen() {
+    await expect(this.cloneContractHeading).toBeVisible({ timeout: 8_000 });
+    await expect(this.cloneContractText).toBeVisible({ timeout: 5_000 });
+    await expect(this.cloneContractCancelBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.cloneContractProceedBtn).toBeVisible({ timeout: 5_000 });
+  }
+
+  /** Dismiss the Clone Contract dialog via Cancel */
+  async dismissCloneContractDialog() {
+    await this.cloneContractCancelBtn.click();
+    await expect(this.cloneContractHeading).not.toBeVisible({ timeout: 5_000 });
+  }
+
+  // ── Delete Proposal Dialog (MCP-verified 2026-05-08) ──────────────────
+
+  /** Click the Delete action icon on the proposal card and wait for dialog */
+  async clickDeleteAction() {
+    await expect(this.deleteProposalActionByAriaLabel).toBeVisible({ timeout: 8_000 });
+    await this.deleteProposalActionByAriaLabel.click();
+    await expect(this.deleteProposalHeading).toBeVisible({ timeout: 8_000 });
+  }
+
+  /** Assert the Delete Proposal dialog is open with all expected elements */
+  async assertDeleteProposalDialogOpen() {
+    await expect(this.deleteProposalHeading).toBeVisible({ timeout: 8_000 });
+    await expect(this.deleteProposalText).toBeVisible({ timeout: 5_000 });
+    await expect(this.deleteProposalNoBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.deleteProposalConfirmBtn).toBeVisible({ timeout: 5_000 });
+  }
+
+  /** Dismiss the Delete Proposal dialog via No button */
+  async dismissDeleteProposalDialog() {
+    await this.deleteProposalNoBtn.click();
+    await expect(this.deleteProposalHeading).not.toBeVisible({ timeout: 5_000 });
+  }
+
+  // ── Terminate Contract Dialog (MCP-verified 2026-05-08) ────────────────
+
+  /** Click the Terminate action icon on the proposal card and wait for dialog */
+  async clickTerminateAction() {
+    await expect(this.terminateContractGeneric).toBeVisible({ timeout: 8_000 });
+    await this.terminateContractGeneric.click();
+    await expect(this.terminateDialogHeading).toBeVisible({ timeout: 8_000 });
+  }
+
+  /** Assert the Terminate dialog is open with all expected elements */
+  async assertTerminateDialogOpen() {
+    await expect(this.terminateDialogHeading).toBeVisible({ timeout: 8_000 });
+    await expect(this.terminationDateInput).toBeVisible({ timeout: 5_000 });
+    await expect(this.terminationReasonInput).toBeVisible({ timeout: 5_000 });
+    await expect(this.terminateContractNoBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.terminateContractConfirmBtn).toBeVisible({ timeout: 5_000 });
+  }
+
+  /** Dismiss the Terminate dialog via No button */
+  async dismissTerminateDialog() {
+    await this.terminateContractNoBtn.click();
+    await expect(this.terminateDialogHeading).not.toBeVisible({ timeout: 5_000 });
+  }
+
+  // ── Addendum Contract Dialog (MCP-verified 2026-05-08) ─────────────────
+
+  /** Click the Addendum action icon on the proposal card and wait for dialog */
+  async clickAddendumAction() {
+    await expect(this.addendumContractGeneric).toBeVisible({ timeout: 8_000 });
+    await this.addendumContractGeneric.click();
+    await expect(this.addendumContractHeading).toBeVisible({ timeout: 8_000 });
+  }
+
+  /** Assert the Addendum Contract dialog is open with all expected elements */
+  async assertAddendumDialogOpen() {
+    await expect(this.addendumContractHeading).toBeVisible({ timeout: 8_000 });
+    await expect(this.addendumContractText).toBeVisible({ timeout: 5_000 });
+    await expect(this.addendumContractCancelBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.addendumContractProceedBtn).toBeVisible({ timeout: 5_000 });
+  }
+
+  /** Dismiss the Addendum Contract dialog via Cancel */
+  async dismissAddendumDialog() {
+    await this.addendumContractCancelBtn.click();
+    await expect(this.addendumContractHeading).not.toBeVisible({ timeout: 5_000 });
   }
 }
 

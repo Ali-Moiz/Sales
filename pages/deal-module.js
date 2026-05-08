@@ -317,12 +317,51 @@ class DealModule {
   }
 
   async clickVisibleDropdownOption(container, optionText, timeout = 10_000) {
-    const options = container
+    // Try exact match first
+    const exactOptions = container
       .locator('p, h6, [role="option"]')
       .filter({
         hasText: new RegExp(`^\\s*${this.escapeRegex(optionText)}\\s*$`, "i"),
       });
 
+    const exactFound = await exactOptions
+      .first()
+      .waitFor({ state: "visible", timeout: Math.min(timeout, 5_000) })
+      .then(() => true)
+      .catch(() => false);
+
+    // Fall back to first partial (contains) match
+    const target = exactFound
+      ? exactOptions
+      : container.locator('p, h6, [role="option"]').filter({
+          hasText: new RegExp(this.escapeRegex(optionText), "i"),
+        });
+
+    if (!exactFound) {
+      await target.first().waitFor({ state: "visible", timeout });
+    }
+
+    const optionCount = await target.count();
+    for (let i = 0; i < optionCount; i++) {
+      const option = target.nth(i);
+      const visible = await option.isVisible().catch(() => false);
+      if (!visible) continue;
+
+      try {
+        await option.click({ force: true });
+      } catch {
+        await option.evaluate((el) => {
+          el.click();
+        });
+      }
+      return;
+    }
+
+    throw new Error(`Dropdown option "${optionText}" was not clickable.`);
+  }
+
+  async clickFirstVisibleDropdownOption(container, timeout = 10_000) {
+    const options = container.locator('p, h6, [role="option"]');
     await options.first().waitFor({ state: "visible", timeout });
 
     const optionCount = await options.count();
@@ -341,7 +380,30 @@ class DealModule {
       return;
     }
 
-    throw new Error(`Dropdown option "${optionText}" was not clickable.`);
+    throw new Error("No visible dropdown option was clickable.");
+  }
+
+  async clickCreateDealDropdownTrigger(labelText) {
+    const clicked = await this.page.evaluate((label) => {
+      const normalizedLabel = label.replace(/\s+/g, " ").trim();
+      const candidates = [...document.querySelectorAll("h6, [role='heading']")];
+      const target = candidates.find((el) => {
+        const text = (el.textContent || "").replace(/\s+/g, " ").trim();
+        if (text !== normalizedLabel) return false;
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      });
+
+      if (!target) return false;
+      target.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window }));
+      target.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window }));
+      target.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+      return true;
+    }, labelText);
+
+    if (!clicked) {
+      throw new Error(`Create Deal dropdown trigger "${labelText}" was not visible.`);
+    }
   }
 
   // ── Navigation ────────────────────────────────────────────────────────
@@ -562,12 +624,17 @@ class DealModule {
     const searchBox = tooltip.getByRole("textbox", { name: "Search" });
     await expect(searchBox).toBeVisible({ timeout: 5_000 });
 
+    const shouldPickFirstPatResult =
+      String(companySearchText).trim().toUpperCase() === "PAT" &&
+      String(companyOptionText).trim().toUpperCase() === "PAT";
+
     // Try multiple search patterns: exact, first 4 chars, first 3 chars, then pick first result
     const searchAttempts = [
+      shouldPickFirstPatResult ? { text: "PAT ", exactMatch: null } : null,
       { text: companySearchText, exactMatch: companyOptionText },
       { text: companySearchText.substring(0, Math.min(4, companySearchText.length)), exactMatch: null },
       { text: companySearchText.substring(0, Math.min(3, companySearchText.length)), exactMatch: null },
-    ].filter(a => a.text.length > 0);
+    ].filter(a => a && a.text.length > 0);
 
     for (const attempt of searchAttempts) {
       await searchBox.click();
@@ -579,19 +646,8 @@ class DealModule {
           await this.clickVisibleDropdownOption(tooltip, attempt.exactMatch, 4_000);
           return;
         } else {
-          // If no exact match specified, click the first visible option
-          const options = tooltip.locator('p, h6, [role="option"]').filter({
-            hasText: new RegExp(`.*`, 'i'),
-          });
-          const optionCount = await options.count().catch(() => 0);
-          if (optionCount > 0) {
-            const firstOption = options.first();
-            const visible = await firstOption.isVisible().catch(() => false);
-            if (visible) {
-              await firstOption.click({ force: true });
-              return;
-            }
-          }
+          await this.clickFirstVisibleDropdownOption(tooltip, 8_000);
+          return;
         }
       } catch (e) {
         // Continue to next attempt
@@ -623,10 +679,14 @@ class DealModule {
           .last(),
       );
 
-    const trySelect = async (searchText) => {
+    const trySelect = async (searchText, pickFirstResult = false) => {
       const propertyTrigger = resolvePropertyTrigger();
       await propertyTrigger.waitFor({ state: "visible", timeout: 10_000 });
-      await propertyTrigger.click({ force: true });
+      await propertyTrigger
+        .click({ force: true, timeout: 5_000 })
+        .catch(async () => {
+          await this.clickCreateDealDropdownTrigger("Select Property / Property Name");
+        });
       // Use #simple-popper without [role="tooltip"] — MUI Popper does not reliably expose that attribute
       const tooltip = this.page
         .locator("#simple-popper")
@@ -638,11 +698,19 @@ class DealModule {
       await expect(searchBox).toBeVisible({ timeout: 5_000 });
       await searchBox.click();
       await searchBox.fill(searchText);
-      // clickVisibleDropdownOption waits for results to appear internally
-      await this.clickVisibleDropdownOption(tooltip, propertyOptionText, 10_000);
+      if (pickFirstResult) {
+        await this.clickFirstVisibleDropdownOption(tooltip, 10_000);
+      } else {
+        // clickVisibleDropdownOption waits for results to appear internally
+        await this.clickVisibleDropdownOption(tooltip, propertyOptionText, 10_000);
+      }
     };
 
+    const shouldPickFirstPatResult =
+      String(propertySearchText).trim().toUpperCase() === "PAT" &&
+      String(propertyOptionText).trim().toUpperCase() === "PAT";
     const variants = [
+      shouldPickFirstPatResult ? "PAT " : null,
       propertySearchText,
       ...buildSearchVariants(propertyOptionText || propertySearchText),
     ].filter(Boolean);
@@ -651,7 +719,7 @@ class DealModule {
     let lastError;
     for (const variant of uniqueVariants) {
       try {
-        await trySelect(variant);
+        await trySelect(variant, shouldPickFirstPatResult && variant === "PAT ");
         return;
       } catch (error) {
         lastError = error;

@@ -880,8 +880,12 @@ test.describe('Market Verticals & Industry Management — TC-MV-016 through TC-M
     // ═══════════════════════════════════════════════════════════════════════════
 
     test('TC-MV-027 | Verify that Search in left panel filters industries list correctly @regression', async () => {
-      await test.step('Type "Dist" in sidebar search', async () => {
+      await test.step('Type "Dist" in sidebar search and wait for filter to apply', async () => {
         await mvPage.searchSidebarVertical('Dist');
+        // Web-first assertion: wait for a non-matching industry to disappear before reading names
+        await expect(
+          sharedPage.getByRole('button', { name: /Commercial.*No\. of Companies/ }),
+        ).toBeHidden({ timeout: 10_000 });
       });
 
       await test.step('Verify only matching industries remain visible', async () => {
@@ -904,6 +908,10 @@ test.describe('Market Verticals & Industry Management — TC-MV-016 through TC-M
     test('TC-MV-028 | Verify that clearing left-panel Search restores the full industries list @regression', async () => {
       await test.step('Filter sidebar by "Dist"', async () => {
         await mvPage.searchSidebarVertical('Dist');
+        // Wait for non-matching industry to disappear before reading filtered names
+        await expect(
+          sharedPage.getByRole('button', { name: /Commercial.*No\. of Companies/ }),
+        ).toBeHidden({ timeout: 10_000 });
         const filteredNames = await mvPage.getVisibleSidebarIndustryNames();
         expect(filteredNames.length).toBeLessThan(KNOWN_VERTICALS.length);
       });
@@ -1020,19 +1028,29 @@ test.describe('Questions Listing & Interaction — TC-MV-030 through TC-MV-048',
       expect(rows.length).toBeGreaterThan(2);
     });
 
-    await test.step('Scroll to the last question row and verify visibility', async () => {
-      const rows = await mvPage.questionsTable.getByRole('row').all();
-      const lastRow = rows[rows.length - 1];
-      await lastRow.scrollIntoViewIfNeeded();
+    await test.step('Scroll table to bottom and verify last row is visible', async () => {
+      // The table may use virtualized rendering, so scrollIntoViewIfNeeded on the
+      // last row can fail with "Element is not attached to the DOM". Instead, scroll
+      // the table's scrollable container to the bottom via JS.
+      const tableContainer = mvPage.questionsTable.locator('..');
+      await tableContainer.evaluate((el) => {
+        // Find the nearest scrollable ancestor
+        let scrollable = el;
+        while (scrollable && scrollable.scrollHeight <= scrollable.clientHeight) {
+          scrollable = scrollable.parentElement;
+        }
+        if (scrollable) scrollable.scrollTop = scrollable.scrollHeight;
+      });
+      // Wait briefly for any virtualized rows to render after scroll
+      await sharedPage.waitForTimeout(500);
+      const lastRow = mvPage.questionsTable.getByRole('row').last();
       await expect(lastRow).toBeVisible();
     });
 
     await test.step('Verify last row cells align with header columns', async () => {
       const headerRow = mvPage.questionsTable.getByRole('row').first();
       const headerCells = await headerRow.getByRole('columnheader').all();
-      const rows = await mvPage.questionsTable.getByRole('row').all();
-      const lastRow = rows[rows.length - 1];
-      await lastRow.scrollIntoViewIfNeeded();
+      const lastRow = mvPage.questionsTable.getByRole('row').last();
       const lastRowCells = await lastRow.getByRole('cell').all();
 
       // Verify the Question Statement column (index 1) aligns horizontally
@@ -1130,19 +1148,26 @@ test.describe('Questions Listing & Interaction — TC-MV-030 through TC-MV-048',
 
   test('TC-MV-035 | Verify that Last Edited By and Last Edited On show correct values and handle missing values as N/A @regression', async () => {
     await test.step('Read Last Edited By/On for visible question rows', async () => {
-      // Read cell data directly from rows to avoid regex-matching issues
-      const rows = await mvPage.questionsTable.getByRole('row').all();
-      const dataRows = rows.slice(1); // skip header
-      expect(dataRows.length).toBeGreaterThanOrEqual(1);
+      // Wait for at least one data row to render
+      await expect(mvPage.questionsTable.getByRole('row').nth(1)).toBeVisible({ timeout: 15_000 });
+      // Wait for cell content to be populated (not just the row skeleton)
+      await expect(mvPage.questionsTable.getByRole('row').nth(1).getByRole('cell').nth(2)).not.toHaveText('', { timeout: 10_000 });
 
-      // Check the first 5 rows (representative sample)
-      const checkCount = Math.min(5, dataRows.length);
-      for (let i = 0; i < checkCount; i++) {
-        const cells = await dataRows[i].getByRole('cell').all();
-        // Columns: [drag-handle, Question Statement, Last Edited By, Last Edited On, Answer Type, actions]
-        const editedBy = (await cells[2]?.textContent())?.trim() ?? '';
-        const editedOn = (await cells[3]?.textContent())?.trim() ?? '';
+      // Read all row data atomically via evaluate() to avoid stale handles
+      const rowData = await mvPage.questionsTable.evaluate((table) => {
+        const rows = Array.from(table.querySelectorAll('tbody tr'));
+        return rows.slice(0, 5).map((row) => {
+          const cells = row.querySelectorAll('td');
+          return {
+            editedBy: (cells[2]?.textContent ?? '').trim(),
+            editedOn: (cells[3]?.textContent ?? '').trim(),
+          };
+        });
+      });
 
+      expect(rowData.length).toBeGreaterThanOrEqual(1);
+
+      for (const { editedBy, editedOn } of rowData) {
         // Last Edited By should be a non-empty string
         expect(editedBy.length).toBeGreaterThan(0);
 
@@ -1160,7 +1185,9 @@ test.describe('Questions Listing & Interaction — TC-MV-030 through TC-MV-048',
 
   test('TC-MV-036 | Verify that Answer Type displays correct label (Dropdown/Radio/Multiselect) based on saved configuration @regression', async () => {
     await test.step('Read Answer Type for visible question rows', async () => {
-      // Read cell data directly from rows to avoid regex-matching issues
+      // Wait for question data to fully render before reading cell text
+      await expect(mvPage.questionsTable.getByRole('row').nth(1).getByRole('cell').nth(4)).not.toHaveText('', { timeout: 10_000 });
+
       const rows = await mvPage.questionsTable.getByRole('row').all();
       const dataRows = rows.slice(1); // skip header
       expect(dataRows.length).toBeGreaterThanOrEqual(1);
@@ -1527,6 +1554,11 @@ test.describe('Questions Listing & Interaction — TC-MV-030 through TC-MV-048',
       await mvPage.waitForSkeletonsToClear();
       await expect(mvPage.industriesTable).toBeVisible();
       await mvPage.clickVerticalInList(DEFAULT_VERTICAL);
+      // Wait for actual question text to render — row shells appear before data loads.
+      // Use a known question substring that exists in the Commercial industry.
+      await expect(
+        mvPage.questionsTable.getByRole('cell', { name: /security/i }).first(),
+      ).toBeVisible({ timeout: 15_000 });
       const statements = await mvPage.getQuestionStatements();
       expect(statements.length).toBeGreaterThanOrEqual(1);
     });
