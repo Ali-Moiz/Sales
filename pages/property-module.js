@@ -26,6 +26,9 @@ class PropertyModule {
   constructor(page) {
     this.page = page;
     this.createdPropertyName = null;
+    /** Tracks the actual company name resolved during the last selectCompanyInCreateForm call.
+     * Used by ensureValidDealDependencies to pass the exact company to deal creation. */
+    this.lastSelectedCompanyName = null;
     this.lastCreatePropertyToastSeen = false;
     this.lastCreatePropertySucceeded = false;
     this.lastEditPropertyToastSeen = false;
@@ -547,7 +550,7 @@ class PropertyModule {
 
   companyPickerTooltip() {
     return this.page
-      .locator('#simple-popper[role="tooltip"]')
+      .locator('#simple-popper')
       .first()
       .or(this.page.getByRole("tooltip").first());
   }
@@ -963,14 +966,17 @@ class PropertyModule {
       .catch(() => false);
 
     if (searchedHeadingVisible) {
+      // SKILL.md §4 — scrollIntoViewIfNeeded() before click; element may be below fold in drawer
+      await this.companyDropdownTrigger.scrollIntoViewIfNeeded();
       await this.companyDropdownTrigger.click({ force: true });
     } else {
       await companySectionTrigger.waitFor({ state: "visible", timeout: 8_000 });
+      await companySectionTrigger.scrollIntoViewIfNeeded();
       await companySectionTrigger.click({ force: true });
     }
 
     const tooltip = this.page
-      .locator('#simple-popper[role="tooltip"]')
+      .locator('#simple-popper')
       .first()
       .or(this.page.getByRole("tooltip").first());
     await tooltip.waitFor({ state: "visible", timeout: 10_000 });
@@ -1001,6 +1007,11 @@ class PropertyModule {
 
       if (optionSelected) {
         await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+        // Capture the actual company name that was committed to the field.
+        // After selection the h6 trigger text changes to the chosen company name;
+        // use readSelectedCompanyName() which re-queries without filtering by the
+        // original "Search Company" text, so the new heading value is captured.
+        this.lastSelectedCompanyName = await this._readSelectedCompanyName(companyName);
         return;
       }
 
@@ -1017,6 +1028,7 @@ class PropertyModule {
           .catch(() => false);
         if (fallbackSelected) {
           await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+          this.lastSelectedCompanyName = await this._readSelectedCompanyName(companyName);
           return;
         }
       }
@@ -1033,12 +1045,37 @@ class PropertyModule {
       .catch(() => false);
     if (firstVisibleOptionSelected) {
       await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+      this.lastSelectedCompanyName = await this._readSelectedCompanyName(companyName);
       return;
     }
 
     throw new Error(
       `Company "${companyName}" was not selectable in property create form.`,
     );
+  }
+
+  /**
+   * After selectCompanyInCreateForm commits a selection, reads back the actual
+   * company name shown in the trigger heading. The heading text changes from
+   * "Search Company" to the selected company name; we use a broad locator
+   * (any h6 inside the create-property drawer's company section) rather than
+   * the fixed-name companyDropdownTrigger, which no longer matches post-selection.
+   * Falls back to the requested companyName if reading fails.
+   */
+  async _readSelectedCompanyName(fallback) {
+    try {
+      const drawer = this.createPropertyDrawerRoot();
+      // The company trigger is the first h6 in the company section.
+      // After selection its text is the chosen company name (not "Search Company").
+      const companySection = drawer.locator('div').filter({
+        has: this.page.locator('p', { hasText: /^Company\s*\*?$/ }),
+      }).first();
+      const heading = companySection.getByRole('heading', { level: 6 });
+      const text = await heading.textContent({ timeout: 3_000 }).catch(() => '');
+      return text.trim() || fallback;
+    } catch {
+      return fallback;
+    }
   }
 
   async fillPropertyName(propertyName) {
@@ -1059,8 +1096,10 @@ class PropertyModule {
   }
 
   propertySourceTooltip() {
+    // SKILL.md §2: Use `#simple-popper` id only — never `#simple-popper`.
+    // The role="tooltip" attribute is not reliably present on MUI Popper elements.
     return this.page
-      .locator('#simple-popper[role="tooltip"]')
+      .locator("#simple-popper")
       .last()
       .or(this.page.getByRole("tooltip").last());
   }
@@ -1077,6 +1116,10 @@ class PropertyModule {
     }
     const trigger = this.propertySourceTriggerInCreateDrawer();
     await trigger.waitFor({ state: "visible", timeout: 8_000 });
+    // SKILL.md §4: scrollIntoViewIfNeeded() before click — trigger may be below
+    // the fold of the drawer's scroll container; force:true bypasses viewport checks
+    // but does not scroll the element into the clip rect of the scroll container.
+    await trigger.scrollIntoViewIfNeeded();
     for (let attempt = 0; attempt < 2; attempt++) {
       await trigger.click({ force: true });
       const visible = await tooltip
@@ -1145,7 +1188,7 @@ class PropertyModule {
 
   associatedFranchiseTooltip() {
     return this.page
-      .locator('#simple-popper[role="tooltip"]')
+      .locator('#simple-popper')
       .last()
       .or(this.page.getByRole("tooltip").last());
   }
@@ -1238,7 +1281,7 @@ class PropertyModule {
 
   stageTooltip() {
     return this.page
-      .locator('#simple-popper[role="tooltip"]')
+      .locator('#simple-popper')
       .last()
       .or(this.page.getByRole("tooltip").last());
   }
@@ -1317,7 +1360,7 @@ class PropertyModule {
     });
     await this.propertySourceTrigger.click();
     const tooltip = this.page
-      .locator('#simple-popper[role="tooltip"]')
+      .locator('#simple-popper')
       .last()
       .or(this.page.getByRole("tooltip").last());
     await tooltip.waitFor({ state: "visible", timeout: 8_000 });
@@ -1352,7 +1395,7 @@ class PropertyModule {
     await franchiseTrigger.click({ force: true });
 
     const tooltip = this.page
-      .locator('#simple-popper[role="tooltip"]')
+      .locator('#simple-popper')
       .last()
       .or(this.page.getByRole("tooltip").last());
     await tooltip.waitFor({ state: "visible", timeout: 8_000 });
@@ -1383,7 +1426,7 @@ class PropertyModule {
     await this.stageTrigger.waitFor({ state: "visible", timeout: 8_000 });
     await this.stageTrigger.click();
     const tooltip = this.page
-      .locator('#simple-popper[role="tooltip"]')
+      .locator('#simple-popper')
       .last()
       .or(this.page.getByRole("tooltip").last());
     await tooltip.waitFor({ state: "visible", timeout: 8_000 });
@@ -1421,7 +1464,7 @@ class PropertyModule {
     await this.assigneeTrigger.waitFor({ state: "visible", timeout: 8_000 });
     await this.assigneeTrigger.click();
     const tooltip = this.page
-      .locator('#simple-popper[role="tooltip"]')
+      .locator('#simple-popper')
       .last()
       .or(this.page.getByRole("tooltip").last());
     await tooltip.waitFor({ state: "visible", timeout: 8_000 });
@@ -1440,7 +1483,7 @@ class PropertyModule {
 
   assigneeTooltip() {
     return this.page
-      .locator('#simple-popper[role="tooltip"]')
+      .locator('#simple-popper')
       .last()
       .or(this.page.getByRole("tooltip").last());
   }
@@ -1965,7 +2008,7 @@ class PropertyModule {
   async selectFirstSupervisorInCreateDrawer() {
     await this.clickSelectSupervisorControlInCreateDrawer();
     const tooltip = this.page
-      .locator('#simple-popper[role="tooltip"]')
+      .locator('#simple-popper')
       .last()
       .or(this.page.getByRole("tooltip").last());
     await tooltip.waitFor({ state: "visible", timeout: 8_000 });
@@ -1978,7 +2021,7 @@ class PropertyModule {
 
   selectSupervisorTooltipInCreateDrawer() {
     return this.page
-      .locator('#simple-popper[role="tooltip"]')
+      .locator('#simple-popper')
       .last()
       .or(this.page.getByRole("tooltip").last())
       .or(this.page.getByRole("listbox").last());
@@ -2267,7 +2310,7 @@ class PropertyModule {
     await this.contactTrigger.click();
 
     const tooltip = this.page
-      .locator('#simple-popper[role="tooltip"]')
+      .locator('#simple-popper')
       .last()
       .or(this.page.getByRole("tooltip").last());
     await tooltip.waitFor({ state: "visible", timeout: 8_000 });
@@ -2970,7 +3013,7 @@ class PropertyModule {
     await this.assigneeTrigger.click({ force: true });
 
     const tooltip = this.page
-      .locator('#simple-popper[role="tooltip"]')
+      .locator('#simple-popper')
       .last()
       .or(this.page.getByRole("tooltip").last());
     await tooltip.waitFor({ state: "visible", timeout: 10_000 });
@@ -3257,7 +3300,7 @@ class PropertyModule {
    */
   contactRoleTooltip() {
     return this.page
-      .locator('#simple-popper[role="tooltip"]')
+      .locator('#simple-popper')
       .last()
       .or(this.page.getByRole("tooltip").last());
   }
@@ -3596,7 +3639,7 @@ class PropertyModule {
    */
   referredByTooltip() {
     return this.page
-      .locator('#simple-popper[role="tooltip"]')
+      .locator('#simple-popper')
       .last()
       .or(this.page.getByRole("tooltip").last());
   }
@@ -4740,11 +4783,19 @@ class PropertyModule {
 
   /**
    * Changes the rows-per-page combobox to the given value.
+   * The control is a MUI Select (div[role="combobox"]), not a native <select>.
+   * SKILL.md §2 — MUI custom dropdowns require click-to-open + click-option pattern,
+   * not selectOption() which only works on native <select> elements.
    * @param {string|number} value - e.g. "25"
    */
   async changeTaskRowsPerPage(value) {
     await expect(this.rowsPerPageCombo).toBeVisible({ timeout: 8_000 });
-    await this.rowsPerPageCombo.selectOption(String(value));
+    // Open the MUI listbox by clicking the combobox div
+    await this.rowsPerPageCombo.click();
+    // Wait for the listbox to appear and click the matching option
+    const listbox = this.page.getByRole("listbox");
+    await expect(listbox).toBeVisible({ timeout: 5_000 });
+    await listbox.getByRole("option", { name: String(value), exact: true }).click();
   }
 }
 

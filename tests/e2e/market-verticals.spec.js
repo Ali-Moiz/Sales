@@ -1023,6 +1023,8 @@ test.describe('Questions Listing & Interaction — TC-MV-030 through TC-MV-048',
 
   test('TC-MV-031 | Verify that questions list supports vertical scrolling without header/row misalignment @regression', async () => {
     await test.step('Verify multiple question rows are visible', async () => {
+      // Wait for at least one data row to load before counting (SKILL.md §4 — table data readiness)
+      await expect(mvPage.questionsTable.getByRole('row').nth(1)).toBeVisible({ timeout: 15_000 });
       const rows = await mvPage.questionsTable.getByRole('row').all();
       // At least header + some data rows
       expect(rows.length).toBeGreaterThan(2);
@@ -1041,8 +1043,7 @@ test.describe('Questions Listing & Interaction — TC-MV-030 through TC-MV-048',
         }
         if (scrollable) scrollable.scrollTop = scrollable.scrollHeight;
       });
-      // Wait briefly for any virtualized rows to render after scroll
-      await sharedPage.waitForTimeout(500);
+      // Wait for last row to be visible after scroll (replaces banned waitForTimeout)
       const lastRow = mvPage.questionsTable.getByRole('row').last();
       await expect(lastRow).toBeVisible();
     });
@@ -1053,9 +1054,16 @@ test.describe('Questions Listing & Interaction — TC-MV-030 through TC-MV-048',
       const lastRow = mvPage.questionsTable.getByRole('row').last();
       const lastRowCells = await lastRow.getByRole('cell').all();
 
-      // Verify the Question Statement column (index 1) aligns horizontally
+      // Scroll header into view so its bounding box is in the viewport clip rect
+      await headerCells[1].scrollIntoViewIfNeeded();
       const headerBox = await headerCells[1].boundingBox();
+
+      // Scroll the last data cell into view before reading its bounding box.
+      // boundingBox() returns null for elements outside the viewport clip rect
+      // even when they are visible inside a scrollable container (SKILL.md §4).
+      await lastRowCells[1].scrollIntoViewIfNeeded();
       const cellBox = await lastRowCells[1].boundingBox();
+
       expect(headerBox).toBeTruthy();
       expect(cellBox).toBeTruthy();
       // Horizontal positions should overlap (within reasonable tolerance)

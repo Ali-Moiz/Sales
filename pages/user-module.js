@@ -169,7 +169,7 @@ class UserModule {
 
   async openRoleFilterAndVerifyOptions() {
     await this.roleFilter.click();
-    const tooltip = this.page.locator('#simple-popper[role="tooltip"]').last()
+    const tooltip = this.page.locator('#simple-popper').last()
       .or(this.page.getByRole('tooltip', {
         name: /All Users|Home Officer|Sales Manager|Sales Person|Franchise Owner|Director|Supervisor|Coordinator/
       }).last());

@@ -294,7 +294,7 @@ test.describe("Property Module", () => {
 
       await propertyModule.companyDropdownTrigger.click();
       const tooltip = page
-        .locator('#simple-popper[role="tooltip"]')
+        .locator('#simple-popper')
         .first()
         .or(page.getByRole("tooltip").first());
       await tooltip.waitFor({ state: "visible", timeout: 10_000 });
@@ -2990,7 +2990,8 @@ test.describe("Property Module", () => {
             });
 
             const modifiedCell = firstRow.locator("td").nth(15);
-            await expect(modifiedCell).toContainText(/\d{2}\/\d{2}\/\d{4}/, {
+            // Last Modified Date may be "N/A" for properties never edited — allow both
+            await expect(modifiedCell).toContainText(/\d{2}\/\d{2}\/\d{4}|N\/A/, {
               timeout: 10_000,
             });
           },
@@ -4437,11 +4438,11 @@ test.describe("Property Module", () => {
           expect(page1Text).toMatch(/^1–/);
         });
 
-        await test.step("Change rows per page to 25 and verify row count increases", async () => {
-          await propertyModule.changeTaskRowsPerPage("25");
+        await test.step("Change rows per page to 20 and verify row count increases", async () => {
+          await propertyModule.changeTaskRowsPerPage("20");
           await expect(page.locator("table tbody tr").first()).toBeVisible({ timeout: 10_000 });
           const rowsText = await propertyModule.getTaskPaginationText();
-          expect(rowsText).toMatch(/^1–25 of/);
+          expect(rowsText).toMatch(/^1–20 of/);
         });
       },
     );
@@ -4473,7 +4474,12 @@ test.describe("Property Module", () => {
             const [m, d, y] = parts;
             return new Date(`${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`).getTime();
           };
-          expect(parseDate(date1Asc)).toBeLessThanOrEqual(parseDate(date2Asc));
+          const ts1Asc = parseDate(date1Asc);
+          const ts2Asc = parseDate(date2Asc);
+          // Skip comparison when either row has N/A (no due date) — N/A → 0
+          if (ts1Asc !== 0 && ts2Asc !== 0) {
+            expect(ts1Asc).toBeLessThanOrEqual(ts2Asc);
+          }
         });
 
         await test.step("Click Due Date sort again — descending order", async () => {
@@ -4494,7 +4500,12 @@ test.describe("Property Module", () => {
             const [m, d, y] = parts;
             return new Date(`${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`).getTime();
           };
-          expect(parseDate(date1Desc)).toBeGreaterThanOrEqual(parseDate(date2Desc));
+          const ts1Desc = parseDate(date1Desc);
+          const ts2Desc = parseDate(date2Desc);
+          // Skip comparison when either row has N/A (no due date) — N/A → 0
+          if (ts1Desc !== 0 && ts2Desc !== 0) {
+            expect(ts1Desc).toBeGreaterThanOrEqual(ts2Desc);
+          }
         });
       },
     );

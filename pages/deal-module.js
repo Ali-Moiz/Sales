@@ -11,6 +11,8 @@ class DealModule {
   constructor(page) {
     this.page = page;
     this.baseUrl = env.baseUrl;
+    /** Tracks the actual company name resolved during the last selectCompany() call. */
+    this.lastSelectedCompanyName = null;
 
     // ── Sidebar navigation ────────────────────────────────────────────────
     this.dealsMenuLink = page
@@ -308,6 +310,26 @@ class DealModule {
 
   // ── Data generators ───────────────────────────────────────────────────
 
+  /**
+   * Opens the Create Deal modal, selects the first company matching searchText
+   * (by calling selectCompany which captures lastSelectedCompanyName),
+   * then cancels the form. Returns the actual resolved company name.
+   * Used by ensureValidDealDependencies when no prior company/property exist,
+   * so the same company is used for both property creation and deal creation.
+   */
+  async resolveFirstCompanyForSearch(searchText) {
+    try {
+      await this.openCreateDealModal();
+      await this.assertCreateDealDrawerOpen();
+      await this.selectCompany(searchText, searchText);
+      return this.lastSelectedCompanyName || searchText;
+    } catch {
+      return searchText;
+    } finally {
+      await this.cancelCreateDeal().catch(() => {});
+    }
+  }
+
   generateUniqueDealName() {
     return `PAT ${String(Date.now()).slice(-4)}`;
   }
@@ -553,6 +575,34 @@ class DealModule {
       .not.toBe("pending");
   }
 
+  /**
+   * Returns true if a deal row containing dealName is visible in the table
+   * after searching for it. Non-throwing — safe to use as a guard check.
+   * SKILL.md §20: guards against stale shared-run-state names from prior runs.
+   */
+  async dealExistsInTable(dealName) {
+    try {
+      await this.dealSearchInput.waitFor({ state: "visible", timeout: 10_000 });
+      const previousPaginationText = this.normalizeText(
+        await this.paginationInfo.textContent().catch(() => ""),
+      );
+      await this.dealSearchInput.fill(dealName);
+      await Promise.all([
+        this.page
+          .waitForResponse((res) => res.url().includes("deal") && res.ok(), {
+            timeout: 15_000,
+          })
+          .catch(() => null),
+        this.dealSearchInput.press("Enter"),
+      ]);
+      await this.waitForDealSearchToApply(dealName, previousPaginationText).catch(() => {});
+      const state = await this.getDealSearchState(dealName);
+      return state.type !== "empty" && state.type !== "zero-results" && state.type !== "no-match";
+    } catch {
+      return false;
+    }
+  }
+
   async searchDeal(term) {
     this.lastSearchTerm = term;
     await this.dealSearchInput.waitFor({ state: "visible", timeout: 10_000 });
@@ -644,9 +694,17 @@ class DealModule {
         if (attempt.exactMatch) {
           // Try to click exact match — clickVisibleDropdownOption waits for results internally
           await this.clickVisibleDropdownOption(tooltip, attempt.exactMatch, 4_000);
+          // After selection the tooltip closes and the h6 heading changes to the chosen company name.
+          // Read it back via a broad locator (not filtered by "Select Company") so we capture the
+          // actual value for callers that need to pass the same company to property creation.
+          this.lastSelectedCompanyName = await this._readCompanyHeadingAfterSelection(attempt.exactMatch);
           return;
         } else {
+          // Read the first visible option text BEFORE clicking so we can capture the name.
+          const firstOption = tooltip.locator('p, h6, [role="option"]').first();
+          const firstOptionText = await firstOption.textContent({ timeout: 5_000 }).catch(() => '');
           await this.clickFirstVisibleDropdownOption(tooltip, 8_000);
+          this.lastSelectedCompanyName = firstOptionText.trim() || companySearchText;
           return;
         }
       } catch (e) {
@@ -656,6 +714,38 @@ class DealModule {
 
     // If all attempts fail, throw error with debugging info
     throw new Error(`Could not select company from dropdown. Searched for: ${companySearchText}, expected: ${companyOptionText}`);
+  }
+
+  /**
+   * After selectCompany() commits a selection, reads the actual company name
+   * from the trigger h6 (which changes from "Select Company" to the chosen name).
+   * Falls back to the passed fallback string if reading fails.
+   * @param {string} fallback
+   */
+  async _readCompanyHeadingAfterSelection(fallback) {
+    try {
+      // After company selection the companySelector h6 heading text changes
+      // to the selected company name. Query all h6 elements in the page and
+      // find one whose text is not a placeholder and looks like a company name.
+      // This avoids relying on the fixed-name locator that no longer matches.
+      const allH6 = this.page.locator('h6');
+      const count = await allH6.count().catch(() => 0);
+      for (let i = 0; i < count; i++) {
+        const h6 = allH6.nth(i);
+        const text = await h6.textContent().catch(() => '');
+        const trimmed = (text || '').trim();
+        if (!trimmed) continue;
+        // Skip known placeholder texts (dropdown labels, tab names, etc.)
+        if (/^(Select Company|Select Property|Select Deal Owner|Sales Pipeline|Proposal Creation|All pipelines|Deal Stages|Deals|Create Deal)$/i.test(trimmed)) continue;
+        // The selected company name will start with the same prefix we searched
+        if (trimmed.toUpperCase().startsWith(fallback.trim().toUpperCase().substring(0, 3))) {
+          return trimmed;
+        }
+      }
+    } catch {
+      // fall through
+    }
+    return fallback;
   }
 
   /**
@@ -805,11 +895,19 @@ class DealModule {
     await dealRow.waitFor({ state: "visible", timeout: 15_000 });
 
     const dealNameCell = dealRow.locator("td").nth(1);
-    const clickableCell = (await dealNameCell.isVisible().catch(() => false))
-      ? dealNameCell
-      : dealRow.getByText(dealName, { exact: false }).first();
-
-    await clickableCell.click({ force: true });
+    // SKILL.md §4: scrollIntoViewIfNeeded() before click — toBeVisible() on the row confirms
+    // the row's top edge is in view, not that the specific cell is within the scrollable
+    // viewport clip rect.  .catch(() => {}) absorbs the narrow React re-render window where
+    // the search API response arrives, detaches the original DOM node, and makes the reference
+    // stale between waitFor() and scrollIntoViewIfNeeded() — the subsequent click() re-locates
+    // the element from the refreshed DOM.  Matches contract-module.js line 426 pattern.
+    await dealNameCell.scrollIntoViewIfNeeded().catch(() => {});
+    // SKILL.md §4: SPA (React Router) navigation emits no domcontentloaded — use Promise.all
+    // with waitForURL to avoid a ~2ms false-success from waitForLoadState('domcontentloaded').
+    await Promise.all([
+      this.page.waitForURL(/\/deals\/deal\/\d+/, { timeout: 20_000 }),
+      dealNameCell.click(),
+    ]);
     // Detail page readiness confirmed by assertDealDetailOpened() caller
   }
 
