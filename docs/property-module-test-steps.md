@@ -635,7 +635,8 @@ Step 1 — Focus the address field and verify the map appears:
 5. Observe the drawer below the address section.
 
 **Expected results (Step 1):**
-- The `region[aria-label="Map"]` element becomes visible below the address input.
+- The address textbox (`Type Address`) is visible and focused.
+- Note: unlike the Company drawer, the map region does NOT appear on combobox focus in the Create Property drawer — it only renders after an address is geocoded.
 
 Step 2 — Type a partial address and verify autocomplete suggestions appear:
 6. Type `123 Main St` into the `Type Address` textbox (`id="googleAddress"`).

@@ -99,13 +99,25 @@ class ContractModule {
       level: 6,
     });
 
-    // Stepper — Step Tabs
+    // Stepper — Step Tabs (heading locators for visibility/assertion checks)
     this.stepperStep1 = page.getByRole('heading', { name: '1. Services', level: 6 });
     this.stepperStep2 = page.getByRole('heading', { name: '2. Devices', level: 6 });
     this.stepperStep3 = page.getByRole('heading', { name: '3. On Demand', level: 6 });
     this.stepperStep4 = page.getByRole('heading', { name: '4. Payment Terms', level: 6 });
     this.stepperStep5 = page.getByRole('heading', { name: '5. Description', level: 6 });
     this.stepperStep6 = page.getByRole('heading', { name: '6. Signees', level: 6 });
+
+    // Stepper — Step Tab Clickable Inner Wrappers.
+    // Each stepper tab has: outer container (aria-label) > inner wrapper div (cursor:pointer) > h6 + img.
+    // The React onClick is on the inner wrapper; clicking the outer container or the h6 may not
+    // trigger navigation reliably. Use the direct parent of each h6 via locator('..').
+    // Verified via MCP: clicking the inner wrapper div reliably navigates between steps.
+    this.stepperTab1 = page.getByRole('heading', { name: '1. Services', level: 6 }).locator('..');
+    this.stepperTab2 = page.getByRole('heading', { name: '2. Devices', level: 6 }).locator('..');
+    this.stepperTab3 = page.getByRole('heading', { name: '3. On Demand', level: 6 }).locator('..');
+    this.stepperTab4 = page.getByRole('heading', { name: '4. Payment Terms', level: 6 }).locator('..');
+    this.stepperTab5 = page.getByRole('heading', { name: '5. Description', level: 6 }).locator('..');
+    this.stepperTab6 = page.getByRole('heading', { name: '6. Signees', level: 6 }).locator('..');
 
     // Stepper — Shared Buttons
     this.finishBtn = page.getByRole('button', { name: 'Finish' });
@@ -338,6 +350,9 @@ class ContractModule {
     this.negotiationStageBtn = page.locator('button').filter({ hasText: /^Negotiation$/ });
     this.closedWonStageBtn = page.locator('button').filter({ hasText: /^Closed Won$/ });
     this.closedLostStageBtn = page.locator('button').filter({ hasText: /^Closed Lost$/ });
+    // TODO: deprecated closedWonStageBtn/closedLostStageBtn — deal stage button text is "Closed", not "Closed Won"/"Closed Lost"
+    // "Closed Won"/"Closed Lost" are radio options inside the Close Deal modal, not stage buttons.
+    this.closedStageBtn = page.locator('button').filter({ hasText: /^Closed$/ });
 
     // Clone Contract Dialog (MCP-verified 2026-05-08)
     this.cloneContractHeading = page.getByRole('heading', { name: 'Clone Contract', level: 4 });
@@ -364,6 +379,18 @@ class ContractModule {
     this.addendumContractText = page.getByText('Are you sure you want to update the terms of your existing contract?', { exact: false });
     this.addendumContractCancelBtn = page.getByRole('button', { name: 'Cancel' });
     this.addendumContractProceedBtn = page.getByRole('button', { name: 'Proceed' });
+
+    // Addendum — Proposal card & pill labels (MCP-verified 2026-05-09)
+    // Proposal card name is an h4 heading inside the Contract & Terms tabpanel.
+    this.proposalCardHeading = this.contractTermsTabpanel.getByRole('heading', { level: 4 }).first();
+    // Success toast after Addendum creation
+    this.addendumCreatedToast = page.getByText('Addendum contract created successfully!', { exact: false });
+    // Pill/badge labels on proposal cards (visible via getByText on the tabpanel)
+    this.notAcknowledgedPill = this.contractTermsTabpanel.getByText('Not Acknowledged', { exact: true });
+    this.acknowledgedPill    = this.contractTermsTabpanel.getByText('Acknowledged', { exact: true });
+    // Note: draft state has no separate pill — it is indicated by the Publish Contract button.
+    // Publish confirmation modal — change-history section (live-verified 2026-05-09)
+    this.publishChangeHistorySection = page.locator('[class*="change"], [class*="history"], [class*="diff"]').first();
 
     // Deal detail action buttons (MCP-verified 2026-05-08)
     // The "Close" button in the action group (Edit, Close, Follow-up) — only visible when deal is not yet closed
@@ -964,17 +991,11 @@ class ContractModule {
       return;
     }
 
-    // Use JS click on the step 3 tab to bypass the overlay
-    await this.stepperStep3.scrollIntoViewIfNeeded().catch(() => {});
-    await this.stepperStep3.evaluate((el) => {
-      let target = el; // eslint-disable-line no-undef
-      while (target && target !== document.body) { // eslint-disable-line no-undef
-        const style = globalThis.getComputedStyle(target);
-        if (style.cursor === 'pointer') { target.click(); return; }
-        target = target.parentElement;
-      }
-      el.click();
-    });
+    // Click the Step 3 inner wrapper (direct parent of the h6 heading).
+    // stepperTab3 = h6.locator('..') — the inner wrapper div that React listens on,
+    // working for both fresh and completed proposals.
+    await this.stepperTab3.scrollIntoViewIfNeeded().catch(() => {});
+    await this.stepperTab3.click();
     await this.page.waitForLoadState('domcontentloaded', { timeout: 10_000 }).catch(() => {});
   }
 
@@ -1268,6 +1289,22 @@ class ContractModule {
 
     console.log(`[clickJobDay] service ${serviceIndex}, day ${day}: targeting nth(${serviceIndex})`);
 
+    // Day chips are toggles. On a re-opened proposal the day may already be selected
+    // (blue background, extra CSS class). Clicking a selected chip DESELECTS it,
+    // which empties Job Days and causes "Job Days must have at least 1 item." validation
+    // error — breaking Save & Next. Check background color to detect selected state.
+    const alreadySelected = await dayChip.evaluate((el) => {
+      const bg = globalThis.getComputedStyle(el).backgroundColor;
+      // Selected chips have a non-transparent blue background (rgb(20, 109, 255))
+      // Unselected chips have transparent/white background
+      return bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent' && bg !== 'rgb(255, 255, 255)';
+    }).catch(() => false);
+
+    if (alreadySelected) {
+      console.log(`[clickJobDay] service ${serviceIndex}, day ${day}: already selected, skipping`);
+      return;
+    }
+
     const clickChip = async (chip) => {
       await chip.scrollIntoViewIfNeeded().catch(() => {});
       await chip.click({ force: true, timeout: 8_000 }).catch(async () => {
@@ -1478,8 +1515,8 @@ class ContractModule {
    * @returns {import('@playwright/test').Locator}
    */
   _deviceQuantityGroup(deviceName) {
-    // Live-verified 2026-05-07: DOM order is QR Tags → Beacons → NFC Tags.
-    const deviceOrder = ['QR Tags', 'Beacons', 'NFC Tags'];
+    // DOM order verified from page snapshot: NFC Tags → Beacons → QR Tags.
+    const deviceOrder = ['NFC Tags', 'Beacons', 'QR Tags'];
     const idx = deviceOrder.indexOf(deviceName);
     if (idx < 0) throw new Error(`Unknown device: "${deviceName}"`);
     // Filter to groups that contain BOTH "-" and "+" buttons — these are the quantity
@@ -1499,11 +1536,8 @@ class ContractModule {
   async addDeviceQuantity(deviceName, count = 1) {
     const plusBtn = this._deviceQuantityGroup(deviceName).getByRole('button', { name: '+' });
     for (let i = 0; i < count; i++) {
-      // Use JS click to bypass the innerScrollBar overlay that intercepts pointer events
-      await plusBtn.evaluate((el) => {
-        if (el instanceof HTMLElement) el.click();
-      });
-      // Quantity button update is synchronous in React; caller assertion auto-waits
+      // Use force:true to bypass the innerScrollBar overlay that intercepts pointer events.
+      await plusBtn.click({ force: true });
     }
   }
 
@@ -1515,11 +1549,8 @@ class ContractModule {
   async subtractDeviceQuantity(deviceName, count = 1) {
     const minusBtn = this._deviceQuantityGroup(deviceName).getByRole('button', { name: '-' });
     for (let i = 0; i < count; i++) {
-      // Use JS click to bypass the innerScrollBar overlay that intercepts pointer events
-      await minusBtn.evaluate((el) => {
-        if (el instanceof HTMLElement) el.click();
-      });
-      // Quantity button update is synchronous in React; caller assertion auto-waits
+      // Use force:true to bypass the innerScrollBar overlay that intercepts pointer events.
+      await minusBtn.click({ force: true });
     }
   }
 
@@ -2677,7 +2708,7 @@ class ContractModule {
     await radio.scrollIntoViewIfNeeded().catch(() => {});
     await radio.evaluate((el) => {
       let target = el;
-      while (target && target !== document.body) { // eslint-disable-line no-undef
+      while (target && target !== document.body) { 
         const style = globalThis.getComputedStyle(target);
         if (style.cursor === 'pointer') { target.click(); return; }
         target = target.parentElement;
@@ -3014,6 +3045,132 @@ class ContractModule {
     await this.addendumContractCancelBtn.click();
     await expect(this.addendumContractHeading).not.toBeVisible({ timeout: 5_000 });
   }
+
+  // ── Clone Contract — Proceed (MCP-verified 2026-05-08) ────────────────
+
+  /**
+   * Click the Proceed button in the Clone Contract confirmation dialog and
+   * wait for the app to navigate to the cloned contract editor URL.
+   *
+   * Uses Promise.all so the click and URL-wait are issued together, avoiding
+   * the SPA-navigation race described in SKILL.md §4.
+   *
+   * @returns {Promise<boolean>} true if navigation to /contract/ succeeded,
+   *   false if the clone API returned an error and no navigation occurred.
+   */
+  async proceedCloneContract() {
+    await expect(this.cloneContractProceedBtn).toBeVisible({ timeout: 5_000 });
+    const navigated = await Promise.all([
+      this.page.waitForURL(/\/contract\//, { timeout: 20_000 }).then(() => true).catch(() => false),
+      this.cloneContractProceedBtn.click(),
+    ]).then(([nav]) => nav);
+    return navigated;
+  }
+
+  // ── Addendum — TC-150 through TC-185 (appended 2026-05-09) ────────────────
+
+  /**
+   * Click the Proceed button in the Addendum Contract dialog and wait for
+   * the app to navigate to a new deal + contract stepper URL.
+   *
+   * @returns {Promise<boolean>} true if navigation occurred, false if blocked/errored.
+   */
+  async proceedAddendumContract() {
+    await expect(this.addendumContractProceedBtn).toBeVisible({ timeout: 5_000 });
+    const navigated = await Promise.all([
+      this.page.waitForURL(/\/deals\/deal\/\d+\/contract\/\d+/, { timeout: 20_000 })
+        .then(() => true).catch(() => false),
+      this.addendumContractProceedBtn.click(),
+    ]).then(([nav]) => nav);
+    return navigated;
+  }
+
+  /**
+   * Assert the "Addendum contract created successfully!" toast is visible.
+   */
+  async assertAddendumCreatedToast() {
+    await expect(this.addendumCreatedToast).toBeVisible({ timeout: 10_000 });
+  }
+
+  /**
+   * Assert the Addendum action icon is NOT present on the Contract & Terms tabpanel.
+   * Used to verify that a second addendum cannot be created once one already exists.
+   */
+  async assertNoAddendumAction() {
+    await expect(this.addendumContractGeneric).not.toBeVisible({ timeout: 8_000 });
+  }
+
+  /**
+   * Assert the draft proposal card shows Edit/Clone/Preview PDF/Delete actions
+   * and does NOT show the Addendum action icon.
+   * (Addendum is only available on published contracts.)
+   */
+  async assertDraftCardActions() {
+    await expect(this.editProposalActionByAriaLabel).toBeVisible({ timeout: 8_000 });
+    await expect(this.cloneProposalActionByAriaLabel).toBeVisible({ timeout: 5_000 });
+    await expect(this.previewPdfActionByAriaLabel).toBeVisible({ timeout: 5_000 });
+    await expect(this.deleteProposalActionByAriaLabel).toBeVisible({ timeout: 5_000 });
+    await expect(this.addendumContractGeneric).not.toBeVisible({ timeout: 5_000 });
+  }
+
+  /**
+   * Assert the published proposal card shows Signature/View/Clone/Preview PDF/Terminate
+   * and does NOT show the Addendum action icon.
+   * (Used when a pending addendum already exists, blocking a second one.)
+   */
+  async assertPublishedCardActionsNoAddendum() {
+    await expect(this.viewContractGeneric).toBeVisible({ timeout: 8_000 });
+    await expect(this.cloneProposalActionByAriaLabel).toBeVisible({ timeout: 5_000 });
+    await expect(this.previewPdfActionByAriaLabel).toBeVisible({ timeout: 5_000 });
+    await expect(this.terminateContractGeneric).toBeVisible({ timeout: 5_000 });
+    await expect(this.addendumContractGeneric).not.toBeVisible({ timeout: 5_000 });
+  }
+
+  /**
+   * Assert the published proposal card shows the Addendum action icon
+   * alongside the other standard published-card actions.
+   * (Used for an eligible active published contract with no pending addendum.)
+   */
+  async assertPublishedCardWithAddendum() {
+    await expect(this.addendumContractGeneric).toBeVisible({ timeout: 8_000 });
+    await expect(this.viewContractGeneric).toBeVisible({ timeout: 5_000 });
+    await expect(this.cloneProposalActionByAriaLabel).toBeVisible({ timeout: 5_000 });
+    await expect(this.previewPdfActionByAriaLabel).toBeVisible({ timeout: 5_000 });
+    await expect(this.terminateContractGeneric).toBeVisible({ timeout: 5_000 });
+  }
+
+  /**
+   * Navigate to the deal detail URL derived from a stepper URL by stripping
+   * the /contract/{id} suffix.
+   *
+   * @param {string} stepperUrl - full stepper URL e.g. /deals/deal/123/contract/456
+   * @returns {Promise<string>} the deal detail URL navigated to
+   */
+  async gotoDealDetailFromStepperUrl(stepperUrl) {
+    const dealDetailUrl = stepperUrl.replace(/\/contract\/\d+.*$/, '');
+    await this.page.goto(dealDetailUrl, { waitUntil: 'domcontentloaded' });
+    await this.assertOnDealDetailPage();
+    return dealDetailUrl;
+  }
+
+  /**
+   * Assert the proposal card name heading (h4 inside Contract & Terms tabpanel)
+   * starts with the given prefix text.
+   *
+   * @param {string|RegExp} pattern - text or regex to match against the h4 text content
+   */
+  async assertProposalCardNameMatches(pattern) {
+    const re = pattern instanceof RegExp ? pattern : new RegExp(pattern, 'i');
+    await expect(this.proposalCardHeading).toHaveText(re, { timeout: 8_000 });
+  }
+
+  /**
+   * Assert the Publish Contract button is visible (contract is in draft state).
+   */
+  async assertPublishContractBtnVisible() {
+    await expect(this.publishContractBtn).toBeVisible({ timeout: 8_000 });
+  }
+
 }
 
 module.exports = { ContractModule };

@@ -1559,3 +1559,1837 @@
    **Expected results / Assertion points:**
    - After step 2: Deal stage shows "Expired".
    - Note: Not automatable — requires external acknowledgment on Edge site and verification of parent deal state. Mark as skipped with TODO.
+
+---
+
+## Clone Contract — TC-CONTRACT-130 through TC-CONTRACT-149
+
+### TC-CONTRACT-130 | Verify Clone button visibility
+
+**Preconditions:** A deal with at least one proposal card (draft or published) exists. User is on the deal detail page, Contract & Terms tab.
+**Steps:**
+
+1. Navigate to a deal detail page that has an existing proposal card.
+2. Observe the action icons displayed on the proposal card.
+   **Expected results / Assertion points:**
+   - After step 2: The Clone action icon (`[aria-label="Clone"]`) is visible on the proposal card.
+   - After step 2: The Clone icon appears alongside Edit, Preview PDF, and other actions.
+
+### TC-CONTRACT-131 | Verify Clone button disabled without permission
+
+**Preconditions:** A user account with restricted permissions (no clone permission) is logged in.
+**Steps:**
+
+1. Log in as a restricted-permission user.
+2. Navigate to a deal detail page with a proposal card.
+3. Observe the Clone action icon on the proposal card.
+   **Expected results / Assertion points:**
+   - After step 3: The Clone action icon is either absent or visually disabled/non-interactive.
+   - Note: If role-based permission restriction is not implemented in the current UAT environment, mark this test as skipped with a TODO comment noting manual verification is required.
+
+### TC-CONTRACT-132 | Verify that contract can be cloned when it is Unpublished
+
+**Preconditions:** A deal with a draft (unpublished) proposal card exists. User is on the deal detail page, Contract & Terms tab.
+**Steps:**
+
+1. Navigate to a deal detail page that has a draft proposal card.
+2. Click the Clone action icon (`[aria-label="Clone"]`).
+3. Verify the Clone Contract confirmation dialog opens.
+4. Verify the dialog displays the heading "Clone Contract", confirmation text, Cancel and Proceed buttons.
+5. Click the Proceed button.
+   **Expected results / Assertion points:**
+   - After step 3: Dialog heading "Clone Contract" is visible.
+   - After step 4: Confirmation text "Are you sure you want to clone this contract?" is visible; Cancel and Proceed buttons are present.
+   - After step 5: The page navigates to the cloned contract editor URL pattern `/app/sales/deals/deal/{newDealId}/contract/{contractId}`.
+   - After step 5: A success toast notification appears.
+   - After step 5: The cloned contract stepper opens at Step 1 (Services) with the proposal name prefixed "Clone -".
+
+### TC-CONTRACT-133 | Verify that contract can be cloned when it is Published but unsigned
+
+**Preconditions:** A deal with a published (but not signed) proposal card exists. User is on the deal detail page, Contract & Terms tab.
+**Steps:**
+
+1. Navigate to a deal detail page that has a published, unsigned proposal card.
+2. Click the Clone action icon on the proposal card.
+3. Verify the Clone Contract confirmation dialog opens.
+4. Click the Proceed button.
+   **Expected results / Assertion points:**
+   - After step 3: Clone Contract dialog is visible with heading, text, Cancel and Proceed buttons.
+   - After step 4: URL changes to the cloned contract editor (`/app/sales/deals/deal/{newDealId}/contract/{contractId}`).
+   - After step 4: A success toast notification is shown.
+   - After step 4: The cloned contract editor opens with service data pre-populated from the original.
+
+### TC-CONTRACT-134 | Verify that contract can be cloned when it is Published and signed
+
+**Preconditions:** A deal with a published and signed proposal exists. User is on the deal detail page, Contract & Terms tab.
+**Steps:**
+
+1. Navigate to a deal detail page that has a published, signed proposal card.
+2. Click the Clone action icon.
+3. Confirm cloning via the Proceed button.
+   **Expected results / Assertion points:**
+   - After step 3: URL changes to the new cloned contract editor.
+   - After step 3: Success toast notification appears.
+   - After step 3: Cloned contract opens at Step 1 (Services) with original service data.
+   - Note: If no published+signed deal is available in the UAT environment, mark as skipped with TODO.
+
+### TC-CONTRACT-135 | Verify that contract can be cloned when Addendum exists
+
+**Preconditions:** A deal where the original proposal has an addendum proposal card exists. User is on the deal detail page, Contract & Terms tab.
+**Steps:**
+
+1. Navigate to a deal detail page that has a proposal with an addendum.
+2. Click the Clone action icon on the proposal card (parent or addendum card).
+3. Confirm cloning via the Proceed button.
+   **Expected results / Assertion points:**
+   - After step 3: URL changes to the new cloned contract editor.
+   - After step 3: Success toast notification appears.
+   - After step 3: Cloned contract editor opens with service data pre-populated.
+   - Note: If no deal with addendum is available in the UAT environment, mark as skipped with TODO.
+
+### TC-CONTRACT-136 | Verify that contract can be cloned when it is already cloned
+
+**Preconditions:** A contract that was previously created by cloning another contract exists. User is on that cloned contract's deal detail page.
+**Steps:**
+
+1. Navigate to a deal detail page where the proposal was itself created by cloning (proposal name starts with "Clone -").
+2. Click the Clone action icon on the proposal card.
+3. Confirm cloning via the Proceed button.
+   **Expected results / Assertion points:**
+   - After step 3: URL changes to a new cloned contract editor.
+   - After step 3: Success toast notification appears.
+   - After step 3: The new cloned contract editor opens.
+
+### TC-CONTRACT-137 | Verify that terminated contract can be cloned
+
+**Preconditions:** A deal with a terminated contract exists. User is on the deal detail page, Contract & Terms tab.
+**Steps:**
+
+1. Navigate to a deal detail page that has a terminated proposal card.
+2. Observe whether the Clone action icon is visible on the terminated contract card.
+3. If visible, click the Clone action icon and confirm via Proceed.
+   **Expected results / Assertion points:**
+   - After step 2: Clone action icon is present on the terminated contract card.
+   - After step 3: URL changes to the new cloned contract editor.
+   - After step 3: Success toast notification appears.
+   - Note: If no terminated deal is available in the UAT environment, mark as skipped with TODO.
+
+### TC-CONTRACT-138 | Verify that new contract is created after cloning
+
+**Preconditions:** A deal with any proposal card exists. User is on the deal detail page.
+**Steps:**
+
+1. Navigate to a deal detail page with a proposal card.
+2. Click the Clone action icon and confirm via Proceed.
+3. After the clone operation, navigate back to the deals list and verify a new deal entry exists.
+   **Expected results / Assertion points:**
+   - After step 2: URL changes to `/app/sales/deals/deal/{newDealId}/contract/{contractId}` — the `newDealId` differs from the original deal ID, confirming a new deal was created.
+   - After step 2: The page title or proposal heading contains "Clone -" prefix.
+   - After step 3: The cloned deal is visible in the deals table (search by "Clone -" prefix).
+
+### TC-CONTRACT-139 | Verify that cloned contract retains structure
+
+**Preconditions:** A deal with a proposal that has services configured (officer count, hourly rate, job days, start/end time, line item) exists.
+**Steps:**
+
+1. Navigate to the deal detail page and note the service configuration of the proposal.
+2. Click Clone and confirm via Proceed.
+3. In the cloned contract editor (Step 1 — Services), verify the service structure is pre-populated.
+   **Expected results / Assertion points:**
+   - After step 3: The cloned contract editor shows the same service type (Dedicated/Patrol radio) as the original.
+   - After step 3: The line item, officer count, hourly rate, job days, start time, and end time match the original contract values.
+   - After step 3: The billing cycle heading (e.g., "Weekly") matches the original.
+
+### TC-CONTRACT-140 | Verify that cloned contract has unique ID
+
+**Preconditions:** A deal with any proposal card exists.
+**Steps:**
+
+1. Note the current deal ID from the URL (e.g., `/deals/deal/12345`).
+2. Click Clone and confirm via Proceed.
+3. Note the new deal ID and contract ID from the redirected URL.
+   **Expected results / Assertion points:**
+   - After step 3: The new deal ID in the URL differs from the original deal ID.
+   - After step 3: The new contract ID differs from the original contract ID.
+   - After step 3: The URL matches the pattern `/app/sales/deals/deal/{newDealId}/contract/{newContractId}`.
+
+### TC-CONTRACT-141 | Verify that sensitive data is cleared in cloned contract
+
+**Preconditions:** Original contract has sensitive data fields filled (e.g., payment method, billing reference details).
+**Steps:**
+
+1. Note sensitive data fields (payment method, billing reference) in the original contract's Payment Terms step.
+2. Clone the contract and proceed to Step 4 (Payment Terms) in the cloned editor.
+3. Verify sensitive/billing data fields are reset or cleared.
+   **Expected results / Assertion points:**
+   - After step 3: Payment method or sensitive billing reference fields in the cloned contract are empty or reset to defaults.
+   - Note: Verify which specific fields are cleared per business logic. If behaviour cannot be confirmed in UAT, document as a manual verification step.
+
+### TC-CONTRACT-142 | Verify that signatories are removed in cloned contract
+
+**Preconditions:** Original contract has signees configured in Step 6 (Signees).
+**Steps:**
+
+1. Clone a contract that has signees configured.
+2. In the cloned contract editor, navigate to Step 6 (Signees).
+3. Verify the signees list is empty (no signatories carried over from the original).
+   **Expected results / Assertion points:**
+   - After step 3: The Signees step shows no pre-filled signees from the original contract.
+   - After step 3: The step is in an empty/default state ready for new signee entry.
+   - Note: If behaviour cannot be confirmed in UAT, document as a manual verification step.
+
+### TC-CONTRACT-143 | Verify that signature status is reset
+
+**Preconditions:** Original contract had been through a signature request cycle (signed or signature-requested state).
+**Steps:**
+
+1. Clone a contract that had signatures requested or collected.
+2. Navigate back to the original deal detail page after cloning.
+3. Verify the cloned contract card on the deal detail page shows no signature status indicators.
+4. Verify the cloned contract does not show "Signed" or "Signature Requested" tags.
+   **Expected results / Assertion points:**
+   - After step 3: The cloned proposal card shows no signature-related status tags.
+   - After step 4: No "Signed" or "Request Signatures" status is carried from the original.
+   - Note: The cloned contract opens in Draft state — verify the status tag shows "Draft" or equivalent.
+
+### TC-CONTRACT-144 | Verify that contract dates are editable
+
+**Preconditions:** A cloned contract editor is open (Step 1 or via Payment Terms step).
+**Steps:**
+
+1. Clone a contract and open the cloned contract editor.
+2. Navigate to Step 4 (Payment Terms) in the cloned contract editor.
+3. Verify that the contract start date and end date fields are editable (not locked).
+4. Attempt to change the start date to a future date.
+   **Expected results / Assertion points:**
+   - After step 3: Date input fields are enabled and interactive.
+   - After step 4: The start date field accepts the new value and updates accordingly.
+   - After step 4: No error or lock indicator prevents date editing.
+
+### TC-CONTRACT-145 | Verify that user can edit all fields
+
+**Preconditions:** A cloned contract editor is open at Step 1 (Services).
+**Steps:**
+
+1. Clone a contract and open the cloned contract editor.
+2. In Step 1 (Services), change the officer count to a new value.
+3. Change the hourly rate to a new value.
+4. Navigate to Step 4 (Payment Terms) and modify a payment field.
+5. Click "Save & Next" or "Update Proposal" to save changes.
+   **Expected results / Assertion points:**
+   - After step 2: The officer count spinbutton accepts the new value.
+   - After step 3: The hourly rate spinbutton accepts the new value and the footer amount updates.
+   - After step 5: Changes are saved and the stepper advances or confirms update.
+
+### TC-CONTRACT-146 | Verify validation works in cloned contract
+
+**Preconditions:** A cloned contract editor is open at Step 1 (Services).
+**Steps:**
+
+1. Clone a contract and open the cloned contract editor at Step 1 (Services).
+2. Clear the Officer/Guard count field (set to 0 or blank).
+3. Click the "Save & Next" button.
+4. Observe validation feedback.
+   **Expected results / Assertion points:**
+   - After step 3: The form does not advance to Step 2.
+   - After step 3: A validation error message or indicator is shown on the Officer/Guard field.
+   - After step 3: The "Save & Next" button remains on the same step.
+
+### TC-CONTRACT-147 | Verify cloning fails on API error
+
+**Preconditions:** Network conditions are simulated to return an error on the clone API call, or the API is unavailable.
+**Steps:**
+
+1. Navigate to a deal detail page with a proposal card.
+2. Simulate a network/API error (intercept the clone API request to return 500).
+3. Click the Clone action icon and confirm via Proceed.
+4. Observe the application response.
+   **Expected results / Assertion points:**
+   - After step 4: An error toast or error message is displayed to the user.
+   - After step 4: The application does not navigate to a new contract editor URL.
+   - After step 4: The user remains on the original deal detail page.
+   - Note: Requires Playwright route interception (`page.route()`). If not feasible, mark as skipped with TODO.
+
+### TC-CONTRACT-148 | Verify cloning fails on session timeout
+
+**Preconditions:** The user session has expired (simulated via token clearing or session invalidation).
+**Steps:**
+
+1. Simulate session expiration by clearing auth tokens or cookies.
+2. Navigate to a deal detail page with a proposal card.
+3. Attempt to click the Clone action icon and confirm via Proceed.
+4. Observe the application response.
+   **Expected results / Assertion points:**
+   - After step 4: The application redirects to the login page, or an authentication error message is displayed.
+   - After step 4: The clone operation does not complete.
+   - Note: Requires clearing cookies/localStorage. Mark as skipped with TODO if session simulation is not feasible in the current test setup.
+
+### TC-CONTRACT-149 | Verify cloning works for large contracts
+
+**Preconditions:** A deal with a complex proposal (multiple services, devices, on-demand items, all steps filled) exists.
+**Steps:**
+
+1. Navigate to a deal detail page that has a multi-service proposal (more than one service configured).
+2. Click the Clone action icon and confirm via Proceed.
+3. In the cloned contract editor, verify all services are present.
+4. Navigate through all stepper steps to confirm data integrity.
+   **Expected results / Assertion points:**
+   - After step 2: URL changes to the new cloned contract editor.
+   - After step 2: Success toast notification appears.
+   - After step 3: All service entries from the original contract are visible in Step 1.
+   - After step 4: Each stepper step opens without errors and data from the original is preserved.
+
+---
+
+## Addendum — TC-CONTRACT-150 through TC-CONTRACT-185
+
+### TC-CONTRACT-150 | Verify Addendum button visibility based on eligibility
+
+**Preconditions:** A deal with a published and active (started) contract exists.
+**Steps:**
+
+1. Navigate to the deal detail page.
+2. Click the "Contract & Terms" tab.
+3. Observe the action icons on the published proposal card.
+   **Expected results / Assertion points:**
+   - After step 3: The Addendum action icon (`[aria-label="Addendum"]`) is visible on the published contract card.
+   - After step 3: Other action icons (Signature, View, Clone, Preview PDF, Terminate) are also visible.
+
+### TC-CONTRACT-151 | Verify disabled state styling for Addendum button
+
+**Preconditions:** A deal with a published contract that has fewer than 7 days remaining OR has not yet started exists.
+**Steps:**
+
+1. Navigate to the deal detail page for a contract with < 7 days remaining (or future start date).
+2. Click the "Contract & Terms" tab.
+3. Hover over or attempt to interact with the Addendum action icon.
+4. Attempt to click the Addendum button.
+   **Expected results / Assertion points:**
+   - After step 3: The Addendum icon is present on the card.
+   - After step 4: Clicking Proceed on the dialog triggers a toast error: "You cannot create an addendum for a future contract." OR the button is visually disabled/non-interactive.
+   - After step 4: No navigation to a new deal or contract stepper occurs.
+
+### TC-CONTRACT-152 | Verify that Addendum can be created for eligible contract
+
+**Preconditions:** A deal with a published, Edge-2.0-synced, and active contract (start date in the past, more than 7 days remaining) exists.
+**Steps:**
+
+1. Navigate to the deal detail page.
+2. Verify the Addendum action icon is visible on the proposal card.
+3. Click the Addendum icon to open the Addendum Contract dialog.
+4. Verify the dialog displays the correct heading, description text, Cancel, and Proceed buttons.
+5. Click "Proceed".
+   **Expected results / Assertion points:**
+   - After step 2: Addendum icon (`[aria-label="Addendum"]`) is visible.
+   - After step 3: Dialog heading "Addendum Contract" is visible.
+   - After step 4: Dialog shows body text mentioning "Edge 2.0".
+   - After step 5: URL navigates to a new deal detail + contract stepper URL pattern (e.g., `/deals/deal/{newId}/contract/{contractId}`).
+   - After step 5: Toast "Addendum contract created successfully!" appears.
+
+### TC-CONTRACT-153 | Verify that Addendum button is hidden for draft contract
+
+**Preconditions:** A deal with an unpublished (draft) proposal card exists.
+**Steps:**
+
+1. Navigate to the deal detail page with a draft proposal.
+2. Click the "Contract & Terms" tab.
+3. Observe the action icons on the draft proposal card.
+   **Expected results / Assertion points:**
+   - After step 3: The Addendum action icon is NOT present on the draft proposal card.
+   - After step 3: The card shows Edit, Clone, Preview PDF, and Delete actions (no Addendum).
+
+### TC-CONTRACT-154 | Verify that Addendum creation is blocked if contract not synced
+
+**Preconditions:** A deal with a published contract that is NOT synced to Edge 2.0 exists.
+**Steps:**
+
+1. Navigate to the deal detail page for a published but not-Edge-2.0-synced contract.
+2. Click the Addendum icon to open the dialog.
+3. Click "Proceed".
+4. Observe the application response.
+   **Expected results / Assertion points:**
+   - After step 3: An error message or toast is displayed indicating the contract is not synced to Edge 2.0.
+   - After step 3: No new deal or contract stepper is created.
+   - Note: If the environment does not support un-synced published contracts, mark as skipped with TODO.
+
+### TC-CONTRACT-155 | Verify that Addendum cannot be created when less than 7 days remaining
+
+**Preconditions:** A deal with a published contract that has fewer than 7 days until its end/renewal date exists.
+**Steps:**
+
+1. Navigate to the deal detail page.
+2. Click the Addendum icon on the published proposal card.
+3. Click "Proceed" in the dialog.
+4. Observe the application response.
+   **Expected results / Assertion points:**
+   - After step 3: An error toast or inline message is shown indicating the contract does not meet the 7-day minimum remaining requirement.
+   - After step 3: No navigation to a new deal or contract stepper occurs.
+   - Note: If a < 7-day contract is not consistently available in UAT, test the future-contract error path and mark 7-day restriction as skipped with TODO.
+
+### TC-CONTRACT-156 | Verify that Addendum button is disabled when 1 day remaining
+
+**Preconditions:** A deal with a published contract that has exactly 1 day remaining exists.
+**Steps:**
+
+1. Navigate to the deal detail page.
+2. Click the "Contract & Terms" tab.
+3. Observe the Addendum icon state on the proposal card.
+4. Attempt to click the Addendum icon and proceed.
+   **Expected results / Assertion points:**
+   - After step 3: The Addendum icon is present but clicking it triggers an eligibility error.
+   - After step 4: An error toast is shown (e.g., "You cannot create an addendum for a future contract." or a days-remaining error).
+   - After step 4: No navigation or new deal creation occurs.
+
+### TC-CONTRACT-157 | Verify that Addendum is not available for not started contract
+
+**Preconditions:** A deal with a published contract whose start date is in the future (contract not yet started) exists.
+**Steps:**
+
+1. Navigate to the deal detail page for a published future-start contract.
+2. Click the Addendum icon to open the dialog.
+3. Click "Proceed".
+   **Expected results / Assertion points:**
+   - After step 3: An error toast appears with text "You cannot create an addendum for a future contract."
+   - After step 3: The URL does not change (no new deal is created).
+   - After step 3: The dialog may close or remain open depending on UX — assert no navigation occurred.
+
+### TC-CONTRACT-158 | Verify that new deal is created on Addendum creation
+
+**Preconditions:** A deal with a published, synced, active contract (more than 7 days remaining) exists.
+**Steps:**
+
+1. Navigate to the parent deal detail page and note the deal ID from the URL.
+2. Click the Addendum icon and click "Proceed".
+3. Note the new URL after navigation.
+4. Navigate back to the deals list and search for the new addendum deal.
+   **Expected results / Assertion points:**
+   - After step 2: URL changes to a new deal ID (different from the parent deal ID).
+   - After step 2: Toast "Addendum contract created successfully!" is shown.
+   - After step 3: The new deal URL matches pattern `/deals/deal/{newId}/contract/{contractId}`.
+   - After step 4: The new deal appears in the list with a name starting with "Addendum -".
+
+### TC-CONTRACT-159 | Verify that Addendum contract is created within new deal
+
+**Preconditions:** An Addendum has just been initiated (new deal created via step TC-CONTRACT-158 or equivalent).
+**Steps:**
+
+1. After the Addendum creation navigates to the new deal + contract stepper URL, strip the `/contract/{id}` suffix and navigate to the new deal detail page.
+2. Click the "Contract & Terms" tab.
+3. Inspect the proposal card present on the new deal.
+   **Expected results / Assertion points:**
+   - After step 2: A proposal card is visible on the new deal.
+   - After step 2: The proposal name on the card starts with "Addendum -".
+   - After step 2: The "Publish Contract" button is visible (contract is in draft state).
+   - After step 2: Edit, Clone, Preview PDF, and Delete actions are visible (Addendum not yet published).
+
+### TC-CONTRACT-160 | Verify that parent contract remains unchanged before publish
+
+**Preconditions:** An Addendum deal has been created but the addendum contract has not yet been published.
+**Steps:**
+
+1. Navigate to the parent deal detail page (the original deal from which the addendum was created).
+2. Click the "Contract & Terms" tab.
+3. Inspect the parent proposal card.
+   **Expected results / Assertion points:**
+   - After step 3: The parent proposal card is still visible with "Published without sign" badge.
+   - After step 3: The parent contract amount and name are unchanged.
+   - After step 3: The Addendum action icon is NOT present on the parent card (since a pending addendum already exists).
+   - After step 3: Signature, View, Clone, Preview PDF, Terminate actions remain visible.
+
+### TC-CONTRACT-161 | Verify parent jobs remain active before effective date
+
+**Preconditions:** An Addendum contract has been created but not yet published, or has been published but the effective date has not been reached.
+**Steps:**
+
+1. Navigate to the parent deal detail page.
+2. Observe the parent proposal card state.
+3. Verify the parent contract badge/pill label.
+   **Expected results / Assertion points:**
+   - After step 2: The parent proposal card shows "Published without sign" or "Acknowledged" badge — not Expired or Terminated.
+   - After step 3: The parent contract remains in active/published state until the addendum effective date is reached.
+   - Note: Full job-schedule verification requires Edge 2.0 access; assert badge state only on the SET side.
+
+### TC-CONTRACT-162 | Verify that effective date acts as start date of Addendum
+
+**Preconditions:** An Addendum contract has been published and an effective date was set during the stepper.
+**Steps:**
+
+1. Navigate to the addendum deal detail page.
+2. Open the proposal editor (Edit action) or view the published card.
+3. Locate the effective date / start date field on the addendum contract.
+   **Expected results / Assertion points:**
+   - After step 3: The effective date shown on the addendum contract matches the start date entered during stepper Step 6 (Contract & Terms).
+   - After step 3: The effective date is in the future relative to the current date at time of creation.
+   - Note: If effective date is not directly visible on the deal detail card, assert it via the contract stepper editor.
+
+### TC-CONTRACT-163 | Verify that effective date updates parent contract end date
+
+**Preconditions:** An Addendum contract has been published with an effective date set.
+**Steps:**
+
+1. Navigate to the parent deal detail page.
+2. Open the "About this Deal" section and note the Renewal Date.
+3. Compare the parent's Renewal Date to the addendum's effective date.
+   **Expected results / Assertion points:**
+   - After step 3: The parent contract's renewal/end date is updated to match (or be one day before) the addendum's effective date.
+   - Note: This may require Edge 2.0 acknowledgment to fully take effect; assert the SET-side card date change where visible.
+
+### TC-CONTRACT-164 | Verify system prevents selecting past effective date
+
+**Preconditions:** The user is on the Addendum contract stepper, Step 6 (Contract & Terms), and the effective date date-picker is available.
+**Steps:**
+
+1. Navigate to an addendum contract stepper (Step 6 — Contract & Terms).
+2. Attempt to select a past date in the effective date picker.
+3. Click Save or proceed.
+   **Expected results / Assertion points:**
+   - After step 2: Past dates are visually disabled in the date picker (greyed out / not selectable).
+   - After step 3: If a past date is somehow submitted, an error message is shown.
+   - After step 3: The form does not save with a past effective date.
+
+### TC-CONTRACT-165 | Verify that Addendum becomes independent contract after publish
+
+**Preconditions:** An Addendum contract has been published and acknowledged on Edge 2.0 (effective date has passed).
+**Steps:**
+
+1. Navigate to the addendum deal detail page after the effective date has passed.
+2. Check the proposal card state.
+   **Expected results / Assertion points:**
+   - After step 2: The addendum proposal card no longer shows a dependency on the parent contract.
+   - After step 2: The addendum contract shows its own published badge (e.g., "Published without sign" or "Acknowledged").
+   - After step 2: The addendum deal can be treated as a standalone active contract.
+   - Note: Full independence verification requires Edge 2.0 synchronization; assert SET-side card state and badge.
+
+### TC-CONTRACT-166 | Verify that second Addendum cannot be created
+
+**Preconditions:** An Addendum has already been created for a parent contract (pending addendum exists).
+**Steps:**
+
+1. Navigate to the parent deal detail page that already has a pending/published addendum.
+2. Click the "Contract & Terms" tab.
+3. Observe the action icons on the parent proposal card.
+   **Expected results / Assertion points:**
+   - After step 3: The Addendum action icon is NOT present on the parent proposal card.
+   - After step 3: Available actions are: Signature, View, Clone, Preview PDF, Terminate (no Addendum).
+
+### TC-CONTRACT-167 | Verify that Addendum contract can act as parent after publishing
+
+**Preconditions:** An Addendum contract has been published and is now active.
+**Steps:**
+
+1. Navigate to the addendum deal detail page.
+2. Check the proposal card for the Addendum action icon.
+   **Expected results / Assertion points:**
+   - After step 2: The Addendum icon is visible on the published addendum contract card (the addendum can itself be amended).
+   - After step 2: The addendum contract behaves as a regular published contract eligible for further addenda.
+   - Note: Eligibility still requires active state and sufficient remaining days.
+
+### TC-CONTRACT-168 | Verify system blocks multiple Addendum attempts simultaneously
+
+**Preconditions:** A published, active parent contract exists with no pending addendum.
+**Steps:**
+
+1. Navigate to the parent deal detail page.
+2. Click the Addendum icon to open the dialog, but do NOT click Proceed yet.
+3. In a separate scenario (not simultaneously in a single browser), attempt to create another addendum for the same parent.
+4. After the first Proceed navigates and creates the addendum, return to the parent deal.
+   **Expected results / Assertion points:**
+   - After step 4: The Addendum icon is no longer visible on the parent proposal card.
+   - After step 4: Only one addendum deal is listed in the deals list for this parent.
+   - Note: True simultaneous-click testing requires parallel browser sessions; assert sequential behavior only.
+
+### TC-CONTRACT-169 | Verify that change history is displayed on publish
+
+**Preconditions:** An Addendum contract draft exists and the user is publishing it.
+**Steps:**
+
+1. Navigate to the addendum deal detail page (unpublished addendum contract).
+2. Click "Publish Contract".
+3. Observe the publish confirmation modal.
+   **Expected results / Assertion points:**
+   - After step 3: The publish confirmation modal is visible with heading "Publish contract!".
+   - After step 3: A "change history" section or summary of changes is displayed within the modal.
+   - After step 3: The modal includes Cancel/Publish Contract action buttons.
+
+### TC-CONTRACT-170 | Verify change history includes all elements
+
+**Preconditions:** An Addendum contract with known changes (e.g., updated service, different officer count) is being published.
+**Steps:**
+
+1. Navigate to the addendum deal detail page.
+2. Click "Publish Contract".
+3. Inspect the change history section in the publish modal.
+   **Expected results / Assertion points:**
+   - After step 3: The change history lists all modified fields/services compared to the parent contract.
+   - After step 3: Each change entry includes a field name and old vs. new value.
+   - After step 3: The total contract amount change is reflected.
+
+### TC-CONTRACT-171 | Verify shuffled detailed history still accurate
+
+**Preconditions:** An Addendum contract with multiple changes across different sections is being published.
+**Steps:**
+
+1. Navigate to the addendum deal detail page.
+2. Click "Publish Contract" and open the change history in the modal.
+3. Verify that changes from different sections (services, devices, payment terms) are all listed.
+   **Expected results / Assertion points:**
+   - After step 3: All changed sections are represented in the history list.
+   - After step 3: The order of changes does not affect accuracy — each entry correctly identifies the changed field and values.
+   - After step 3: No duplicate or missing entries compared to the actual changes made.
+
+### TC-CONTRACT-172 | Verify correct pill label states
+
+**Preconditions:** Multiple proposal cards exist in different states (draft, published unsigned, auto-renewal, acknowledged).
+**Steps:**
+
+1. Navigate to deal detail pages with contracts in various states.
+2. Observe the pill/badge labels on each contract card.
+   **Expected results / Assertion points:**
+   - Draft contract: No pill label (only "Publish Contract" button visible).
+   - Published unsigned contract: "Published without sign" pill label is visible.
+   - Auto-renewal contract: "Auto-Renewal" pill label is visible alongside the published badge.
+   - Acknowledged contract: "Acknowledged" pill label is visible.
+
+### TC-CONTRACT-173 | Verify that Not Acknowledged label appears
+
+**Preconditions:** An Addendum contract has been published but not yet acknowledged on Edge 2.0.
+**Steps:**
+
+1. Navigate to the addendum deal detail page after publishing the addendum contract.
+2. Click the "Contract & Terms" tab.
+3. Observe the pill labels on the published addendum proposal card.
+   **Expected results / Assertion points:**
+   - After step 3: A "Not Acknowledged" pill label is visible on the addendum proposal card.
+   - After step 3: The "Published without sign" badge is also visible.
+   - After step 3: No "Acknowledged" label is present.
+
+### TC-CONTRACT-174 | Verify acknowledgment before effective date
+
+**Preconditions:** An Addendum contract has been published. Its effective date is in the future. The contract is acknowledged on Edge 2.0 before the effective date.
+**Steps:**
+
+1. On the SET side, navigate to the addendum deal detail page.
+2. Observe the pill label before acknowledgment (should be "Not Acknowledged").
+3. Simulate or wait for acknowledgment on Edge 2.0 before the effective date.
+4. Refresh the SET-side deal detail page.
+   **Expected results / Assertion points:**
+   - After step 4: The "Not Acknowledged" label changes to "Acknowledged".
+   - After step 4: The parent contract remains in its current active state (not yet terminated or expired).
+   - Note: Acknowledgment via Edge 2.0 may not be automatable; mark as skipped with TODO if so.
+
+### TC-CONTRACT-175 | Verify acknowledgment during contract updates start date
+
+**Preconditions:** The Addendum effective date has passed and the contract is in its active period. The contract is acknowledged on Edge 2.0 during the active period.
+**Steps:**
+
+1. After the effective date has passed, acknowledge the addendum on Edge 2.0.
+2. Navigate to the addendum deal detail page on SET.
+3. Check the start date and the parent's end date.
+   **Expected results / Assertion points:**
+   - After step 2: The "Acknowledged" label appears on the addendum proposal card.
+   - After step 3: The addendum's start date reflects the effective date.
+   - After step 3: The parent contract's end/renewal date is updated to match the effective date.
+
+### TC-CONTRACT-176 | Verify acknowledgment after gap creates service gap
+
+**Preconditions:** The addendum effective date has passed and the contract was NOT acknowledged during the active window — a service gap exists.
+**Steps:**
+
+1. Navigate to the addendum deal detail page after a delayed acknowledgment.
+2. Observe the proposal card state.
+   **Expected results / Assertion points:**
+   - After step 2: The system reflects the gap period (the addendum was not active during the gap).
+   - After step 2: The parent contract may show as Expired or Terminated for the gap period.
+   - Note: Full gap verification requires Edge 2.0; assert SET-side badge/label state only.
+
+### TC-CONTRACT-177 | Verify acknowledgment after end date is blocked
+
+**Preconditions:** The Addendum contract's effective date has passed the parent contract's end date and the window for acknowledgment has closed.
+**Steps:**
+
+1. Navigate to the addendum deal detail page after the parent contract has expired.
+2. Observe the action options available.
+   **Expected results / Assertion points:**
+   - After step 2: The "Acknowledge" action is no longer available on the addendum proposal card.
+   - After step 2: The addendum may show as Expired.
+   - Note: Verify SET-side state only; Edge 2.0 interaction not required.
+
+### TC-CONTRACT-178 | Verify Not Acknowledged remains after expiry
+
+**Preconditions:** An Addendum contract was published but never acknowledged on Edge 2.0, and the parent contract has since expired.
+**Steps:**
+
+1. Navigate to the addendum deal detail page.
+2. Observe the pill label.
+   **Expected results / Assertion points:**
+   - After step 2: The "Not Acknowledged" pill label remains visible on the addendum proposal card.
+   - After step 2: No "Acknowledged" label is shown.
+   - After step 2: The parent contract card may show as Expired.
+
+### TC-CONTRACT-179 | Verify only View action enabled after expiry without acknowledgment
+
+**Preconditions:** An Addendum contract was never acknowledged and has expired (parent contract expired).
+**Steps:**
+
+1. Navigate to the addendum deal detail page.
+2. Observe the action icons on the expired addendum proposal card.
+   **Expected results / Assertion points:**
+   - After step 2: Only "View" action is available on the expired, unacknowledged addendum card.
+   - After step 2: Edit, Clone, Delete, Terminate, and Addendum icons are NOT visible.
+   - After step 2: The "Published without sign" and "Not Acknowledged" labels remain.
+
+### TC-CONTRACT-180 | Verify Acknowledged label after acknowledgment
+
+**Preconditions:** An Addendum contract has been published and acknowledged on Edge 2.0.
+**Steps:**
+
+1. Navigate to the addendum deal detail page after acknowledgment.
+2. Click the "Contract & Terms" tab.
+3. Observe the pill labels on the addendum proposal card.
+   **Expected results / Assertion points:**
+   - After step 3: The "Acknowledged" pill label is visible on the addendum card.
+   - After step 3: The "Not Acknowledged" label is no longer shown.
+
+### TC-CONTRACT-181 | Verify acknowledgment timestamp is shown
+
+**Preconditions:** An Addendum contract has been acknowledged on Edge 2.0.
+**Steps:**
+
+1. Navigate to the addendum deal detail page.
+2. Observe the proposal card or contract detail for a timestamp.
+   **Expected results / Assertion points:**
+   - After step 2: An acknowledgment timestamp (date and/or time) is displayed on the proposal card or in the contract details.
+   - After step 2: The timestamp reflects the actual time of acknowledgment.
+   - Note: Timestamp visibility depends on application design; if not on the SET card, assert it is accessible via a detail view.
+
+### TC-CONTRACT-182 | Verify notification is sent after acknowledgment
+
+**Preconditions:** An Addendum contract has been acknowledged on Edge 2.0.
+**Steps:**
+
+1. After acknowledgment, navigate to the notification bell/icon in the application header.
+2. Open the notifications panel.
+3. Locate the notification related to the addendum acknowledgment.
+   **Expected results / Assertion points:**
+   - After step 3: A notification entry related to the addendum acknowledgment is visible in the notifications panel.
+   - After step 3: The notification count badge on the bell icon reflects the new notification.
+
+### TC-CONTRACT-183 | Verify notification title is correct
+
+**Preconditions:** An Addendum acknowledgment notification has been generated.
+**Steps:**
+
+1. Open the notifications panel (bell icon in header).
+2. Locate the addendum acknowledgment notification.
+3. Read the notification title.
+   **Expected results / Assertion points:**
+   - After step 3: The notification title correctly identifies the event as an addendum acknowledgment.
+   - After step 3: The title is not empty or generic (e.g., not just "Notification").
+
+### TC-CONTRACT-184 | Verify notification description contains contract name
+
+**Preconditions:** An Addendum acknowledgment notification has been generated.
+**Steps:**
+
+1. Open the notifications panel.
+2. Locate the addendum acknowledgment notification.
+3. Read the notification description/body text.
+   **Expected results / Assertion points:**
+   - After step 3: The notification description includes the contract or deal name associated with the acknowledged addendum.
+   - After step 3: The name in the notification matches the addendum deal name (e.g., "Addendum - CloneAddendum-Deal (1)").
+
+### TC-CONTRACT-185 | Verify Addendum button visibility based on eligibility
+
+**Preconditions:** Multiple deals with contracts in different eligibility states exist (published+synced+active, draft, future-start).
+
+> **Note:** This TC consolidates the eligibility visibility check across multiple states. It maps to the first requirement "Verify Addendum button visibility based on eligibility".
+
+**Steps:**
+
+1. Navigate to a deal with a published, synced, active contract (eligible).
+2. Verify Addendum icon is visible on the card.
+3. Navigate to a deal with a draft (unpublished) contract.
+4. Verify Addendum icon is NOT visible on the draft card.
+5. Navigate to a deal with a published contract with a future start date.
+6. Click the Addendum icon and click Proceed.
+7. Verify an error message is shown.
+   **Expected results / Assertion points:**
+   - After step 2: `[aria-label="Addendum"]` is visible on the published eligible card.
+   - After step 4: No Addendum icon is present on the draft card.
+   - After step 7: Error toast text contains "future contract" or equivalent eligibility message.
+
+---
+
+## Auto-Renewal — TC-CONTRACT-186 through TC-CONTRACT-215
+
+### TC-CONTRACT-186 | Verify that renewal notification email is sent on Renewal Date - N days
+
+**Preconditions:** A published contract exists with Auto Renewal enabled and a Renewal Date set. The system is configured to send renewal notification emails N days before the Renewal Date.
+
+**Steps:**
+
+1. Navigate to the deal detail page for a contract with Auto Renewal enabled.
+2. Note the Renewal Date displayed on the contract card or in the contract stepper Payment Terms step.
+3. Confirm the system-level "days before renewal" setting (N) is configured (e.g., in Settings).
+4. Advance the system clock or wait until Renewal Date minus N days is reached.
+5. Check the inbox of the contract's billing contact email address.
+   **Expected results / Assertion points:**
+   - After step 5: A renewal notification email is present in the billing contact's inbox.
+   - After step 5: The email subject or body references the contract/deal name and upcoming renewal.
+   - After step 5: The email send timestamp corresponds to Renewal Date − N days (within acceptable tolerance).
+
+### TC-CONTRACT-187 | Verify that draft renewal contract is created automatically
+
+**Preconditions:** A published contract with Auto Renewal enabled exists. The Renewal Date has been reached (or the system trigger for auto-renewal has fired).
+
+**Steps:**
+
+1. Navigate to the deal detail page for a contract with Auto Renewal enabled and a past or current Renewal Date.
+2. Open the Contract & Terms tab.
+3. Observe the contract cards displayed.
+   **Expected results / Assertion points:**
+   - After step 3: A new contract card labelled "Auto-Renewal" (or with a renewal indicator) is visible alongside or below the original published contract.
+   - After step 3: The new card shows a "Draft" status or equivalent indicator.
+   - After step 3: The draft renewal contract inherits the deal name with a renewal suffix/counter (e.g., "Auto-Renewal - [Deal Name] (N)").
+
+### TC-CONTRACT-188 | Verify that auto rate increase is applied in draft
+
+**Preconditions:** A published contract with Auto Renewal enabled and an Annual Rate Increase value (e.g., 10%) set in Payment Terms. A draft renewal contract has been automatically created.
+
+**Steps:**
+
+1. Navigate to the deal detail page that has a draft auto-renewal contract.
+2. Open the Contract & Terms tab and locate the draft renewal contract card.
+3. Click the Edit (or View) action on the draft renewal card to open the contract stepper.
+4. Navigate to Step 4 "Payment Terms".
+5. Check the service pricing totals compared to the parent published contract.
+   **Expected results / Assertion points:**
+   - After step 4: The Annual Rate Increase field shows the value inherited from the original contract (e.g., 10%).
+   - After step 5: The service pricing amounts reflect the rate increase applied (e.g., original rate × (1 + Annual Rate Increase %)).
+   - After step 5: The footer total displayed in the stepper matches the increased rate.
+
+### TC-CONTRACT-189 | Verify Annual Rate Increase is mandatory at contract creation
+
+**Preconditions:** A deal with no existing proposal is available. User is on the contract creation stepper.
+
+**Steps:**
+
+1. Navigate to a deal detail page and open the Create Proposal drawer.
+2. Fill in mandatory fields: Proposal Name, Time Zone, Start Date, Renewal Date.
+3. Enable "Auto Renewal of Contract" checkbox.
+4. Submit the drawer to open the stepper.
+5. Navigate to Step 4 "Payment Terms".
+6. Fill all mandatory Payment Terms fields except "Annual Rate Increase".
+7. Attempt to click "Next" to advance past Step 4.
+   **Expected results / Assertion points:**
+   - After step 7: Navigation to Step 5 is blocked.
+   - After step 7: A required validation indicator (error text or field highlight) appears on the Annual Rate Increase field.
+   - After step 7: The stepper remains on Step 4.
+
+### TC-CONTRACT-190 | Verify task is created when draft renewal is generated
+
+**Preconditions:** A published contract with Auto Renewal enabled has triggered the auto-renewal draft creation.
+
+**Steps:**
+
+1. Navigate to the deal detail page for a deal that has received an auto-renewal draft.
+2. Click the Tasks tab in the Overview section.
+3. Review the task list for a renewal-related task.
+   **Expected results / Assertion points:**
+   - After step 3: At least one task exists with a title or description referencing the auto-renewal or renewal review action.
+   - After step 3: The task is assigned (not unassigned) and has a due date visible.
+
+### TC-CONTRACT-191 | Verify task fields are correct
+
+**Preconditions:** A renewal task has been created automatically alongside a draft renewal contract.
+
+**Steps:**
+
+1. Navigate to the deal detail page and open the Tasks tab.
+2. Locate the auto-generated renewal task.
+3. Click the task to open its detail view.
+4. Read the task title, description, due date, and assignee.
+   **Expected results / Assertion points:**
+   - After step 4: The task title references the renewal contract or deal name.
+   - After step 4: The due date equals the Publish Date of the draft renewal contract (verified against TC-CONTRACT-192).
+   - After step 4: The assignee is the deal owner or a configured renewal reviewer.
+   - After step 4: The task type/label indicates it is a renewal-related task.
+
+### TC-CONTRACT-192 | Verify Publish Date is auto-set
+
+**Preconditions:** A draft renewal contract has been automatically created by the system.
+
+**Steps:**
+
+1. Navigate to the deal detail page with the draft renewal contract.
+2. Open the Contract & Terms tab and locate the draft renewal card.
+3. Click View (or Edit) to open the draft renewal contract stepper.
+4. Navigate to Step 4 "Payment Terms" or the contract overview area where the Publish Date is displayed.
+5. Note the displayed Publish Date value.
+   **Expected results / Assertion points:**
+   - After step 5: A Publish Date field is visible and contains a date value (not empty).
+   - After step 5: The Publish Date is set to a date on or before the Renewal Date of the parent contract (i.e., the date the renewal should go live).
+   - After step 5: The Publish Date was not manually entered — it was auto-populated by the system.
+
+### TC-CONTRACT-193 | Verify user can edit Publish Date
+
+**Preconditions:** A draft renewal contract exists with an auto-set Publish Date.
+
+**Steps:**
+
+1. Navigate to the draft renewal contract stepper (via Edit on the draft card).
+2. Locate the Publish Date field.
+3. Clear the current value and enter a new valid date (before the Renewal Date).
+4. Save or proceed to the next step.
+5. Re-open the contract stepper and navigate back to the Publish Date field.
+   **Expected results / Assertion points:**
+   - After step 3: The Publish Date input accepts the new date value.
+   - After step 4: No validation error is shown for the new date.
+   - After step 5: The Publish Date reflects the manually entered value (persisted correctly).
+
+### TC-CONTRACT-194 | Verify auto-publish happens on Publish Date
+
+**Preconditions:** A draft renewal contract exists with a Publish Date set. The Publish Date has been reached.
+
+**Steps:**
+
+1. Set the draft renewal contract's Publish Date to today or advance the system clock to reach the Publish Date.
+2. Wait for the system auto-publish job to run (or simulate its execution).
+3. Navigate to the deal detail page and open the Contract & Terms tab.
+4. Observe the draft renewal contract card status.
+   **Expected results / Assertion points:**
+   - After step 4: The contract card no longer shows "Draft" status.
+   - After step 4: The contract card shows "Published" or an equivalent published indicator.
+   - After step 4: The original (parent) contract's status updates to reflect that a renewal has taken over (e.g., status changes to "Renewed" or is superseded).
+
+### TC-CONTRACT-195 | Verify manual publish triggers change summary modal
+
+**Preconditions:** A draft renewal contract with at least one manual edit (beyond the auto rate increase) exists. The user is on the deal detail page with the draft renewal visible.
+
+**Steps:**
+
+1. Navigate to the deal detail page with the draft renewal contract card.
+2. Click the Publish action button on the draft renewal contract card.
+3. Observe whether a modal/dialog opens.
+   **Expected results / Assertion points:**
+   - After step 3: A "Change Summary" modal or dialog is displayed.
+   - After step 3: The modal heading references "Change Summary" or equivalent.
+   - After step 3: The modal contains a list of changes.
+
+### TC-CONTRACT-196 | Verify change summary excludes auto rate increase
+
+**Preconditions:** A draft renewal contract exists where the ONLY change from the parent contract is the auto rate increase (no manual edits).
+
+**Steps:**
+
+1. Navigate to the deal detail page with the draft renewal contract (auto rate increase only, no manual edits).
+2. Click the Publish action on the draft renewal contract card.
+3. If a Change Summary modal appears, review its contents.
+   **Expected results / Assertion points:**
+   - After step 3: If a Change Summary modal is shown, the auto rate increase entry is NOT listed as a manual change.
+   - After step 3: The modal may indicate "No manual changes" or show an empty change list.
+   - After step 3: The publish action proceeds without requiring acknowledgment of the rate increase as a manual change.
+
+### TC-CONTRACT-197 | Verify change summary includes manual edits
+
+**Preconditions:** A draft renewal contract exists where the user has manually edited at least one field (e.g., service description, officer count, pricing) beyond the auto rate increase.
+
+**Steps:**
+
+1. Open the draft renewal contract stepper and make a manual edit (e.g., change the number of officers).
+2. Save the edit and return to the deal detail page.
+3. Click the Publish action on the draft renewal contract card.
+4. Review the Change Summary modal contents.
+   **Expected results / Assertion points:**
+   - After step 4: The Change Summary modal is displayed.
+   - After step 4: The manually edited field (e.g., officer count) appears in the change list.
+   - After step 4: The change entry shows the old value and the new value for the edited field.
+
+### TC-CONTRACT-198 | Verify approval required when pricing below threshold
+
+**Preconditions:** A draft renewal contract has been edited so that the pricing falls below the configured approval threshold (e.g., pricing is lower than the minimum allowed without manager approval).
+
+**Steps:**
+
+1. Open the draft renewal contract stepper.
+2. Edit the service pricing to a value below the approval threshold.
+3. Save and navigate to the deal detail page.
+4. Click the Publish action on the draft renewal contract card.
+5. Observe the workflow that follows.
+   **Expected results / Assertion points:**
+   - After step 5: The system does not immediately publish the contract.
+   - After step 5: An approval request is created or the user is prompted that manager approval is required.
+   - After step 5: The contract card status reflects a "Pending Approval" or equivalent state.
+   - After step 5: The request appears in the Review Proposal Request list (`/app/sales/reviewProposalRequest`).
+
+### TC-CONTRACT-199 | Verify fallback to original contract if approval not completed
+
+**Preconditions:** A draft renewal contract is in "Pending Approval" state and the Renewal Date has passed without the approval being completed.
+
+**Steps:**
+
+1. Navigate to the deal detail page where a renewal draft is pending approval and the Renewal Date has elapsed.
+2. Open the Contract & Terms tab.
+3. Observe the contract cards and their statuses.
+   **Expected results / Assertion points:**
+   - After step 3: The original published contract remains active (not replaced by the unapproved draft).
+   - After step 3: The system has NOT published the pending draft.
+   - After step 3: The original contract continues to show "Published" or active status.
+
+### TC-CONTRACT-200 | Verify draft becomes Discarded after fallback
+
+**Preconditions:** A fallback to the original contract has occurred (approval not completed by Renewal Date).
+
+**Steps:**
+
+1. Navigate to the deal detail page where the fallback occurred.
+2. Open the Contract & Terms tab.
+3. Locate the draft renewal contract card that was not approved.
+   **Expected results / Assertion points:**
+   - After step 3: The draft renewal contract card shows a "Discarded" status badge or equivalent indicator.
+   - After step 3: The card is visible but clearly marked as inactive/discarded.
+
+### TC-CONTRACT-201 | Verify discarded draft is view-only
+
+**Preconditions:** A draft renewal contract with "Discarded" status exists on a deal.
+
+**Steps:**
+
+1. Navigate to the deal detail page with a discarded draft renewal contract.
+2. Open the Contract & Terms tab and locate the discarded card.
+3. Inspect the available action icons on the discarded card.
+4. Attempt to click any Edit-like action if present.
+   **Expected results / Assertion points:**
+   - After step 3: No Edit action icon is available on the discarded card.
+   - After step 3: Only a View action (and possibly Delete) is available.
+   - After step 4: If a View action is clicked, the contract stepper opens in read-only mode (all fields are disabled).
+
+### TC-CONTRACT-202 | Verify discarded draft can be deleted
+
+**Preconditions:** A draft renewal contract with "Discarded" status exists on a deal.
+
+**Steps:**
+
+1. Navigate to the deal detail page with the discarded renewal draft.
+2. Open the Contract & Terms tab and locate the discarded card.
+3. Click the Delete action icon (if available) on the discarded card.
+4. Confirm the deletion in any confirmation dialog.
+5. Observe the Contract & Terms tab after deletion.
+   **Expected results / Assertion points:**
+   - After step 3: A confirmation dialog or prompt is displayed.
+   - After step 5: The discarded draft card is no longer visible in the Contract & Terms tab.
+   - After step 5: The original published contract remains unaffected.
+
+### TC-CONTRACT-203 | Verify status shows Acknowledged when no manual changes
+
+**Preconditions:** An auto-renewal contract has been published (auto-published or manually published) with only the auto rate increase applied and no manual changes. The EDGE system has processed the contract.
+
+**Steps:**
+
+1. Navigate to the deal detail page for a deal with an auto-renewal published contract.
+2. Open the Contract & Terms tab.
+3. Locate the published auto-renewal contract card.
+4. Read the acknowledgment status badge on the card.
+   **Expected results / Assertion points:**
+   - After step 4: The status badge on the contract card reads "Acknowledged".
+   - After step 4: No "Not Acknowledged" label is present on the card.
+
+### TC-CONTRACT-204 | Verify status shows Not Acknowledged when manual changes exist
+
+**Preconditions:** An auto-renewal contract has been published with at least one manual change (beyond auto rate increase). The EDGE system has not yet acknowledged the changes.
+
+**Steps:**
+
+1. Navigate to the deal detail page for a deal with a published auto-renewal contract that had manual edits.
+2. Open the Contract & Terms tab.
+3. Locate the published auto-renewal contract card.
+4. Read the acknowledgment status badge on the card.
+   **Expected results / Assertion points:**
+   - After step 4: The status badge on the contract card reads "Not Acknowledged".
+   - After step 4: No "Acknowledged" label is shown yet.
+
+### TC-CONTRACT-205 | Verify status updates after EDGE acknowledgment
+
+**Preconditions:** An auto-renewal published contract is in "Not Acknowledged" state. The EDGE system processes and acknowledges the contract changes.
+
+**Steps:**
+
+1. Navigate to the deal detail page with a "Not Acknowledged" auto-renewal contract.
+2. Confirm the current status badge reads "Not Acknowledged".
+3. Simulate or wait for the EDGE system to acknowledge the contract changes.
+4. Refresh the deal detail page.
+5. Open the Contract & Terms tab and re-read the status badge.
+   **Expected results / Assertion points:**
+   - After step 2: Status badge reads "Not Acknowledged".
+   - After step 5: Status badge updates to "Acknowledged".
+   - After step 5: No "Not Acknowledged" label is present.
+
+### TC-CONTRACT-206 | Verify signature required when manual changes exist
+
+**Preconditions:** A draft renewal contract with manual changes (beyond auto rate increase) has been published or is being published.
+
+**Steps:**
+
+1. Navigate to the deal detail page with a published auto-renewal contract that had manual edits.
+2. Open the Contract & Terms tab and locate the published renewal contract card.
+3. Inspect the action buttons available on the card.
+   **Expected results / Assertion points:**
+   - After step 3: A "Signature" button is present and active (not disabled) on the contract card.
+   - After step 3: The "Signature" button label or tooltip indicates signature is required.
+   - After step 3: The contract has not been finalised without signature.
+
+### TC-CONTRACT-207 | Verify no signature required when only rate increase applied
+
+**Preconditions:** A draft renewal contract where the ONLY change is the auto rate increase (no manual edits) has been published.
+
+**Steps:**
+
+1. Navigate to the deal detail page with a published auto-renewal contract that had only the auto rate increase (no manual changes).
+2. Open the Contract & Terms tab and locate the published renewal contract card.
+3. Read the status badges on the card.
+4. Inspect the Signature action button state.
+   **Expected results / Assertion points:**
+   - After step 3: The contract status shows "Published without sign" or equivalent (no signature required).
+   - After step 4: The Signature button is either absent or shows a state indicating signature was not required.
+
+### TC-CONTRACT-208 | Verify user publishes immediately after notification
+
+**Preconditions:** A renewal notification email has been sent and the draft renewal contract is in "Draft" state. The user has received the notification and chooses to publish immediately.
+
+**Steps:**
+
+1. Navigate to the deal detail page with the draft renewal contract.
+2. Open the Contract & Terms tab and locate the draft renewal card.
+3. Click the Publish action button on the draft renewal card.
+4. Complete any confirmation steps (e.g., Change Summary modal, signature if required).
+5. Observe the contract card status after publishing.
+   **Expected results / Assertion points:**
+   - After step 5: The draft renewal contract card shows "Published" or equivalent status.
+   - After step 5: The contract is no longer in "Draft" state.
+   - After step 5: The publish timestamp is recorded (visible in "Created … by …" line or audit trail).
+
+### TC-CONTRACT-209 | Verify auto-publish occurs if user takes no action
+
+**Preconditions:** A draft renewal contract has a Publish Date set. The user takes no action and the Publish Date is reached.
+
+**Steps:**
+
+1. Confirm a draft renewal contract exists with Publish Date = today (or advance system clock).
+2. Do NOT manually publish the contract — let the system trigger fire.
+3. After the auto-publish window, navigate to the deal detail page.
+4. Open the Contract & Terms tab and observe the renewal contract card.
+   **Expected results / Assertion points:**
+   - After step 4: The contract card status has changed from "Draft" to "Published" (or equivalent).
+   - After step 4: No user interaction was needed to publish.
+   - After step 4: The published status is the same as if the user had manually published.
+
+### TC-CONTRACT-210 | Verify system handles multiple contracts auto-renewal
+
+**Preconditions:** Multiple deals each have published contracts with Auto Renewal enabled and Renewal Dates that are due simultaneously or within the same system-trigger cycle.
+
+**Steps:**
+
+1. Identify at least two deals with published auto-renewal contracts whose Renewal Date − N days has been reached.
+2. After the system trigger fires, navigate to the first deal's Contract & Terms tab.
+3. Verify a draft renewal card is present.
+4. Navigate to the second deal's Contract & Terms tab.
+5. Verify a draft renewal card is also present.
+   **Expected results / Assertion points:**
+   - After step 3: Deal 1 has a new draft renewal contract card created automatically.
+   - After step 5: Deal 2 also has a new draft renewal contract card created automatically.
+   - After steps 3 and 5: Both draft cards show the correct renewal counter suffix (e.g., "(1)", "(2)").
+
+### TC-CONTRACT-211 | Verify renewal task due date equals Publish Date
+
+**Preconditions:** A draft renewal contract has been automatically created, triggering a renewal review task. The Publish Date is set on the draft renewal contract.
+
+**Steps:**
+
+1. Navigate to the deal detail page with the draft renewal contract.
+2. Note the Publish Date of the draft renewal contract (from the stepper Step 4 or contract card).
+3. Open the Tasks tab in the Overview section.
+4. Locate the auto-generated renewal task.
+5. Open the task and read its due date.
+   **Expected results / Assertion points:**
+   - After step 5: The task due date matches the Publish Date of the draft renewal contract exactly.
+   - After step 5: The due date is displayed in a readable date format.
+
+### TC-CONTRACT-212 | Verify renewal email contains correct details
+
+**Preconditions:** A renewal notification email has been sent to the billing contact.
+
+**Steps:**
+
+1. Access the billing contact's inbox.
+2. Open the renewal notification email.
+3. Read the email subject, sender, recipient, body content, and any links.
+   **Expected results / Assertion points:**
+   - After step 3: The email subject references the deal or contract name.
+   - After step 3: The email body includes the Renewal Date.
+   - After step 3: The email body includes the contract amount or service description.
+   - After step 3: Any link in the email points to the correct deal or contract URL.
+
+### TC-CONTRACT-213 | Verify system handles API failure during auto-publish
+
+**Preconditions:** The system's auto-publish job attempts to publish a draft renewal contract but encounters an API failure (simulated via network intercept or environment error injection).
+
+**Steps:**
+
+1. Configure or simulate an API failure for the publish endpoint (e.g., intercept the publish API call and return a 500 response).
+2. Trigger the auto-publish (advance clock or fire the scheduled job).
+3. Navigate to the deal detail page and open the Contract & Terms tab.
+4. Check for error indicators or logs in the application.
+   **Expected results / Assertion points:**
+   - After step 3: The contract card remains in "Draft" status (not incorrectly published).
+   - After step 3: An error notification or status indicator is visible (e.g., a toast message or error badge on the card).
+   - After step 3: No data corruption occurs — the draft contract data is intact and unchanged.
+
+### TC-CONTRACT-214 | Verify user cannot edit after publish
+
+**Preconditions:** An auto-renewal contract has been published (either by the user manually or by auto-publish).
+
+**Steps:**
+
+1. Navigate to the deal detail page with the published auto-renewal contract card.
+2. Open the Contract & Terms tab and locate the published auto-renewal card.
+3. Inspect the available action icons on the published card.
+4. Attempt to find or click any Edit action.
+   **Expected results / Assertion points:**
+   - After step 3: No Edit action icon is available on the published auto-renewal card.
+   - After step 3: Available actions are limited to View, Signature, Addendum, Clone, Preview PDF, and Terminate.
+   - After step 4: Clicking any allowed action does not open an editable form; it opens in view-only or a separate flow (addendum).
+
+### TC-CONTRACT-215 | Verify rate increase does not count as manual change
+
+**Preconditions:** A draft renewal contract has been created with only the auto rate increase applied (user made no manual edits in the stepper).
+
+**Steps:**
+
+1. Open the draft renewal contract stepper via the Edit action on the draft card.
+2. Do NOT make any manual edits — navigate through all steps without changing any field.
+3. Return to the deal detail page and click the Publish action on the draft renewal card.
+4. Observe whether a Change Summary modal appears and what it contains.
+   **Expected results / Assertion points:**
+   - After step 4: Either no Change Summary modal appears (indicating no manual changes detected), OR the modal appears but lists zero manual changes (the rate increase entry is absent).
+   - After step 4: The publish action completes without requiring user acknowledgment of the rate increase as a change.
+   - After step 4: The contract card status updates to "Published" (or equivalent) without a signature requirement.
+
+---
+
+## Contract Addendum — Impact on Edge 2.0 — TC-CONTRACT-216 through TC-CONTRACT-244
+
+> **Note:** All test cases in this section require the Edge 2.0 application (a separate external system). They cannot be automated against the Sales CRM alone. Tests will be implemented as `test.skip()` with TODO notes until Edge 2.0 integration testing infrastructure is available.
+
+### TC-CONTRACT-216 | Verify that banner is displayed when addendum arrives
+
+**Preconditions:** A published contract exists in the Sales CRM. An addendum has been created and sent to Edge 2.0. The Field Officer (FO) or Supervisor is logged into the Edge 2.0 application.
+
+**Steps:**
+
+1. In Sales CRM, create an addendum for a published contract with at least one service change.
+2. Publish/send the addendum so it is dispatched to Edge 2.0.
+3. In the Edge 2.0 application, log in as the Field Officer or Supervisor assigned to the contract.
+4. Observe the dashboard or home screen for a banner notification.
+   **Expected results / Assertion points:**
+   - After step 4: A banner notification is visible on the Edge 2.0 dashboard indicating that an addendum has arrived for the contract.
+   - After step 4: The banner references the correct contract or deal name.
+   - After step 4: The banner remains visible until acknowledged.
+
+### TC-CONTRACT-217 | Verify that notification is sent to FO and Supervisor
+
+**Preconditions:** A published contract exists. An addendum has been created and sent to Edge 2.0. Both a Field Officer (FO) and a Supervisor are assigned to the contract.
+
+**Steps:**
+
+1. In Sales CRM, create and publish an addendum for a contract assigned to an FO and Supervisor.
+2. Check the notification inbox/bell icon for the FO account in Edge 2.0.
+3. Check the notification inbox/bell icon for the Supervisor account in Edge 2.0.
+   **Expected results / Assertion points:**
+   - After step 2: The FO receives a notification referencing the addendum.
+   - After step 3: The Supervisor receives the same notification referencing the addendum.
+   - After step 3: The notification includes the contract or deal name and a link or action to review.
+
+### TC-CONTRACT-218 | Verify that daily notification is sent until acknowledged
+
+**Preconditions:** An addendum has been dispatched to Edge 2.0 and is in a "Not Acknowledged" state. At least two consecutive days pass without acknowledgment.
+
+**Steps:**
+
+1. Dispatch an addendum to Edge 2.0 and do not acknowledge it.
+2. Advance system time (or wait) by 24 hours.
+3. Check the FO's and Supervisor's notification inbox in Edge 2.0.
+4. Advance another 24 hours and re-check.
+   **Expected results / Assertion points:**
+   - After step 3: A new daily reminder notification has arrived for both FO and Supervisor.
+   - After step 4: Another daily reminder appears — confirming notifications repeat daily until acknowledged.
+   - After step 4: The notification count in the inbox has incremented by one per day.
+
+### TC-CONTRACT-219 | Verify that clicking banner opens addendum popup
+
+**Preconditions:** Edge 2.0 is displaying the addendum banner for a contract with a single addendum.
+
+**Steps:**
+
+1. Log into Edge 2.0 as the FO or Supervisor who has an unacknowledged addendum banner.
+2. Click the addendum banner.
+3. Observe what opens.
+   **Expected results / Assertion points:**
+   - After step 3: The addendum popup/modal opens.
+   - After step 3: The popup displays the Change Summary for the addendum (services added, removed, or changed).
+   - After step 3: The popup does not require additional navigation to view the change details.
+
+### TC-CONTRACT-220 | Verify that multiple addendums show selection dropdown
+
+**Preconditions:** Edge 2.0 has two or more unacknowledged addendums for the same site/contract.
+
+**Steps:**
+
+1. Log into Edge 2.0 as an FO or Supervisor with multiple unacknowledged addendums.
+2. Click the addendum banner.
+3. Observe the popup or modal that appears.
+   **Expected results / Assertion points:**
+   - After step 3: A dropdown or selection list appears showing all pending addendums.
+   - After step 3: Each addendum is identifiable (e.g., by addendum number or date).
+   - After step 3: Selecting one addendum from the dropdown opens its Change Summary.
+
+### TC-CONTRACT-221 | Verify that single addendum opens directly
+
+**Preconditions:** Edge 2.0 has exactly one unacknowledged addendum for the contract.
+
+**Steps:**
+
+1. Log into Edge 2.0 as an FO or Supervisor with exactly one unacknowledged addendum.
+2. Click the addendum banner.
+3. Observe the popup or modal that appears.
+   **Expected results / Assertion points:**
+   - After step 3: The addendum popup opens directly to the Change Summary — no dropdown selection step appears.
+   - After step 3: The Change Summary shows the details of the single addendum.
+
+### TC-CONTRACT-222 | Verify that services added are displayed correctly
+
+**Preconditions:** An addendum has been created in Sales CRM adding one or more new services. The addendum has been dispatched to Edge 2.0.
+
+**Steps:**
+
+1. Open the addendum popup in Edge 2.0 (via the banner or notification).
+2. Navigate to or locate the "Added Services" section in the Change Summary.
+3. Compare the listed services against the addendum created in Sales CRM.
+   **Expected results / Assertion points:**
+   - After step 3: All newly added services are listed under "Added Services" (or equivalent label).
+   - After step 3: The service name, officer count, hours, and rate match what was added in the CRM addendum.
+   - After step 3: No existing unchanged services appear in this section.
+
+### TC-CONTRACT-223 | Verify that removed services are displayed
+
+**Preconditions:** An addendum has been created in Sales CRM removing one or more services. The addendum has been dispatched to Edge 2.0.
+
+**Steps:**
+
+1. Open the addendum popup in Edge 2.0.
+2. Navigate to or locate the "Removed Services" section in the Change Summary.
+3. Verify the removed service details.
+   **Expected results / Assertion points:**
+   - After step 3: All removed services are listed under "Removed Services" (or equivalent label).
+   - After step 3: The removed service name and original details are visible for reference.
+   - After step 3: No active/unchanged services appear in this removed section.
+
+### TC-CONTRACT-224 | Verify that changed services show before/after
+
+**Preconditions:** An addendum has been created modifying an existing service (e.g., officer count or rate changed). The addendum has been dispatched to Edge 2.0.
+
+**Steps:**
+
+1. Open the addendum popup in Edge 2.0.
+2. Navigate to or locate the "Changed Services" section in the Change Summary.
+3. Review the before/after display for each changed service.
+   **Expected results / Assertion points:**
+   - After step 3: Changed services show both the original (before) values and the new (after) values side-by-side or in a diff format.
+   - After step 3: The field names (e.g., officer count, hourly rate) are labelled clearly.
+   - After step 3: Unchanged fields within a modified service are not listed as changes.
+
+### TC-CONTRACT-225 | Verify that device changes are shown
+
+**Preconditions:** An addendum includes changes to device assignments (e.g., CCTV, access control units) for the contract. The addendum has been dispatched to Edge 2.0.
+
+**Steps:**
+
+1. Open the addendum popup in Edge 2.0.
+2. Locate the "Device Changes" section (or equivalent) in the Change Summary.
+3. Verify the device change details.
+   **Expected results / Assertion points:**
+   - After step 3: Device additions, removals, or modifications are clearly listed.
+   - After step 3: Each device entry shows the device type, quantity (before/after if changed), and relevant attributes.
+   - After step 3: Unchanged devices do not appear in this section.
+
+### TC-CONTRACT-226 | Verify that on-demand service changes are shown
+
+**Preconditions:** An addendum includes changes to on-demand services. The addendum has been dispatched to Edge 2.0.
+
+**Steps:**
+
+1. Open the addendum popup in Edge 2.0.
+2. Locate the "On-Demand Service Changes" section (or equivalent) in the Change Summary.
+3. Verify the on-demand service details.
+   **Expected results / Assertion points:**
+   - After step 3: On-demand service additions or removals are listed separately from scheduled services.
+   - After step 3: Each entry shows the service name and the nature of the change (added/removed/modified).
+
+### TC-CONTRACT-227 | Verify that payment term changes are shown
+
+**Preconditions:** An addendum includes changes to payment terms (e.g., billing frequency, payment method). The addendum has been dispatched to Edge 2.0.
+
+**Steps:**
+
+1. Open the addendum popup in Edge 2.0.
+2. Locate the "Payment Term Changes" section in the Change Summary.
+3. Review the displayed payment term changes.
+   **Expected results / Assertion points:**
+   - After step 3: Changed payment term fields (e.g., billing frequency, payment method) appear with before/after values.
+   - After step 3: Unchanged payment term fields are not listed.
+
+### TC-CONTRACT-228 | Verify that description changes are shown
+
+**Preconditions:** An addendum includes a change to the contract description field. The addendum has been dispatched to Edge 2.0.
+
+**Steps:**
+
+1. Open the addendum popup in Edge 2.0.
+2. Locate the "Description Changes" section (or equivalent) in the Change Summary.
+3. Review the displayed description change.
+   **Expected results / Assertion points:**
+   - After step 3: The original description (before) and updated description (after) are both visible.
+   - After step 3: The section is clearly labelled as a description change.
+
+### TC-CONTRACT-229 | Verify that signee changes are displayed
+
+**Preconditions:** An addendum includes a change to one or more signees on the contract. The addendum has been dispatched to Edge 2.0.
+
+**Steps:**
+
+1. Open the addendum popup in Edge 2.0.
+2. Locate the "Signee Changes" section (or equivalent) in the Change Summary.
+3. Review the displayed signee changes.
+   **Expected results / Assertion points:**
+   - After step 3: Added or removed signees appear in the Signee Changes section.
+   - After step 3: Each signee entry shows the name and role (e.g., FO, Supervisor, Client).
+   - After step 3: Signees with no changes are not listed.
+
+### TC-CONTRACT-230 | Verify that shift removal selection works
+
+**Preconditions:** The addendum Change Summary in Edge 2.0 includes removed services. The FO or Supervisor is on the acknowledgment flow for the addendum.
+
+**Steps:**
+
+1. Open the addendum popup in Edge 2.0 and proceed to the acknowledgment steps.
+2. Locate the shift removal selection step — where the user selects which shifts to remove.
+3. Select the shifts corresponding to the removed services.
+4. Confirm the selection.
+   **Expected results / Assertion points:**
+   - After step 3: Each removed service's associated shifts are listed and selectable.
+   - After step 4: Selected shifts are visually marked for removal (e.g., checked/highlighted).
+   - After step 4: The system does not allow proceeding without addressing the removed shifts.
+
+### TC-CONTRACT-231 | Verify that Next button saves progress
+
+**Preconditions:** The FO or Supervisor is partway through the addendum acknowledgment flow in Edge 2.0 (e.g., has reviewed the Change Summary and is on a multi-step acknowledgment wizard).
+
+**Steps:**
+
+1. Complete the first step of the acknowledgment wizard (e.g., review Change Summary).
+2. Click the "Next" button.
+3. Navigate away from the popup and then return to it.
+   **Expected results / Assertion points:**
+   - After step 2: The wizard advances to the next step without error.
+   - After step 3: The progress is preserved — the wizard reopens on the step where the user left off (not back at step 1).
+   - After step 3: Previously entered or confirmed data is retained.
+
+### TC-CONTRACT-232 | Verify that Acknowledge button completes process
+
+**Preconditions:** The FO or Supervisor has reviewed all steps of the addendum acknowledgment wizard in Edge 2.0 and is on the final step.
+
+**Steps:**
+
+1. Complete all steps of the addendum acknowledgment wizard in Edge 2.0.
+2. Click the "Acknowledge" button on the final step.
+3. Observe the Edge 2.0 dashboard and Sales CRM contract status.
+   **Expected results / Assertion points:**
+   - After step 2: A confirmation message or success state appears in Edge 2.0 (e.g., "Addendum Acknowledged").
+   - After step 3: The addendum banner is no longer visible on the Edge 2.0 dashboard.
+   - After step 3: In Sales CRM, the contract addendum status updates (e.g., to "Acknowledged" or "Active").
+
+### TC-CONTRACT-233 | Verify that Cancel discards changes
+
+**Preconditions:** The FO or Supervisor is partway through the addendum acknowledgment wizard in Edge 2.0.
+
+**Steps:**
+
+1. Open the addendum acknowledgment wizard in Edge 2.0 and make partial progress (e.g., select some shifts for removal).
+2. Click the "Cancel" button.
+3. Re-open the addendum popup.
+   **Expected results / Assertion points:**
+   - After step 2: The wizard closes without completing acknowledgment.
+   - After step 3: The addendum is still in "Not Acknowledged" state — the banner is still displayed.
+   - After step 3: No partial acknowledgment or shift changes have been saved to the system.
+
+### TC-CONTRACT-234 | Verify that dashboard shows addendum metric
+
+**Preconditions:** One or more addendums are in "Not Acknowledged" status across contracts visible to the logged-in user in Sales CRM.
+
+**Steps:**
+
+1. Log into Sales CRM and navigate to the dashboard.
+2. Locate the addendum metric tile or counter.
+3. Note the count shown.
+4. Verify it matches the number of contracts with unacknowledged addendums.
+   **Expected results / Assertion points:**
+   - After step 3: A metric tile displays the count of unacknowledged addendums.
+   - After step 4: The displayed count matches the actual number of contracts with "Not Acknowledged" addendums.
+
+### TC-CONTRACT-235 | Verify metric removed after acknowledgment
+
+**Preconditions:** The Sales CRM dashboard is showing an addendum metric count of at least 1. The corresponding addendum in Edge 2.0 has just been acknowledged.
+
+**Steps:**
+
+1. Note the current addendum metric count on the Sales CRM dashboard.
+2. In Edge 2.0, complete the acknowledgment for the pending addendum.
+3. Return to the Sales CRM dashboard and observe the metric tile.
+   **Expected results / Assertion points:**
+   - After step 3: The addendum metric count decrements by 1 (or disappears if it was the last one).
+   - After step 3: The metric no longer references the acknowledged addendum.
+
+### TC-CONTRACT-236 | Verify contract listing shows Not Acknowledged
+
+**Preconditions:** A contract with an unacknowledged addendum exists in the Sales CRM contracts list.
+
+**Steps:**
+
+1. In Sales CRM, navigate to the Contracts listing page.
+2. Locate the contract with the pending addendum.
+3. Check the status column or status badge for that contract row.
+   **Expected results / Assertion points:**
+   - After step 3: The contract row shows a status or badge of "Not Acknowledged" (or equivalent label).
+   - After step 3: The badge is visually distinct from other statuses (e.g., Active, Draft).
+
+### TC-CONTRACT-237 | Verify contract becomes Active after acknowledgment
+
+**Preconditions:** A contract is in "Not Acknowledged" status. The addendum has been acknowledged in Edge 2.0.
+
+**Steps:**
+
+1. Note the contract's "Not Acknowledged" status in Sales CRM.
+2. Complete the acknowledgment in Edge 2.0.
+3. Return to the Sales CRM contracts listing and locate the same contract.
+   **Expected results / Assertion points:**
+   - After step 3: The contract status updates to "Active" (or the equivalent post-acknowledgment status).
+   - After step 3: The "Not Acknowledged" badge is no longer present.
+
+### TC-CONTRACT-238 | Verify parent contract end date updated
+
+**Preconditions:** An addendum changes the end date of a service within the contract. The addendum has been acknowledged in Edge 2.0.
+
+**Steps:**
+
+1. Note the parent contract's current end date in Sales CRM before acknowledgment.
+2. Complete the addendum acknowledgment in Edge 2.0.
+3. In Sales CRM, open the contract detail and check the contract end date.
+   **Expected results / Assertion points:**
+   - After step 3: The parent contract's end date reflects the updated value from the addendum.
+   - After step 3: The end date change is visible in the contract detail or audit trail.
+
+### TC-CONTRACT-239 | Verify schedule updates for added services
+
+**Preconditions:** An addendum adds new services to a contract. The addendum has been acknowledged in Edge 2.0 with shifts confirmed.
+
+**Steps:**
+
+1. Complete the acknowledgment for the addendum that adds services.
+2. In Edge 2.0, navigate to the schedule view for the contract's site.
+3. Check for newly generated shifts corresponding to the added services.
+   **Expected results / Assertion points:**
+   - After step 3: New shifts appear in the Edge 2.0 schedule for the added services.
+   - After step 3: The shifts start from the addendum effective date.
+   - After step 3: The shift details (officer count, hours, days) match the added service definition.
+
+### TC-CONTRACT-240 | Verify removed services disappear from schedule
+
+**Preconditions:** An addendum removes services from a contract. The acknowledgment in Edge 2.0 has been completed with the corresponding shifts selected for removal.
+
+**Steps:**
+
+1. Complete the acknowledgment for the addendum that removes services.
+2. In Edge 2.0, navigate to the schedule view for the contract's site.
+3. Check that the removed service's shifts are no longer present from the effective date onward.
+   **Expected results / Assertion points:**
+   - After step 3: Shifts for the removed services do not appear from the effective date forward.
+   - After step 3: Historical shifts (before the effective date) remain intact.
+   - After step 3: No orphaned unassigned shifts remain for the removed services.
+
+### TC-CONTRACT-241 | Verify shifts unassigned after change
+
+**Preconditions:** An addendum modifies a service (e.g., changes hours or days). The acknowledgment has been completed in Edge 2.0.
+
+**Steps:**
+
+1. Complete the acknowledgment for the addendum that modifies a service.
+2. In Edge 2.0, navigate to the schedule view for the affected site.
+3. Check the status of shifts for the modified service from the effective date.
+   **Expected results / Assertion points:**
+   - After step 3: Shifts generated under the changed service parameters are in an "Unassigned" state (pending officer assignment).
+   - After step 3: Previously assigned officers are not automatically reassigned to the restructured shifts.
+   - After step 3: The new shift structure (days/hours) matches the updated service definition.
+
+### TC-CONTRACT-242 | Verify acknowledgment before effective date
+
+**Preconditions:** An addendum with a future effective date has been dispatched. The acknowledgment is performed before the effective date arrives.
+
+**Steps:**
+
+1. Dispatch an addendum with an effective date set 7 days in the future.
+2. In Edge 2.0, acknowledge the addendum before the effective date.
+3. Observe the schedule in Edge 2.0 and the contract status in Sales CRM.
+   **Expected results / Assertion points:**
+   - After step 2: Acknowledgment completes successfully.
+   - After step 3: The schedule changes (new/removed/modified shifts) do not take effect until the effective date.
+   - After step 3: The contract status in Sales CRM reflects the acknowledged state.
+
+### TC-CONTRACT-243 | Verify acknowledgment during active period
+
+**Preconditions:** An addendum has been dispatched and the current date falls within the addendum's effective period (i.e., the effective date has already passed).
+
+**Steps:**
+
+1. Dispatch an addendum and wait until the effective date passes without acknowledgment.
+2. In Edge 2.0, acknowledge the addendum after the effective date.
+3. Observe the schedule and contract status.
+   **Expected results / Assertion points:**
+   - After step 2: Acknowledgment completes successfully despite being past the effective date.
+   - After step 3: The schedule updates are applied immediately (since the effective date has passed).
+   - After step 3: The contract becomes "Active" in Sales CRM.
+
+### TC-CONTRACT-244 | Verify acknowledgment after contract end is blocked
+
+**Preconditions:** A contract has ended (its end date is in the past). An addendum for that contract is still in "Not Acknowledged" state.
+
+**Steps:**
+
+1. Identify (or simulate) a contract whose end date has passed and that has an unacknowledged addendum.
+2. Attempt to acknowledge the addendum in Edge 2.0.
+3. Observe the result.
+   **Expected results / Assertion points:**
+   - After step 3: The system blocks the acknowledgment with an appropriate error or warning (e.g., "Contract has ended — acknowledgment not permitted").
+   - After step 3: The addendum remains in "Not Acknowledged" state.
+   - After step 3: No schedule changes are applied.
+
+---
+
+## Contract Auto-Renewal — Edit Function Enhancement (EDGE) — TC-CONTRACT-245 through TC-CONTRACT-259
+
+> **Note:** All test cases in this section require the Edge 2.0 application (a separate external system). They cannot be automated against the Sales CRM alone. Tests will be implemented as `test.skip()` with TODO notes until Edge 2.0 integration testing infrastructure is available.
+
+### TC-CONTRACT-245 | Verify banner not shown after acknowledgment
+
+**Preconditions:** A contract addendum (or auto-renewal with manual edits) was previously acknowledged in Edge 2.0. The user logs back into Edge 2.0.
+
+**Steps:**
+
+1. Complete acknowledgment for an addendum or manual-edit renewal in Edge 2.0.
+2. Log out and log back into Edge 2.0.
+3. Navigate to the dashboard or home screen.
+   **Expected results / Assertion points:**
+   - After step 3: No addendum or renewal banner is displayed for the acknowledged contract.
+   - After step 3: The acknowledged item does not appear in the pending notifications list.
+
+### TC-CONTRACT-246 | Verify that no notification is sent when renewal has no manual edits
+
+**Preconditions:** An auto-renewal contract is generated by the system with no manual edits (only the system-applied rate increase, if any). The contract has been auto-published.
+
+**Steps:**
+
+1. Allow or trigger an auto-renewal that applies no manual changes (only automatic rate adjustments).
+2. Check the FO's and Supervisor's notification inbox in Edge 2.0.
+3. Confirm no addendum/renewal change notification was sent.
+   **Expected results / Assertion points:**
+   - After step 2: No renewal change notification appears in the FO's inbox.
+   - After step 3: No renewal change notification appears in the Supervisor's inbox.
+   - After step 3: Normal shift generation proceeds without requiring acknowledgment.
+
+### TC-CONTRACT-247 | Verify that notification is sent when renewal has manual edits
+
+**Preconditions:** An auto-renewal contract has been manually edited (service changes, description changes, etc.) before being published. The contract has been published.
+
+**Steps:**
+
+1. Create an auto-renewal draft and apply at least one manual edit (e.g., change a service).
+2. Publish the renewed contract.
+3. Check the FO's and Supervisor's notification inbox in Edge 2.0.
+   **Expected results / Assertion points:**
+   - After step 3: Both FO and Supervisor receive a notification referencing the renewed contract and its manual changes.
+   - After step 3: The notification includes the contract or deal name.
+   - After step 3: The notification contains a link or action to review the changes.
+
+### TC-CONTRACT-248 | Verify that daily notifications are sent until acknowledgment
+
+**Preconditions:** A renewed contract with manual edits is in "Not Acknowledged" state in Edge 2.0. At least two days pass without acknowledgment.
+
+**Steps:**
+
+1. Publish a renewed contract with manual edits (not yet acknowledged by Edge 2.0 users).
+2. Advance system time (or wait) by 24 hours without acknowledging.
+3. Check FO's and Supervisor's notification inbox.
+4. Advance another 24 hours and re-check.
+   **Expected results / Assertion points:**
+   - After step 3: A daily reminder notification has arrived for both FO and Supervisor.
+   - After step 4: Another daily reminder has arrived, confirming notifications repeat each day.
+   - After step 4: Notification count has incremented once per day.
+
+### TC-CONTRACT-249 | Verify that banner is displayed on site when manual changes exist
+
+**Preconditions:** A renewed contract with manual edits exists in "Not Acknowledged" status in Edge 2.0.
+
+**Steps:**
+
+1. Publish a renewed contract with manual changes.
+2. Log into Edge 2.0 as the FO or Supervisor assigned to the contract's site.
+3. Navigate to the site dashboard or home screen.
+   **Expected results / Assertion points:**
+   - After step 3: A banner is displayed on the site screen indicating there are pending renewal changes to acknowledge.
+   - After step 3: The banner references the correct contract or site name.
+   - After step 3: The banner persists until acknowledged.
+
+### TC-CONTRACT-250 | Verify that banner is not displayed when no manual edits exist
+
+**Preconditions:** A renewed contract was auto-published with no manual edits (only automatic rate adjustments or no changes at all).
+
+**Steps:**
+
+1. Trigger or allow an auto-renewal with no manual edits and let it auto-publish.
+2. Log into Edge 2.0 as the FO or Supervisor.
+3. Navigate to the site dashboard.
+   **Expected results / Assertion points:**
+   - After step 3: No renewal change banner appears on the site dashboard.
+   - After step 3: The site proceeds with normal operations without requiring acknowledgment.
+
+### TC-CONTRACT-251 | Verify that clicking Review & Acknowledge opens modal
+
+**Preconditions:** Edge 2.0 displays a renewal change banner for a site with manual edits.
+
+**Steps:**
+
+1. Log into Edge 2.0 as FO or Supervisor with a pending renewal acknowledgment banner.
+2. Click the "Review & Acknowledge" button or link on the banner.
+3. Observe what opens.
+   **Expected results / Assertion points:**
+   - After step 3: A modal or popup opens showing the renewal Change Summary.
+   - After step 3: The modal displays the manual changes (services added/removed/changed, description changes, etc.).
+   - After step 3: Acknowledge and Cancel buttons are present.
+
+### TC-CONTRACT-252 | Verify that Select Contract modal appears for multiple renewals
+
+**Preconditions:** Edge 2.0 has two or more pending renewal acknowledgments for sites accessible to the logged-in user.
+
+**Steps:**
+
+1. Log into Edge 2.0 with multiple pending renewal acknowledgments.
+2. Click the renewal acknowledgment banner or notification.
+3. Observe the modal or selection step that appears.
+   **Expected results / Assertion points:**
+   - After step 3: A "Select Contract" modal or dropdown appears listing all pending renewal contracts.
+   - After step 3: Each entry is identifiable by contract/deal name and effective date.
+   - After step 3: Selecting a contract opens its specific Change Summary modal.
+
+### TC-CONTRACT-253 | Verify that single contract opens directly
+
+**Preconditions:** Edge 2.0 has exactly one pending renewal acknowledgment for the logged-in user.
+
+**Steps:**
+
+1. Log into Edge 2.0 with exactly one pending renewal acknowledgment.
+2. Click the renewal acknowledgment banner.
+3. Observe the modal that opens.
+   **Expected results / Assertion points:**
+   - After step 3: The Change Summary modal opens directly without a contract selection step.
+   - After step 3: The Change Summary shows the details of the single pending renewal.
+
+### TC-CONTRACT-254 | Verify acknowledgment button works
+
+**Preconditions:** The FO or Supervisor is on the final step of the renewal acknowledgment modal in Edge 2.0.
+
+**Steps:**
+
+1. Complete all steps of the renewal acknowledgment modal in Edge 2.0.
+2. Click the "Acknowledge" button.
+3. Observe the Edge 2.0 banner and Sales CRM contract status.
+   **Expected results / Assertion points:**
+   - After step 2: A success confirmation appears in Edge 2.0 (e.g., "Changes Acknowledged").
+   - After step 3: The renewal banner disappears from the Edge 2.0 site dashboard.
+   - After step 3: The contract status in Sales CRM updates to "Active" or "Acknowledged".
+
+### TC-CONTRACT-255 | Verify banner disappears after acknowledgment
+
+**Preconditions:** A renewal change banner is visible in Edge 2.0 for a site. The acknowledgment has just been completed.
+
+**Steps:**
+
+1. Complete the renewal acknowledgment in Edge 2.0.
+2. Observe the site dashboard banner area immediately after clicking Acknowledge.
+3. Navigate away and return to the site dashboard.
+   **Expected results / Assertion points:**
+   - After step 2: The banner disappears immediately upon acknowledgment.
+   - After step 3: The banner remains absent after navigation — it does not reappear.
+
+### TC-CONTRACT-256 | Verify shifts created automatically for no-edit renewal
+
+**Preconditions:** An auto-renewal with no manual edits has been auto-published. The effective date has arrived.
+
+**Steps:**
+
+1. Allow or trigger an auto-renewal with no manual edits to be auto-published.
+2. Advance to the effective date.
+3. In Edge 2.0, check the schedule view for the renewed contract's site.
+   **Expected results / Assertion points:**
+   - After step 3: Shifts are automatically created for the renewal period matching the original contract's service schedule.
+   - After step 3: Shifts are assigned (or ready for assignment) without requiring manual intervention.
+   - After step 3: No acknowledgment banner is shown since no manual edits were made.
+
+### TC-CONTRACT-257 | Verify last-week assignment duplication works
+
+**Preconditions:** An auto-renewal with no manual edits has been auto-published. The last week of the previous contract period had officer assignments.
+
+**Steps:**
+
+1. Trigger a no-edit auto-renewal for a contract that had officers assigned in its final week.
+2. Advance to the renewal effective date.
+3. In Edge 2.0, check the schedule for the first week of the renewed period.
+   **Expected results / Assertion points:**
+   - After step 3: Officer assignments from the last week of the previous contract period are duplicated into the first week of the renewed period.
+   - After step 3: The duplicated assignments match the same officers, shifts, and days.
+   - After step 3: The assignments are in an editable state (not locked).
+
+### TC-CONTRACT-258 | Verify shifts editable after duplication
+
+**Preconditions:** Shifts have been duplicated into the renewal period via the last-week duplication mechanism.
+
+**Steps:**
+
+1. Navigate to the duplicated shifts in Edge 2.0 schedule view.
+2. Select a duplicated shift and attempt to edit it (e.g., reassign the officer or change the time).
+3. Save the edit.
+   **Expected results / Assertion points:**
+   - After step 3: The edit is saved successfully.
+   - After step 3: The modified shift reflects the new officer or time.
+   - After step 3: The duplication source shifts are unaffected by the edit.
+
+### TC-CONTRACT-259 | Verify shifts generated but unassigned for changed services
+
+**Preconditions:** An auto-renewal has manual edits that include service changes (e.g., added or modified services). The acknowledgment has been completed in Edge 2.0.
+
+**Steps:**
+
+1. Complete acknowledgment for a renewed contract with manually changed services.
+2. In Edge 2.0, navigate to the schedule view for the contract's site.
+3. Check the shifts generated for the changed/new services.
+   **Expected results / Assertion points:**
+   - After step 3: Shifts are generated for the changed or new services starting from the effective date.
+   - After step 3: These newly generated shifts are in "Unassigned" state — no officer is pre-assigned.
+   - After step 3: Unassigned shifts are visually distinct (e.g., highlighted or badged) to prompt manual assignment.

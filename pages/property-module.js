@@ -3496,15 +3496,17 @@ class PropertyModule {
   }
 
   /**
-   * Click the address combobox wrapper to focus the address field and reveal the map.
-   * Live-verified: clicking the combobox focuses the inner textbox and makes the
-   * map region visible.
+   * Click the address combobox wrapper to focus the address field.
+   * Note: the map region does NOT appear on combobox focus in the Create Property
+   * drawer — it only renders after an address is selected/geocoded.
+   * Live-verified 2026-05-10: clicking the combobox focuses the inner textbox;
+   * no region[aria-label="Map"] appears until an address is geocoded.
    */
   async openAddressAutocomplete() {
     const combobox = this.addressCombobox();
     await combobox.waitFor({ state: "visible", timeout: 8_000 });
     await combobox.click();
-    await expect(this.addressMapRegion()).toBeVisible({ timeout: 8_000 });
+    await expect(this.addressInput).toBeVisible({ timeout: 5_000 });
   }
 
   /**
