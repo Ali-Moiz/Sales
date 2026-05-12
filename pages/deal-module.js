@@ -772,12 +772,18 @@ class DealModule {
     const trySelect = async (searchText, pickFirstResult = false) => {
       const propertyTrigger = resolvePropertyTrigger();
       await propertyTrigger.waitFor({ state: "visible", timeout: 10_000 });
-      await propertyTrigger
-        .click({ force: true, timeout: 5_000 })
-        .catch(async () => {
-          await this.clickCreateDealDropdownTrigger("Select Property / Property Name");
-        });
-      // Use #simple-popper without [role="tooltip"] — MUI Popper does not reliably expose that attribute
+      // MCP-verified 2026-05-12: the React onClick owner is div.jss136 (h6 → jss143 → jss136).
+      // Invoking onClick via page.evaluate() causes MUI Popper to render at top:0,left:0
+      // (anchorEl not resolved from a real event), so #simple-popper stays invisible
+      // (offsetParent===null). A real Playwright .click() on jss136 anchors the Popper
+      // correctly — offsetParent becomes BODY and the element is visible. SKILL.md §2.
+      const propertyClickTarget = this.page
+        .locator('[class*="jss136"]')
+        .filter({ has: this.page.getByRole("heading", { name: /Select Property/, level: 6 }) });
+      await propertyClickTarget.click();
+      // The property dropdown renders as #simple-popper[role="tooltip"], correctly
+      // positioned via CSS transform after a real click. MCP-verified 2026-05-12:
+      // offsetParent===BODY when opened via Playwright click (not fiber invocation).
       const tooltip = this.page
         .locator("#simple-popper")
         .last()
@@ -789,18 +795,33 @@ class DealModule {
       await searchBox.click();
       await searchBox.fill(searchText);
       if (pickFirstResult) {
-        await this.clickFirstVisibleDropdownOption(tooltip, 10_000);
+        // Search globally for the first result containing the typed text.
+        // This avoids container-scoping issues and naturally waits for real
+        // API results (not placeholder/chrome elements inside the tooltip).
+        const needle = searchText.trim();
+        const firstResult = this.page
+          .locator('li, p, [role="option"]')
+          .filter({ hasText: new RegExp(this.escapeRegex(needle), 'i') })
+          .first();
+        await firstResult.waitFor({ state: 'visible', timeout: 10_000 });
+        await firstResult.click({ force: true }).catch(async () => {
+          await firstResult.evaluate((el) => el.click());
+        });
       } else {
         // clickVisibleDropdownOption waits for results to appear internally
         await this.clickVisibleDropdownOption(tooltip, propertyOptionText, 10_000);
       }
     };
 
-    const shouldPickFirstPatResult =
-      String(propertySearchText).trim().toUpperCase() === "PAT" &&
-      String(propertyOptionText).trim().toUpperCase() === "PAT";
+    // For any PAT-prefixed property: search "PAT " and pick the first result.
+    // This avoids hunting for an exact match that may not appear in results.
+    const isPat = String(propertySearchText).trim().toUpperCase().startsWith("PAT");
+    if (isPat) {
+      await trySelect("PAT ", true);
+      return;
+    }
+
     const variants = [
-      shouldPickFirstPatResult ? "PAT " : null,
       propertySearchText,
       ...buildSearchVariants(propertyOptionText || propertySearchText),
     ].filter(Boolean);
@@ -809,7 +830,7 @@ class DealModule {
     let lastError;
     for (const variant of uniqueVariants) {
       try {
-        await trySelect(variant, shouldPickFirstPatResult && variant === "PAT ");
+        await trySelect(variant, false);
         return;
       } catch (error) {
         lastError = error;

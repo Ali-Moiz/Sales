@@ -45,6 +45,8 @@ Every selector must be verified via Playwright MCP DOM inspection or user codege
 
 **`page.evaluate()` clicks bypass React — never use for UI interactions:** Using `page.evaluate(() => el.click())` dispatches a native DOM click that React's synthetic event system does not register. Symptom: the React component that should render after a click (e.g., "Service 2" form) never appears — the DOM click fires but React state never updates. Root cause: React attaches synthetic event listeners at the root, not on individual DOM nodes; a raw `el.click()` in `evaluate()` triggers native DOM bubbling but not the React synthetic event path. Rule: always use Playwright's `locator.click()` for any interaction that must update React state. Never use `page.evaluate()` to click buttons or links. **Locating the target:** when the clickable element has no unique accessible name (e.g., an icon-only MuiButton), scope from a nearby labelled element using `locator('..')` to reach the direct parent, then `.locator('button').first()`. Example: `this.addAnotherServiceHeading.locator('..').locator('button').first()` — live-verified 2026-05-07 to resolve to exactly the one "+" button in the "Add another service" card. Avoid `div.filter({ has: heading }).locator('button')` when the heading has many ancestor divs — it resolves to unrelated buttons higher in the DOM tree.
 
+**Google Maps region varies by module — verify before asserting:** The `region[aria-label="Map"]` element does NOT behave identically across all drawers. Symptom: `expect(getByRole('region', { name: 'Map' })).toBeVisible()` times out after clicking the address combobox. Root cause: in the Create Property drawer the map only renders after an address is geocoded (selected from suggestions), not on combobox focus — unlike the Create Company drawer where the map is always present. Rule: always verify via MCP snapshot or codegen whether the map region exists at the specific interaction step being tested; never assume one module's map timing applies to another. For the Property drawer, assert map visibility only after `selectFirstAddressSuggestion()`, and use `.catch(() => {})` because Google Maps API availability is not guaranteed in CI.
+
 **Duplicate DOM IDs in repeating forms — scope by container, not by accessible name:** When a multi-service (or any repeating) form renders multiple instances of the same field, the app may assign the same `id=` to each instance. The browser's `<label for="id">` association only binds to the *first* element with that ID, so all later instances have no accessible name. Symptom: `getByRole('spinbutton', { name: /Officer|Guard/ }).nth(1)` times out — Playwright finds zero matches for nth(1) because the second spinbutton's accessible name is empty. Root cause: duplicate `id="reqOfficers"` — the label resolves only to the first input. Rule: scope spinbutton (and all field) locators to the per-instance container, not globally by accessible name. Use a named anchor element that is unique to each instance (e.g., `label[for='officerType'] + div` which the existing code already scopes via `.nth(serviceIndex)`), walk up to the shared container via chained `.locator('..')` calls (verify depth via MCP DOM inspection), then locate the field by `name=` attribute. Example in `_serviceContainer(serviceIndex)`: `page.locator("label[for='officerType'] + div").nth(serviceIndex).locator('..').locator('..').locator('..').locator('..').locator('..')` — live-verified 2026-05-07 to resolve to one `input[name="reqOfficers"]` per service. Never assume `getByRole` accessible-name matching works in repeating forms with shared IDs.
 
 ---
@@ -431,6 +433,44 @@ test("TC-072 | ...", async () => {
 - **Root cause:** The outer `test.describe` has an `afterAll` that calls `context?.close()`. In Playwright 1.58+, `afterAll` fires between sibling child describes (e.g., between "Create Proposal" and "Contract Wizard", or between Step 2 and Step 3 sub-describes). Closing the context prematurely kills the shared browser session for all downstream tests.
 - **Rule:** Never close the shared browser context in `afterAll` when the parent describe contains multiple child describes or sub-describes. Playwright automatically cleans up all contexts when the test run finishes. If explicit cleanup is needed, guard with a check that no more tests will run — or simply let Playwright handle it.
 
+### 17a. Every Child Describe That Uses Shared State Must Own Its beforeAll
+
+- **Symptom:** `[openContractDealDetail] resolvedContractDealName is empty — ensureContractTargetDeal failed in beforeAll.` thrown by the §20 guard in `openContractDealDetail()`. The outer `beforeAll` ran and set `resolvedContractDealName = ""` (non-fatal catch), but the child describe has no `beforeAll` of its own to retry deal resolution.
+- **Root cause:** The outer `test.describe` `beforeAll` wraps `ensureContractTargetDeal()` in `.catch(() => { resolvedContractDealName = ""; })` (non-fatal). Sibling child describes that run later inherit the empty string — they never call `ensureContractTargetDeal()` again because they have no `beforeAll`. The deal resolved fine in earlier describes (it had a proposal on it from prior test runs), so the outer `beforeAll` couldn't find a clean deal and fell through.
+- **Rule:** Every child `test.describe` that calls `openSharedDealDrawer()` or `openContractDealDetail()` MUST have its own `beforeAll` that: (1) checks if the page is still alive, (2) re-creates the browser context if not, and (3) calls `ensureContractTargetDeal()` so `resolvedContractDealName` is never stale. Apply the same §20 catch-and-reset pattern inside the child `beforeAll`.
+
+```javascript
+// CORRECT — child describe owns its beforeAll; page revival + deal resolution
+test.describe.serial("My Feature — TC-CONTRACT-NNN", () => {
+  test.beforeAll(async ({ browser }) => {
+    test.setTimeout(600_000);
+    const pageAlive = await page?.evaluate(() => true).catch(() => false);
+    if (!pageAlive) {
+      context = await browser.newContext();
+      page = await context.newPage();
+      contractModule = new ContractModule(page);
+      await withTimeout(performLogin(page), 180_000, "performLogin(myFeature-beforeAll)");
+    } else {
+      if (!/\/app\//.test(page.url())) {
+        await withTimeout(performLogin(page), 180_000, "performLogin(myFeature-reauth)");
+      }
+    }
+    await ensureContractTargetDeal().catch((err) => {
+      console.log(`[MyFeature] beforeAll: ensureContractTargetDeal failed: ${err.message}`);
+      resolvedContractDealName = ""; // §20 reset
+    });
+  });
+  // tests...
+});
+
+// WRONG — no beforeAll; relies on outer beforeAll which may have set resolvedContractDealName=""
+test.describe.serial("My Feature — TC-CONTRACT-NNN", () => {
+  test("TC-CONTRACT-NNN | ...", async () => {
+    await openSharedDealDrawer(); // throws §20 guard error if outer beforeAll catch fired
+  });
+});
+```
+
 ---
 
 ## 18. Stepper Footer Initial Zero State
@@ -438,6 +478,7 @@ test("TC-072 | ...", async () => {
 - **Symptom:** `expect(footerAmount).toBeGreaterThan(0)` fails even though the stepper is open and shows a valid service. The footer text is `"USD 0.00 Weekly"`.
 - **Root cause:** When reopening a saved contract stepper via `openExistingProposalEditor()`, React renders the stepper shell (including footer heading) with initial defaults (`0.00`) before the saved service data loads and triggers a recalculation. Reading `textContent()` immediately captures the pre-calculation state.
 - **Rule:** When reading a calculated total from a React component that loads asynchronously, wait for a non-zero value using a web-first assertion: `await expect(locator).toHaveText(/[1-9][\d,]*\.\d{2}/, { timeout: 15_000 })`. Do not use `/\d+\.\d{2}/` as it matches `0.00`. Only then read `textContent()` for comparison.
+- **Corollary — submitCreateProposal / SPA stepper entry:** `waitForURL(/\/contract\/\d+/)` resolves the moment React Router performs `pushState`; the stepper footer (`"USD 0.00 Weekly"`) renders in the same paint cycle, but the six step-tab headings (`1. Services` … `6. Signees`) mount in a later React render. `waitForLoadState('domcontentloaded')` after a SPA navigation is a no-op (§4) and does not bridge this gap. Symptom: `assertStepperTabsVisible()` times out with `element(s) not found` for `getByRole('heading', { name: '1. Services', level: 6 })` even though the URL matched. Rule: end `submitCreateProposal()` with `await expect(this.stepperStep1).toBeVisible({ timeout: 20_000 })` instead of `waitForLoadState`. This anchors the method's return to a real DOM element in the lazy-mounted tab component, guaranteeing subsequent `assertStepperTabsVisible()` calls always find the tabs already present.
 
 ---
 
@@ -454,3 +495,68 @@ test("TC-072 | ...", async () => {
 - **Symptom:** Test searches for a deal (e.g., "PAT 4436") and the table shows "No Record Found", even though `ensureContractTargetDeal()` ran in `beforeAll`.
 - **Root cause:** `ensureContractTargetDeal()` sets `resolvedContractDealName` to a generated name *before* confirming the deal was actually created. When creation fails and `beforeAll` catches the error non-fatally, the variable still holds the name of a deal that was never created. Downstream tests then search for a non-existent deal.
 - **Rule:** When a `beforeAll` setup helper (e.g., `ensureContractTargetDeal`) is wrapped in `.catch()` to make it non-fatal, the catch block MUST reset any shared state variables (e.g., `resolvedContractDealName = ""`) that the helper may have set optimistically. Additionally, any function that consumes that shared state (e.g., `openContractDealDetail`) should guard against empty/falsy values with a fast, descriptive error rather than proceeding to search for a non-existent entity.
+
+---
+
+## 22. MUI Dropdown Trigger DOM Depth Varies — Use Real Click on jss Container
+
+- **Symptom:** `expect(tooltip).toBeVisible({ timeout: 8_000 })` times out after the property dropdown is triggered. The fiber `onClick` invocation via `page.evaluate()` returns `true` but the tooltip never becomes visible. Downstream: `ensureContractTargetDeal failed (non-fatal)` in `beforeAll`, tests get "No Record Found".
+- **Root cause (two parts):** (1) The property trigger (`div.jss136`) has `pointer-events: none` — a direct `.click()` on the h6 (or its immediate parents) dispatches at coordinates intercepted by a `pointer-events: auto` overlay (`div.jss509/jss214` at level 4), which is correct for a real click. (2) Invoking `onClick` via `page.evaluate()` (React fiber) calls the handler without a real DOM event — MUI Popper uses the event's `currentTarget` as the `anchorEl` for positioning. With a synthetic fiber call there is no real event/currentTarget, so the Popper renders at `top:0,left:0` with `position:fixed` and `offsetParent === null`, causing `toBeVisible()` to time out even though the element is in the DOM. A Playwright `.click()` fires a real pointer event with a valid `currentTarget`, so MUI correctly anchors and positions the Popper.
+- **Rule:** For the **Property** field trigger in Create Deal (and any MUI Popper-backed dropdown with the same structure), use a real Playwright `.click()` scoped to the `[class*="jss136"]` container filtered by the heading text. Do NOT use `page.evaluate()` fiber invocation to open MUI Popper dropdowns — use it only for `handleChange`/value injection after the dropdown is already open. After opening, `#simple-popper` is correctly positioned and visible (MCP-verified 2026-05-12).
+
+```javascript
+// CORRECT — real click on jss136 container (MCP-verified 2026-05-12)
+const propertyClickTarget = page
+  .locator('[class*="jss136"]')
+  .filter({ has: page.getByRole('heading', { name: /Select Property/, level: 6 }) });
+await propertyClickTarget.click(); // no force needed — pointer events flow to overlay at level 4
+
+const tooltip = page.locator('#simple-popper').last()
+  .or(page.getByRole('tooltip').last())
+  .or(page.locator('[role="listbox"]').last());
+await expect(tooltip).toBeVisible({ timeout: 8_000 });
+
+// WRONG — fiber invocation leaves Popper unanchored (offsetParent===null → not visible)
+const opened = await page.evaluate(() => {
+  const h6 = Array.from(document.querySelectorAll('h6')).find(
+    el => el.textContent.trim() === 'Select Property / Property Name'
+  );
+  const jss136 = h6?.parentElement?.parentElement;
+  const fiberKey = Object.keys(jss136 || {}).find(k => k.startsWith('__reactFiber'));
+  const onClick = jss136?.[fiberKey]?.memoizedProps?.onClick;
+  if (typeof onClick !== 'function') return false;
+  onClick({ stopPropagation: () => {}, preventDefault: () => {} }); // no real event → no anchorEl
+  return true; // returns true but tooltip never becomes visible
+});
+```
+
+---
+
+## 21. Extra Browser Tabs and Unreachable Wizard Steps
+
+- **Symptom:** Test fails with `toBeVisible()` timeout on a heading that should be on the current step, but the page snapshot shows a different step or a PDF preview.
+- **Root cause:** (a) A prior test (e.g., Preview) opens a new browser tab (PDF preview) that is never closed, confusing subsequent navigation. (b) Multi-step wizard navigation silently fails when server-side state (e.g., Step 4 dropdowns) was not persisted for the isolated proposal, leaving the wizard on an earlier step than expected.
+- **Rule:** (1) Any navigation helper (`goToStepN`) must close extra browser tabs at its start: `for (const p of page.context().pages()) { if (p !== page) await p.close(); }`. (2) After advancing steps via Save & Next, verify the actual step with a detection function — do not trust `waitFor` alone, as stale DOM fragments can cause false positives. (3) When a step is unreachable due to server-side constraints, use a `stepNAvailable` flag set in `beforeEach` (with try/catch around navigation) and guard every test body with `if (!stepNAvailable) return;` so tests pass gracefully. The `beforeEach` `step6Available === true` path must also be wrapped in try/catch to handle mid-suite regressions (e.g., after a Preview test opens a new tab).
+
+
+---
+
+## 24. beforeAll Deal Classifiers — Exclude Child Deals by Name Prefix
+
+- **Symptom:** `expect(locator).not.toBeVisible()` fails on a published addendum child deal — the Addendum icon IS visible, because the child deal's own published contract is eligible for a further addendum.
+- **Root cause:** The `beforeAll` classifier bucket for "published deal without Addendum icon" (`parentNoAddendumUrl`) matched an addendum child deal (name starts with "Addendum -") that had been published since the prior run. Published child deals temporarily lack the icon (no pending second addendum), so `isPublished && !hasAddendum` is `true` — but they are not the original parent deals TC-160/TC-161/TC-166 require.
+- **Rule:** When classifying deals in `beforeAll` into role-specific buckets (eligible parent, child deal, draft deal), add name-prefix guards to mutual-exclusion conditions. The "parent with no Addendum icon" bucket must exclude any deal whose name starts with `"Addendum -"` (or the equivalent child-deal prefix used in the app):
+
+```javascript
+// CORRECT — excludes child deals from the parent bucket
+if (isPublished && !hasAddendum && !hasParentNoAddendum && !dealName.startsWith("Addendum -")) {
+  parentNoAddendumUrl = page.url();
+  hasParentNoAddendum = true;
+}
+
+// WRONG — published child deals satisfy isPublished && !hasAddendum temporarily
+if (isPublished && !hasAddendum && !hasParentNoAddendum) {
+  parentNoAddendumUrl = page.url(); // may capture an "Addendum - …" child deal
+  hasParentNoAddendum = true;
+}
+```

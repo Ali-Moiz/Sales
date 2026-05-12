@@ -17,6 +17,7 @@ module.exports = defineConfig({
     timeout: 10_000,
   },
   reporter: [
+    ['json'],
     ["html", { outputFolder: "playwright-report", open: "never" }],
     ["list"],
     ["junit", { outputFile: "reports/junit/results.xml" }],

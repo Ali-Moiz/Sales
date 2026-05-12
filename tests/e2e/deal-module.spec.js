@@ -67,7 +67,7 @@ test.describe('Deal Module', () => {
 
       if (companyVisible) {
         const propertyVisible = await dealModule
-          .selectProperty(resolvedTargetPropertyName.substring(0, 6), resolvedTargetPropertyName)
+          .selectProperty("PAT ")
           .then(() => true)
           .catch(() => false);
 
@@ -136,8 +136,7 @@ test.describe('Deal Module', () => {
       dealName: createdDealName,
       companySearchText:  resolvedTargetCompanyName.substring(0, 4),
       companyOptionText:  resolvedTargetCompanyName,
-      propertySearchText: resolvedTargetPropertyName.substring(0, 6),
-      propertyOptionText: resolvedTargetPropertyName
+      propertySearchText: "PAT ",
     });
 
     await dealModule.assertDealCreated();
@@ -258,8 +257,7 @@ test.describe('Deal Module', () => {
         dealName: createdDealName,
         companySearchText:  resolvedTargetCompanyName.substring(0, 4),
         companyOptionText:  resolvedTargetCompanyName,
-        propertySearchText: resolvedTargetPropertyName.substring(0, 6),
-        propertyOptionText: resolvedTargetPropertyName
+        propertySearchText: "PAT ",
       });
 
       await dealModule.assertDealCreated();
@@ -794,8 +792,7 @@ test.describe('Deal Module', () => {
         dealName: throwawayDealName,
         companySearchText: resolvedTargetCompanyName.substring(0, 4),
         companyOptionText: resolvedTargetCompanyName,
-        propertySearchText: resolvedTargetPropertyName.substring(0, 6),
-        propertyOptionText: resolvedTargetPropertyName,
+        propertySearchText: "PAT ",
       });
       await dealModule.assertDealCreated();
 

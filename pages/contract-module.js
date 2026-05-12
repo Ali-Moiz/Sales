@@ -953,7 +953,11 @@ class ContractModule {
     } else {
       await this.page.waitForURL(/\/contract\/\d+/, { timeout: 30_000 });
     }
-    await this.page.waitForLoadState('domcontentloaded', { timeout: 15_000 }).catch(() => {});
+    // waitForLoadState('domcontentloaded') is a no-op on SPA navigation (SKILL.md §4) —
+    // React Router pushState emits no domcontentloaded event, so it resolves in ~2 ms
+    // before the stepper tab headings mount. Anchor instead on the first visible stepper
+    // tab heading, which confirms the React component tree has fully rendered (SKILL.md §18).
+    await expect(this.stepperStep1).toBeVisible({ timeout: 20_000 });
   }
 
   /** Assert the current page is the contract stepper */
@@ -2418,29 +2422,49 @@ class ContractModule {
     }).first();
 
     // If the publish modal has Contract Duration fields (dates to be decided),
-    // fill them before clicking Publish. Search on the page directly (not scoped
-    // to dialog) since MUI modals may not have role="dialog".
-    const startDateField = this.startDateInput;
-    const hasStartDate = await startDateField.isVisible().catch(() => false);
-    if (hasStartDate) {
-      const startVal = await startDateField.inputValue().catch(() => '');
-      if (!startVal || /MM\/DD/.test(startVal)) {
-        const now = new Date();
-        const start = new Date(now.getTime() + 7 * 86400000);
-        const startStr = `${String(start.getMonth() + 1).padStart(2, '0')}/${String(start.getDate()).padStart(2, '0')}/${start.getFullYear()}`;
-        await startDateField.fill(startStr);
+    // fill them before clicking Publish. The "Contract Duration" heading gates
+    // this block because the Start Date textbox accessible name varies (MUI
+    // DatePicker renders dynamic names like "15 July" instead of placeholder).
+    const contractDurationHeading = this.page.getByRole('heading', { name: 'Contract Duration' });
+    const hasDurationSection = await contractDurationHeading.isVisible().catch(() => false);
+    if (hasDurationSection) {
+      // Locate the Start Date input — try the known name first, fall back to
+      // the first textbox inside the "Start Date" labelled container.
+      let startDateField = this.startDateInput;
+      let hasStartDate = await startDateField.isVisible().catch(() => false);
+      if (!hasStartDate) {
+        // Fallback: MUI DatePicker uses dynamic accessible names (e.g. "15 July"
+        // instead of placeholder). Find the textbox sibling of the first
+        // "Choose date" button inside the Contract Duration section.
+        startDateField = this.page.getByRole('button', { name: 'Choose date' }).first().locator('..').getByRole('textbox').first();
+        hasStartDate = await startDateField.isVisible().catch(() => false);
       }
-      // Fill Renewal Date if visible and empty
-      const hasRenewal = await this.renewalDateInput.isVisible().catch(() => false);
+
+      if (hasStartDate) {
+        const startVal = await startDateField.inputValue().catch(() => '');
+        if (!startVal || /MM\/DD/.test(startVal)) {
+          const now = new Date();
+          const start = new Date(now.getTime() + 7 * 86400000);
+          const startStr = `${String(start.getMonth() + 1).padStart(2, '0')}/${String(start.getDate()).padStart(2, '0')}/${start.getFullYear()}`;
+          await startDateField.fill(startStr);
+        }
+      }
+
+      // Fill Renewal Date if visible and enabled — it starts disabled until
+      // Start Date is filled, so wait briefly for it to become enabled.
+      let renewalField = this.renewalDateInput;
+      await expect(renewalField).toBeEnabled({ timeout: 5_000 }).catch(() => {});
+      const hasRenewal = await renewalField.isEnabled().catch(() => false);
       if (hasRenewal) {
-        const renewalVal = await this.renewalDateInput.inputValue().catch(() => '');
+        const renewalVal = await renewalField.inputValue().catch(() => '');
         if (!renewalVal || /MM\/DD/.test(renewalVal)) {
           const now = new Date();
           const renewal = new Date(now.getTime() + 372 * 86400000);
           const renewalStr = `${String(renewal.getMonth() + 1).padStart(2, '0')}/${String(renewal.getDate()).padStart(2, '0')}/${renewal.getFullYear()}`;
-          await this.renewalDateInput.fill(renewalStr);
+          await renewalField.fill(renewalStr);
         }
       }
+
       // Fill End Date if visible and empty (alternative to Renewal Date)
       const endDateField = this.page.getByRole('textbox', { name: 'Select End Date' });
       const hasEndDate = await endDateField.isVisible().catch(() => false);
