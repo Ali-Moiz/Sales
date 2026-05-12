@@ -6,6 +6,8 @@
   "scripts": {
     "test:uat": "cross-env ENV_NAME=uat HEADLESS=true npx playwright test",
     "test:uat:headed": "cross-env ENV_NAME=uat npx playwright test --headed",
+    "test:staging": "cross-env ENV_NAME=staging HEADLESS=true npx playwright test",
+    "test:staging:headed": "cross-env ENV_NAME=staging npx playwright test --headed",
     "test:prod": "cross-env ENV_NAME=prod npx playwright test",
     "test:prod:headed": "cross-env ENV_NAME=prod npx playwright test --headed",
     "report": "npx playwright show-report",
