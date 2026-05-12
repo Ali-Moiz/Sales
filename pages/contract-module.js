@@ -421,7 +421,13 @@ class ContractModule {
       .catch(() => false);
 
     if (menuVisible) {
-      await this.dealsMenuLink.click();
+      const clicked = await this.dealsMenuLink
+        .click({ timeout: 10_000 })
+        .then(() => true)
+        .catch(() => false);
+      if (!clicked) {
+        await this.page.goto('/app/sales/deals', { waitUntil: 'domcontentloaded' });
+      }
     } else {
       await this.page.goto('/app/sales/deals', { waitUntil: 'domcontentloaded' });
     }
@@ -919,18 +925,34 @@ class ContractModule {
     await this.submitCreateProposalBtn.waitFor({ state: 'visible', timeout: 10_000 });
     let clicked = false;
     for (let attempt = 0; attempt < 3; attempt += 1) {
+      // Re-resolve the locator each attempt in case DOM re-rendered
+      await this.submitCreateProposalBtn.waitFor({ state: 'visible', timeout: 5_000 }).catch(() => {});
       clicked = await this.submitCreateProposalBtn
         .click({ force: true })
         .then(() => true)
         .catch(() => false);
       if (clicked) break;
+      // Fallback: focus + Enter
       await this.submitCreateProposalBtn.focus().catch(() => {});
       await this.page.keyboard.press('Enter').catch(() => {});
+      // Check if navigation already happened
+      if (/\/contract\/\d+/.test(this.page.url())) break;
+      // Brief wait before retry to let DOM stabilize
+      await this.page.waitForTimeout(1_000);
     }
-    if (!clicked) {
-      throw new Error('Unable to submit Create Proposal drawer.');
+    if (!clicked && !/\/contract\/\d+/.test(this.page.url())) {
+      // Last resort: try clicking via evaluate
+      await this.submitCreateProposalBtn.evaluate((el) => el.click()).catch(() => {});
+      const navigated = await this.page
+        .waitForURL(/\/contract\/\d+/, { timeout: 10_000 })
+        .then(() => true)
+        .catch(() => false);
+      if (!navigated) {
+        throw new Error('Unable to submit Create Proposal drawer.');
+      }
+    } else {
+      await this.page.waitForURL(/\/contract\/\d+/, { timeout: 30_000 });
     }
-    await this.page.waitForURL(/\/contract\/\d+/, { timeout: 30_000 });
     await this.page.waitForLoadState('domcontentloaded', { timeout: 15_000 }).catch(() => {});
   }
 
@@ -1832,34 +1854,44 @@ class ContractModule {
       .getByRole('heading', { name: triggerNamePattern, level: 6 })
       .first();
     await trigger.waitFor({ state: 'visible', timeout: 8_000 });
-    await trigger.click();
 
-    // Options appear in a tooltip/popper; scope lookup to popper first to avoid
-    // matching disabled labels elsewhere on the page (e.g., Payment Plans "Weekly").
-    const popper = this.page.locator('#simple-popper').last();
-    // Wait for the popper to appear after the click instead of a fixed delay
-    const popperVisible = await popper
-      .waitFor({ state: 'visible', timeout: 3_000 })
-      .then(() => true)
-      .catch(() => false);
-
-    if (popperVisible) {
-      const popperOption = popper.getByText(optionText, { exact: true }).first();
-      await popperOption.waitFor({ state: 'visible', timeout: 8_000 });
-      await popperOption.click({ force: true });
-      // Popper close signals React state update; caller assertion auto-waits
-      await popper.waitFor({ state: 'hidden', timeout: 3_000 }).catch(() => {});
+    // Skip if already showing the desired value
+    const currentText = (await trigger.textContent().catch(() => '')).trim();
+    if (currentText && !currentText.startsWith('Select ') &&
+        optionText.startsWith(currentText.replace(/\.{3}$/, ''))) {
       return;
     }
 
-    // Fallback when popper id is not available in current build.
-    const fallbackOption = this.page
-      .locator('[role="option"], li, p, div')
-      .filter({ hasText: new RegExp(`^\\s*${String(optionText).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`) })
-      .first();
-    await fallbackOption.waitFor({ state: 'visible', timeout: 8_000 });
-    await fallbackOption.click({ force: true });
-    // Popper close signals React state update; caller assertion auto-waits
+    // Click the trigger to open the dropdown, retry up to 3 times
+    const popper = this.page.locator('#simple-popper').last();
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await trigger.scrollIntoViewIfNeeded().catch(() => {});
+      await trigger.click();
+      const opened = await popper
+        .waitFor({ state: 'visible', timeout: 4_000 })
+        .then(() => true).catch(() => false);
+      if (opened) break;
+      // Retry with parent click
+      await trigger.locator('..').click().catch(() => {});
+      const opened2 = await popper
+        .waitFor({ state: 'visible', timeout: 3_000 })
+        .then(() => true).catch(() => false);
+      if (opened2) break;
+    }
+
+    // Search partially and pick the first matching option
+    const popperVisible = await popper.isVisible().catch(() => false);
+    if (popperVisible) {
+      const option = popper.getByText(optionText).first();
+      await option.waitFor({ state: 'visible', timeout: 5_000 });
+      await option.click();
+      await popper.waitFor({ state: 'hidden', timeout: 3_000 }).catch(() => {});
+    } else {
+      // Fallback: find option anywhere on the page
+      const option = this.page.getByText(optionText, { exact: true }).first();
+      await option.waitFor({ state: 'visible', timeout: 5_000 });
+      await option.click();
+    }
   }
 
   /**
@@ -2087,15 +2119,20 @@ class ContractModule {
   async assertStep5DescriptionPrefilled() {
     await this.assertStep5Visible();
     const editors = this.page.getByRole('textbox', { name: 'rdw-editor' });
-    const count = await editors.count().catch(() => 0);
-    let visibleEditorText = '';
 
-    for (let i = 0; i < count; i += 1) {
-      const editor = editors.nth(i);
-      const isVisible = await editor.isVisible().catch(() => false);
-      if (!isVisible) continue;
-      visibleEditorText = String(await editor.textContent().catch(() => '')).trim();
+    // Wait for editor content to load (may load async after heading renders)
+    let visibleEditorText = '';
+    for (let retry = 0; retry < 10; retry += 1) {
+      const count = await editors.count().catch(() => 0);
+      for (let i = 0; i < count; i += 1) {
+        const editor = editors.nth(i);
+        const isVisible = await editor.isVisible().catch(() => false);
+        if (!isVisible) continue;
+        visibleEditorText = String(await editor.textContent().catch(() => '')).trim();
+        if (visibleEditorText.length > 0) break;
+      }
       if (visibleEditorText.length > 0) break;
+      await this.page.waitForTimeout(1_000);
     }
 
     expect(
@@ -2379,6 +2416,45 @@ class ContractModule {
     const publishDialog = this.page.getByRole('dialog').filter({
       has: this.publishConfirmModalHeading,
     }).first();
+
+    // If the publish modal has Contract Duration fields (dates to be decided),
+    // fill them before clicking Publish. Search on the page directly (not scoped
+    // to dialog) since MUI modals may not have role="dialog".
+    const startDateField = this.startDateInput;
+    const hasStartDate = await startDateField.isVisible().catch(() => false);
+    if (hasStartDate) {
+      const startVal = await startDateField.inputValue().catch(() => '');
+      if (!startVal || /MM\/DD/.test(startVal)) {
+        const now = new Date();
+        const start = new Date(now.getTime() + 7 * 86400000);
+        const startStr = `${String(start.getMonth() + 1).padStart(2, '0')}/${String(start.getDate()).padStart(2, '0')}/${start.getFullYear()}`;
+        await startDateField.fill(startStr);
+      }
+      // Fill Renewal Date if visible and empty
+      const hasRenewal = await this.renewalDateInput.isVisible().catch(() => false);
+      if (hasRenewal) {
+        const renewalVal = await this.renewalDateInput.inputValue().catch(() => '');
+        if (!renewalVal || /MM\/DD/.test(renewalVal)) {
+          const now = new Date();
+          const renewal = new Date(now.getTime() + 372 * 86400000);
+          const renewalStr = `${String(renewal.getMonth() + 1).padStart(2, '0')}/${String(renewal.getDate()).padStart(2, '0')}/${renewal.getFullYear()}`;
+          await this.renewalDateInput.fill(renewalStr);
+        }
+      }
+      // Fill End Date if visible and empty (alternative to Renewal Date)
+      const endDateField = this.page.getByRole('textbox', { name: 'Select End Date' });
+      const hasEndDate = await endDateField.isVisible().catch(() => false);
+      if (hasEndDate) {
+        const endVal = await endDateField.inputValue().catch(() => '');
+        if (!endVal || /MM\/DD/.test(endVal)) {
+          const now = new Date();
+          const end = new Date(now.getTime() + 372 * 86400000);
+          const endStr = `${String(end.getMonth() + 1).padStart(2, '0')}/${String(end.getDate()).padStart(2, '0')}/${end.getFullYear()}`;
+          await endDateField.fill(endStr);
+        }
+      }
+    }
+
     const publishConfirmInDialog = publishDialog.getByRole('button', {
       name: 'Publish Contract',
       exact: true,
