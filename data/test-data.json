@@ -12,7 +12,7 @@
     },
 
     "service": {
-      "serviceName":  "Automation Service 1",
+      "serviceName":  "PAT Automation Service 1",
       "officerCount": "1",
       "hourlyRate":   "15",
       "jobDays":      ["Mon"],
@@ -29,8 +29,8 @@
       "paymentMethod":      "Bank Transfer",
       "cycleRefDay":        "25",
       "billingContact": {
-        "firstName": "Test",
-        "lastName":  "Automation",
+        "firstName": "PAT Test",
+        "lastName":  "PAT Automation",
         "email":     "test.automation@example.com",
         "phone":     "+15551234567"
       }

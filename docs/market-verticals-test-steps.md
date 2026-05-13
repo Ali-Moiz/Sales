@@ -204,7 +204,7 @@
 **Precondition:** User is on the Add Question form.
 
 **Steps:**
-1. Fill `Question Statement` with a unique value (e.g., `Auto Test Question <timestamp>`).
+1. Fill `Question Statement` with a unique value (e.g., `PAT Auto Test Question <timestamp>`).
 2. Select `Multiple Selection` as Answer Type.
 3. Select at least one Market Vertical.
 4. Add at least one option with a label and points.

@@ -242,7 +242,7 @@ test.describe("Property Module", () => {
     });
 
     test("TC-PROP-004 | Verify that the close (X) icon closes the Create Property modal without saving any data.", async () => {
-      const draftName = `X-CLOSE-${Date.now()}`;
+      const draftName = `PAT-X-CLOSE-${Date.now()}`;
       await openCreatePropertyDrawerFromList();
       await propertyModule.fillPropertyName(draftName);
       await propertyModule.dismissCreatePropertyViaCloseIcon();
@@ -2419,9 +2419,9 @@ test.describe("Property Module", () => {
         await test.step(
           "TC-PROP-062 step 2: fill Property Name — name error clears, address error remains",
           async () => {
-            await propertyModule.fillPropertyName("TC-062-Validation-Test");
+            await propertyModule.fillPropertyName("PAT-TC-062-Validation-Test");
 
-            await expect(propertyModule.propertyNameInput).toHaveValue("TC-062-Validation-Test");
+            await expect(propertyModule.propertyNameInput).toHaveValue("PAT-TC-062-Validation-Test");
             await expect(propertyModule.createPropertyHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
 
             const drawer = propertyModule.createPropertyDrawerRoot();
@@ -2454,12 +2454,12 @@ test.describe("Property Module", () => {
         await test.step(
           "TC-PROP-063 step 1: fill Property Name and select Property Source ALN",
           async () => {
-            await propertyModule.fillPropertyName("Persist-Test-Value");
+            await propertyModule.fillPropertyName("PAT-Persist-Test-Value");
             await propertyModule.openPropertySourceDropdown();
             await propertyModule.selectPropertySourceByText("ALN");
             await propertyModule.assertPropertySourceTriggerValue("ALN");
 
-            await expect(propertyModule.propertyNameInput).toHaveValue("Persist-Test-Value");
+            await expect(propertyModule.propertyNameInput).toHaveValue("PAT-Persist-Test-Value");
           },
         );
 
@@ -2469,7 +2469,7 @@ test.describe("Property Module", () => {
             await propertyModule.openPropertySourceDropdown();
             await propertyModule.dismissPropertySourceDropdownWithoutSelection();
 
-            await expect(propertyModule.propertyNameInput).toHaveValue("Persist-Test-Value");
+            await expect(propertyModule.propertyNameInput).toHaveValue("PAT-Persist-Test-Value");
             await propertyModule.assertPropertySourceTriggerValue("ALN");
           },
         );
@@ -2480,7 +2480,7 @@ test.describe("Property Module", () => {
             await propertyModule.openAssociatedFranchiseDropdown();
             await propertyModule.dismissAssociatedFranchiseDropdownWithoutSelection();
 
-            await expect(propertyModule.propertyNameInput).toHaveValue("Persist-Test-Value");
+            await expect(propertyModule.propertyNameInput).toHaveValue("PAT-Persist-Test-Value");
             await propertyModule.assertPropertySourceTriggerValue("ALN");
           },
         );
@@ -2514,7 +2514,7 @@ test.describe("Property Module", () => {
       async () => {
         await openCreatePropertyDrawerFromList();
 
-        const retainedName = `TC-065-RETAIN-${Date.now()}`;
+        const retainedName = `PAT-TC-065-RETAIN-${Date.now()}`;
         await propertyModule.fillPropertyName(retainedName);
 
         await test.step(
@@ -3482,7 +3482,7 @@ test.describe("Property Module", () => {
         await test.step("Send an email with a long body", async () => {
           await propertyModule.composeAndSendEmail({
             to: env.email,
-            subject: "Truncation Threshold Test",
+            subject: "PAT Truncation Threshold Test",
             body: longBody,
           });
         });
@@ -3502,12 +3502,12 @@ test.describe("Property Module", () => {
           // Click the first email with a timestamp (skip draft entries)
           const emailRow = page
             .getByRole("listitem")
-            .filter({ hasText: /Truncation Threshold Test/ })
+            .filter({ hasText: /PAT Truncation Threshold Test/ })
             .filter({ hasText: /\d{2}:\d{2}\s*(AM|PM)/i })
             .first();
           await emailRow.click();
           await expect(
-            page.getByRole("heading", { name: /Truncation Threshold Test/i, level: 6 }),
+            page.getByRole("heading", { name: /PAT Truncation Threshold Test/i, level: 6 }),
           ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
         });
       },

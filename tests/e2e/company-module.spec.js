@@ -3535,7 +3535,7 @@ test.describe('Company Module E2E Tests', () => {
     test('TC-COMP-145 | Invalid due date handling @regression', async () => {
       await test.step('Open Create Task and enter past date', async () => {
         await companyModule.openCreateTaskDrawer();
-        await companyModule.taskTitleInput.fill('Past Date Test');
+        await companyModule.taskTitleInput.fill('PAT Past Date Test');
         const dueDateInput = sharedPage.locator('input[placeholder*="MM/DD/YYYY"]').first();
         const visible = await dueDateInput.isVisible({ timeout: TIMEOUTS.BASE * 6 }).catch(() => false);
         if (visible) {

@@ -682,7 +682,7 @@ test.describe("Contract Module", () => {
     };
 
     const fillCommonRequiredFields = async (proposalPrefix) => {
-      await contractModule.fillProposalName(`${proposalPrefix} ${Date.now()}`);
+      await contractModule.fillProposalName(`PAT ${proposalPrefix} ${Date.now()}`);
       const timeZoneText = await contractModule.timeZoneTrigger
         .textContent()
         .catch(() => "");
@@ -1172,7 +1172,7 @@ test.describe("Contract Module", () => {
       const renewalDate = new Date(startDate);
       renewalDate.setDate(startDate.getDate() + 5);
       await contractModule.fillProposalName(
-        `Notify Days ${labelSuffix} ${Date.now()}`,
+        `PAT Notify Days ${labelSuffix} ${Date.now()}`,
       );
       const timeZonePreselected = await readTimeZoneIsPreselected();
       if (!timeZonePreselected) {
@@ -2091,10 +2091,10 @@ test.describe("Contract Module", () => {
 
       test("TC-CONTRACT-038 | Verify adding additional on-demand line items (via + Line Item) works and persists.", async () => {
         // The Title field strips non-alpha chars — digits and spaces are dropped
-        // (live-verified 2026-05-07: "PAT 177..." persisted as "PAT"; "LineItem1778..." as "LineItem").
-        // Use a random alpha-only suffix to stay unique across runs.
+        // (live-verified 2026-05-07: "PAT 177..." persisted as "PAT"; "PATLineItem1778..." as "PATLineItem").
+        // Use a PAT-prefixed alpha-only suffix to stay unique across runs.
         const uid = Math.random().toString(36).replace(/[^a-z]/g, '').substring(0, 6).padEnd(6, 'a');
-        lineItemTitle = `LineItem${uid}`;
+        lineItemTitle = `PATLineItem${uid}`;
         await contractModule.addLineItem({
           title: lineItemTitle,
           pricePerMonth: 50,
@@ -2108,7 +2108,7 @@ test.describe("Contract Module", () => {
         // Add a fresh item to delete — the item from TC-038 may not have persisted
         // across the beforeEach navigation (SPA optimistic update vs server persist).
         const uid = Math.random().toString(36).replace(/[^a-z]/g, '').substring(0, 6).padEnd(6, 'a');
-        const deleteTitle = `DelItem${uid}`;
+        const deleteTitle = `PATDelItem${uid}`;
         await contractModule.addLineItem({ title: deleteTitle, pricePerMonth: 10, quantity: 1 });
         await contractModule.deleteLineItem(deleteTitle);
         // Verify line item card is gone
@@ -2500,8 +2500,8 @@ test.describe("Contract Module", () => {
 
       test("TC-CONTRACT-067 | Verify Add Signee email validation prevents invalid email formats.", async () => {
         await contractModule.openAddSigneeDrawer();
-        await contractModule.addSigneeNameInput.fill("Test Signee");
-        await contractModule.addSigneeTitleInput.fill("Manager");
+        await contractModule.addSigneeNameInput.fill("PAT Test Signee");
+        await contractModule.addSigneeTitleInput.fill("PAT Manager");
         await contractModule.addSigneeEmailInput.fill("invalidemail");
         await contractModule.addSigneeSubmitBtn.click();
         // Drawer should stay open (email validation blocks save)
@@ -2515,7 +2515,7 @@ test.describe("Contract Module", () => {
         await contractModule.openAddSigneeDrawer();
         await contractModule.addSignee({
           name: `PAT Signee ${Date.now()}`,
-          title: "Director",
+          title: "PAT Director",
           email: `signee.${Date.now()}@example.com`,
         });
         // Verify Signee 2 card appears
@@ -3246,8 +3246,8 @@ test.describe("Contract Module", () => {
       test("TC-CONTRACT-089 | Verify Add Signee email validation prevents invalid email formats.", async () => {
         if (!step6Available) return;
         await contractModule.openAddSigneeDrawer();
-        await contractModule.addSigneeNameInput.fill("Test Signee");
-        await contractModule.addSigneeTitleInput.fill("Manager");
+        await contractModule.addSigneeNameInput.fill("PAT Test Signee");
+        await contractModule.addSigneeTitleInput.fill("PAT Manager");
         await contractModule.addSigneeEmailInput.fill("invalidemail");
         await contractModule.addSigneeSubmitBtn.click();
         // Drawer should stay open — email validation blocks save
@@ -3262,7 +3262,7 @@ test.describe("Contract Module", () => {
         await contractModule.openAddSigneeDrawer();
         await contractModule.addSignee({
           name: `PAT-090-Signee-${Date.now()}`,
-          title: "Director",
+          title: "PAT Director",
           email: `signee090.${Date.now()}@example.com`,
         });
         // Verify Signee 2 card appears
