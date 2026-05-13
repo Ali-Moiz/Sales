@@ -18,7 +18,8 @@ const env = {
   password_supervisor: process.env.SIGNAL_PASSWORD_SUPERVISOR || "",
   email_coordinator: process.env.SIGNAL_EMAIL_COORDINTOR || "",
   password_coordinator: process.env.SIGNAL_PASSWORD_COORDINTOR || "",
-  ho_username: process.env.HO_USERNAME || ""
+  ho_username: process.env.HO_USERNAME || "",
+  username_sm: process.env.SM_USERNAME || ""
 };
 
 module.exports = { env };

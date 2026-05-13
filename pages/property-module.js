@@ -1,26 +1,17 @@
 // pages/property-module.js
 // Page Object Model — Properties Module, Signal CRM
 // ALL locators live-verified via MCP browser on 2026-03-20
-// Test-data constants for prod vs non-prod are declared at the top of this file.
 
 const { TIMEOUTS } = require('../utils/playwright-timeouts');
 const { expect } = require("@playwright/test");
-const { env } = require("../utils/env");
+
+const envData = require("../utils/env-data");
 const {
   generateUniqueUsAddressCandidates,
   selectAddressFromAutocomplete,
   selectDynamicAddressWithRetry,
 } = require("../utils/dynamic_address");
 
-// ── Test data constants — prod vs non-prod (replaces env-name branching) ──
-const FRANCHISE_PROD = "Tkxel Test Franchise";
-const FRANCHISE_NONPROD = "216 - Omaha, NE";
-const ASSIGNEE_PROD = "Moiz ProdHO";
-const ASSIGNEE_NONPROD = "Moiz SM UAT";
-const CONTACT_SEARCH_PROD = "Ahsan Awan";
-const CONTACT_SEARCH_NONPROD = "moiz";
-const CONTACT_LABEL_PROD = "Ahsan Awan";
-const CONTACT_LABEL_NONPROD = "Ali TkSmoke (moiz.qureshi+c1@";
 const DEFAULT_MAX_ADDRESS_ATTEMPTS = 8;
 
 class PropertyModule {
@@ -1374,8 +1365,7 @@ class PropertyModule {
   }
 
   async selectAssociatedFranchise() {
-    const franchiseLabel =
-      env.envName === "prod" ? FRANCHISE_PROD : FRANCHISE_NONPROD;
+    const franchiseLabel = envData.franchise;
 
     const inEditForm = await this.editPropertyHeading
       .isVisible()
@@ -1457,8 +1447,7 @@ class PropertyModule {
    * Picks the first card dynamically.
    */
   async selectAssignee() {
-    const assigneeLabel =
-      env.envName === "prod" ? ASSIGNEE_PROD : ASSIGNEE_NONPROD;
+    const assigneeLabel = envData.assignee;
 
     await this.assigneeTrigger.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     await this.assigneeTrigger.click();
@@ -2297,9 +2286,8 @@ class PropertyModule {
   }
 
   async selectContactAffiliation() {
-    const contactSearchText = env.envName === "prod" ? CONTACT_SEARCH_PROD : CONTACT_SEARCH_NONPROD;
-    const contactLabel =
-      env.envName === "prod" ? CONTACT_LABEL_PROD : CONTACT_LABEL_NONPROD;
+    const contactSearchText = envData.contactSearch;
+    const contactLabel = envData.contactLabel;
 
     await this.contactTrigger.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await this.contactTrigger.click();
@@ -3938,7 +3926,7 @@ class PropertyModule {
    */
   async assertQualifiedPropertiesGraphVisible() {
     // The graph is an img element containing generic children with month labels
-    
+
     // Fallback: simply assert the img inside the Qualified Properties card is present
     const graphImg = this.page
       .getByRole("heading", { name: "Qualified Properties", level: 6 })

@@ -129,19 +129,47 @@ await Promise.all([page.waitForURL(/\/deals\/\d+/), createBtn.click()]);
 
 ## 6. Test Data Rules
 
-`process.env.*` is for **secrets, CI toggles, cross-suite handoff** only. Everything else → named constants at file top.
+`process.env.*` is for **secrets, CI toggles, cross-suite handoff** only. Everything else → named constants at file top or `utils/env-data.js`.
 
-| Belongs in `process.env`                      | Belongs in constants                   |
-| --------------------------------------------- | -------------------------------------- |
-| Passwords, API tokens                         | User names, franchise labels           |
-| `CI`, `HEADLESS`                              | Search strings, assignee labels        |
-| Cross-suite state (via `shared-run-state.js`) | Numeric limits (`MAX_SEARCH_ATTEMPTS`) |
+| Belongs in `process.env` / `.env` file        | Belongs in `utils/env-data.js`         | Belongs in file-top constants          |
+| --------------------------------------------- | -------------------------------------- | -------------------------------------- |
+| Passwords, API tokens                         | User display names, assignee labels    | Env-agnostic values (regex, ZIP codes) |
+| `BASE_URL`, `CI`, `HEADLESS`                  | Franchise names, contact search terms  | Numeric limits (`MAX_SEARCH_ATTEMPTS`) |
+| Cross-suite state (via `shared-run-state.js`) | Any string that differs per environment| Timestamps, flags                      |
+
+**Environment-specific test data → `utils/env-data.js`:** Any string value that would differ between UAT, staging, and prod (e.g., a user's display name, a franchise label, a contact search term) must be defined in `utils/env-data.js` — never hardcoded inline or declared as a `SOMETHING_PROD` / `SOMETHING_NONPROD` constant pair.
+
+```javascript
+// utils/env-data.js — single source of truth for env-specific test data
+const { envName } = require("./auth/load-env");
+
+const data = {
+  uat:     { franchise: "216 - Omaha, NE", assignee: "Moiz SM UAT", ... },
+  staging: { franchise: "Tkxel Test Franchise", assignee: "...",    ... },
+  prod:    { franchise: "Tkxel Test Franchise", assignee: "Moiz ProdHO", ... },
+};
+
+module.exports = data[envName] ?? data.uat;
+```
+
+```javascript
+// Usage in page objects or spec files
+const envData = require("../utils/env-data");
+const assigneeLabel = envData.assignee;   // ✅ no ternary, no branching
+```
+
+**Never do this:**
+```javascript
+const ASSIGNEE_PROD    = "Moiz ProdHO";   // ❌ hardcoded env pair
+const ASSIGNEE_NONPROD = "Moiz SM UAT";
+const assigneeLabel = env.envName === "prod" ? ASSIGNEE_PROD : ASSIGNEE_NONPROD; // ❌
+```
 
 **Cross-suite handoff:** use `readCreated*()` / `writeCreated*()` from `utils/shared-run-state.js` — never `process.env` writes or hardcoded paths/IDs.
 
 **Dates:** compute at runtime from `new Date()` — never hardcode calendar dates.
 
-**Constants naming:** `DOMAIN_FIELD_ENV` pattern (e.g., `FRANCHISE_PROD`). No magic numbers.
+**Constants naming:** `SCREAMING_SNAKE_CASE` for file-top constants. No `_PROD` / `_NONPROD` suffix pairs — those belong in `env-data.js`. No magic numbers.
 
 **Avoid spaces in dynamic form input data:** Some MUI controlled inputs (e.g., the contract Line Item `#title` field) drop everything typed after a space when filled via `pressSequentially`. Symptom: post-save assertion times out because the saved value is truncated (e.g., test typed `PAT 1778144327694`, card rendered `PAT`). Root cause: pressSequentially issues real key events; the form's React handler treats the space as a commit/blur trigger and rejects subsequent keystrokes. Rule: for dynamic test data fed into pressSequentially-driven inputs, use no-space identifiers — `LineItem${Date.now()}` or `PAT-${Date.now()}`, not `PAT ${Date.now()}`. Helpers that wrap `pressSequentially` on text inputs must verify `inputValue()` matches the expected text **before** clicking Save and throw a descriptive error if not — fail fast beats a vague "card not visible" timeout.
 
@@ -289,7 +317,14 @@ test.describe("Verify deleting a service updates totals", () => {});
 
 ## 10. Environment Safety
 
-All URLs/secrets from `.env` via `utils/env.js`. Never hardcode `BASE_URL`, credentials, or API keys.
+- **Secrets and config** (`BASE_URL`, credentials, API keys) → `.env.*` files via `utils/env.js`. Never hardcode.
+- **Environment-specific test data** (display names, franchise labels, search terms, anything that differs per env) → `utils/env-data.js`. Never hardcode inline or use `_PROD`/`_NONPROD` constant pairs.
+- **Never access `process.env.*` directly in test specs or page objects.** All environment variables must be routed through `utils/env.js` (for secrets/config) or `utils/env-data.js` (for test data). Direct `process.env.VARIABLE` access in specs/pages is forbidden — if a variable is needed and not yet exposed, add it to `utils/env.js` first.
+  - ✅ `env.baseUrl` — via `utils/env.js`
+  - ✅ `envData.franchise` — via `utils/env-data.js`
+  - ❌ `process.env.BASE_URL` — direct access in a spec/page
+  - ❌ `process.env.SM_USERNAME` — direct access in a spec/page
+- **Every `process.env.*` key used in code must exist in `.env.uat`.** The only exceptions are standard runtime flags that are never in `.env` files by convention: `CI`, `HEADLESS`, `ENV_NAME`, `NODE_OPTIONS`, `PW_RUNNER_DEBUG`, `EDGE_BASE_URL` (staging-only). All other keys not present in `.env.uat` are dead code and must be removed.
 
 ---
 
@@ -353,7 +388,7 @@ test("TC-X-002 | ...", async () => {
 | **NO `networkidle`**                      | Use `domcontentloaded` + explicit waits                                    |
 | **NO DOUBLE-WAITS**                       | `expect()` auto-waits; remove redundant `waitFor()`                        |
 | **NO TIMEOUT BUMPS**                      | Investigate root cause                                                     |
-| **NO HARDCODED ENV**                      | URLs/credentials from `.env` only                                          |
+| **NO HARDCODED ENV**                      | URLs/credentials from `.env` via `utils/env.js`; env-specific test data from `utils/env-data.js` |
 | **NO SHARED STATE**                       | Tests pass in any order                                                    |
 | **NO INVENTED TC CODES**                  | From docs only                                                             |
 | **NO FABRICATED SELECTORS**               | Verify via MCP or codegen paste                                            |

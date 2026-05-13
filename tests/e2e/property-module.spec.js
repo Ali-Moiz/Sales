@@ -16,6 +16,7 @@ const { test, expect } = require("@playwright/test");
 const { performLogin } = require("../../utils/auth/login-action");
 const { PropertyModule } = require("../../pages/property-module");
 const { env } = require("../../utils/env");
+const envData = require("../../utils/env-data");
 const { withTimeout } = require("../helpers/with-timeout");
 const {
   readCreatedPropertyName,
@@ -35,7 +36,7 @@ const {
 const { NotesTaskPage } = require("../../pages/notesTask.page");
 
 // ── Test data constants ──────────────────────────────────────────────────────
-const ASSIGNMENT_OPTION = "Moiz SM UAT";
+const ASSIGNMENT_OPTION = envData.assignee;
 const ZIP_FILTER_VALUE = "68135";
 const PROP_ID_FILTER_VALUE = "1234";
 const LOT_NUMBER_FILTER_VALUE = "A-101";
@@ -64,8 +65,7 @@ function taskCurrentMonthDateRange() {
 //  Outer wrapper: Single login & cleanup for entire Property Module
 // ═══════════════════════════════════════════════════════════════════════════════
 test.describe("Property Module", () => {
-  const baseUrl = process.env.BASE_URL;
-  if (!baseUrl) throw new Error("BASE_URL missing from .env");
+  const baseUrl = env.baseUrl;
 
   // ── Shared state ──
   let targetCompanyName = "";
@@ -686,7 +686,7 @@ test.describe("Property Module", () => {
       console.log(
         "[TC-PROP-021] Step 3: Search franchise and verify matching option appears",
       );
-      const targetFranchise = "216 - Omaha, NE";
+      const targetFranchise = envData.franchise;
       const franchiseTooltip =
         await propertyModule.searchInAssociatedFranchiseDropdown(targetFranchise);
       await expect(
@@ -729,7 +729,7 @@ test.describe("Property Module", () => {
     });
 
     test("TC-PROP-022 | Verify that Associated Franchise dropdown supports search and returns matching results.", async () => {
-      const matchQuery = "216 - Omaha, NE";
+      const matchQuery = envData.franchise;
       const noMatchQuery = "zzzz-no-match-123";
       const rapidQueryA = "216";
       const rapidQueryB = "240";
@@ -826,7 +826,7 @@ test.describe("Property Module", () => {
 
     test("TC-PROP-023 | Verify that selecting an Associated Franchise populates the field correctly.", async () => {
 
-      const firstFranchise = "216 - Omaha, NE";
+      const firstFranchise = envData.franchise;
       const secondFranchise = "240 - Hodgkins, IL";
       const noMatchQuery = "zzzz-no-match-123";
 
@@ -3221,7 +3221,7 @@ test.describe("Property Module", () => {
       const hoEmail = (env.email || "").trim();
       const hoPassword = (env.password || "").trim();
       const smEmail = (env.email_sm || "").trim();
-      const smUsername = (process.env.SM_USERNAME || "").trim();
+      const smUsername = env.username_sm.trim();
 
       test.skip(
         !hoEmail || !hoPassword,
