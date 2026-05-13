@@ -1,3 +1,4 @@
+const { TIMEOUTS } = require('../../utils/playwright-timeouts');
 const { test, expect } = require("@playwright/test");
 const { LoginModule } = require("../../pages/login-module");
 const { env } = require("../../utils/env");
@@ -51,7 +52,6 @@ test.describe("Login Module E2E Tests — TC-LOGIN-001 to TC-LOGIN-016", () => {
   });
 
   test("TC-LOGIN-001 | Verify that HO/FO/Sales Manager/Director/Coordinator/Supervisor is able to login", async () => {
-    test.setTimeout(600_000);
     const denied = [];
     for (const role of ROLES) {
       await test.step(`Login as ${role.name}`, async () => {
@@ -61,7 +61,7 @@ test.describe("Login Module E2E Tests — TC-LOGIN-001 to TC-LOGIN-016", () => {
         await loginPage.login(role.email, role.password);
         // Wait for either app shell or access_denied redirect
         await sharedPage.waitForURL(/\/app\/sales\/|loginError/, {
-          timeout: 60_000,
+          timeout: TIMEOUTS.BASE * 120,
         });
         const url = sharedPage.url();
         if (url.includes("loginError=access_denied")) {
@@ -90,14 +90,13 @@ test.describe("Login Module E2E Tests — TC-LOGIN-001 to TC-LOGIN-016", () => {
     );
     await loginPage.clickForgotPassword();
     await sharedPage.waitForURL(/forgot-password/, {
-      timeout: 15_000,
+      timeout: TIMEOUTS.BASE * 30,
       waitUntil: "commit",
     });
     expect(sharedPage.url()).toContain("forgot-password");
   });
 
   test("TC-LOGIN-003 | Verify that the user can log in successfully with valid credentials", async () => {
-    test.setTimeout(180_000);
     await loginPage.login(VALID_EMAIL, VALID_PASS);
     await loginPage.waitForDashboard();
     await expect(sharedPage).toHaveURL(/app\/sales\/dashboard/);
@@ -107,7 +106,6 @@ test.describe("Login Module E2E Tests — TC-LOGIN-001 to TC-LOGIN-016", () => {
   });
 
   test("TC-LOGIN-004 | Verify that the system redirects to the correct dashboard/home page after successful login", async () => {
-    test.setTimeout(180_000);
     await loginPage.login(VALID_EMAIL, VALID_PASS);
     await loginPage.waitForDashboard();
     await expect(sharedPage).toHaveURL(/app\/sales\/dashboard/);
@@ -136,7 +134,6 @@ test.describe("Login Module E2E Tests — TC-LOGIN-001 to TC-LOGIN-016", () => {
   });
 
   test("TC-LOGIN-007 | Verify that pressing the Enter key submits the login form successfully", async () => {
-    test.setTimeout(180_000);
     await loginPage.fillEmail(VALID_EMAIL);
     await loginPage.fillPassword(VALID_PASS);
     await loginPage.pressEnterOnPassword();
@@ -157,7 +154,6 @@ test.describe("Login Module E2E Tests — TC-LOGIN-001 to TC-LOGIN-016", () => {
   });
 
   test("TC-LOGIN-009 | Verify that the user can log out and is redirected to the login page", async () => {
-    test.setTimeout(180_000);
     await loginPage.login(VALID_EMAIL, VALID_PASS);
     await loginPage.waitForDashboard();
     await loginPage.dismissHeaderOverlayIfPresent();
@@ -213,7 +209,6 @@ test.describe("Login Module E2E Tests — TC-LOGIN-001 to TC-LOGIN-016", () => {
   test("TC-LOGIN-014 | Verify that the login functionality works across different browsers", async () => {
     // Cross-browser coverage is handled by playwright.config.js projects (Chromium, Firefox, WebKit).
     // This test verifies core login in the current browser project.
-    test.setTimeout(180_000);
     await loginPage.login(VALID_EMAIL, VALID_PASS);
     await loginPage.waitForDashboard();
     await expect(sharedPage).toHaveURL(/app\/sales\/dashboard/);
@@ -256,7 +251,7 @@ test.describe("Login Module E2E Tests — TC-LOGIN-001 to TC-LOGIN-016", () => {
     );
     await loginPage.clickForgotPassword();
     await sharedPage.waitForURL(/forgot-password/, {
-      timeout: 15_000,
+      timeout: TIMEOUTS.BASE * 30,
       waitUntil: "commit",
     });
     expect(sharedPage.url()).toContain("forgot-password");

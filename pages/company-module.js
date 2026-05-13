@@ -1,3 +1,4 @@
+const { TIMEOUTS } = require('../utils/playwright-timeouts');
 const { expect } = require('@playwright/test');
 const {
   selectAddressFromAutocomplete,
@@ -164,26 +165,26 @@ class CompanyModule {
 
   async gotoCompaniesFromMenu() {
     const menuVisible = await this.companiesMenuLink
-      .waitFor({ state: 'visible', timeout: 20_000 }).then(() => true).catch(() => false);
+      .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 40 }).then(() => true).catch(() => false);
     if (menuVisible) {
       await this.companiesMenuLink.click();
     } else {
       await this.page.goto('/app/sales/companies', { waitUntil: 'domcontentloaded' });
     }
 
-    await this.page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {});
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 40 }).catch(() => {});
   }
 
   // ── List page assertions ───────────────────────────────────────────────────
 
   async assertCompaniesPageOpened() {
-    await expect(this.page).toHaveURL(/\/app\/sales\/companies/, { timeout: 20_000 });
-    await expect(this.createCompanyButton.first()).toBeVisible({ timeout: 15_000 });
+    await expect(this.page).toHaveURL(/\/app\/sales\/companies/, { timeout: TIMEOUTS.BASE * 40 });
+    await expect(this.createCompanyButton.first()).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
     await expect
       .poll(async () => {
         const footer = await this.getPaginationText().catch(() => '');
         return /^0\s*-\s*0\s+of\s+0$/i.test(footer) ? 'loading' : footer;
-      }, { timeout: 20_000 })
+      }, { timeout: TIMEOUTS.BASE * 40 })
       .not.toBe('loading');
   }
 
@@ -195,7 +196,7 @@ class CompanyModule {
     for (const col of expectedColumns) {
       await expect(
         this.page.getByRole('columnheader', { name: col, exact: true })
-      ).toBeVisible({ timeout: 10_000 });
+      ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     }
   }
 
@@ -203,11 +204,11 @@ class CompanyModule {
     // Click the Market Vertical filter heading to open the tooltip
     await this.marketVerticalFilter.click();
     const tooltip = this.page.locator('#simple-popper').first();
-    await expect(tooltip).toBeVisible({ timeout: 5_000 });
+    await expect(tooltip).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
 
     // Verify all 5 confirmed option labels
     for (const option of ['Commercial', 'Distribution', 'Industrial', 'Manufacturing', 'Residential']) {
-      await expect(tooltip.getByText(option, { exact: true })).toBeVisible({ timeout: 5_000 });
+      await expect(tooltip.getByText(option, { exact: true })).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     }
 
     // Close by pressing Escape
@@ -215,23 +216,23 @@ class CompanyModule {
   }
 
   async searchForCompany(companyName) {
-    await this.companySearchInput.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.companySearchInput.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.companySearchInput.fill(companyName);
-    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
-    await this.page.waitForTimeout(1_000);
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
+    await expect(this.companySearchInput).toHaveValue(companyName, { timeout: TIMEOUTS.BASE * 4 });
   }
 
   async assertSearchShowsNoResults(companyNameToDisappear) {
-    await expect(this.companySearchInput).toHaveValue(/.+/, { timeout: 5_000 });
+    await expect(this.companySearchInput).toHaveValue(/.+/, { timeout: TIMEOUTS.BASE * 10 });
     if (companyNameToDisappear) {
-      await expect(this.page.getByText(companyNameToDisappear, { exact: true }).first()).not.toBeVisible({ timeout: 10_000 });
+      await expect(this.page.getByText(companyNameToDisappear, { exact: true }).first()).not.toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     }
   }
 
   async clearCompanySearch() {
     await this.companySearchInput.clear();
-    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
-    await this.page.waitForTimeout(500);
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
+    await expect(this.companySearchInput).toHaveValue('', { timeout: TIMEOUTS.BASE * 4 });
   }
 
   async resetCompaniesListState() {
@@ -248,7 +249,7 @@ class CompanyModule {
   }
 
   async getPaginationText() {
-    await this.paginationInfo.first().waitFor({ state: 'visible', timeout: 15_000 });
+    await this.paginationInfo.first().waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
     const text = await this.paginationInfo.first().innerText().catch(() => '');
     return this.normalizePaginationText(text);
   }
@@ -285,13 +286,13 @@ class CompanyModule {
 
   async selectNextRowsPerPageOption() {
     const beforeFooter = await this.getPaginationText().catch(() => '');
-    await this.rowsPerPageCombo.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.rowsPerPageCombo.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.rowsPerPageCombo.click({ force: true });
     // Use keyboard to pick next available option (avoids hardcoding option labels).
     await this.page.keyboard.press('ArrowDown');
     await this.page.keyboard.press('Enter');
     await expect
-      .poll(() => this.getPaginationText(), { timeout: 15_000 })
+      .poll(() => this.getPaginationText(), { timeout: TIMEOUTS.BASE * 30 })
       .not.toBe(beforeFooter);
   }
 
@@ -303,29 +304,25 @@ class CompanyModule {
 
   async gotoNextPage() {
     const beforeFooter = await this.getPaginationText().catch(() => '');
-    const beforeRow = await this.getFirstRowTextByColumnIndex(0).catch(() => '');
-    await this.nextPageBtn.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.nextPageBtn.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.nextPageBtn.click();
     await expect
       .poll(async () => {
         const footer = await this.getPaginationText().catch(() => '');
-        const row = await this.getFirstRowTextByColumnIndex(0).catch(() => '');
-        return footer !== beforeFooter || row !== beforeRow ? 'changed' : 'same';
-      }, { timeout: 20_000 })
+        return footer !== beforeFooter ? 'changed' : 'same';
+      }, { timeout: TIMEOUTS.BASE * 40 })
       .toBe('changed');
   }
 
   async gotoPrevPage() {
     const beforeFooter = await this.getPaginationText().catch(() => '');
-    const beforeRow = await this.getFirstRowTextByColumnIndex(0).catch(() => '');
-    await this.prevPageBtn.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.prevPageBtn.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.prevPageBtn.click();
     await expect
       .poll(async () => {
         const footer = await this.getPaginationText().catch(() => '');
-        const row = await this.getFirstRowTextByColumnIndex(0).catch(() => '');
-        return footer !== beforeFooter || row !== beforeRow ? 'changed' : 'same';
-      }, { timeout: 20_000 })
+        return footer !== beforeFooter ? 'changed' : 'same';
+      }, { timeout: TIMEOUTS.BASE * 40 })
       .toBe('changed');
   }
 
@@ -340,24 +337,24 @@ class CompanyModule {
 
   async setRowsPerPage(value) {
     const beforeFooter = await this.getPaginationText().catch(() => '');
-    await this.rowsPerPageCombo.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.rowsPerPageCombo.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     // If underlying control is a native <select>, prefer selectOption.
     const nativeSelected = await this.rowsPerPageCombo
       .selectOption(String(value))
       .then(() => true)
       .catch(() => false);
     if (nativeSelected) {
-      await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+      await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
       return;
     }
 
     const listbox = this.page.getByRole('listbox').first();
     await this.rowsPerPageCombo.click({ force: true });
-    const opened = await listbox.waitFor({ state: 'visible', timeout: 2_500 }).then(() => true).catch(() => false);
+    const opened = await listbox.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 5 }).then(() => true).catch(() => false);
     if (!opened) {
       await this.selectRowsPerPageWithKeyboard(value);
       await expect
-        .poll(() => this.getPaginationText(), { timeout: 15_000 })
+        .poll(() => this.getPaginationText(), { timeout: TIMEOUTS.BASE * 30 })
         .not.toBe(beforeFooter);
       return;
     }
@@ -368,10 +365,10 @@ class CompanyModule {
       .or(this.page.getByRole('option', { name: valueRe }))
       .or(this.page.getByText(valueRe).first());
 
-    await option.first().waitFor({ state: 'visible', timeout: 10_000 });
+    await option.first().waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await option.first().click({ force: true });
     await expect
-      .poll(() => this.getPaginationText(), { timeout: 15_000 })
+      .poll(() => this.getPaginationText(), { timeout: TIMEOUTS.BASE * 30 })
       .not.toBe(beforeFooter);
   }
 
@@ -395,34 +392,43 @@ class CompanyModule {
 
   async assertPaginationRange(expectedStart, expectedEnd) {
     await expect
-      .poll(async () => this.parsePaginationRange(await this.getPaginationText()), { timeout: 15_000 })
+      .poll(async () => this.parsePaginationRange(await this.getPaginationText()), { timeout: TIMEOUTS.BASE * 30 })
       .toMatchObject({ start: expectedStart, end: expectedEnd });
   }
 
   async getVisibleTableRowCount() {
-    await this.companiesTable.first().waitFor({ state: 'visible', timeout: 15_000 });
+    await this.companiesTable.first().waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
     return this.companiesTable.locator('tbody tr').count();
   }
 
   async getFirstRowTextByColumnIndex(colIndex) {
-    await this.companiesTable.first().waitFor({ state: 'visible', timeout: 15_000 });
+    await this.companiesTable.first().waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
     const firstRow = this.companiesTable.locator('tbody tr').first();
-    await firstRow.waitFor({ state: 'visible', timeout: 15_000 });
+    await firstRow.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
     const cell = firstRow.locator('td').nth(colIndex);
     const text = await cell.innerText().catch(() => '');
     return (text || '').trim();
   }
 
-  async clickCompanyNameCellByText(companyName) {
+  getCompanyNameTextLocator(companyName) {
     const escapedName = companyName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const exactText = new RegExp(`^\\s*${escapedName}\\s*$`, 'i');
-    // Click the inner text element directly — the navigation handler is on the
-    // child div inside the <td>, not the <td> itself.
-    const clickableText = this.companiesTable
+    return this.companiesTable
       .getByText(exactText)
       .first();
+  }
 
-    await clickableText.waitFor({ state: 'visible', timeout: 30_000 });
+  async assertCompanyVisibleInGrid(companyName) {
+    await expect(this.getCompanyNameTextLocator(companyName))
+      .toBeVisible({ timeout: TIMEOUTS.BASE * 40 });
+  }
+
+  async clickCompanyNameCellByText(companyName) {
+    // Click the inner text element directly — the navigation handler is on the
+    // child div inside the <td>, not the <td> itself.
+    const clickableText = this.getCompanyNameTextLocator(companyName);
+
+    await clickableText.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 60 });
     await clickableText.scrollIntoViewIfNeeded().catch(() => {});
     await clickableText.click();
   }
@@ -430,11 +436,11 @@ class CompanyModule {
   async openFirstCompanyFromList() {
     const name = await this.getFirstRowTextByColumnIndex(0);
     await this.clickCompanyNameCellByText(name);
-    await this.page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
     return name;
   }
 
-  async waitForFirstRowNonEmpty(colIndex = 0, timeout = 15_000) {
+  async waitForFirstRowNonEmpty(colIndex = 0, timeout = TIMEOUTS.BASE * 30) {
     // Wait until the first cell in the given column contains non-blank text.
     await expect
       .poll(async () => {
@@ -446,9 +452,9 @@ class CompanyModule {
   }
 
   async sortByColumn(sortButton, colIndex = 0) {
-    await sortButton.waitFor({ state: 'visible', timeout: 10_000 });
+    await sortButton.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await sortButton.click({ force: true });
-    await this.page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
     return this.waitForFirstRowNonEmpty(colIndex).catch(
       async () => this.getFirstRowTextByColumnIndex(colIndex).catch(() => '')
     );
@@ -468,8 +474,8 @@ class CompanyModule {
 
   async openCreateCompanyModal() {
     await this.createCompanyButton.first().click();
-    await this.createCompanyHeading.waitFor({ state: 'visible', timeout: 15_000 });
-    await this.companyNameInput.waitFor({ state: 'visible', timeout: 15_000 });
+    await this.createCompanyHeading.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
+    await this.companyNameInput.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
   }
 
   async assertCreateCompanyModalOpen() {
@@ -482,16 +488,16 @@ class CompanyModule {
           this.getModal().locator('div').filter({ hasText: /Select Industry|Manufacturing|Residential|Commercial|Industrial|Others/i }).first().isVisible().catch(() => false),
         ]);
         return states.some(Boolean);
-      }, { timeout: 5_000 }).toBe(true);
+      }, { timeout: TIMEOUTS.BASE * 10 }).toBe(true);
       industryControlVisible = true;
     } catch {
       industryControlVisible = false;
     }
 
-    await expect(this.createCompanyHeading).toBeVisible({ timeout: 10_000 });
-    await expect(this.companyNameInput).toBeVisible({ timeout: 5_000 });
+    await expect(this.createCompanyHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.companyNameInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     expect(industryControlVisible).toBe(true);
-    await expect(this.addressInput).toBeVisible({ timeout: 5_000 });
+    await expect(this.addressInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   async assertCreateCompanyRequiredValidationMessages() {
@@ -519,7 +525,7 @@ class CompanyModule {
           nameOk: nameMsgVisible || nameInvalid === 'true' || (requiredLabelsVisible && submitDisabled),
           addressOk: addressMsgVisible || addressInvalid === 'true' || (requiredLabelsVisible && submitDisabled),
         };
-      }, { timeout: 10_000 })
+      }, { timeout: TIMEOUTS.BASE * 20 })
       .toEqual({ nameOk: true, addressOk: true });
     await this.page.keyboard.press('Escape').catch(() => {});
   }
@@ -529,7 +535,7 @@ class CompanyModule {
   }
 
   async fillCompanyDomain(domain) {
-    await this.companyDomainInput.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.companyDomainInput.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.companyDomainInput.fill(domain);
   }
 
@@ -552,10 +558,10 @@ class CompanyModule {
 
   async openCreateSpStatusDropdown() {
     for (const candidate of this.getCreateSpStatusCandidates()) {
-      const visible = await candidate.isVisible({ timeout: 2_000 }).catch(() => false);
+      const visible = await candidate.isVisible({ timeout: TIMEOUTS.BASE * 4 }).catch(() => false);
       if (!visible) continue;
 
-      const clicked = await candidate.click({ force: true, timeout: 5_000 }).then(() => true).catch(() => false);
+      const clicked = await candidate.click({ force: true, timeout: TIMEOUTS.BASE * 10 }).then(() => true).catch(() => false);
       if (!clicked) continue;
 
       const opened = await (async () => {
@@ -567,7 +573,7 @@ class CompanyModule {
               this.spStatusNotSpOption.isVisible().catch(() => false),
             ]);
             return states.some(Boolean);
-          }, { timeout: 5_000 }).toBe(true);
+          }, { timeout: TIMEOUTS.BASE * 10 }).toBe(true);
           return true;
         } catch {
           return false;
@@ -603,7 +609,7 @@ class CompanyModule {
       selectedInUi = await modal
         .getByRole('heading', { name: label, level: 6 })
         .first()
-        .waitFor({ state: 'visible', timeout: 2_000 })
+        .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 4 })
         .then(() => true)
         .catch(() => false);
 
@@ -626,7 +632,7 @@ class CompanyModule {
       selectedInUi = await modal
         .getByRole('heading', { name: label, level: 6 })
         .first()
-        .waitFor({ state: 'visible', timeout: 2_000 })
+        .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 4 })
         .then(() => true)
         .catch(() => false);
     }
@@ -658,83 +664,83 @@ class CompanyModule {
       }, label).catch(() => false);
     }
 
-    await expect(modal.getByRole('heading', { name: label, level: 6 }).first()).toBeVisible({ timeout: 10_000 });
+    await expect(modal.getByRole('heading', { name: label, level: 6 }).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertSpStatusOptionsVisible() {
     await this.assertCreateCompanyModalOpen();
     await this.openCreateSpStatusDropdown();
-    await expect(this.getSpStatusOptionCandidates('SP - Active')[0]).toBeVisible({ timeout: 10_000 });
-    await expect(this.getSpStatusOptionCandidates('SP - Target')[0]).toBeVisible({ timeout: 10_000 });
-    await expect(this.getSpStatusOptionCandidates('Not SP')[0]).toBeVisible({ timeout: 10_000 });
+    await expect(this.getSpStatusOptionCandidates('SP - Active')[0]).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.getSpStatusOptionCandidates('SP - Target')[0]).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.getSpStatusOptionCandidates('Not SP')[0]).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     await this.companyNameInput.click({ force: true }).catch(() => {});
   }
 
   async assertSpStatusSelection(label) {
-    await expect(this.getModal().getByRole('heading', { name: label, level: 6 }).first()).toBeVisible({ timeout: 10_000 });
+    await expect(this.getModal().getByRole('heading', { name: label, level: 6 }).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async openMoreFilters() {
-    await this.moreFiltersButton.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.moreFiltersButton.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.moreFiltersButton.click();
-    await expect(this.moreFiltersHeading).toBeVisible({ timeout: 10_000 });
+    await expect(this.moreFiltersHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async closeMoreFilters() {
     // Close with Escape (works in UAT)
     await this.page.keyboard.press('Escape');
-    await expect(this.moreFiltersHeading).not.toBeVisible({ timeout: 10_000 });
+    await expect(this.moreFiltersHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertMoreFiltersFieldsVisible() {
-    await expect(this.page.getByRole('heading', { name: 'States', level: 6 })).toBeVisible({ timeout: 10_000 });
-    await expect(this.page.getByRole('heading', { name: 'Cities', level: 6 })).toBeVisible({ timeout: 10_000 });
-    await expect(this.page.getByRole('heading', { name: 'Parent Company', level: 6 })).toBeVisible({ timeout: 10_000 });
-    await expect(this.page.getByRole('heading', { name: 'Market Verticals', level: 6 })).toBeVisible({ timeout: 10_000 });
+    await expect(this.page.getByRole('heading', { name: 'States', level: 6 })).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.page.getByRole('heading', { name: 'Cities', level: 6 })).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.page.getByRole('heading', { name: 'Parent Company', level: 6 })).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.page.getByRole('heading', { name: 'Market Verticals', level: 6 })).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     // SP status exists as a select heading inside filters
-    await expect(this.page.getByRole('heading', { name: 'Select SP Status', level: 6 }).first()).toBeVisible({ timeout: 10_000 });
-    await expect(this.page.getByText('Created Date').first()).toBeVisible({ timeout: 10_000 });
-    await expect(this.page.getByText('Last Activity').first()).toBeVisible({ timeout: 10_000 });
-    await expect(this.page.getByText('Last Modified').first()).toBeVisible({ timeout: 10_000 });
+    await expect(this.page.getByRole('heading', { name: 'Select SP Status', level: 6 }).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.page.getByText('Created Date').first()).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.page.getByText('Last Activity').first()).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.page.getByText('Last Modified').first()).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async applyMoreFilters() {
     const apply = this.page.getByRole('button', { name: 'Apply Filters' }).first();
-    await apply.waitFor({ state: 'visible', timeout: 10_000 });
+    await apply.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     // Intercept the API response triggered by Apply Filters before clicking
     await Promise.all([
       this.page
         .waitForResponse(
           (r) => r.url().includes('/companies') && r.status() === 200,
-          { timeout: 15_000 },
+          { timeout: TIMEOUTS.BASE * 30 },
         )
         .catch(() => {}),
       apply.click(),
     ]);
-    await expect(this.moreFiltersHeading).not.toBeVisible({ timeout: 10_000 });
-    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+    await expect(this.moreFiltersHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
   }
 
   async clearAllMoreFilters() {
     const clear = this.page.getByRole('button', { name: 'Clear All' }).first();
-    await clear.waitFor({ state: 'visible', timeout: 10_000 });
+    await clear.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await clear.click();
   }
 
   async selectMoreFiltersMarketVertical(optionLabel = 'Manufacturing') {
     const trigger = this.page.getByRole('heading', { name: 'Market Verticals', level: 6 }).first();
-    await trigger.waitFor({ state: 'visible', timeout: 10_000 });
+    await trigger.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await trigger.click({ force: true });
     const option = this.page.getByText(optionLabel, { exact: true }).last();
-    await option.waitFor({ state: 'visible', timeout: 10_000 });
+    await option.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await option.click({ force: true });
   }
 
   async openMarketVerticalFilterOptions() {
-    await this.marketVerticalFilter.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.marketVerticalFilter.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.marketVerticalFilter.click({ force: true });
     const tooltip = this.page.locator('#simple-popper').first();
-    await expect(tooltip).toBeVisible({ timeout: 10_000 });
+    await expect(tooltip).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     return tooltip;
   }
 
@@ -749,7 +755,7 @@ class CompanyModule {
         const footer = await this.getPaginationText().catch(() => '');
         const firstRow = await this.getFirstRowTextByColumnIndex(0).catch(() => '');
         return footer !== beforeFooter || firstRow !== beforeFirstRow ? 'changed' : 'same';
-      }, { timeout: 20_000 })
+      }, { timeout: TIMEOUTS.BASE * 40 })
       .toBe('changed');
   }
 
@@ -758,7 +764,7 @@ class CompanyModule {
     const visible = await clearAllButton.isVisible().catch(() => false);
     if (visible) {
       await clearAllButton.click({ force: true });
-      await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+      await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
       return;
     }
 
@@ -769,21 +775,21 @@ class CompanyModule {
     // About section lists fields as label/value pairs. Use regex for stable checks.
 
     const labelNode = this.page.getByText(label, { exact: true }).first();
-    await labelNode.waitFor({ state: 'visible', timeout: 15_000 });
-    await expect(this.page.getByText(expectedValueRegex).first()).toBeVisible({ timeout: 15_000 });
+    await labelNode.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
+    await expect(this.page.getByText(expectedValueRegex).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
   }
 
   async openAttachmentsSection() {
-    await this.attachmentsSection.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.attachmentsSection.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.attachmentsSection.click({ force: true });
-    await expect(this.attachmentUploadHeading).toBeVisible({ timeout: 15_000 });
+    await expect(this.attachmentUploadHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
   }
 
   async uploadAttachment(filePath) {
     await this.openAttachmentsSection();
-    await this.attachmentFileInput.waitFor({ state: 'attached', timeout: 10_000 });
+    await this.attachmentFileInput.waitFor({ state: 'attached', timeout: TIMEOUTS.BASE * 20 });
     await this.attachmentFileInput.setInputFiles(filePath);
-    await this.page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
   }
 
   async getSectionCount(sectionButton) {
@@ -793,14 +799,14 @@ class CompanyModule {
   }
 
   async expandRelationshipSection(sectionButton) {
-    await sectionButton.waitFor({ state: 'visible', timeout: 10_000 });
+    await sectionButton.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await sectionButton.click({ force: true });
-    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
     return this.getSectionCount(sectionButton);
   }
 
   async assertAttachmentVisible(fileName) {
-    await expect(this.page.getByText(fileName, { exact: true }).first()).toBeVisible({ timeout: 20_000 });
+    await expect(this.page.getByText(fileName, { exact: true }).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 40 });
   }
 
   async tryDownloadAttachment(fileName) {
@@ -815,7 +821,7 @@ class CompanyModule {
     if (!visible) return false;
 
     const download = await Promise.all([
-      this.page.waitForEvent('download', { timeout: 10_000 }).catch(() => null),
+      this.page.waitForEvent('download', { timeout: TIMEOUTS.BASE * 20 }).catch(() => null),
       downloadButton.first().click({ force: true })
     ]).then(([event]) => event);
 
@@ -839,22 +845,22 @@ class CompanyModule {
       await this.deleteConfirmButton.click({ force: true });
     }
 
-    await expect(this.page.getByText(fileName, { exact: true }).first()).not.toBeVisible({ timeout: 15_000 });
+    await expect(this.page.getByText(fileName, { exact: true }).first()).not.toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
     return true;
   }
 
   async assertCreateCompanySubmitDisabled() {
     const submitBtn = this.page.locator('button:disabled').filter({ hasText: /^Create Company$/ }).last();
-    await expect(submitBtn).toBeDisabled({ timeout: 5_000 });
+    await expect(submitBtn).toBeDisabled({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   async cancelCreateCompanyModal() {
     await this.cancelCreateBtn.click();
-    await this.createCompanyHeading.waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => {});
+    await this.createCompanyHeading.waitFor({ state: 'hidden', timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
   }
 
   async assertCreateCompanyModalClosed() {
-    await expect(this.createCompanyHeading).not.toBeVisible({ timeout: 8_000 });
+    await expect(this.createCompanyHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   getModal() {
@@ -867,7 +873,7 @@ class CompanyModule {
   }
 
   async replaceInputValue(locator, value) {
-    await locator.waitFor({ state: 'visible', timeout: 10_000 });
+    await locator.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await locator.click();
     await locator.fill('');
     await locator.evaluate((input) => {
@@ -880,58 +886,28 @@ class CompanyModule {
   }
 
   async selectIndustry() {
-    const primaryTrigger = this.page.locator(
-      'xpath=//body/div[@role="presentation"]/form[contains(@class,"MuiBox-root")]/div[contains(@class,"innerScrollBar")]/div[2]/div[1]/div[1]/div[1]'
-    ).first();
-    const industryCandidates = [
-      primaryTrigger,
-      this.page.locator('div[aria-describedby="simple-popper"]').filter({ has: this.page.locator('h6:has-text("Select Industry")') }).locator('> div').first(),
-      this.page.getByText('Select Industry', { exact: true }).first(),
-      this.page.locator('div').filter({ hasText: /^Select Industry$/ }).first(),
-      this.page.locator('[aria-haspopup="listbox"]').filter({ hasText: /Select Industry/i }).first()
-    ];
-
-    let opened = false;
-    for (const candidate of industryCandidates) {
-      const visible = await candidate.isVisible({ timeout: 2_000 }).catch(() => false);
-      if (!visible) continue;
-      opened = await candidate.click({ force: true, timeout: 5_000 }).then(() => true).catch(() => false);
-      if (!opened) continue;
-      await this.page.waitForTimeout(800);
-      if (await this.industryOption.isVisible({ timeout: 2_000 }).catch(() => false)) break;
-    }
-
-    if (!(await this.industryOption.isVisible({ timeout: 3_000 }).catch(() => false))) {
-      const injected = await this.page.evaluate((value) => {
-        const roots = Array.from(document.querySelectorAll('div[aria-describedby="simple-popper"]'));
-        const root  = roots.find((el) => /Select Industry/.test(el.textContent || '')) || roots[0];
-        const child = root?.firstElementChild;
-        const fiberKey = child ? Object.keys(child).find((k) => k.startsWith('__reactFiber')) : null;
-        let node = fiberKey ? child[fiberKey] : null;
-
-        while (node) {
-          const props = node.memoizedProps;
-          if (props?.handleChange) {
-            props.handleChange({
-              target: { name: props.name || 'companyIndustry', value: { label: value, value } }
-            });
-            return true;
-          }
-          node = node.return;
-        }
-        return false;
-      }, 'Manufacturing').catch(() => false);
-
-      if (!injected) {
-        throw new Error('Market Vertical dropdown did not open in the Create Company modal.');
-      }
-
-      await this.page.waitForTimeout(500);
+    const modal = this.getModal();
+    const selectedHeading = modal
+      .getByRole('heading', { name: 'Manufacturing', level: 6 })
+      .first();
+    if (await selectedHeading.isVisible().catch(() => false)) {
       return;
     }
 
-    await this.industryOption.waitFor({ state: 'visible', timeout: 10_000 });
-    await this.industryOption.click({ force: true });
+    const trigger = modal
+      .getByRole('heading', { name: 'Select Industry', level: 6 })
+      .locator('..')
+      .first();
+    await trigger.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
+    await trigger.click();
+
+    const option = this.page
+      .locator('#simple-popper')
+      .getByText('Manufacturing', { exact: true })
+      .first();
+    await option.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
+    await option.click();
+    await expect(selectedHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async fillAddress(address) {
@@ -940,56 +916,84 @@ class CompanyModule {
           page: this.page,
           addressInput: this.addressInput,
           addressText: address,
-          optionTimeoutMs: 10_000,
+          optionTimeoutMs: TIMEOUTS.BASE * 20,
           attempts: 2,
         })
       : await selectDynamicAddressWithRetry({
           page: this.page,
           addressInput: this.addressInput,
           maxAttempts: 6,
-          optionTimeoutMs: 10_000,
+          optionTimeoutMs: TIMEOUTS.BASE * 20,
         }).then(() => true).catch(() => false);
     if (!selected) {
       throw new Error(
         `Company address autocomplete selection failed for "${address || "dynamic candidate"}".`,
       );
     }
-    await this.page.waitForTimeout(400);
+    await expect(this.addressInput).not.toHaveValue('', { timeout: TIMEOUTS.BASE * 8 });
   }
 
   async submitCreateCompany() {
-    const modalCreateButton = this.getModal().getByRole('button', { name: 'Create Company' }).last();
-    await modalCreateButton.waitFor({ state: 'visible', timeout: 10_000 });
     this.lastCreateCompanyToastSeen = false;
 
-    const waitForToast = async () => {
-      const visible = await this.successToast.waitFor({ state: 'visible', timeout: 15_000 }).then(() => true).catch(() => false);
-      this.lastCreateCompanyToastSeen = visible;
-      return visible;
+    const isCreateCompanyResponse = (response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes('/leads/api/v1/shared/companies') &&
+      response.status() >= 200 &&
+      response.status() < 300;
+
+    const clickAndWaitForCreate = async (button) => {
+      await button.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 });
+      await expect(button).toBeEnabled({ timeout: TIMEOUTS.BASE * 40 });
+      await button.scrollIntoViewIfNeeded();
+
+      const responsePromise = this.page
+        .waitForResponse(isCreateCompanyResponse, {
+          timeout: TIMEOUTS.BASE * 40,
+        })
+        .then(() => 'response')
+        .catch(() => null);
+      const drawerClosedPromise = this.createCompanyHeading
+        .waitFor({ state: 'hidden', timeout: TIMEOUTS.BASE * 40 })
+        .then(() => 'closed')
+        .catch(() => null);
+
+      await button.click();
+      return Promise.race([responsePromise, drawerClosedPromise]);
     };
 
-    await Promise.allSettled([
-      waitForToast(),
-      modalCreateButton.click()
-    ]);
+    const formButton = this.createCompanyHeading
+      .locator('xpath=ancestor::form[1]')
+      .getByRole('button', { name: /^Create Company$/ })
+      .last();
+    const candidateButtons = [
+      this.page.getByRole('button', { name: /^Create Company$/ }).last(),
+      formButton,
+      this.getModal().getByRole('button', { name: /^Create Company$/ }).last(),
+    ];
 
-    // If the modal did not close, try a JS click as a last resort.
-    const closed = await this.createCompanyHeading.waitFor({ state: 'hidden', timeout: 20_000 }).then(() => true).catch(() => false);
-    if (!closed) {
-      await Promise.allSettled([
-        waitForToast(),
-        this.page.evaluate(() => {
-          // Use the LAST "Create Company" button — the one inside the modal, not the toolbar
-          const buttons = Array.from(document.querySelectorAll('button'));
-          const matches = buttons.filter((btn) => (btn.textContent || '').trim() === 'Create Company');
-          const target  = matches[matches.length - 1];
-          target?.click();
-        })
-      ]);
-      await this.createCompanyHeading.waitFor({ state: 'hidden', timeout: 20_000 }).catch(() => {
-        // Page may navigate or context may close after successful submission — treat as success
-      });
+    let submitted = false;
+    for (const button of candidateButtons) {
+      const result = await clickAndWaitForCreate(button).catch(() => null);
+      if (result) {
+        submitted = true;
+        break;
+      }
     }
+
+    if (!submitted) {
+      throw new Error('Create Company submit did not send the create-company API request.');
+    }
+
+    this.lastCreateCompanyToastSeen = await this.successToast
+      .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 })
+      .then(() => true)
+      .catch(() => false);
+
+    await this.createCompanyHeading.waitFor({
+      state: 'hidden',
+      timeout: TIMEOUTS.BASE * 40,
+    });
   }
 
   async createCompany({ companyName, address }) {
@@ -1012,20 +1016,21 @@ class CompanyModule {
     let lastError = null;
 
     for (let attempt = 1; attempt <= 4; attempt++) {
-      await this.companySearchInput.waitFor({ state: 'visible', timeout: 10_000 });
+      await this.companySearchInput.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
       await this.companySearchInput.click({ force: true });
       await this.companySearchInput.fill('');
       await this.companySearchInput.fill(companyName);
       await this.page.keyboard.press('Enter').catch(() => {});
-      await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
-      await this.page.waitForTimeout(2_000 * attempt);
+      await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
 
       const escapedName = companyName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const resultVisible = await this.companiesTable
+      const resultCell = this.companiesTable
         .locator('tbody tr td')
         .filter({ has: this.page.getByText(new RegExp(`^\\s*${escapedName}\\s*$`, 'i')).first() })
-        .first()
-        .isVisible()
+        .first();
+      const resultVisible = await resultCell
+        .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 4 * attempt })
+        .then(() => true)
         .catch(() => false);
 
       if (!resultVisible) {
@@ -1047,14 +1052,14 @@ class CompanyModule {
       throw lastError || new Error(`Company "${companyName}" was not found in the Companies list.`);
     }
 
-    await this.page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
   }
 
   async assertCompanyDetailOpened(companyName) {
-    await expect(this.page).toHaveURL(/\/app\/sales\/companies\/company\//, { timeout: 20_000 });
+    await expect(this.page).toHaveURL(/\/app\/sales\/companies\/company\//, { timeout: TIMEOUTS.BASE * 40 });
     const heading = this.page.getByRole('heading', { level: 3 }).first()
       .or(this.page.getByRole('heading', { level: 2 }).first());
-    await expect(heading).toBeVisible({ timeout: 15_000 });
+    await expect(heading).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
 
     if (companyName) {
       const headingText = await heading.innerText().catch(() => '');
@@ -1068,81 +1073,81 @@ class CompanyModule {
   }
 
   async assertCompanyDetailSectionsVisible() {
-    await expect(this.aboutCompanyButton).toBeVisible({ timeout: 10_000 });
-    await expect(this.propertiesSection).toBeVisible({ timeout: 10_000 });
-    await expect(this.dealsSection).toBeVisible({ timeout: 10_000 });
-    await expect(this.contactsSection).toBeVisible({ timeout: 10_000 });
-    await expect(this.attachmentsSection).toBeVisible({ timeout: 10_000 });
+    await expect(this.aboutCompanyButton).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.propertiesSection).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.dealsSection).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.contactsSection).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.attachmentsSection).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   // ── Activities tab ──────────────────────────────────────────────────────────
 
   async gotoActivitiesTab() {
-    await this.activitiesTab.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.activitiesTab.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.activitiesTab.click();
-    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
   }
 
   async assertCompanyCreationActivity(companyName) {
     const escapedName = companyName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const activityText = this.page
       .getByText(new RegExp(`Company created by HubSpot.*${escapedName}.*company`, 'i')).first();
-    await expect(activityText).toBeVisible({ timeout: 15_000 });
+    await expect(activityText).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
   }
 
   // ── Notes tab ───────────────────────────────────────────────────────────────
 
   async gotoNotesTab() {
-    await this.notesTab.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.notesTab.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.notesTab.click();
-    await this.page.waitForTimeout(500);
+    await expect(this.notesTab).toHaveAttribute('aria-selected', 'true', { timeout: TIMEOUTS.BASE * 8 });
   }
 
   async assertNotesTabVisible() {
-    await expect(this.notesTab).toBeVisible({ timeout: 10_000 });
+    await expect(this.notesTab).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertCreateNewNoteButtonVisible() {
-    await expect(this.createNewNoteBtn).toBeVisible({ timeout: 10_000 });
+    await expect(this.createNewNoteBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async openCreateNoteDrawer() {
-    await this.createNewNoteBtn.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.createNewNoteBtn.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.createNewNoteBtn.click();
-    await this.addNotesHeading.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.addNotesHeading.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertCreateNoteDrawerOpen() {
     // Heading is "Add Notes" (level=4) — verified live
-    await expect(this.addNotesHeading).toBeVisible({ timeout: 10_000 });
+    await expect(this.addNotesHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     const notesDrawer = this.addNotesHeading.locator('xpath=ancestor::*[@role="dialog" or @role="presentation" or contains(@class,"MuiDrawer-paper")][1]');
     const noteSubjectInput = notesDrawer.getByRole('textbox').first().or(this.page.locator('div[role="presentation"] input').first());
-    await expect(noteSubjectInput).toBeVisible({ timeout: 5_000 });
-    await expect(this.noteDescEditor).toBeVisible({ timeout: 5_000 });
-    await expect(this.noteCharCounter).toBeVisible({ timeout: 5_000 });
-    await expect(this.noteSaveBtn).toBeVisible({ timeout: 5_000 });
-    await expect(this.noteCancelBtn).toBeVisible({ timeout: 5_000 });
+    await expect(noteSubjectInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.noteDescEditor).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.noteCharCounter).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.noteSaveBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.noteCancelBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   async cancelCreateNoteDrawer() {
     await this.noteCancelBtn.click();
-    await this.addNotesHeading.waitFor({ state: 'hidden', timeout: 8_000 }).catch(() => {});
+    await this.addNotesHeading.waitFor({ state: 'hidden', timeout: TIMEOUTS.BASE * 16 }).catch(() => {});
   }
 
   async assertCreateNoteDrawerClosed() {
-    await expect(this.addNotesHeading).not.toBeVisible({ timeout: 8_000 });
+    await expect(this.addNotesHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   // ── Tasks tab ───────────────────────────────────────────────────────────────
 
   async gotoTasksTab() {
-    await this.tasksTab.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.tasksTab.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.tasksTab.click();
-    await this.newTaskBtn.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.newTaskBtn.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertTasksTabVisible() {
-    await expect(this.tasksTab).toBeVisible({ timeout: 10_000 });
+    await expect(this.tasksTab).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertTasksTableColumns() {
@@ -1152,74 +1157,74 @@ class CompanyModule {
     for (const col of expectedCols) {
       await expect(
         this.page.getByRole('columnheader', { name: col })
-      ).toBeVisible({ timeout: 10_000 });
+      ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     }
   }
 
   async assertTasksEmptyState() {
-    await expect(this.taskEmptyState).toBeVisible({ timeout: 10_000 });
+    await expect(this.taskEmptyState).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertNewTaskButtonVisible() {
-    await expect(this.newTaskBtn).toBeVisible({ timeout: 10_000 });
+    await expect(this.newTaskBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async openCreateTaskDrawer() {
-    await this.newTaskBtn.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.newTaskBtn.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.newTaskBtn.click();
-    await this.createTaskHeading.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.createTaskHeading.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertCreateTaskDrawerOpen() {
-    await expect(this.createTaskHeading).toBeVisible({ timeout: 10_000 });
-    await expect(this.taskTitleInput).toBeVisible({ timeout: 5_000 });
-    await expect(this.taskDescEditor).toBeVisible({ timeout: 5_000 });
+    await expect(this.createTaskHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.taskTitleInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.taskDescEditor).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     // Type and Priority are custom heading dropdowns — verified live
-    await expect(this.taskTypeTrigger).toBeVisible({ timeout: 5_000 });
-    await expect(this.taskPriorityTrigger).toBeVisible({ timeout: 5_000 });
-    await expect(this.taskSaveBtn).toBeVisible({ timeout: 5_000 });
-    await expect(this.taskCancelBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.taskTypeTrigger).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.taskPriorityTrigger).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.taskSaveBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.taskCancelBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   async cancelCreateTaskDrawer() {
     await this.taskCancelBtn.click();
-    await this.createTaskHeading.waitFor({ state: 'hidden', timeout: 8_000 }).catch(() => {});
+    await this.createTaskHeading.waitFor({ state: 'hidden', timeout: TIMEOUTS.BASE * 16 }).catch(() => {});
   }
 
   async assertCreateTaskDrawerClosed() {
-    await expect(this.createTaskHeading).not.toBeVisible({ timeout: 8_000 });
+    await expect(this.createTaskHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   // ── Edit Company ─────────────────────────────────────────────────────────────
 
   async openEditCompanyForm() {
-    await this.editCompanyButton.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.editCompanyButton.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.editCompanyButton.click();
-    await this.editCompanyHeading.waitFor({ state: 'visible', timeout: 10_000 });
-    await this.subMarketVerticalInput.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.editCompanyHeading.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
+    await this.subMarketVerticalInput.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertEditCompanyFormOpen() {
-    await expect(this.editCompanyHeading).toBeVisible({ timeout: 10_000 });
-    await expect(this.subMarketVerticalInput).toBeVisible({ timeout: 5_000 });
-    await expect(this.naicsCodeInput).toBeVisible({ timeout: 5_000 });
-    await expect(this.revenueInput).toBeVisible({ timeout: 5_000 });
-    await expect(this.yearFoundedInput).toBeVisible({ timeout: 5_000 });
-    await expect(this.updateCompanyButton).toBeVisible({ timeout: 5_000 });
+    await expect(this.editCompanyHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.subMarketVerticalInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.naicsCodeInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.revenueInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.yearFoundedInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.updateCompanyButton).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   async assertUpdateButtonDisabled() {
     // Update Company button is disabled until a change is made — verified live
-    await expect(this.updateCompanyButton).toBeDisabled({ timeout: 5_000 });
+    await expect(this.updateCompanyButton).toBeDisabled({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   async cancelEditCompanyForm() {
     await this.cancelEditBtn.click();
-    await this.editCompanyHeading.waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => {});
+    await this.editCompanyHeading.waitFor({ state: 'hidden', timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
   }
 
   async assertEditCompanyFormClosed() {
-    await expect(this.editCompanyHeading).not.toBeVisible({ timeout: 8_000 });
+    await expect(this.editCompanyHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   async fillEditCompanyDetails(companyData) {
@@ -1229,20 +1234,20 @@ class CompanyModule {
     await this.replaceInputValue(this.revenueInput, companyData.revenue);
     await this.replaceInputValue(this.propertyCountInput, companyData.propertyCount);
     await this.replaceInputValue(this.yearFoundedInput, companyData.yearFounded);
-    await expect(this.updateCompanyButton).toBeEnabled({ timeout: 10_000 });
+    await expect(this.updateCompanyButton).toBeEnabled({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async submitCompanyUpdate() {
-    await this.updateCompanyButton.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.updateCompanyButton.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     this.lastUpdateCompanyToastSeen = false;
-    await expect(this.updateCompanyButton).toBeEnabled({ timeout: 10_000 });
+    await expect(this.updateCompanyButton).toBeEnabled({ timeout: TIMEOUTS.BASE * 20 });
 
     const triggerSubmit = async () => {
       await this.updateCompanyButton.scrollIntoViewIfNeeded().catch(() => {});
-      const clicked = await this.updateCompanyButton.click({ timeout: 5_000 }).then(() => true).catch(() => false);
+      const clicked = await this.updateCompanyButton.click({ timeout: TIMEOUTS.BASE * 10 }).then(() => true).catch(() => false);
       if (clicked) return;
 
-      const forced = await this.updateCompanyButton.click({ force: true, timeout: 5_000 }).then(() => true).catch(() => false);
+      const forced = await this.updateCompanyButton.click({ force: true, timeout: TIMEOUTS.BASE * 10 }).then(() => true).catch(() => false);
       if (forced) return;
 
       await this.updateCompanyButton.evaluate((button) => {
@@ -1251,7 +1256,7 @@ class CompanyModule {
     };
 
     await Promise.allSettled([
-      this.updateToast.waitFor({ state: 'visible', timeout: 15_000 }).then(() => {
+      this.updateToast.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 }).then(() => {
         this.lastUpdateCompanyToastSeen = true;
       }),
       triggerSubmit()
@@ -1264,10 +1269,10 @@ class CompanyModule {
 
         const editVisible = await this.editCompanyButton.isVisible().catch(() => false);
         return editVisible ? 'detail' : 'pending';
-      }, { timeout: 20_000 })
+      }, { timeout: TIMEOUTS.BASE * 40 })
       .not.toBe('pending');
 
-    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
   }
 
   async updateCompanyDetails(companyData) {
@@ -1279,9 +1284,9 @@ class CompanyModule {
   // ── About this Company section ───────────────────────────────────────────────
 
   async openAboutCompanySection() {
-    await this.aboutCompanyButton.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.aboutCompanyButton.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.aboutCompanyButton.click();
-    await this.page.waitForTimeout(1_000);
+    await expect(this.page.getByText(/Sub Vertical|Revenue|Domain/i).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
   }
 
   async assertAboutCompanyDetails(companyData) {
@@ -1294,12 +1299,12 @@ class CompanyModule {
       expect(this.lastUpdateCompanyToastSeen).toBeTruthy();
     }
 
-    await expect(this.page.getByText(new RegExp(`Sub\\s*Vertical\\s*${companyData.subMarketVertical}`, 'i')).first()).toBeVisible({ timeout: 15_000 });
-    await expect(this.page.getByText(new RegExp(`NAICS\\s*Codes\\s*${companyData.naicsCode}`, 'i')).first()).toBeVisible({ timeout: 15_000 });
-    await expect(this.page.getByText(propertiesRegex).first()).toBeVisible({ timeout: 15_000 });
-    await expect(this.page.getByText(revenueRegex).first()).toBeVisible({ timeout: 15_000 });
-    await expect(this.page.getByText(employeesRegex).first()).toBeVisible({ timeout: 15_000 });
-    await expect(this.page.getByText(new RegExp(`Year\\s*Founded\\s*${companyData.yearFounded}`, 'i')).first()).toBeVisible({ timeout: 15_000 });
+    await expect(this.page.getByText(new RegExp(`Sub\\s*Vertical\\s*${companyData.subMarketVertical}`, 'i')).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+    await expect(this.page.getByText(new RegExp(`NAICS\\s*Codes\\s*${companyData.naicsCode}`, 'i')).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+    await expect(this.page.getByText(propertiesRegex).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+    await expect(this.page.getByText(revenueRegex).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+    await expect(this.page.getByText(employeesRegex).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+    await expect(this.page.getByText(new RegExp(`Year\\s*Founded\\s*${companyData.yearFounded}`, 'i')).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
   }
 
   // ── Analytics & Charts helpers (TC-COMP-013 through TC-COMP-015) ───────────
@@ -1366,14 +1371,14 @@ class CompanyModule {
    */
   async searchAndWaitForGridUpdate(searchText) {
     const baselinePagination = await this.getPaginationText().catch(() => '');
-    await this.companySearchInput.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.companySearchInput.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.companySearchInput.fill(searchText);
     // Wait until pagination text changes (grid updated)
     await expect
       .poll(async () => {
         const current = await this.getPaginationText().catch(() => '');
         return current !== baselinePagination ? 'updated' : 'same';
-      }, { timeout: 15_000 })
+      }, { timeout: TIMEOUTS.BASE * 30 })
       .toBe('updated');
   }
 
@@ -1386,7 +1391,7 @@ class CompanyModule {
       .poll(async () => {
         const current = await this.getPaginationText().catch(() => '');
         return current !== filteredPagination ? 'restored' : 'same';
-      }, { timeout: 15_000 })
+      }, { timeout: TIMEOUTS.BASE * 30 })
       .toBe('restored');
   }
 
@@ -1394,7 +1399,7 @@ class CompanyModule {
    * Returns an array of company name texts from all visible rows (column 0).
    */
   async getAllVisibleCompanyNames() {
-    await this.companiesTable.first().waitFor({ state: 'visible', timeout: 15_000 });
+    await this.companiesTable.first().waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
     const rows = this.companiesTable.locator('tbody tr');
     const count = await rows.count();
     const names = [];
@@ -1413,14 +1418,18 @@ class CompanyModule {
    * Returns the tooltip locator.
    */
   async openMarketVerticalDropdown() {
+    const tooltip = this.page.locator('#simple-popper').first();
+    if (await tooltip.isVisible().catch(() => false)) {
+      return tooltip;
+    }
+
     // The filter area has a container with aria-describedby="simple-popper" that contains
     // the Market Vertical heading (clean or chip state). Click this container to open tooltip.
     const triggerContainer = this.page.locator('[aria-describedby="simple-popper"]')
       .filter({ has: this.page.getByRole('heading', { name: /^Market Vertical/, level: 6 }) });
-    await triggerContainer.first().waitFor({ state: 'visible', timeout: 10_000 });
-    await triggerContainer.first().click({ force: true });
-    const tooltip = this.page.locator('#simple-popper').first();
-    await expect(tooltip).toBeVisible({ timeout: 10_000 });
+    await triggerContainer.first().waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
+    await triggerContainer.first().click();
+    await expect(tooltip).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     return tooltip;
   }
 
@@ -1433,22 +1442,12 @@ class CompanyModule {
     const chipHeading = this.page.getByRole('heading', { name: /^Market Vertical \(\d+\)/, level: 6 }).first();
     const isActive = await chipHeading.isVisible().catch(() => false);
     if (!isActive) return;
-    // Use evaluate to find and click the X (SVG) button in the sibling container
-    await this.page.evaluate(() => {
-      const headings = document.querySelectorAll('h6');
-      for (const h of headings) {
-        if (/Market Vertical \(\d+\)/.test(h.textContent.trim())) {
-          const parent = h.parentElement;
-          const grandparent = parent?.parentElement;
-          if (grandparent) {
-            const svgContainer = grandparent.querySelector('svg');
-            if (svgContainer) { svgContainer.parentElement.click(); return; }
-          }
-        }
-      }
-    });
-    // Wait for the chip to disappear and clean heading to reappear
-    await expect(this.marketVerticalFilter).toBeVisible({ timeout: 10_000 });
+
+    const chipContainer = chipHeading.locator('xpath=ancestor::div[@aria-describedby="simple-popper"][1]');
+    const clearControl = chipContainer.locator('svg').locator('xpath=ancestor::div[1]').first();
+    await clearControl.click();
+    await expect(chipHeading).toBeHidden({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.marketVerticalFilter).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   /**
@@ -1489,13 +1488,13 @@ class CompanyModule {
   async selectMarketVerticalOption(optionLabel) {
     const beforePagination = await this.getPaginationText().catch(() => '');
     const option = this.getMarketVerticalOption(optionLabel);
-    await option.waitFor({ state: 'visible', timeout: 5_000 });
-    await option.click({ force: true });
+    await option.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 });
+    await option.click();
     await expect
       .poll(async () => {
         const current = await this.getPaginationText().catch(() => '');
         return current !== beforePagination ? 'changed' : 'same';
-      }, { timeout: 15_000 })
+      }, { timeout: TIMEOUTS.BASE * 30 })
       .toBe('changed');
   }
 
@@ -1504,8 +1503,8 @@ class CompanyModule {
    */
   async clickMarketVerticalOptionNoWait(optionLabel) {
     const option = this.getMarketVerticalOption(optionLabel);
-    await option.waitFor({ state: 'visible', timeout: 5_000 });
-    await option.click({ force: true });
+    await option.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 });
+    await option.click();
   }
 
   /**
@@ -1513,7 +1512,7 @@ class CompanyModule {
    */
   async getVisibleMarketVerticalOptions() {
     const tooltip = this.getMarketVerticalTooltip();
-    await expect(tooltip).toBeVisible({ timeout: 5_000 });
+    await expect(tooltip).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     const options = tooltip.locator('p');
     const count = await options.count();
     const texts = [];
@@ -1529,7 +1528,7 @@ class CompanyModule {
    * Market Vertical is at column index 3.
    */
   async getAllVisibleMarketVerticalValues() {
-    await this.companiesTable.first().waitFor({ state: 'visible', timeout: 15_000 });
+    await this.companiesTable.first().waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
     await this.waitForFirstRowNonEmpty(3);
     const rows = this.companiesTable.locator('tbody tr');
     const count = await rows.count();
@@ -1546,7 +1545,7 @@ class CompanyModule {
    * State is at column index 9.
    */
   async getAllVisibleStateValues() {
-    await this.companiesTable.first().waitFor({ state: 'visible', timeout: 15_000 });
+    await this.companiesTable.first().waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
     await this.waitForFirstRowNonEmpty(9);
     const rows = this.companiesTable.locator('tbody tr');
     const count = await rows.count();
@@ -1563,7 +1562,7 @@ class CompanyModule {
    * City is at column index 8.
    */
   async getAllVisibleCityValues() {
-    await this.companiesTable.first().waitFor({ state: 'visible', timeout: 15_000 });
+    await this.companiesTable.first().waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
     // Wait for the first row's City cell (col 8) to contain non-empty text
     // before scraping — prevents reading skeleton/loading rows.
     await this.waitForFirstRowNonEmpty(8);
@@ -1587,7 +1586,7 @@ class CompanyModule {
     const existingTooltip = this.page.locator('#simple-popper').first();
     if (await existingTooltip.isVisible().catch(() => false)) {
       await this.moreFiltersHeading.click({ force: true });
-      await expect(existingTooltip).toBeHidden({ timeout: 3_000 }).catch(() => {});
+      await expect(existingTooltip).toBeHidden({ timeout: TIMEOUTS.BASE * 6 }).catch(() => {});
     }
     // The onclick handler is on the grandparent container of the h6.
     // Use evaluate to click the correct ancestor.
@@ -1603,7 +1602,7 @@ class CompanyModule {
       }
     }, headingText);
     const tooltip = this.page.locator('#simple-popper').first();
-    await expect(tooltip).toBeVisible({ timeout: 5_000 });
+    await expect(tooltip).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     return tooltip;
   }
 
@@ -1612,7 +1611,7 @@ class CompanyModule {
    */
   async selectMoreFiltersDropdownOption(tooltipLocator, optionText) {
     const option = tooltipLocator.getByText(optionText, { exact: true }).first();
-    await option.waitFor({ state: 'visible', timeout: 5_000 });
+    await option.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 });
     await option.click({ force: true });
   }
 
@@ -1623,7 +1622,7 @@ class CompanyModule {
   async dismissMoreFiltersTooltip() {
     await this.moreFiltersHeading.click({ force: true });
     const tooltip = this.page.locator('#simple-popper').first();
-    await expect(tooltip).toBeHidden({ timeout: 5_000 }).catch(() => {});
+    await expect(tooltip).toBeHidden({ timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
   }
 
   /**
@@ -1709,7 +1708,7 @@ class CompanyModule {
         }
       }
     });
-    await expect(this.moreFiltersHeading).toBeHidden({ timeout: 10_000 });
+    await expect(this.moreFiltersHeading).toBeHidden({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   /**
@@ -1744,7 +1743,7 @@ class CompanyModule {
       .poll(async () => {
         const current = await this.getPaginationText().catch(() => '');
         return current !== baselinePagination ? 'updated' : 'same';
-      }, { timeout: 20_000 })
+      }, { timeout: TIMEOUTS.BASE * 40 })
       .toBe('updated');
   }
 
@@ -1753,7 +1752,7 @@ class CompanyModule {
    * SP Status is at column index 19.
    */
   async getAllVisibleSpStatusValues() {
-    await this.companiesTable.first().waitFor({ state: 'visible', timeout: 15_000 });
+    await this.companiesTable.first().waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
     await this.waitForFirstRowNonEmpty(19);
     const rows = this.companiesTable.locator('tbody tr');
     const count = await rows.count();
@@ -1804,9 +1803,9 @@ class CompanyModule {
 
   async getFirstRowCellTexts() {
     // Returns an array of all cell texts in the first data row
-    await this.companiesTable.first().waitFor({ state: 'visible', timeout: 15_000 });
+    await this.companiesTable.first().waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
     const firstRow = this.companiesTable.locator('tbody tr').first();
-    await firstRow.waitFor({ state: 'visible', timeout: 15_000 });
+    await firstRow.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
     const cells = firstRow.locator('td');
     const count = await cells.count();
     const texts = [];
@@ -1823,7 +1822,7 @@ class CompanyModule {
    * Created Date is at column index 6.
    */
   async getAllVisibleCreatedDateValues() {
-    await this.companiesTable.first().waitFor({ state: 'visible', timeout: 15_000 });
+    await this.companiesTable.first().waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
     await this.waitForFirstRowNonEmpty(6);
     const rows = this.companiesTable.locator('tbody tr');
     const count = await rows.count();
@@ -1839,7 +1838,7 @@ class CompanyModule {
    * Returns the visible row count in the table body.
    */
   async getTableBodyRowCount() {
-    await this.companiesTable.first().waitFor({ state: 'visible', timeout: 15_000 });
+    await this.companiesTable.first().waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
     return this.companiesTable.locator('tbody tr').count();
   }
 
@@ -1868,13 +1867,13 @@ class CompanyModule {
     }
     const beforePagination = await this.getPaginationText().catch(() => '');
     const option = this.getMarketVerticalOption(optionLabel);
-    await option.waitFor({ state: 'visible', timeout: 5_000 });
-    await option.click({ force: true });
+    await option.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 });
+    await option.click();
     await expect
       .poll(async () => {
         const current = await this.getPaginationText().catch(() => '');
         return current !== beforePagination ? 'changed' : 'same';
-      }, { timeout: 15_000 })
+      }, { timeout: TIMEOUTS.BASE * 30 })
       .toBe('changed');
   }
   // ── Create Company Workflow helpers (TC-COMP-064 through TC-COMP-093) ─────
@@ -1979,7 +1978,7 @@ class CompanyModule {
     }).catch(() => false);
 
     if (fiberClicked) {
-      const popperVisible = await popper.isVisible({ timeout: 3_000 }).catch(() => false);
+      const popperVisible = await popper.isVisible({ timeout: TIMEOUTS.BASE * 6 }).catch(() => false);
       if (popperVisible) return true;
     }
 
@@ -1994,7 +1993,7 @@ class CompanyModule {
       const visible = await candidate.isVisible().catch(() => false);
       if (!visible) continue;
       await candidate.click({ force: true }).catch(() => {});
-      const popperVisible = await popper.isVisible({ timeout: 2_000 }).catch(() => false);
+      const popperVisible = await popper.isVisible({ timeout: TIMEOUTS.BASE * 4 }).catch(() => false);
       if (popperVisible) return true;
     }
 
@@ -2011,7 +2010,7 @@ class CompanyModule {
       throw new Error('Market Vertical dropdown did not open in the Create Company modal.');
     }
     const tooltip = this.page.locator('#simple-popper').first();
-    await expect(tooltip).toBeVisible({ timeout: 5_000 });
+    await expect(tooltip).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     const options = tooltip.locator('div[style*="cursor"], p').filter({ hasText: /\w+/ });
     const count = await options.count();
     const texts = [];
@@ -2027,7 +2026,7 @@ class CompanyModule {
    */
   async fillCreateEmployees(value) {
     const input = this.getCreateEmployeesSpinbutton();
-    await input.waitFor({ state: 'visible', timeout: 5_000 });
+    await input.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 });
     await input.fill(String(value));
   }
 
@@ -2036,50 +2035,53 @@ class CompanyModule {
    */
   async fillCreateRevenue(value) {
     const input = this.getCreateRevenueSpinbutton();
-    await input.waitFor({ state: 'visible', timeout: 5_000 });
+    await input.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 });
     await input.fill(String(value));
   }
   // ── Change Review History (TC-COMP-094 through TC-COMP-098) ──────────────
 
   async gotoChangeReviewHistory() {
-    await this.changeReviewButton.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.changeReviewButton.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.changeReviewButton.click();
-    await this.page.waitForURL(/\/app\/sales\/companies\/reviews/, { timeout: 20_000 });
-    await this.page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+    await this.page.waitForURL(/\/app\/sales\/companies\/reviews/, { timeout: TIMEOUTS.BASE * 40 });
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
   }
 
   async assertChangeReviewPageLoaded() {
-    await expect(this.page).toHaveURL(/\/app\/sales\/companies\/reviews/, { timeout: 20_000 });
-    await expect(this.companiesTable.first()).toBeVisible({ timeout: 15_000 });
-    await expect(this.paginationInfo.first()).toBeVisible({ timeout: 15_000 });
+    await expect(this.page).toHaveURL(/\/app\/sales\/companies\/reviews/, { timeout: TIMEOUTS.BASE * 40 });
+    await expect(this.companiesTable.first()).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+    await expect(this.paginationInfo.first()).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
   }
 
   async openFirstCompanyReview() {
     const firstRow = this.companiesTable.locator('tbody tr').first();
-    await firstRow.waitFor({ state: 'visible', timeout: 15_000 });
+    await firstRow.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
     const firstCell = firstRow.locator('td').first();
     const companyName = await firstCell.innerText().catch(() => '');
     await firstCell.click();
-    await this.changeReviewHeading.waitFor({ state: 'visible', timeout: 15_000 });
+    await this.changeReviewHeading.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
     return companyName.trim();
   }
 
   async assertChangeReviewDrawerOpen() {
-    await expect(this.changeReviewHeading).toBeVisible({ timeout: 10_000 });
-    await expect(this.page.getByText('Please review to approve or reject the changes.')).toBeVisible({ timeout: 10_000 });
-    await expect(this.pendingReviewsTab).toBeVisible({ timeout: 5_000 });
-    await expect(this.activityLogsTab).toBeVisible({ timeout: 5_000 });
+    await expect(this.changeReviewHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.page.getByText('Please review to approve or reject the changes.')).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.pendingReviewsTab).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.activityLogsTab).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   async gotoActivityLogsTab() {
-    await this.activityLogsTab.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.activityLogsTab.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.activityLogsTab.click();
-    await this.page.waitForTimeout(1_000);
+    await expect(this.activityLogsTab).toHaveAttribute('aria-selected', 'true', { timeout: TIMEOUTS.BASE * 8 });
   }
 
   async getActivityLogEditedByText() {
     const editedByLabel = this.page.getByText('Edited by').first();
-    const visible = await editedByLabel.isVisible({ timeout: 5_000 }).catch(() => false);
+    const visible = await editedByLabel
+      .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 })
+      .then(() => true)
+      .catch(() => false);
     if (!visible) return null;
     // The "Edited by" is followed by the user name in a nearby sibling
     const container = editedByLabel.locator('xpath=ancestor::div[1]');
@@ -2087,9 +2089,25 @@ class CompanyModule {
     return text.trim();
   }
 
+  async getActivityLogsState() {
+    const editedByText = await this.getActivityLogEditedByText();
+    if (editedByText) {
+      return { state: 'entries', editedByText };
+    }
+
+    if (await this.noChangeRequestMsg.isVisible().catch(() => false)) {
+      return { state: 'empty', editedByText: null };
+    }
+
+    await expect(this.activityLogsTab).toHaveAttribute('aria-selected', 'true', {
+      timeout: TIMEOUTS.BASE * 8,
+    });
+    return { state: 'selected', editedByText: null };
+  }
+
   async closeChangeReviewDrawer() {
     await this.page.keyboard.press('Escape');
-    await this.changeReviewHeading.waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => {});
+    await this.changeReviewHeading.waitFor({ state: 'hidden', timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
   }
 
   // ── Notes CRUD helpers (TC-COMP-121 through TC-COMP-132) ──────────────────
@@ -2104,13 +2122,13 @@ class CompanyModule {
     await this.noteDescEditor.fill(description);
     await this.noteSaveBtn.click();
     // Ensure the drawer actually closes — don't silently swallow save failures
-    await this.addNotesHeading.waitFor({ state: 'hidden', timeout: 15_000 });
-    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+    await this.addNotesHeading.waitFor({ state: 'hidden', timeout: TIMEOUTS.BASE * 30 });
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
   }
 
   async assertNoteVisible(subject) {
     // Note text in the DOM is wrapped as "Note: {subject} by {username}" — use substring match
-    await expect(this.page.getByText(subject).first()).toBeVisible({ timeout: 15_000 });
+    await expect(this.page.getByText(subject).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
   }
 
   /** Returns the note card container for a given subject (substring match). */
@@ -2124,7 +2142,7 @@ class CompanyModule {
     const noteCard = this.getNoteCard(subject);
     const editBtn = noteCard.getByRole('button', { name: 'Edit' }).first();
     await editBtn.click({ force: true });
-    await this.page.waitForTimeout(500);
+    await expect(this.page.getByRole('heading', { name: /Edit Notes/i }).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
   }
 
   async deleteNote(subject) {
@@ -2134,11 +2152,11 @@ class CompanyModule {
     await deleteBtn.click({ force: true });
     // Confirm deletion — dialog button is "Delete Note" not "Delete"
     const confirmDialog = this.page.getByRole('dialog').filter({ hasText: /Delete Note/i });
-    const dialogVisible = await confirmDialog.isVisible({ timeout: 5_000 }).catch(() => false);
+    const dialogVisible = await confirmDialog.isVisible({ timeout: TIMEOUTS.BASE * 10 }).catch(() => false);
     if (dialogVisible) {
       await confirmDialog.getByRole('button', { name: /Delete Note/i }).click();
     }
-    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
   }
 
   // ── Tasks CRUD helpers (TC-COMP-133 through TC-COMP-149) ──────────────────
@@ -2152,18 +2170,18 @@ class CompanyModule {
     // Select type — dropdown renders as tooltip, option text may differ in casing (e.g. "To-do" vs "To-Do")
     await this.taskTypeTrigger.click({ force: true });
     const typeTooltip = this.page.getByRole('tooltip').first();
-    await expect(typeTooltip).toBeVisible({ timeout: 5_000 });
+    await expect(typeTooltip).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     await typeTooltip.getByText(new RegExp(`^${type}$`, 'i')).first().click({ force: true });
 
     // Select priority — same tooltip pattern
     await this.taskPriorityTrigger.click({ force: true });
     const priorityTooltip = this.page.getByRole('tooltip').first();
-    await expect(priorityTooltip).toBeVisible({ timeout: 5_000 });
+    await expect(priorityTooltip).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     await priorityTooltip.getByText(new RegExp(`^${priority}$`, 'i')).first().click({ force: true });
 
     // Select due date — pick today
     const dueDateInput = this.page.locator('input[placeholder*="MM/DD/YYYY"]').first();
-    const dueDateVisible = await dueDateInput.isVisible({ timeout: 3_000 }).catch(() => false);
+    const dueDateVisible = await dueDateInput.isVisible({ timeout: TIMEOUTS.BASE * 6 }).catch(() => false);
     if (dueDateVisible) {
       const today = new Date();
       const dateStr = `${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}/${today.getFullYear()}`;
@@ -2171,18 +2189,18 @@ class CompanyModule {
     }
 
     await this.taskSaveBtn.click();
-    await this.createTaskHeading.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => {});
-    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+    await this.createTaskHeading.waitFor({ state: 'hidden', timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
   }
 
   async assertTaskVisible(title) {
     // Task title may be truncated with ellipsis — cell accessible name has the full text
-    await expect(this.page.getByRole('cell', { name: title }).first()).toBeVisible({ timeout: 15_000 });
+    await expect(this.page.getByRole('cell', { name: title }).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
   }
 
   async openTaskDetail(title) {
     await this.page.getByRole('cell', { name: title }).first().click();
-    await this.page.waitForTimeout(1_000);
+    await expect(this.page.getByText(/Task Description/i).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
   }
 
   async deleteTask(title) {
@@ -2190,16 +2208,16 @@ class CompanyModule {
     const taskRow = this.companiesTable.locator('tbody tr').filter({ hasText: title }).first();
     const deleteBtn = taskRow.getByRole('button', { name: /delete/i })
       .or(taskRow.locator('svg').last());
-    const visible = await deleteBtn.isVisible({ timeout: 3_000 }).catch(() => false);
+    const visible = await deleteBtn.isVisible({ timeout: TIMEOUTS.BASE * 6 }).catch(() => false);
     if (visible) {
       await deleteBtn.click({ force: true });
       const confirmBtn = this.page.getByRole('button', { name: /^Delete$/ }).last();
-      const confirmVisible = await confirmBtn.isVisible({ timeout: 3_000 }).catch(() => false);
+      const confirmVisible = await confirmBtn.isVisible({ timeout: TIMEOUTS.BASE * 6 }).catch(() => false);
       if (confirmVisible) {
         await confirmBtn.click({ force: true });
       }
     }
-    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
   }
 }
 

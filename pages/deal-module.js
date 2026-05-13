@@ -3,6 +3,7 @@
 // ALL locators live-verified via MCP browser on 2026-03-21
 // Fully dynamic — no hardcoded IDs, names, or indices
 
+const { TIMEOUTS } = require('../utils/playwright-timeouts');
 const { expect } = require("@playwright/test");
 const { env } = require("../utils/env");
 const { buildSearchVariants } = require("../utils/dynamic_address");
@@ -338,7 +339,7 @@ class DealModule {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
-  async clickVisibleDropdownOption(container, optionText, timeout = 10_000) {
+  async clickVisibleDropdownOption(container, optionText, timeout = TIMEOUTS.BASE * 20) {
     // Try exact match first
     const exactOptions = container
       .locator('p, h6, [role="option"]')
@@ -348,7 +349,7 @@ class DealModule {
 
     const exactFound = await exactOptions
       .first()
-      .waitFor({ state: "visible", timeout: Math.min(timeout, 5_000) })
+      .waitFor({ state: "visible", timeout: Math.min(timeout, TIMEOUTS.BASE * 10) })
       .then(() => true)
       .catch(() => false);
 
@@ -382,7 +383,7 @@ class DealModule {
     throw new Error(`Dropdown option "${optionText}" was not clickable.`);
   }
 
-  async clickFirstVisibleDropdownOption(container, timeout = 10_000) {
+  async clickFirstVisibleDropdownOption(container, timeout = TIMEOUTS.BASE * 20) {
     const options = container.locator('p, h6, [role="option"]');
     await options.first().waitFor({ state: "visible", timeout });
 
@@ -441,10 +442,10 @@ class DealModule {
 
   async assertDealsPageOpened() {
     await expect(this.page).toHaveURL(/\/app\/sales\/deals/, {
-      timeout: 20_000,
+      timeout: TIMEOUTS.BASE * 40,
     });
     await expect(this.createDealButton.first()).toBeVisible({
-      timeout: 15_000,
+      timeout: TIMEOUTS.BASE * 30,
     });
   }
 
@@ -463,12 +464,12 @@ class DealModule {
     for (const col of expectedColumns) {
       await expect(
         this.page.getByRole("columnheader", { name: col }),
-      ).toBeVisible({ timeout: 10_000 });
+      ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     }
   }
 
   async assertPaginationVisible() {
-    await expect(this.paginationInfo).toBeVisible({ timeout: 10_000 });
+    await expect(this.paginationInfo).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     const infoText = await this.paginationInfo.textContent();
     expect(infoText).toMatch(/\d+–\d+ of \d+/);
   }
@@ -570,7 +571,7 @@ class DealModule {
 
           return "pending";
         },
-        { timeout: 15_000 },
+        { timeout: TIMEOUTS.BASE * 30 },
       )
       .not.toBe("pending");
   }
@@ -582,7 +583,7 @@ class DealModule {
    */
   async dealExistsInTable(dealName) {
     try {
-      await this.dealSearchInput.waitFor({ state: "visible", timeout: 10_000 });
+      await this.dealSearchInput.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
       const previousPaginationText = this.normalizeText(
         await this.paginationInfo.textContent().catch(() => ""),
       );
@@ -590,7 +591,7 @@ class DealModule {
       await Promise.all([
         this.page
           .waitForResponse((res) => res.url().includes("deal") && res.ok(), {
-            timeout: 15_000,
+            timeout: TIMEOUTS.BASE * 30,
           })
           .catch(() => null),
         this.dealSearchInput.press("Enter"),
@@ -605,7 +606,7 @@ class DealModule {
 
   async searchDeal(term) {
     this.lastSearchTerm = term;
-    await this.dealSearchInput.waitFor({ state: "visible", timeout: 10_000 });
+    await this.dealSearchInput.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     const previousPaginationText = this.normalizeText(
       await this.paginationInfo.textContent().catch(() => ""),
     );
@@ -617,7 +618,7 @@ class DealModule {
   async assertSearchShowsNoResults(searchTerm = this.lastSearchTerm) {
     await expect
       .poll(async () => (await this.getDealSearchState(searchTerm)).type, {
-        timeout: 15_000,
+        timeout: TIMEOUTS.BASE * 30,
       })
       .toMatch(/^(empty|zero-results|no-match)$/);
   }
@@ -635,15 +636,15 @@ class DealModule {
 
   async openCreateDealModal() {
     await this.createDealButton.first().click();
-    await this.dealNameInput.waitFor({ state: "visible", timeout: 15_000 });
+    await this.dealNameInput.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 30 });
   }
 
   async assertCreateDealDrawerOpen() {
-    await expect(this.createDealHeading).toBeVisible({ timeout: 10_000 });
-    await expect(this.dealNameInput).toBeVisible({ timeout: 5_000 });
-    await expect(this.companySelector).toBeVisible({ timeout: 5_000 });
-    await expect(this.propertySelector).toBeVisible({ timeout: 5_000 });
-    await expect(this.cancelDealBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.createDealHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.dealNameInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.companySelector).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.propertySelector).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.cancelDealBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   async fillDealName(dealName) {
@@ -663,16 +664,16 @@ class DealModule {
     companySearchText,
     companyOptionText = companySearchText,
   ) {
-    await this.companySelector.waitFor({ state: "visible", timeout: 10_000 });
+    await this.companySelector.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await this.companySelector.click();
     // Use #simple-popper without [role="tooltip"] — MUI Popper does not reliably expose that attribute
     const tooltip = this.page
       .locator("#simple-popper")
       .last()
       .or(this.page.getByRole("tooltip").last());
-    await expect(tooltip).toBeVisible({ timeout: 8_000 });
+    await expect(tooltip).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     const searchBox = tooltip.getByRole("textbox", { name: "Search" });
-    await expect(searchBox).toBeVisible({ timeout: 5_000 });
+    await expect(searchBox).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
 
     const shouldPickFirstPatResult =
       String(companySearchText).trim().toUpperCase() === "PAT" &&
@@ -693,7 +694,7 @@ class DealModule {
       try {
         if (attempt.exactMatch) {
           // Try to click exact match — clickVisibleDropdownOption waits for results internally
-          await this.clickVisibleDropdownOption(tooltip, attempt.exactMatch, 4_000);
+          await this.clickVisibleDropdownOption(tooltip, attempt.exactMatch, TIMEOUTS.BASE * 8);
           // After selection the tooltip closes and the h6 heading changes to the chosen company name.
           // Read it back via a broad locator (not filtered by "Select Company") so we capture the
           // actual value for callers that need to pass the same company to property creation.
@@ -702,8 +703,8 @@ class DealModule {
         } else {
           // Read the first visible option text BEFORE clicking so we can capture the name.
           const firstOption = tooltip.locator('p, h6, [role="option"]').first();
-          const firstOptionText = await firstOption.textContent({ timeout: 5_000 }).catch(() => '');
-          await this.clickFirstVisibleDropdownOption(tooltip, 8_000);
+          const firstOptionText = await firstOption.textContent({ timeout: TIMEOUTS.BASE * 10 }).catch(() => '');
+          await this.clickFirstVisibleDropdownOption(tooltip, TIMEOUTS.BASE * 16);
           this.lastSelectedCompanyName = firstOptionText.trim() || companySearchText;
           return;
         }
@@ -771,7 +772,7 @@ class DealModule {
 
     const trySelect = async (searchText, pickFirstResult = false) => {
       const propertyTrigger = resolvePropertyTrigger();
-      await propertyTrigger.waitFor({ state: "visible", timeout: 10_000 });
+      await propertyTrigger.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
       // MCP-verified 2026-05-12: the React onClick owner is div.jss136 (h6 → jss143 → jss136).
       // Invoking onClick via page.evaluate() causes MUI Popper to render at top:0,left:0
       // (anchorEl not resolved from a real event), so #simple-popper stays invisible
@@ -789,9 +790,9 @@ class DealModule {
         .last()
         .or(this.page.getByRole("tooltip").last())
         .or(this.page.locator('[role="listbox"]').last());
-      await expect(tooltip).toBeVisible({ timeout: 8_000 });
+      await expect(tooltip).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       const searchBox = tooltip.getByRole("textbox", { name: "Search" });
-      await expect(searchBox).toBeVisible({ timeout: 5_000 });
+      await expect(searchBox).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       await searchBox.click();
       await searchBox.fill(searchText);
       if (pickFirstResult) {
@@ -803,13 +804,13 @@ class DealModule {
           .locator('li, p, [role="option"]')
           .filter({ hasText: new RegExp(this.escapeRegex(needle), 'i') })
           .first();
-        await firstResult.waitFor({ state: 'visible', timeout: 10_000 });
+        await firstResult.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
         await firstResult.click({ force: true }).catch(async () => {
           await firstResult.evaluate((el) => el.click());
         });
       } else {
         // clickVisibleDropdownOption waits for results to appear internally
-        await this.clickVisibleDropdownOption(tooltip, propertyOptionText, 10_000);
+        await this.clickVisibleDropdownOption(tooltip, propertyOptionText, TIMEOUTS.BASE * 20);
       }
     };
 
@@ -842,7 +843,7 @@ class DealModule {
   async submitCreateDeal() {
     await this.submitCreateDealBtn.waitFor({
       state: "visible",
-      timeout: 10_000,
+      timeout: TIMEOUTS.BASE * 20,
     });
     await this.submitCreateDealBtn.click();
   }
@@ -870,18 +871,18 @@ class DealModule {
   }
 
   async assertDealCreated() {
-    await expect(this.successToast).toBeVisible({ timeout: 15_000 });
+    await expect(this.successToast).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
   }
 
   async cancelCreateDeal() {
     await this.cancelDealBtn.click();
     await this.createDealHeading
-      .waitFor({ state: "hidden", timeout: 10_000 })
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 20 })
       .catch(() => {});
   }
 
   async assertCreateDealDrawerClosed() {
-    await expect(this.createDealHeading).not.toBeVisible({ timeout: 8_000 });
+    await expect(this.createDealHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   // ── Deal Detail ───────────────────────────────────────────────────────
@@ -889,10 +890,10 @@ class DealModule {
   async openDealDetail(dealName) {
     await this.gotoDealsFromMenu();
     await this.assertDealsPageOpened();
-    await this.dealSearchInput.waitFor({ state: "visible", timeout: 10_000 });
+    await this.dealSearchInput.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
 
     // Wait for the initial table to be fully loaded before searching.
-    await this.waitForTableData(15_000);
+    await this.waitForTableData(TIMEOUTS.BASE * 30);
 
     // Fill the search term first (does not trigger API on its own).
     await this.dealSearchInput.fill(dealName);
@@ -903,7 +904,7 @@ class DealModule {
     await Promise.all([
       this.page
         .waitForResponse((res) => res.url().includes("deal") && res.ok(), {
-          timeout: 20_000,
+          timeout: TIMEOUTS.BASE * 40,
         })
         .catch(() => null),
       this.dealSearchInput.press("Enter"),
@@ -913,7 +914,7 @@ class DealModule {
       .locator("table tbody tr")
       .filter({ hasText: dealName })
       .first();
-    await dealRow.waitFor({ state: "visible", timeout: 15_000 });
+    await dealRow.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 30 });
 
     const dealNameCell = dealRow.locator("td").nth(1);
     // SKILL.md §4: scrollIntoViewIfNeeded() before click — toBeVisible() on the row confirms
@@ -926,7 +927,7 @@ class DealModule {
     // SKILL.md §4: SPA (React Router) navigation emits no domcontentloaded — use Promise.all
     // with waitForURL to avoid a ~2ms false-success from waitForLoadState('domcontentloaded').
     await Promise.all([
-      this.page.waitForURL(/\/deals\/deal\/\d+/, { timeout: 20_000 }),
+      this.page.waitForURL(/\/deals\/deal\/\d+/, { timeout: TIMEOUTS.BASE * 40 }),
       dealNameCell.click(),
     ]);
     // Detail page readiness confirmed by assertDealDetailOpened() caller
@@ -936,103 +937,103 @@ class DealModule {
     // Live-verified: deal heading is level=2
     await expect(
       this.page.getByRole("heading", { name: dealName, level: 2 }).first(),
-    ).toBeVisible({ timeout: 15_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
   }
 
   async assertDealDetailSectionsVisible() {
-    await expect(this.aboutThisDealBtn).toBeVisible({ timeout: 10_000 });
-    await expect(this.companySection).toBeVisible({ timeout: 10_000 });
-    await expect(this.propertyDetailsBtn).toBeVisible({ timeout: 10_000 });
-    await expect(this.contactSection).toBeVisible({ timeout: 10_000 });
-    await expect(this.franchiseSection).toBeVisible({ timeout: 10_000 });
-    await expect(this.attachmentsSection).toBeVisible({ timeout: 10_000 });
+    await expect(this.aboutThisDealBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.companySection).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.propertyDetailsBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.contactSection).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.franchiseSection).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.attachmentsSection).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertDealStagesBarVisible() {
-    await expect(this.dealStagesHeading).toBeVisible({ timeout: 10_000 });
-    await expect(this.proposalCreationStage).toBeVisible({ timeout: 10_000 });
+    await expect(this.dealStagesHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.proposalCreationStage).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertDealDetailTabsVisible() {
     // Live-verified: Contract & Terms (default selected), Activities, Notes, Tasks
-    await expect(this.contractTermsTab).toBeVisible({ timeout: 10_000 });
-    await expect(this.activitiesTab).toBeVisible({ timeout: 10_000 });
-    await expect(this.notesTab).toBeVisible({ timeout: 10_000 });
-    await expect(this.tasksTab).toBeVisible({ timeout: 10_000 });
+    await expect(this.contractTermsTab).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.activitiesTab).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.notesTab).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.tasksTab).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   // ── Activities Tab ────────────────────────────────────────────────────
 
   async gotoActivitiesTab() {
-    await this.activitiesTab.waitFor({ state: "visible", timeout: 10_000 });
+    await this.activitiesTab.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await this.activitiesTab.click();
     // Tab activation confirmed by assertActivitiesTabActive() caller
   }
 
   async assertActivitiesTabActive() {
     await expect(this.activitiesTab).toHaveAttribute("aria-selected", "true", {
-      timeout: 5_000,
+      timeout: TIMEOUTS.BASE * 10,
     });
   }
 
   // ── Notes Tab ─────────────────────────────────────────────────────────
 
   async gotoNotesTab() {
-    await this.notesTab.waitFor({ state: "visible", timeout: 10_000 });
+    await this.notesTab.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await this.notesTab.click();
     // Tab activation confirmed by subsequent visibility assertions in the caller
   }
 
   async assertNotesTabVisible() {
-    await expect(this.notesTab).toBeVisible({ timeout: 10_000 });
+    await expect(this.notesTab).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertCreateNewNoteButtonVisible() {
-    await expect(this.createNewNoteBtn).toBeVisible({ timeout: 10_000 });
+    await expect(this.createNewNoteBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async openCreateNoteDrawer() {
-    await this.createNewNoteBtn.waitFor({ state: "visible", timeout: 10_000 });
+    await this.createNewNoteBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await this.createNewNoteBtn.click();
-    await this.addNotesHeading.waitFor({ state: "visible", timeout: 10_000 });
+    await this.addNotesHeading.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertCreateNoteDrawerOpen() {
-    await expect(this.addNotesHeading).toBeVisible({ timeout: 10_000 });
+    await expect(this.addNotesHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     // Scope to the MUI drawer/presentation container — no XPath allowed per SKILL.md §13
     const noteSubjectInput = this.page
       .locator('[role="presentation"]')
       .getByRole("textbox")
       .first()
       .or(this.page.locator('div[role="presentation"] input').first());
-    await expect(noteSubjectInput).toBeVisible({ timeout: 5_000 });
-    await expect(this.noteDescEditor).toBeVisible({ timeout: 5_000 });
-    await expect(this.noteCharCounter).toBeVisible({ timeout: 5_000 });
-    await expect(this.noteSaveBtn).toBeVisible({ timeout: 5_000 });
-    await expect(this.noteCancelBtn).toBeVisible({ timeout: 5_000 });
+    await expect(noteSubjectInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.noteDescEditor).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.noteCharCounter).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.noteSaveBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.noteCancelBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   async cancelCreateNoteDrawer() {
     await this.noteCancelBtn.click();
     await this.addNotesHeading
-      .waitFor({ state: "hidden", timeout: 8_000 })
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 16 })
       .catch(() => {});
   }
 
   async assertCreateNoteDrawerClosed() {
-    await expect(this.addNotesHeading).not.toBeVisible({ timeout: 8_000 });
+    await expect(this.addNotesHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   // ── Tasks Tab ─────────────────────────────────────────────────────────
 
   async gotoTasksTab() {
-    await this.tasksTab.waitFor({ state: "visible", timeout: 10_000 });
+    await this.tasksTab.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await this.tasksTab.click();
-    await this.newTaskBtn.waitFor({ state: "visible", timeout: 10_000 });
+    await this.newTaskBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertTasksTabVisible() {
-    await expect(this.tasksTab).toBeVisible({ timeout: 10_000 });
+    await expect(this.tasksTab).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertTasksTableColumns() {
@@ -1047,39 +1048,39 @@ class DealModule {
     for (const col of expectedCols) {
       await expect(
         this.page.getByRole("columnheader", { name: col }),
-      ).toBeVisible({ timeout: 10_000 });
+      ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     }
   }
 
   async assertNewTaskButtonVisible() {
-    await expect(this.newTaskBtn).toBeVisible({ timeout: 10_000 });
+    await expect(this.newTaskBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async openCreateTaskDrawer() {
-    await this.newTaskBtn.waitFor({ state: "visible", timeout: 10_000 });
+    await this.newTaskBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await this.newTaskBtn.click();
-    await this.createTaskHeading.waitFor({ state: "visible", timeout: 10_000 });
+    await this.createTaskHeading.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertCreateTaskDrawerOpen() {
-    await expect(this.createTaskHeading).toBeVisible({ timeout: 10_000 });
-    await expect(this.taskTitleInput).toBeVisible({ timeout: 5_000 });
-    await expect(this.taskDescEditor).toBeVisible({ timeout: 5_000 });
-    await expect(this.taskTypeTrigger).toBeVisible({ timeout: 5_000 });
-    await expect(this.taskPriorityTrigger).toBeVisible({ timeout: 5_000 });
-    await expect(this.taskSaveBtn).toBeVisible({ timeout: 5_000 });
-    await expect(this.taskCancelBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.createTaskHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.taskTitleInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.taskDescEditor).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.taskTypeTrigger).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.taskPriorityTrigger).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.taskSaveBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.taskCancelBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   async cancelCreateTaskDrawer() {
     await this.taskCancelBtn.click();
     await this.createTaskHeading
-      .waitFor({ state: "hidden", timeout: 8_000 })
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 16 })
       .catch(() => {});
   }
 
   async assertCreateTaskDrawerClosed() {
-    await expect(this.createTaskHeading).not.toBeVisible({ timeout: 8_000 });
+    await expect(this.createTaskHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   // ── Edit Deal ─────────────────────────────────────────────────────────
@@ -1089,20 +1090,20 @@ class DealModule {
    * Edit Deal drawer to appear.
    */
   async openEditDealForm() {
-    await this.editDealButton.waitFor({ state: "visible", timeout: 10_000 });
+    await this.editDealButton.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await this.editDealButton.click();
-    await this.editDealHeading.waitFor({ state: "visible", timeout: 10_000 });
-    await this.editDealNameInput.waitFor({ state: "visible", timeout: 10_000 });
+    await this.editDealHeading.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
+    await this.editDealNameInput.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
   }
 
   /**
    * Assert the Edit Deal drawer is fully rendered with all expected elements.
    */
   async assertEditDealFormOpen() {
-    await expect(this.editDealHeading).toBeVisible({ timeout: 10_000 });
-    await expect(this.editDealNameInput).toBeVisible({ timeout: 5_000 });
-    await expect(this.saveDealEditBtn).toBeVisible({ timeout: 5_000 });
-    await expect(this.cancelDealEditBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.editDealHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.editDealNameInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.saveDealEditBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.cancelDealEditBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -1110,7 +1111,7 @@ class DealModule {
    * Mirrors the Company (Update Company) and Property (Save) behaviour.
    */
   async assertSaveDealBtnDisabled() {
-    await expect(this.saveDealEditBtn).toBeDisabled({ timeout: 5_000 });
+    await expect(this.saveDealEditBtn).toBeDisabled({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -1118,22 +1119,22 @@ class DealModule {
    * Uses triple-click → fill to reliably clear existing value first.
    */
   async fillEditDealName(newName) {
-    await this.editDealNameInput.waitFor({ state: "visible", timeout: 10_000 });
+    await this.editDealNameInput.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await this.editDealNameInput.click({ clickCount: 3 });
     await this.editDealNameInput.fill(newName);
     await this.editDealNameInput.press("Tab");
-    await expect(this.saveDealEditBtn).toBeEnabled({ timeout: 10_000 });
+    await expect(this.saveDealEditBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   /**
    * Submit the edit form and wait for the drawer to close.
    */
   async submitEditDeal() {
-    await this.saveDealEditBtn.waitFor({ state: "visible", timeout: 10_000 });
-    await expect(this.saveDealEditBtn).toBeEnabled({ timeout: 10_000 });
+    await this.saveDealEditBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.saveDealEditBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 20 });
     await this.saveDealEditBtn.click({ force: true });
     await this.editDealHeading
-      .waitFor({ state: "hidden", timeout: 20_000 })
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 40 })
       .catch(() => {});
     // Page update confirmed by assertDealDetailOpened() in the caller — no networkidle needed
   }
@@ -1142,10 +1143,10 @@ class DealModule {
    * Cancel the edit form and assert the drawer closes without saving.
    */
   async cancelEditDealForm() {
-    await this.cancelDealEditBtn.waitFor({ state: "visible", timeout: 10_000 });
+    await this.cancelDealEditBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await this.cancelDealEditBtn.click();
     await this.editDealHeading
-      .waitFor({ state: "hidden", timeout: 10_000 })
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 20 })
       .catch(() => {});
   }
 
@@ -1153,7 +1154,7 @@ class DealModule {
    * Assert the Edit Deal drawer has closed.
    */
   async assertEditDealFormClosed() {
-    await expect(this.editDealHeading).not.toBeVisible({ timeout: 8_000 });
+    await expect(this.editDealHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   /**
@@ -1173,20 +1174,20 @@ class DealModule {
   // ── Charts assertions ─────────────────────────────────────────────────
 
   async assertChartsRendered() {
-    await expect(this.chartBreakdownHeading).toBeVisible({ timeout: 10_000 });
-    await expect(this.chartTotalDealsHeading).toBeVisible({ timeout: 5_000 });
+    await expect(this.chartBreakdownHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.chartTotalDealsHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     await expect(this.chartTotalDealAmountHeading).toBeVisible({
-      timeout: 5_000,
+      timeout: TIMEOUTS.BASE * 10,
     });
-    await expect(this.chartWonVsLostHeading).toBeVisible({ timeout: 5_000 });
+    await expect(this.chartWonVsLostHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   async assertTotalDealAmountDisplayed() {
     await expect(this.chartTotalDealAmountHeading).toBeVisible({
-      timeout: 5_000,
+      timeout: TIMEOUTS.BASE * 10,
     });
     await expect(this.chartTotalDealAmountValue).toBeVisible({
-      timeout: 5_000,
+      timeout: TIMEOUTS.BASE * 10,
     });
     const text = await this.chartTotalDealAmountValue.textContent();
     expect(text).toMatch(/\$/);
@@ -1204,14 +1205,14 @@ class DealModule {
     );
     await filterHeading.first().click();
     const popper = this.page.locator("#simple-popper");
-    await popper.waitFor({ state: "visible", timeout: 5_000 });
+    await popper.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 10 });
     await popper.getByText(optionText, { exact: true }).click();
     // Wait for table to reload after filter change
     await expect
       .poll(async () => {
         const text = await this.paginationInfo.textContent().catch(() => "");
         return text.length > 0;
-      }, { timeout: 15_000 })
+      }, { timeout: TIMEOUTS.BASE * 30 })
       .toBeTruthy();
   }
 
@@ -1223,7 +1224,7 @@ class DealModule {
 
   async openMoreFilters() {
     await this.moreFiltersBtn.click();
-    await expect(this.allFiltersHeading).toBeVisible({ timeout: 5_000 });
+    await expect(this.allFiltersHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   async selectFilterOption(triggerHeading, optionText) {
@@ -1234,24 +1235,24 @@ class DealModule {
     if (popperVisible) {
       await this.page.keyboard.press("Escape");
       await popper
-        .waitFor({ state: "hidden", timeout: 3_000 })
+        .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 6 })
         .catch(() => {});
     }
     await triggerHeading.click();
-    await popper.waitFor({ state: "visible", timeout: 5_000 });
+    await popper.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 10 });
     await popper.getByText(optionText, { exact: true }).click();
     // Wait for popper to close after selection
     await popper
-      .waitFor({ state: "hidden", timeout: 5_000 })
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 10 })
       .catch(() => {});
   }
 
   async applyFilters() {
     await this.applyFiltersBtn.click();
     await this.allFiltersHeading
-      .waitFor({ state: "hidden", timeout: 10_000 })
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 20 })
       .catch(() => {});
-    await expect(this.paginationInfo).toBeVisible({ timeout: 15_000 });
+    await expect(this.paginationInfo).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
   }
 
   async clearAllFilters() {
@@ -1262,9 +1263,9 @@ class DealModule {
 
   async getFirstRowCellText(columnIndex) {
     const firstRow = this.page.locator("table tbody tr").first();
-    await firstRow.waitFor({ state: "visible", timeout: 10_000 });
+    await firstRow.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     const cell = firstRow.locator("td").nth(columnIndex);
-    await cell.waitFor({ state: "attached", timeout: 5_000 });
+    await cell.waitFor({ state: "attached", timeout: TIMEOUTS.BASE * 10 });
     return (await cell.textContent()).trim();
   }
 
@@ -1290,10 +1291,10 @@ class DealModule {
             .catch(() => "");
           return afterText !== beforeText || afterText.length > 0;
         },
-        { timeout: 10_000 },
+        { timeout: TIMEOUTS.BASE * 20 },
       )
       .toBeTruthy();
-    await expect(this.paginationInfo).toBeVisible({ timeout: 10_000 });
+    await expect(this.paginationInfo).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   // ── Bulk Assignment helpers ───────────────────────────────────────────
@@ -1319,7 +1320,7 @@ class DealModule {
 
   async clickRowCheckbox(rowIndex) {
     const row = this.page.locator("table tbody tr").nth(rowIndex);
-    await row.waitFor({ state: "visible", timeout: 10_000 });
+    await row.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     // Live-verified: each row has a checkbox inside td:first > div > checkbox/img
     const checkboxTarget = row
       .locator("td")
@@ -1343,7 +1344,7 @@ class DealModule {
    * Polls pagination until total > 0 (i.e., not "0–0 of 0").
    * Use before reading cell text to avoid empty-row race conditions.
    */
-  async waitForTableData(timeout = 15_000) {
+  async waitForTableData(timeout = TIMEOUTS.BASE * 30) {
     await expect
       .poll(
         async () => {
@@ -1364,10 +1365,10 @@ class DealModule {
    * Live-verified via MCP browser on 2026-05-05.
    */
   async assertMandatoryFieldValidationErrors() {
-    await expect(this.validationDealName).toBeVisible({ timeout: 5_000 });
-    await expect(this.validationCompany).toBeVisible({ timeout: 5_000 });
-    await expect(this.validationPropertyName).toBeVisible({ timeout: 5_000 });
-    await expect(this.validationDealOwner).toBeVisible({ timeout: 5_000 });
+    await expect(this.validationDealName).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.validationCompany).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.validationPropertyName).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.validationDealOwner).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   // ── Deal overview assertions (live-verified via MCP on 2026-05-05) ───
@@ -1378,12 +1379,12 @@ class DealModule {
    */
   async assertDealOverviewDataVisible() {
     // "About this Deal" section should contain Name matching the deal
-    await expect(this.aboutThisDealBtn).toBeVisible({ timeout: 10_000 });
+    await expect(this.aboutThisDealBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     // Verify overview header fields — Amount paragraph, Pipeline paragraph
-    await expect(this.page.locator('p').filter({ hasText: /^Amount$/ }).first()).toBeVisible({ timeout: 5_000 });
-    await expect(this.page.locator('p').filter({ hasText: /^Pipeline$/ }).first()).toBeVisible({ timeout: 5_000 });
+    await expect(this.page.locator('p').filter({ hasText: /^Amount$/ }).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.page.locator('p').filter({ hasText: /^Pipeline$/ }).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     // Deal Owner button with owner name — live-verified: "Deal Onwner Image <name>"
-    await expect(this.overviewDealOwnerBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.overviewDealOwnerBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -1397,7 +1398,7 @@ class DealModule {
     for (const field of fields) {
       await expect(
         this.page.locator('p').filter({ hasText: new RegExp(`^${field}$`) }).first(),
-      ).toBeVisible({ timeout: 5_000 });
+      ).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     }
   }
 
@@ -1407,20 +1408,20 @@ class DealModule {
    * Open the Close Deal drawer by clicking the "Close" button on deal detail.
    */
   async openCloseDealDrawer() {
-    await this.closeBtn.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.closeBtn.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.closeBtn.click();
-    await expect(this.closeDealHeading).toBeVisible({ timeout: 10_000 });
+    await expect(this.closeDealHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   /**
    * Assert the Close Deal drawer is open with expected elements.
    */
   async assertCloseDealDrawerOpen() {
-    await expect(this.closeDealHeading).toBeVisible({ timeout: 10_000 });
-    await expect(this.closedWonRadio).toBeVisible({ timeout: 5_000 });
-    await expect(this.closedLostRadio).toBeVisible({ timeout: 5_000 });
-    await expect(this.hubspotStageHeading).toBeVisible({ timeout: 5_000 });
-    await expect(this.closeDealCancelBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.closeDealHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.closedWonRadio).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.closedLostRadio).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.hubspotStageHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.closeDealCancelBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -1429,7 +1430,7 @@ class DealModule {
   async cancelCloseDeal() {
     await this.closeDealCancelBtn.click();
     await this.closeDealHeading
-      .waitFor({ state: 'hidden', timeout: 10_000 })
+      .waitFor({ state: 'hidden', timeout: TIMEOUTS.BASE * 20 })
       .catch(() => {});
   }
 
@@ -1437,7 +1438,7 @@ class DealModule {
    * Assert the Close Deal drawer has closed.
    */
   async assertCloseDealDrawerClosed() {
-    await expect(this.closeDealHeading).not.toBeVisible({ timeout: 8_000 });
+    await expect(this.closeDealHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   // ── Proposal creation assertion ───────────────────────────────────────
@@ -1446,8 +1447,8 @@ class DealModule {
    * Assert that the Create Proposal section is visible on Contract & Terms tab.
    */
   async assertCreateProposalVisible() {
-    await expect(this.createProposalHeading).toBeVisible({ timeout: 10_000 });
-    await expect(this.createProposalBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.createProposalHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.createProposalBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   // ── Activities tab assertions ─────────────────────────────────────────
@@ -1462,7 +1463,7 @@ class DealModule {
       has: this.page.locator('p').filter({ hasText: /by \w+/ }),
     });
     await expect
-      .poll(async () => activityEntries.count(), { timeout: 15_000 })
+      .poll(async () => activityEntries.count(), { timeout: TIMEOUTS.BASE * 30 })
       .toBeGreaterThan(0);
   }
 
@@ -1471,7 +1472,7 @@ class DealModule {
    */
   async assertActivityLogHasAuthor() {
     const authorEntry = this.page.getByText(/by \w+/).first();
-    await expect(authorEntry).toBeVisible({ timeout: 10_000 });
+    await expect(authorEntry).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     const text = await authorEntry.textContent();
     expect(text).toMatch(/by \w+/);
   }
@@ -1523,7 +1524,7 @@ class DealModule {
     const seeMore = this.activitySeeMoreToggle();
     const seeLess = this.activitySeeLessToggle();
     // Use or() so Playwright auto-waits for either element to appear
-    await expect(seeMore.or(seeLess)).toBeVisible({ timeout: 15_000 });
+    await expect(seeMore.or(seeLess)).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
   }
 }
 

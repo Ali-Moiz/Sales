@@ -4,6 +4,7 @@
 // Framework: Playwright (JavaScript) + Page Object Model
 // ============================================================
 
+const { TIMEOUTS } = require('../../utils/playwright-timeouts');
 const { test, expect } = require('@playwright/test');
 const { performLogin }   = require('../../utils/auth/login-action');
 const { MarketVerticalsPage } = require('../../pages/market-verticals');
@@ -13,6 +14,23 @@ const MV_PATH = '/app/sales/marketVerticals';
 const QUESTION_PREFIX = 'PAT';
 const KNOWN_VERTICALS = ['Commercial', 'Distribution', 'Industrial', 'Manufacturing', 'Residential'];
 const DEFAULT_VERTICAL = 'Commercial';
+
+function formatDateForMarketVerticals(date, timeZone) {
+  return new Intl.DateTimeFormat('en-US', {
+    month: '2-digit',
+    day: '2-digit',
+    year: 'numeric',
+    ...(timeZone ? { timeZone } : {}),
+  }).format(date);
+}
+
+function currentEditedDateCandidates() {
+  const now = new Date();
+  return Array.from(new Set([
+    formatDateForMarketVerticals(now),
+    formatDateForMarketVerticals(now, 'UTC'),
+  ]));
+}
 
 test.describe('Create & Edit Question Workflow — TC-MV-001 through TC-MV-015', () => {
   let sharedPage;
@@ -500,8 +518,7 @@ test.describe('Create & Edit Question Workflow — TC-MV-001 through TC-MV-015',
   test('TC-MV-015 | Verify that editing a question updates Last Edited By and Last Edited On correctly after save @regression', async () => {
     const editSuffix = ' - edited';
     const editedName = `${uniqueQuestionName}${editSuffix}`;
-    const today = new Date();
-    const todayFormatted = `${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}/${today.getFullYear()}`;
+    const expectedEditedDates = currentEditedDateCandidates();
 
     await test.step('Click Edit from 3-dot menu', async () => {
       await mvPage.clickEditFromMenu(uniqueQuestionName);
@@ -526,12 +543,12 @@ test.describe('Create & Edit Question Workflow — TC-MV-001 through TC-MV-015',
     await test.step('Verify the edited question appears in the list', async () => {
       // The edited question should be visible in the table (may need scroll)
       const editedCell = sharedPage.getByRole('cell').filter({ hasText: editedName });
-      await expect(editedCell.first()).toBeVisible({ timeout: 15_000 });
+      await expect(editedCell.first()).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
     });
 
     await test.step('Verify Last Edited On is updated to today', async () => {
       const details = await mvPage.getQuestionRowDetails(editedName);
-      expect(details.editedOn).toBe(todayFormatted);
+      expect(expectedEditedDates).toContain(details.editedOn);
     });
 
     await test.step('Verify Last Edited By is updated', async () => {
@@ -885,7 +902,7 @@ test.describe('Market Verticals & Industry Management — TC-MV-016 through TC-M
         // Web-first assertion: wait for a non-matching industry to disappear before reading names
         await expect(
           sharedPage.getByRole('button', { name: /Commercial.*No\. of Companies/ }),
-        ).toBeHidden({ timeout: 10_000 });
+        ).toBeHidden({ timeout: TIMEOUTS.BASE * 20 });
       });
 
       await test.step('Verify only matching industries remain visible', async () => {
@@ -911,7 +928,7 @@ test.describe('Market Verticals & Industry Management — TC-MV-016 through TC-M
         // Wait for non-matching industry to disappear before reading filtered names
         await expect(
           sharedPage.getByRole('button', { name: /Commercial.*No\. of Companies/ }),
-        ).toBeHidden({ timeout: 10_000 });
+        ).toBeHidden({ timeout: TIMEOUTS.BASE * 20 });
         const filteredNames = await mvPage.getVisibleSidebarIndustryNames();
         expect(filteredNames.length).toBeLessThan(KNOWN_VERTICALS.length);
       });
@@ -1024,7 +1041,7 @@ test.describe('Questions Listing & Interaction — TC-MV-030 through TC-MV-048',
   test('TC-MV-031 | Verify that questions list supports vertical scrolling without header/row misalignment @regression', async () => {
     await test.step('Verify multiple question rows are visible', async () => {
       // Wait for at least one data row to load before counting (SKILL.md §4 — table data readiness)
-      await expect(mvPage.questionsTable.getByRole('row').nth(1)).toBeVisible({ timeout: 15_000 });
+      await expect(mvPage.questionsTable.getByRole('row').nth(1)).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
       const rows = await mvPage.questionsTable.getByRole('row').all();
       // At least header + some data rows
       expect(rows.length).toBeGreaterThan(2);
@@ -1043,7 +1060,7 @@ test.describe('Questions Listing & Interaction — TC-MV-030 through TC-MV-048',
         }
         if (scrollable) scrollable.scrollTop = scrollable.scrollHeight;
       });
-      // Wait for last row to be visible after scroll (replaces banned waitForTimeout)
+      // Wait for last row to be visible after scroll.
       const lastRow = mvPage.questionsTable.getByRole('row').last();
       await expect(lastRow).toBeVisible();
     });
@@ -1157,9 +1174,9 @@ test.describe('Questions Listing & Interaction — TC-MV-030 through TC-MV-048',
   test('TC-MV-035 | Verify that Last Edited By and Last Edited On show correct values and handle missing values as N/A @regression', async () => {
     await test.step('Read Last Edited By/On for visible question rows', async () => {
       // Wait for at least one data row to render
-      await expect(mvPage.questionsTable.getByRole('row').nth(1)).toBeVisible({ timeout: 15_000 });
+      await expect(mvPage.questionsTable.getByRole('row').nth(1)).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
       // Wait for cell content to be populated (not just the row skeleton)
-      await expect(mvPage.questionsTable.getByRole('row').nth(1).getByRole('cell').nth(2)).not.toHaveText('', { timeout: 10_000 });
+      await expect(mvPage.questionsTable.getByRole('row').nth(1).getByRole('cell').nth(2)).not.toHaveText('', { timeout: TIMEOUTS.BASE * 20 });
 
       // Read all row data atomically via evaluate() to avoid stale handles
       const rowData = await mvPage.questionsTable.evaluate((table) => {
@@ -1194,7 +1211,7 @@ test.describe('Questions Listing & Interaction — TC-MV-030 through TC-MV-048',
   test('TC-MV-036 | Verify that Answer Type displays correct label (Dropdown/Radio/Multiselect) based on saved configuration @regression', async () => {
     await test.step('Read Answer Type for visible question rows', async () => {
       // Wait for question data to fully render before reading cell text
-      await expect(mvPage.questionsTable.getByRole('row').nth(1).getByRole('cell').nth(4)).not.toHaveText('', { timeout: 10_000 });
+      await expect(mvPage.questionsTable.getByRole('row').nth(1).getByRole('cell').nth(4)).not.toHaveText('', { timeout: TIMEOUTS.BASE * 20 });
 
       const rows = await mvPage.questionsTable.getByRole('row').all();
       const dataRows = rows.slice(1); // skip header
@@ -1566,7 +1583,7 @@ test.describe('Questions Listing & Interaction — TC-MV-030 through TC-MV-048',
       // Use a known question substring that exists in the Commercial industry.
       await expect(
         mvPage.questionsTable.getByRole('cell', { name: /security/i }).first(),
-      ).toBeVisible({ timeout: 15_000 });
+      ).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
       const statements = await mvPage.getQuestionStatements();
       expect(statements.length).toBeGreaterThanOrEqual(1);
     });

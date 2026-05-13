@@ -4,6 +4,7 @@
 // Covers: List Page + Detail Page + Add/Edit Question Form
 // ============================================================
 
+const { TIMEOUTS } = require('../utils/playwright-timeouts');
 const { expect } = require('@playwright/test');
 
 class MarketVerticalsPage {
@@ -96,13 +97,13 @@ class MarketVerticalsPage {
    */
   async navigateToListPage() {
     await this.page.goto('/app/sales/marketVerticals', { waitUntil: 'domcontentloaded' });
-    await expect(this.page).toHaveURL(/\/app\/sales\/marketVerticals/, { timeout: 15_000 });
-    await this.industrySearchInput.waitFor({ state: 'visible', timeout: 15_000 });
+    await expect(this.page).toHaveURL(/\/app\/sales\/marketVerticals/, { timeout: TIMEOUTS.BASE * 30 });
+    await this.industrySearchInput.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
     await this.waitForSkeletonsToClear();
     await expect(this.industriesTable).toBeVisible();
   }
 
-  async waitForSkeletonsToClear(timeout = 20_000) {
+  async waitForSkeletonsToClear(timeout = TIMEOUTS.BASE * 40) {
     await expect
       .poll(async () => this.page.locator('.MuiSkeleton-root').evaluateAll((nodes) => (
         nodes.filter((node) => {
@@ -121,7 +122,7 @@ class MarketVerticalsPage {
   async clickVerticalInList(verticalName) {
     // Why getByRole('cell') with name: cell text is the industry name
     await this.page.getByRole('cell', { name: verticalName }).click();
-    await expect(this.page).toHaveURL(/\/marketVerticals\/\d+\/questions/, { timeout: 15_000 });
+    await expect(this.page).toHaveURL(/\/marketVerticals\/\d+\/questions/, { timeout: TIMEOUTS.BASE * 30 });
     await this.waitForSkeletonsToClear();
     await expect(this.addQuestionBtn).toBeVisible();
   }
@@ -147,8 +148,39 @@ class MarketVerticalsPage {
   async searchIndustry(term) {
     await this.industrySearchInput.clear();
     await this.industrySearchInput.fill(term);
-    await this.page.waitForTimeout(500);
-    await this.waitForSkeletonsToClear(10_000);
+    await expect(this.industrySearchInput).toHaveValue(term, {
+      timeout: TIMEOUTS.BASE * 4,
+    });
+    await this.waitForSkeletonsToClear(TIMEOUTS.BASE * 20);
+    await this.waitForIndustrySearchResults(term);
+  }
+
+  async waitForIndustrySearchResults(term) {
+    const normalizedTerm = term.trim().toLowerCase();
+
+    await expect
+      .poll(
+        async () => {
+          const names = await this.getListedIndustryNames();
+
+          if (!normalizedTerm) {
+            return names.length > 0 ? 'settled' : 'pending';
+          }
+
+          if (names.length === 0) {
+            return 'settled';
+          }
+
+          return names.every((name) => name.toLowerCase().includes(normalizedTerm))
+            ? 'settled'
+            : 'pending';
+        },
+        {
+          timeout: TIMEOUTS.BASE * 40,
+          intervals: [TIMEOUTS.BASE, TIMEOUTS.BASE * 2, TIMEOUTS.BASE * 4],
+        },
+      )
+      .toBe('settled');
   }
 
   /**
@@ -156,15 +188,20 @@ class MarketVerticalsPage {
    * @returns {Promise<string[]>}
    */
   async getListedIndustryNames() {
-    // Why 'cell' role with column scope: first column cells are industry names
-    const rows = await this.page.getByRole('row').all();
-    const names = [];
-    for (const row of rows.slice(1)) { // skip header
-      const firstCell = row.getByRole('cell').first();
-      const text = await firstCell.textContent();
-      if (text?.trim()) names.push(text.trim());
-    }
-    return names;
+    await this.industriesTable.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
+
+    return this.industriesTable.evaluate((table) => {
+      const rows = Array.from(table.querySelectorAll('tbody tr'));
+      return rows
+        .filter((row) => {
+          const style = window.getComputedStyle(row);
+          return style.display !== 'none' &&
+            style.visibility !== 'hidden' &&
+            row.getBoundingClientRect().height > 0;
+        })
+        .map((row) => row.querySelector('td')?.textContent?.trim() ?? '')
+        .filter(Boolean);
+    });
   }
 
   /**
@@ -188,7 +225,7 @@ class MarketVerticalsPage {
   async searchSidebarVertical(term) {
     await this.sidebarSearchInput.clear();
     await this.sidebarSearchInput.fill(term);
-    await this.waitForSkeletonsToClear(10_000);
+    await this.waitForSkeletonsToClear(TIMEOUTS.BASE * 20);
   }
 
   /**
@@ -230,11 +267,61 @@ class MarketVerticalsPage {
    * @param {string} term
    */
   async searchQuestions(term) {
+    const responsePromise = this.waitForQuestionSearchResponse(term);
+
     await this.questionSearchInput.clear();
     await this.questionSearchInput.fill(term);
-    await this.questionSearchInput.press('Enter').catch(() => {});
-    await this.page.waitForTimeout(500);
-    await this.waitForSkeletonsToClear(10_000);
+    await expect(this.questionSearchInput).toHaveValue(term, {
+      timeout: TIMEOUTS.BASE * 4,
+    });
+    await responsePromise;
+    await this.waitForSkeletonsToClear(TIMEOUTS.BASE * 20);
+    await this.waitForQuestionSearchResults(term);
+  }
+
+  async waitForQuestionSearchResponse(term) {
+    const expectedStatement = term.trim();
+
+    await this.page.waitForResponse((response) => {
+      if (response.status() !== 200) return false;
+
+      try {
+        const url = new URL(response.url());
+        return url.pathname.includes('/industryVerticals/') &&
+          url.pathname.includes('/questions') &&
+          (url.searchParams.get('questionStatement') ?? '') === expectedStatement;
+      } catch {
+        return false;
+      }
+    }, { timeout: TIMEOUTS.BASE * 60 });
+  }
+
+  async waitForQuestionSearchResults(term) {
+    const normalizedTerm = term.trim().toLowerCase();
+
+    await expect
+      .poll(
+        async () => {
+          const statements = await this.getQuestionStatements();
+
+          if (!normalizedTerm) {
+            return statements.length > 0 ? 'settled' : 'pending';
+          }
+
+          if (statements.length === 0) {
+            return 'settled';
+          }
+
+          return statements.every((statement) => statement.toLowerCase().includes(normalizedTerm))
+            ? 'settled'
+            : 'pending';
+        },
+        {
+          timeout: TIMEOUTS.BASE * 40,
+          intervals: [TIMEOUTS.BASE, TIMEOUTS.BASE * 2, TIMEOUTS.BASE * 4],
+        },
+      )
+      .toBe('settled');
   }
 
   /**
@@ -244,10 +331,16 @@ class MarketVerticalsPage {
   async getQuestionStatements() {
     // Extract all question statements in a single evaluate() call to avoid
     // stale element handles when the table re-renders during iteration.
-    await this.questionsTable.waitFor({ state: 'visible', timeout: 15_000 });
+    await this.questionsTable.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
     return this.questionsTable.evaluate((table) => {
       const rows = Array.from(table.querySelectorAll('tbody tr'));
       return rows
+        .filter((row) => {
+          const style = window.getComputedStyle(row);
+          return style.display !== 'none' &&
+            style.visibility !== 'hidden' &&
+            row.getBoundingClientRect().height > 0;
+        })
         .map((row) => {
           const cells = row.querySelectorAll('td');
           return cells.length > 1 ? (cells[1].textContent ?? '').trim() : '';
@@ -721,7 +814,11 @@ class MarketVerticalsPage {
    */
   async clearIndustrySearch() {
     await this.industrySearchInput.clear();
-    await this.waitForSkeletonsToClear(10_000);
+    await expect(this.industrySearchInput).toHaveValue('', {
+      timeout: TIMEOUTS.BASE * 4,
+    });
+    await this.waitForSkeletonsToClear(TIMEOUTS.BASE * 20);
+    await this.waitForIndustrySearchResults('');
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -735,7 +832,7 @@ class MarketVerticalsPage {
    */
   async getSidebarIndustryButtons() {
     // Wait for at least one sidebar button to render
-    await this.page.getByRole('button', { name: /No\. of Companies/i }).first().waitFor({ state: 'visible', timeout: 15_000 });
+    await this.page.getByRole('button', { name: /No\. of Companies/i }).first().waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
     // Use evaluate() to read all button data atomically, avoiding stale handles
     const sidebarList = this.page.locator('ul, ol, [role="list"]').filter({
       has: this.page.getByRole('button', { name: /No\. of Companies/i }),
@@ -775,7 +872,7 @@ class MarketVerticalsPage {
    */
   async getVisibleSidebarIndustryNames() {
     // Wait for at least one sidebar button to render
-    await this.page.getByRole('button', { name: /No\. of Companies/i }).first().waitFor({ state: 'visible', timeout: 15_000 });
+    await this.page.getByRole('button', { name: /No\. of Companies/i }).first().waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
     // Use evaluate() to read all names atomically, avoiding stale handles
     // when the sidebar re-renders during iteration.
     const sidebarList = this.page.locator('ul, ol, [role="list"]').filter({
@@ -848,7 +945,7 @@ class MarketVerticalsPage {
         if (!container || container.tagName === 'HR') return 0;
         return container.children.length;
       });
-    }, { timeout: 10_000 }).toBeGreaterThan(0);
+    }, { timeout: TIMEOUTS.BASE * 20 }).toBeGreaterThan(0);
     // Now read the chip names
     const names = await drawer.evaluate((el) => {
       const h3s = Array.from(el.querySelectorAll('h3'));
@@ -876,7 +973,7 @@ class MarketVerticalsPage {
       return drawer.evaluate((el) => {
         return Array.from(el.querySelectorAll('p')).filter((p) => /\d+ Points?/.test(p.textContent)).length;
       });
-    }, { timeout: 10_000 }).toBeGreaterThan(0);
+    }, { timeout: TIMEOUTS.BASE * 20 }).toBeGreaterThan(0);
     // Now read the options
     const options = await drawer.evaluate((el) => {
       const result = [];

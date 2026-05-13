@@ -1,3 +1,4 @@
+const { TIMEOUTS } = require('../../utils/playwright-timeouts');
 const { expect } = require('@playwright/test');
 const { NotesTaskPage } = require('../../pages/notesTask.page');
 const { performLogin } = require('../../utils/auth/login-action');
@@ -6,8 +7,6 @@ const ts = () => Date.now();
 
 function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }) {
   test.describe(`${moduleName} Notes & Tasks CRUD`, () => {
-    test.describe.configure({ timeout: 180_000 });
-
     /** @type {import('../../pages/notesTask.page').NotesTaskPage} */
     let ntPage;
     /** @type {import('@playwright/test').Page} */
@@ -44,7 +43,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
           if (noteCount > 0) return 'list';
 
           return 'pending';
-        }, { timeout: 15_000 })
+        }, { timeout: TIMEOUTS.BASE * 30 })
         .not.toBe('pending');
 
       const isEmpty = await ntPage.isNotesEmptyStateVisible();
@@ -53,7 +52,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
         await expect(ntPage.noteEmptySubtext).toBeVisible();
       } else {
         await expect
-          .poll(() => ntPage.getNoteCount(), { timeout: 10_000 })
+          .poll(() => ntPage.getNoteCount(), { timeout: TIMEOUTS.BASE * 20 })
           .toBeGreaterThan(0);
       }
     });
@@ -218,7 +217,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
         await expect(ntPage.taskEmptyHeading).toBeVisible();
       } else {
         await expect
-          .poll(() => ntPage.getTaskRowCount(), { timeout: 10_000 })
+          .poll(() => ntPage.getTaskRowCount(), { timeout: TIMEOUTS.BASE * 20 })
           .toBeGreaterThan(0);
       }
     });
@@ -263,7 +262,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
     });
 
     test(`NT-${moduleName}-T007: Create task – success and task appears in table`, async () => {
-      const title = `Auto Task ${moduleName} ${ts()}`;
+      const title = `PAT ${ts()} Task ${moduleName}`;
 
       await ntPage.clickTasksTab();
       await ntPage.createTask({
@@ -308,7 +307,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
 
     test(`NT-${moduleName}-T010: Search task by title filters results`, async () => {
       // Verify that user can search tasks using Search by Title
-      const title = `Searchable Task ${moduleName} ${ts()}`;
+      const title = `PAT Searchable ${ts()} Task ${moduleName}`;
 
       await ntPage.clickTasksTab();
       await ntPage.createTask({
@@ -328,8 +327,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
     });
 
     test(`NT-${moduleName}-T012: Edit task – drawer opens pre-populated`, async () => {
-      test.setTimeout(120_000);
-      const title = `Edit Task ${moduleName} ${ts()}`;
+      const title = `PAT Edit ${ts()} Task ${moduleName}`;
 
       await ntPage.clickTasksTab();
       await ntPage.createTask({
@@ -348,8 +346,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
     test(`NT-${moduleName}-T013: Edit task – update title and save`, async () => {
       // Verify that user can edit an existing task
       // Verify that edited task details are updated in listing
-      test.setTimeout(120_000);
-      const title = `Update Task ${moduleName} ${ts()}`;
+      const title = `PAT Update ${ts()} Task ${moduleName}`;
       const updatedTitle = `${title} UPDATED`;
 
       await ntPage.clickTasksTab();
@@ -368,8 +365,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
     });
 
     test(`NT-${moduleName}-T014: Edit task – Cancel keeps original task unchanged`, async () => {
-      test.setTimeout(120_000);
-      const title = `Keep Task ${moduleName} ${ts()}`;
+      const title = `Keep ${ts()} Task ${moduleName}`;
 
       await ntPage.clickTasksTab();
       await ntPage.createTask({
@@ -389,8 +385,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
 
     test(`NT-${moduleName}-T015: Mark task as complete via checkbox`, async () => {
       // Verify that completed task is shown under Completed status filter
-      test.setTimeout(120_000);
-      const title = `Complete Task ${moduleName} ${ts()}`;
+      const title = `PAT Complete ${ts()} Task ${moduleName}`;
 
       await ntPage.clickTasksTab();
       await ntPage.createTask({
@@ -401,36 +396,40 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
       });
       await ntPage.searchTask(title);
 
-      const checkbox = ntPage.taskTable.locator('tbody tr').first().getByRole('checkbox');
-      await expect(checkbox).not.toBeChecked();
-      await ntPage.toggleTaskComplete(title);
-      await expect(checkbox).toBeChecked();
+      await expect.poll(() => ntPage.isTaskChecked(title), {
+        timeout: TIMEOUTS.BASE * 20,
+      }).toBe(false);
+      await ntPage.setTaskComplete(title, true);
+      await expect.poll(() => ntPage.isTaskChecked(title), {
+        timeout: TIMEOUTS.BASE * 20,
+      }).toBe(true);
     });
 
     test(`NT-${moduleName}-T016: Unmark completed task reverts to To-do`, async () => {
       // Verify that unchecking completed checkbox marks task as To-Do
-      test.setTimeout(120_000);
-      const title = `Unmark Task ${moduleName} ${ts()}`;
+      const title = `Complete ${ts()} Toggle ${moduleName}`;
 
       await ntPage.clickTasksTab();
       await ntPage.createTask({
         title,
-        description: 'Will be marked then unmarked.',
-        type: 'Call',
-        priority: 'Medium',
+        description: 'Will be marked complete.',
+        type: 'To-do',
+        priority: 'High',
       });
       await ntPage.searchTask(title);
 
-      const checkbox = ntPage.taskTable.locator('tbody tr').first().getByRole('checkbox');
-      await ntPage.toggleTaskComplete(title);
-      await expect(checkbox).toBeChecked();
-      await ntPage.toggleTaskComplete(title);
-      await expect(checkbox).not.toBeChecked();
+      await ntPage.setTaskComplete(title, true);
+      await expect.poll(() => ntPage.isTaskChecked(title), {
+        timeout: TIMEOUTS.BASE * 20,
+      }).toBe(true);
+      await ntPage.setTaskComplete(title, false);
+      await expect.poll(() => ntPage.isTaskChecked(title), {
+        timeout: TIMEOUTS.BASE * 20,
+      }).toBe(false);
     });
 
     test(`NT-${moduleName}-T017: Delete task – confirmation dialog shown correctly`, async () => {
-      test.setTimeout(120_000);
-      const title = `Delete Dialog Task ${moduleName} ${ts()}`;
+      const title = `PAT Delete ${ts()} Dialog Task ${moduleName}`;
 
       await ntPage.clickTasksTab();
       await ntPage.createTask({
@@ -448,8 +447,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
 
     test(`NT-${moduleName}-T018: Delete task – Cancel keeps the task`, async () => {
       // Verify that task is not deleted when delete action is cancelled
-      test.setTimeout(120_000);
-      const title = `Stay Task ${moduleName} ${ts()}`;
+      const title = `PAT Stay ${ts()} Task ${moduleName}`;
 
       await ntPage.clickTasksTab();
       await ntPage.createTask({
@@ -463,15 +461,14 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
       await ntPage.cancelDeleteTask();
 
       await expect
-        .poll(() => ntPage.getTaskRowCount(), { timeout: 10_000 })
+        .poll(() => ntPage.getTaskRowCount(), { timeout: TIMEOUTS.BASE * 20 })
         .toBeGreaterThan(0);
       await expect(ntPage.deleteTaskDialog).toBeHidden();
     });
 
     test(`NT-${moduleName}-T019: Delete task – Confirm removes task from table`, async () => {
       // Verify that user can delete a task after confirmation
-      test.setTimeout(120_000);
-      const title = `Deletable Task ${moduleName} ${ts()}`;
+      const title = `PAT Deletable ${ts()} Task ${moduleName}`;
 
       await ntPage.clickTasksTab();
       await ntPage.createTask({
@@ -486,7 +483,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
       await ntPage.searchTask(title);
 
       await expect
-        .poll(() => ntPage.getTaskRowCount(), { timeout: 10_000 })
+        .poll(() => ntPage.getTaskRowCount(), { timeout: TIMEOUTS.BASE * 20 })
         .toBe(0);
     });
 

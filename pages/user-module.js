@@ -2,6 +2,7 @@
 // Page Object Model — Users Module, Signal CRM
 // Patterns consistent with all other Signal modules (company, property, deal)
 
+const { TIMEOUTS } = require('../utils/playwright-timeouts');
 const { expect } = require('@playwright/test');
 
 class UserModule {
@@ -78,21 +79,21 @@ class UserModule {
 
   async gotoUsersFromMenu() {
     const menuVisible = await this.usersMenuLink
-      .waitFor({ state: 'visible', timeout: 20_000 }).then(() => true).catch(() => false);
+      .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 40 }).then(() => true).catch(() => false);
     if (menuVisible) {
       await this.usersMenuLink.click();
     } else {
       await this.page.goto('/app/sales/users', { waitUntil: 'domcontentloaded' });
     }
-    await this.page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {});
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 40 }).catch(() => {});
   }
 
   // ── List page assertions ──────────────────────────────────────────────
 
   async assertUsersPageOpened() {
-    await expect(this.page).toHaveURL(/\/app\/sales\/users/, { timeout: 20_000 });
-    await expect(this.userSearchInput).toBeVisible({ timeout: 15_000 });
-    await expect(this.roleFilter).toBeVisible({ timeout: 10_000 });
+    await expect(this.page).toHaveURL(/\/app\/sales\/users/, { timeout: TIMEOUTS.BASE * 40 });
+    await expect(this.userSearchInput).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+    await expect(this.roleFilter).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertUsersTableHasColumns() {
@@ -108,12 +109,12 @@ class UserModule {
     for (const col of expectedColumns) {
       await expect(
         this.page.getByRole('columnheader', { name: col, exact: true })
-      ).toBeVisible({ timeout: 10_000 });
+      ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     }
   }
 
   async assertPaginationVisible() {
-    await expect(this.paginationInfo).toBeVisible({ timeout: 10_000 });
+    await expect(this.paginationInfo).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     const infoText = await this.paginationInfo.textContent();
     expect(infoText).toMatch(/\d+–\d+ of \d+/);
   }
@@ -121,7 +122,7 @@ class UserModule {
   async assertUsersTableHasRows() {
     // At least one data row should exist
     const rows = this.page.locator('table tbody tr');
-    await rows.first().waitFor({ state: 'visible', timeout: 10_000 });
+    await rows.first().waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     const count = await rows.count();
     expect(count).toBeGreaterThan(0);
   }
@@ -131,40 +132,113 @@ class UserModule {
     return firstCellText.trim();
   }
 
+  escapeRegExp(text) {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  async getVisibleUserNames() {
+    return this.page.locator('table tbody tr').evaluateAll((rows) => rows
+      .filter((row) => {
+        const style = window.getComputedStyle(row);
+        return style.display !== 'none' &&
+          style.visibility !== 'hidden' &&
+          row.getBoundingClientRect().height > 0;
+      })
+      .map((row) => row.querySelector('td')?.textContent?.trim() ?? '')
+      .filter(Boolean));
+  }
+
+  async waitForUserSearchResults(searchTerm) {
+    const normalizedTerm = searchTerm.trim().toLowerCase();
+
+    await expect
+      .poll(
+        async () => {
+          const names = await this.getVisibleUserNames().catch(() => []);
+          const paginationText = await this.paginationInfo
+            .first()
+            .textContent()
+            .catch(() => '');
+          const noRecordsVisible = await this.page
+            .getByText(/No Record Found|No records/i)
+            .first()
+            .isVisible()
+            .catch(() => false);
+
+          if (!normalizedTerm) {
+            return names.length > 0 ? 'settled' : 'pending';
+          }
+
+          if (names.some((name) => name.toLowerCase().includes(normalizedTerm))) {
+            return 'settled';
+          }
+
+          if (noRecordsVisible || /0[–-]0 of 0/.test(paginationText ?? '')) {
+            return 'empty';
+          }
+
+          return 'pending';
+        },
+        {
+          timeout: TIMEOUTS.BASE * 40,
+          intervals: [TIMEOUTS.BASE, TIMEOUTS.BASE * 2, TIMEOUTS.BASE * 4],
+        },
+      )
+      .not.toBe('pending');
+  }
+
+  async getProfileBackedUserName() {
+    const preferredSearches = ['MoizSM', 'Moiz User', 'Moiz'];
+
+    for (const searchTerm of preferredSearches) {
+      await this.searchUser(searchTerm);
+      const [name] = await this.getVisibleUserNames();
+      if (name) {
+        await this.clearUserSearch();
+        return { name, searchTerm };
+      }
+    }
+
+    const name = await this.getFirstListedUserName();
+    return { name, searchTerm: name.split(/\s+/)[0] };
+  }
+
   // ── Search ────────────────────────────────────────────────────────────
 
   async searchUser(searchTerm) {
     this.lastSearchTerm = searchTerm;
-    await this.userSearchInput.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.userSearchInput.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.userSearchInput.fill(searchTerm);
     await this.userSearchInput.press('Enter').catch(() => {});
-    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
-    await this.page.waitForTimeout(1_000);
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
+    await expect(this.userSearchInput).toHaveValue(searchTerm, { timeout: TIMEOUTS.BASE * 4 });
+    await this.waitForUserSearchResults(searchTerm);
   }
 
   async assertSearchResultContains(name) {
     await expect(
       this.page.locator('table tbody').getByText(name, { exact: false }).first()
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertSearchShowsNoResults(searchTerm = this.lastSearchTerm) {
     const tableBody = this.page.locator('table tbody');
     await expect(
       tableBody.getByText(searchTerm, { exact: false })
-    ).toHaveCount(0, { timeout: 10_000 });
+    ).toHaveCount(0, { timeout: TIMEOUTS.BASE * 20 });
   }
 
   async clearUserSearch() {
     await this.userSearchInput.clear();
-    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
-    await this.page.waitForTimeout(500);
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
+    await expect(this.userSearchInput).toHaveValue('', { timeout: TIMEOUTS.BASE * 4 });
+    await this.waitForUserSearchResults('');
   }
 
   // ── Role filter ───────────────────────────────────────────────────────
 
   async assertRoleFilterVisible() {
-    await expect(this.roleFilter).toBeVisible({ timeout: 10_000 });
+    await expect(this.roleFilter).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async openRoleFilterAndVerifyOptions() {
@@ -173,25 +247,25 @@ class UserModule {
       .or(this.page.getByRole('tooltip', {
         name: /All Users|Home Officer|Sales Manager|Sales Person|Franchise Owner|Director|Supervisor|Coordinator/
       }).last());
-    await tooltip.waitFor({ state: 'visible', timeout: 8_000 });
+    await tooltip.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 });
     // At least one option should be present
     const options = tooltip.getByRole('paragraph');
     const count = await options.count();
     expect(count).toBeGreaterThan(0);
     await this.page.keyboard.press('Escape');
-    await this.page.waitForTimeout(300);
+    await tooltip.waitFor({ state: 'hidden', timeout: TIMEOUTS.BASE * 6 }).catch(() => {});
   }
 
   // ── Invite User ───────────────────────────────────────────────────────
 
   async openInviteUserDrawer() {
-    await expect(this.exportButton).toBeVisible({ timeout: 15_000 });
+    await expect(this.exportButton).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
   }
 
   async assertInviteUserDrawerOpen() {
-    await expect(this.userSearchInput).toBeVisible({ timeout: 10_000 });
-    await expect(this.roleFilter).toBeVisible({ timeout: 5_000 });
-    await expect(this.exportButton).toBeVisible({ timeout: 5_000 });
+    await expect(this.userSearchInput).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.roleFilter).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.exportButton).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   async cancelInviteUserDrawer() {
@@ -199,7 +273,7 @@ class UserModule {
   }
 
   async assertInviteUserDrawerClosed() {
-    await expect(this.exportButton).toBeDisabled({ timeout: 8_000 });
+    await expect(this.exportButton).toBeDisabled({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   async fillInviteUserForm({ firstName, lastName, email }) {
@@ -214,7 +288,7 @@ class UserModule {
       await this.lastNameInput.fill(lastName);
     }
     // Email — always required
-    await this.emailInput.waitFor({ state: 'visible', timeout: 8_000 });
+    await this.emailInput.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 });
     await this.emailInput.fill(email);
   }
 
@@ -224,25 +298,25 @@ class UserModule {
     if (!triggerVisible) return;
     await this.roleDropdownTrigger.click();
     const tooltip = this.page.getByRole('tooltip');
-    await tooltip.waitFor({ state: 'visible', timeout: 8_000 });
+    await tooltip.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 });
     const firstOption = tooltip.getByRole('paragraph').first();
-    await firstOption.waitFor({ state: 'visible', timeout: 5_000 });
+    await firstOption.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 });
     await firstOption.click({ force: true });
-    await this.page.waitForTimeout(400);
+    await tooltip.waitFor({ state: 'hidden', timeout: TIMEOUTS.BASE * 8 }).catch(() => {});
   }
 
   async submitInviteUser() {
-    await this.submitInviteBtn.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.submitInviteBtn.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     this.lastInviteToastSeen = false;
 
     await Promise.allSettled([
-      this.inviteSuccessToast.waitFor({ state: 'visible', timeout: 15_000 }).then(() => {
+      this.inviteSuccessToast.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 }).then(() => {
         this.lastInviteToastSeen = true;
       }),
       this.submitInviteBtn.click({ force: true })
     ]);
 
-    await this.page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
   }
 
   async assertUserInvited() {
@@ -253,48 +327,62 @@ class UserModule {
 
   async openUserDetail(userName, searchTerm = userName) {
     await this.searchUser(searchTerm);
-    const userRow = this.page.locator('table tbody').getByText(userName, { exact: false }).first();
-    await userRow.waitFor({ state: 'visible', timeout: 10_000 });
-    await userRow.click({ force: true });
-    await this.page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+    const userNamePattern = new RegExp(this.escapeRegExp(userName), 'i');
+    const userRow = this.page
+      .locator('table tbody tr')
+      .filter({ hasText: userNamePattern })
+      .first();
+    await userRow.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
+    const nameCell = userRow.locator('td').first();
+    await nameCell.scrollIntoViewIfNeeded();
+    await Promise.all([
+      this.page.waitForURL(/\/app\/sales\/users\/detail\//, {
+        timeout: TIMEOUTS.BASE * 30,
+      }),
+      nameCell.click(),
+    ]);
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
   }
 
   async assertUserDetailOpened(userName) {
+    await expect(this.page).toHaveURL(/\/app\/sales\/users\/detail\//, {
+      timeout: TIMEOUTS.BASE * 30,
+    });
     // User name should appear as a heading on detail page
     await expect(
       this.page.getByRole('heading', { name: userName }).first()
-    ).toBeVisible({ timeout: 15_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
   }
 
   async assertUserDetailProfileDataVisible() {
-    await expect(this.userEmailLabel).toBeVisible({ timeout: 10_000 });
-    await expect(this.userPhoneLabel).toBeVisible({ timeout: 10_000 });
-    await expect(this.userAssignedPropertiesLabel).toBeVisible({ timeout: 10_000 });
-    await expect(this.page.getByText(/@/).first()).toBeVisible({ timeout: 10_000 });
+    await expect(this.userEmailLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.userPhoneLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.userAssignedPropertiesLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.page.getByText(/@/).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   // ── Edit User ─────────────────────────────────────────────────────────
 
   async openEditUserForm() {
     const editBtn = this.page.getByRole('button', { name: 'Edit' });
-    await editBtn.waitFor({ state: 'visible', timeout: 10_000 });
+    await editBtn.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await editBtn.click();
-    await this.editUserHeading.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.editUserHeading.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertEditUserFormOpen() {
-    await expect(this.editUserHeading).toBeVisible({ timeout: 10_000 });
-    await expect(this.emailInput).toBeVisible({ timeout: 5_000 });
+    await expect(this.editUserHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.emailInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   async cancelEditUserForm() {
     await this.cancelEditBtn.click();
     await this.editUserHeading
-      .waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => {});
+      .waitFor({ state: 'hidden', timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
   }
 
   async assertEditUserFormClosed() {
-    await expect(this.editUserHeading).not.toBeVisible({ timeout: 8_000 });
+    await expect(this.editUserHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 }
 

@@ -19,6 +19,7 @@
 // Publish path (after clicking Finish on Step 6):
 //   Back to Deal Detail → "Publish Contract" button → "Close Deal" modal
 
+const { TIMEOUTS } = require('../utils/playwright-timeouts');
 const { expect } = require('@playwright/test');
 
 class ContractModule {
@@ -416,13 +417,13 @@ class ContractModule {
   /** Navigate to the Deals list page via sidebar or direct URL */
   async gotoDealsPage() {
     const menuVisible = await this.dealsMenuLink
-      .waitFor({ state: 'visible', timeout: 20_000 })
+      .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 40 })
       .then(() => true)
       .catch(() => false);
 
     if (menuVisible) {
       const clicked = await this.dealsMenuLink
-        .click({ timeout: 10_000 })
+        .click({ timeout: TIMEOUTS.BASE * 20 })
         .then(() => true)
         .catch(() => false);
       if (!clicked) {
@@ -432,7 +433,7 @@ class ContractModule {
       await this.page.goto('/app/sales/deals', { waitUntil: 'domcontentloaded' });
     }
 
-    await this.page.waitForLoadState('domcontentloaded', { timeout: 20_000 }).catch(() => {});
+    await this.page.waitForLoadState('domcontentloaded', { timeout: TIMEOUTS.BASE * 40 }).catch(() => {});
   }
 
   /**
@@ -441,11 +442,11 @@ class ContractModule {
    * @param {string} dealName — exact deal name to search for
    */
   async openDealDetail(dealName) {
-    await this.dealSearchInput.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.dealSearchInput.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.dealSearchInput.fill(dealName);
     // Wait for the search results to render — expect(dealRow).toBeVisible auto-waits
     const dealRow = this.page.locator('table tbody tr').filter({ hasText: dealName }).first();
-    await expect(dealRow).toBeVisible({ timeout: 15_000 });
+    await expect(dealRow).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
 
     // td.nth(1) is the Deal Name cell (cursor:pointer, live-verified 2026-05-07).
     // Scroll into view before clicking — the row may be below the viewport fold
@@ -453,7 +454,7 @@ class ContractModule {
     // isVisible() is banned (snapshot, not web-first) — SKILL.md §4.
     // force:true is removed; scrollIntoViewIfNeeded() makes the click actionable.
     const dealNameCell = dealRow.locator('td').nth(1);
-    await expect(dealNameCell).toBeVisible({ timeout: 5_000 });
+    await expect(dealNameCell).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     // .catch() handles the narrow React re-render window where the row detaches
     // between visibility check and scroll (table virtualization race).
     await dealNameCell.scrollIntoViewIfNeeded().catch(() => {});
@@ -463,43 +464,43 @@ class ContractModule {
     // in ~2ms (page already loaded) before React Router has pushed the new URL, causing
     // assertOnDealDetailPage() to race against an in-flight pushState. SKILL.md §4.
     await Promise.all([
-      this.page.waitForURL(/\/deals\/deal\/\d+/, { timeout: 20_000 }),
+      this.page.waitForURL(/\/deals\/deal\/\d+/, { timeout: TIMEOUTS.BASE * 40 }),
       dealNameCell.click(),
     ]);
   }
 
   /** Assert the current page is a deal detail page */
   async assertOnDealDetailPage() {
-    await expect(this.page).toHaveURL(/\/deals\/deal\/\d+/, { timeout: 20_000 });
+    await expect(this.page).toHaveURL(/\/deals\/deal\/\d+/, { timeout: TIMEOUTS.BASE * 40 });
   }
 
   // ── Contract & Terms Tab ────────────────────────────────────────────────
 
   /** Click the Contract & Terms tab */
   async clickContractTermsTab() {
-    await this.contractTermsTab.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.contractTermsTab.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.contractTermsTab.click();
     // Tab panel switches synchronously in MUI; the next caller's assertion auto-waits
   }
 
   /** Assert the Contract & Terms tab is visible in the tablist */
   async assertContractTermsTabVisible() {
-    await expect(this.contractTermsTab).toBeVisible({ timeout: 10_000 });
+    await expect(this.contractTermsTab).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   /** Assert the Contract & Terms tab is the currently selected tab */
   async assertContractTermsTabSelected() {
     await expect(this.contractTermsTab).toHaveAttribute('aria-selected', 'true', {
-      timeout: 5_000
+      timeout: TIMEOUTS.BASE * 10
     });
   }
 
   /** Assert all four overview tabs are visible */
   async assertAllTabsVisible() {
-    await expect(this.contractTermsTab).toBeVisible({ timeout: 10_000 });
-    await expect(this.activitiesTab).toBeVisible({ timeout: 10_000 });
-    await expect(this.notesTab).toBeVisible({ timeout: 10_000 });
-    await expect(this.tasksTab).toBeVisible({ timeout: 10_000 });
+    await expect(this.contractTermsTab).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.activitiesTab).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.notesTab).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.tasksTab).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   // ── Empty State ────────────────────────────────────────────────────────
@@ -509,9 +510,9 @@ class ContractModule {
    * Live-verified: heading level=2 "Create a Proposal", paragraph text, button.
    */
   async assertEmptyStateVisible() {
-    await expect(this.createProposalEmptyHeading).toBeVisible({ timeout: 10_000 });
-    await expect(this.createProposalEmptyText).toBeVisible({ timeout: 5_000 });
-    await expect(this.createProposalBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.createProposalEmptyHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.createProposalEmptyText).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.createProposalBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   async hasEmptyStateVisible() {
@@ -547,7 +548,7 @@ class ContractModule {
     return stepperVisible;
   }
 
-  async detectContractState(timeoutMs = 10_000) {
+  async detectContractState(timeoutMs = TIMEOUTS.BASE * 20) {
     await this.clickContractTermsTab().catch(() => {});
     try {
       await expect
@@ -558,7 +559,7 @@ class ContractModule {
             if (await this.hasProposalCardVisible()) return "proposal";
             return null;
           },
-          { intervals: [500, 500, 500], timeout: timeoutMs },
+          { intervals: [TIMEOUTS.BASE, TIMEOUTS.BASE, TIMEOUTS.BASE], timeout: timeoutMs },
         )
         .not.toBeNull();
       if (await this.isOnStepperPage()) return "stepper";
@@ -578,13 +579,13 @@ class ContractModule {
    *  then waits for the Create Proposal drawer to open.
    */
   async openCreateProposalDrawer() {
-    await this.createProposalBtn.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.createProposalBtn.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.createProposalBtn.click();
 
     // After clicking "Create Proposal", either the drawer opens or the
     // "Associate Franchise!" modal appears. Race between the two.
     const drawerOrModal = this.createProposalDrawerHeading.or(this.associateFranchiseModalHeading);
-    await drawerOrModal.waitFor({ state: 'visible', timeout: 10_000 });
+    await drawerOrModal.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
 
     const franchiseModalVisible = await this.associateFranchiseModalHeading
       .isVisible()
@@ -595,13 +596,13 @@ class ContractModule {
       // After associating, the Create Proposal drawer should open automatically.
       // If not, re-click the Create Proposal button.
       const drawerOpened = await this.createProposalDrawerHeading
-        .waitFor({ state: 'visible', timeout: 10_000 })
+        .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 })
         .then(() => true)
         .catch(() => false);
       if (!drawerOpened) {
-        await this.createProposalBtn.waitFor({ state: 'visible', timeout: 10_000 });
+        await this.createProposalBtn.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
         await this.createProposalBtn.click();
-        await this.createProposalDrawerHeading.waitFor({ state: 'visible', timeout: 10_000 });
+        await this.createProposalDrawerHeading.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
       }
     }
     // else: drawer already visible — nothing to do
@@ -613,22 +614,22 @@ class ContractModule {
    * @private
    */
   async _handleAssociateFranchiseModal() {
-    await expect(this.associateFranchiseModalHeading).toBeVisible({ timeout: 5_000 });
+    await expect(this.associateFranchiseModalHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     // Click the "Choose Franchise" dropdown trigger to open the franchise list
     await this.chooseFranchiseTrigger.click();
     // Select the first option from the popper/dropdown — franchise options render as
     // list items or paragraphs inside #simple-popper (MUI Popper pattern, SKILL.md §2).
     const popper = this.page.locator('#simple-popper');
-    await popper.waitFor({ state: 'visible', timeout: 5_000 });
+    await popper.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 });
     // Pick the first selectable franchise option (p or [role="option"] inside popper)
     const firstOption = popper.locator('p, [role="option"]').first();
-    await firstOption.waitFor({ state: 'visible', timeout: 5_000 });
+    await firstOption.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 });
     await firstOption.click();
     // The "Associate Franchise" button should now be enabled
-    await expect(this.associateFranchiseBtn).toBeEnabled({ timeout: 5_000 });
+    await expect(this.associateFranchiseBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
     await this.associateFranchiseBtn.click();
     // Wait for the modal to close
-    await expect(this.associateFranchiseModalHeading).not.toBeVisible({ timeout: 10_000 });
+    await expect(this.associateFranchiseModalHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   /**
@@ -642,36 +643,36 @@ class ContractModule {
    *   - Cancel and Create Proposal buttons
    */
   async assertCreateProposalDrawerOpen() {
-    await expect(this.createProposalDrawerHeading).toBeVisible({ timeout: 10_000 });
-    await expect(this.dedicatedPatrolRadio).toBeVisible({ timeout: 5_000 });
-    await expect(this.dispatchOnlyRadio).toBeVisible({ timeout: 5_000 });
-    await expect(this.proposalNameInput).toBeVisible({ timeout: 5_000 });
-    await expect(this.timeZoneTrigger).toBeVisible({ timeout: 5_000 });
-    await expect(this.contractDatesTBDText).toBeVisible({ timeout: 5_000 });
-    await expect(this.cancelDrawerBtn).toBeVisible({ timeout: 5_000 });
-    await expect(this.submitCreateProposalBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.createProposalDrawerHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.dedicatedPatrolRadio).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.dispatchOnlyRadio).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.proposalNameInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.timeZoneTrigger).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.contractDatesTBDText).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.cancelDrawerBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.submitCreateProposalBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /** Assert date-related fields are visible (default state, TBD unchecked) */
   async assertDateFieldsVisible() {
-    await expect(this.startDateInput).toBeVisible({ timeout: 5_000 });
-    await expect(this.endDateRadio).toBeVisible({ timeout: 5_000 });
-    await expect(this.renewalDateRadio).toBeVisible({ timeout: 5_000 });
+    await expect(this.startDateInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.endDateRadio).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.renewalDateRadio).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /** Assert date-related fields are hidden (when "Contract Dates to be decided" is checked) */
   async assertDateFieldsHidden() {
-    await expect(this.startDateInput).not.toBeVisible({ timeout: 5_000 });
-    await expect(this.endDateRadio).not.toBeVisible({ timeout: 5_000 });
-    await expect(this.renewalDateRadio).not.toBeVisible({ timeout: 5_000 });
+    await expect(this.startDateInput).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.endDateRadio).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.renewalDateRadio).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   // ── Service Type ────────────────────────────────────────────────────────
 
   /** Assert "Dedicated / Patrol" is checked (default) and "Dispatch Only" is not */
   async assertDedicatedPatrolDefault() {
-    await expect(this.dedicatedPatrolRadio).toBeChecked({ timeout: 5_000 });
-    await expect(this.dispatchOnlyRadio).not.toBeChecked({ timeout: 5_000 });
+    await expect(this.dedicatedPatrolRadio).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.dispatchOnlyRadio).not.toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -694,7 +695,7 @@ class ContractModule {
    * Live-verified: input value equals the deal name exactly on open.
    */
   async assertProposalNamePrefilledWithDealName(dealName) {
-    await expect(this.proposalNameInput).toHaveValue(dealName, { timeout: 5_000 });
+    await expect(this.proposalNameInput).toHaveValue(dealName, { timeout: TIMEOUTS.BASE * 10 });
   }
 
   /** Assert the Proposal Name input is not empty */
@@ -713,13 +714,13 @@ class ContractModule {
 
   /** Assert the Time Zone trigger heading is visible */
   async assertTimeZoneTriggerVisible() {
-    await expect(this.timeZoneTrigger).toBeVisible({ timeout: 5_000 });
+    await expect(this.timeZoneTrigger).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /** Open the Time Zone dropdown by clicking the trigger */
   async openTimeZoneDropdown() {
     const popper = this.page.locator('#simple-popper').last();
-    await this.timeZoneTrigger.waitFor({ state: 'visible', timeout: 5_000 });
+    await this.timeZoneTrigger.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 });
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const clicked = await this.timeZoneTrigger
         .click({ force: true })
@@ -728,7 +729,7 @@ class ContractModule {
       if (clicked) {
         // Wait for the dropdown popper to become visible instead of a fixed timeout
         const popperAppeared = await popper
-          .waitFor({ state: 'visible', timeout: 2_000 })
+          .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 4 })
           .then(() => true)
           .catch(() => false);
         if (popperAppeared) return;
@@ -737,7 +738,7 @@ class ContractModule {
       await this.page.keyboard.press('Enter').catch(() => {});
       // Wait for popper to appear after keyboard open attempt
       const afterKeyboard = await popper
-        .waitFor({ state: 'visible', timeout: 1_000 })
+        .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 2 })
         .then(() => true)
         .catch(() => false);
       if (afterKeyboard) return;
@@ -750,7 +751,7 @@ class ContractModule {
     await this.openTimeZoneDropdown();
 
     const popper = this.page.locator('#simple-popper').last();
-    await popper.waitFor({ state: 'visible', timeout: 8_000 });
+    await popper.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 });
 
     const searchBox = popper.getByRole('textbox').first();
     const searchVisible = await searchBox.isVisible().catch(() => false);
@@ -760,7 +761,7 @@ class ContractModule {
     }
 
     const easternOption = popper.getByText(/Eastern|New York|UTC-0?5:00|UTC-0?4:00/i).first();
-    await easternOption.waitFor({ state: 'visible', timeout: 8_000 });
+    await easternOption.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 });
     await easternOption.click({ force: true });
     // Popper close is detected by the caller's next assertion — no timeout needed
   }
@@ -776,7 +777,7 @@ class ContractModule {
     const checkbox = this.getCheckboxByLabel(labelLocator);
     const clickableToggle = rowContainer.locator(':scope > *').first();
 
-    await checkbox.waitFor({ state: 'attached', timeout: 5_000 });
+    await checkbox.waitFor({ state: 'attached', timeout: TIMEOUTS.BASE * 10 });
 
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const currentlyChecked = await checkbox.isChecked().catch(() => false);
@@ -784,15 +785,20 @@ class ContractModule {
         return;
       }
 
-      await clickableToggle.click({ force: true }).catch(async () => {
-        await checkbox.click({ force: true });
+      await clickableToggle.scrollIntoViewIfNeeded().catch(() => {});
+      await clickableToggle.click().catch(async () => {
+        await checkbox.locator('..').click();
       });
-      // Verify state after each attempt; expect auto-waits for React to settle
-      const afterClick = await checkbox.isChecked().catch(() => !shouldBeChecked);
-      if (afterClick === shouldBeChecked) return;
+
+      const settled = await expect(checkbox)
+        .toBeChecked({ checked: shouldBeChecked, timeout: TIMEOUTS.BASE * 8 })
+        .then(() => true)
+        .catch(() => false);
+
+      if (settled) return;
     }
 
-    await expect(checkbox).toBeChecked({ checked: shouldBeChecked, timeout: 5_000 });
+    await expect(checkbox).toBeChecked({ checked: shouldBeChecked, timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -810,13 +816,13 @@ class ContractModule {
   /** Assert "Contract Dates to be decided" checkbox is checked */
   async assertContractDatesTBDChecked() {
     const checkbox = this.getCheckboxByLabel(this.contractDatesTBDText);
-    await expect(checkbox).toBeChecked({ timeout: 5_000 });
+    await expect(checkbox).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /** Assert "Contract Dates to be decided" checkbox is unchecked (default) */
   async assertContractDatesTBDUnchecked() {
     const checkbox = this.getCheckboxByLabel(this.contractDatesTBDText);
-    await expect(checkbox).not.toBeChecked({ timeout: 5_000 });
+    await expect(checkbox).not.toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   // ── Start Date ──────────────────────────────────────────────────────────
@@ -839,8 +845,8 @@ class ContractModule {
 
   /** Assert "Renewal Date" is selected by default and "End Date" is not */
   async assertRenewalDateDefault() {
-    await expect(this.renewalDateRadio).toBeChecked({ timeout: 5_000 });
-    await expect(this.endDateRadio).not.toBeChecked({ timeout: 5_000 });
+    await expect(this.renewalDateRadio).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.endDateRadio).not.toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -856,7 +862,7 @@ class ContractModule {
       await targetRadio.click({ force: true }).catch(() => {});
       // Use web-first expect to detect checked state — no fixed delay needed
       selected = await expect(targetRadio)
-        .toBeChecked({ timeout: 2_000 })
+        .toBeChecked({ timeout: TIMEOUTS.BASE * 4 })
         .then(() => true)
         .catch(() => false);
       if (selected) break;
@@ -865,8 +871,8 @@ class ContractModule {
     if (!selected) {
       throw new Error(`Unable to select date type "${type}" in Create Proposal drawer.`);
     }
-    await expect(targetRadio).toBeChecked({ timeout: 5_000 });
-    await expect(otherRadio).not.toBeChecked({ timeout: 5_000 });
+    await expect(targetRadio).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(otherRadio).not.toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   // ── Auto Renewal ────────────────────────────────────────────────────────
@@ -886,12 +892,12 @@ class ContractModule {
 
   /** Assert the Notify for Renewal Before (Days) spinbutton has default value of 10 */
   async assertNotifyRenewalDefaultValue() {
-    await expect(this.notifyRenewalInput).toHaveValue('10', { timeout: 5_000 });
+    await expect(this.notifyRenewalInput).toHaveValue('10', { timeout: TIMEOUTS.BASE * 10 });
   }
 
   /** Assert the Notify for Renewal field is visible */
   async assertNotifyRenewalVisible() {
-    await expect(this.notifyRenewalInput).toBeVisible({ timeout: 5_000 });
+    await expect(this.notifyRenewalInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   // ── Cancel / Close ──────────────────────────────────────────────────────
@@ -900,13 +906,13 @@ class ContractModule {
   async cancelCreateProposal() {
     await this.cancelDrawerBtn.click();
     await this.createProposalDrawerHeading
-      .waitFor({ state: 'hidden', timeout: 8_000 })
+      .waitFor({ state: 'hidden', timeout: TIMEOUTS.BASE * 16 })
       .catch(() => {});
   }
 
   /** Assert the Create Proposal drawer is closed */
   async assertCreateProposalDrawerClosed() {
-    await expect(this.createProposalDrawerHeading).not.toBeVisible({ timeout: 8_000 });
+    await expect(this.createProposalDrawerHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -922,11 +928,11 @@ class ContractModule {
    *   /app/sales/deals/deal/:dealId/contract/:contractId
    */
   async submitCreateProposal() {
-    await this.submitCreateProposalBtn.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.submitCreateProposalBtn.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     let clicked = false;
     for (let attempt = 0; attempt < 3; attempt += 1) {
       // Re-resolve the locator each attempt in case DOM re-rendered
-      await this.submitCreateProposalBtn.waitFor({ state: 'visible', timeout: 5_000 }).catch(() => {});
+      await this.submitCreateProposalBtn.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
       clicked = await this.submitCreateProposalBtn
         .click({ force: true })
         .then(() => true)
@@ -937,42 +943,43 @@ class ContractModule {
       await this.page.keyboard.press('Enter').catch(() => {});
       // Check if navigation already happened
       if (/\/contract\/\d+/.test(this.page.url())) break;
-      // Brief wait before retry to let DOM stabilize
-      await this.page.waitForTimeout(1_000);
+      await this.page
+        .waitForURL(/\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 2 })
+        .catch(() => {});
     }
     if (!clicked && !/\/contract\/\d+/.test(this.page.url())) {
       // Last resort: try clicking via evaluate
       await this.submitCreateProposalBtn.evaluate((el) => el.click()).catch(() => {});
       const navigated = await this.page
-        .waitForURL(/\/contract\/\d+/, { timeout: 10_000 })
+        .waitForURL(/\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 20 })
         .then(() => true)
         .catch(() => false);
       if (!navigated) {
         throw new Error('Unable to submit Create Proposal drawer.');
       }
     } else {
-      await this.page.waitForURL(/\/contract\/\d+/, { timeout: 30_000 });
+      await this.page.waitForURL(/\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 60 });
     }
     // waitForLoadState('domcontentloaded') is a no-op on SPA navigation (SKILL.md §4) —
     // React Router pushState emits no domcontentloaded event, so it resolves in ~2 ms
     // before the stepper tab headings mount. Anchor instead on the first visible stepper
     // tab heading, which confirms the React component tree has fully rendered (SKILL.md §18).
-    await expect(this.stepperStep1).toBeVisible({ timeout: 20_000 });
+    await expect(this.stepperStep1).toBeVisible({ timeout: TIMEOUTS.BASE * 40 });
   }
 
   /** Assert the current page is the contract stepper */
   async assertOnStepperPage() {
-    await expect(this.page).toHaveURL(/\/contract\/\d+/, { timeout: 20_000 });
+    await expect(this.page).toHaveURL(/\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 40 });
   }
 
   /** Assert all six step-tab headings are visible in the stepper top bar */
   async assertStepperTabsVisible() {
-    await expect(this.stepperStep1).toBeVisible({ timeout: 10_000 });
-    await expect(this.stepperStep2).toBeVisible({ timeout: 5_000 });
-    await expect(this.stepperStep3).toBeVisible({ timeout: 5_000 });
-    await expect(this.stepperStep4).toBeVisible({ timeout: 5_000 });
-    await expect(this.stepperStep5).toBeVisible({ timeout: 5_000 });
-    await expect(this.stepperStep6).toBeVisible({ timeout: 5_000 });
+    await expect(this.stepperStep1).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.stepperStep2).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.stepperStep3).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.stepperStep4).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.stepperStep5).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.stepperStep6).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -983,7 +990,7 @@ class ContractModule {
   async clickSaveAndNext() {
     // Use the constructor-defined locator; wait for it to be enabled via
     // web-first assertion (SKILL.md §4 — no snapshot checks).
-    await expect(this.saveAndNextBtn).toBeEnabled({ timeout: 10_000 });
+    await expect(this.saveAndNextBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 20 });
     await this.saveAndNextBtn.scrollIntoViewIfNeeded().catch(() => {});
 
     // Wait for the contracts API response that fires when Save & Next saves
@@ -993,16 +1000,26 @@ class ContractModule {
     await Promise.all([
       this.page.waitForResponse(
         (r) => r.url().includes('/contracts') && r.status() === 200,
-        { timeout: 15_000 },
+        { timeout: TIMEOUTS.BASE * 30 },
       ).catch(() => {}),
       this.saveAndNextBtn.click(),
     ]);
   }
 
   async goToStep3FromDevices() {
-    await this.stepperStep3.waitFor({ state: 'visible', timeout: 8_000 });
+    await this.stepperStep3.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 });
 
-    const saveEnabled = await this.saveAndNextBtn.isEnabled().catch(() => false);
+    let saveEnabled = await this.saveAndNextBtn.isEnabled().catch(() => false);
+    if (!saveEnabled) {
+      await this.devicesPageHeading.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
+      const firstPlusBtn = this.page.getByRole('button', { name: '+' }).first();
+      await firstPlusBtn.click();
+      saveEnabled = await expect(this.saveAndNextBtn)
+        .toBeEnabled({ timeout: TIMEOUTS.BASE * 20 })
+        .then(() => true)
+        .catch(() => false);
+    }
+
     if (saveEnabled) {
       await this.saveAndNextBtn.scrollIntoViewIfNeeded().catch(() => {});
       // Wait for contracts API response before proceeding (same fix as clickSaveAndNext)
@@ -1010,27 +1027,35 @@ class ContractModule {
       await Promise.all([
         this.page.waitForResponse(
           (r) => r.url().includes('/contracts') && r.status() === 200,
-          { timeout: 15_000 },
+          { timeout: TIMEOUTS.BASE * 30 },
         ).catch(() => {}),
         this.saveAndNextBtn.click(),
       ]);
+      await expect(this.onDemandPageHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
       return;
     }
 
-    // Click the Step 3 inner wrapper (direct parent of the h6 heading).
-    // stepperTab3 = h6.locator('..') — the inner wrapper div that React listens on,
-    // working for both fresh and completed proposals.
-    await this.stepperTab3.scrollIntoViewIfNeeded().catch(() => {});
-    await this.stepperTab3.click();
-    await this.page.waitForLoadState('domcontentloaded', { timeout: 10_000 }).catch(() => {});
+    // Last resort for proposals that already have Step 3 unlocked: click the
+    // cursor:pointer ancestor so React's stepper handler receives the event.
+    await this.stepperStep3.scrollIntoViewIfNeeded().catch(() => {});
+    await this.stepperStep3.evaluate((el) => {
+      let target = el;
+      while (target && target !== document.body) {
+        const style = globalThis.getComputedStyle(target);
+        if (style.cursor === 'pointer') { target.click(); return; }
+        target = target.parentElement;
+      }
+      el.click();
+    });
+    await expect(this.onDemandPageHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
   }
 
   // ── Step 1 — Services ──────────────────────────────────────────────────
 
   /** Assert Step 1 Services section heading and service name field are visible */
   async assertStep1Visible() {
-    await expect(this.stepperStep1).toBeVisible({ timeout: 10_000 });
-    await expect(this.serviceNameInput).toBeVisible({ timeout: 10_000 });
+    await expect(this.stepperStep1).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.serviceNameInput).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async scrollUntilVisible(locator, label, maxScrolls = 20) {
@@ -1052,7 +1077,7 @@ class ContractModule {
     console.log(`[fillServiceName] service ${serviceIndex}: filling with "${name}"`);
     const label = `Service ${serviceIndex + 1}`;
     const serviceNameInput = this.page.getByRole('textbox', { name: label });
-    await serviceNameInput.waitFor({ state: 'visible', timeout: 10_000 });
+    await serviceNameInput.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     const expected = String(name).trim();
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       await serviceNameInput.click({ clickCount: 3, force: true }).catch(() => {});
@@ -1120,10 +1145,17 @@ class ContractModule {
     // finds the label for service 0; service 1+ spinbuttons have no accessible name.
     // SKILL.md §2: selector scoped via _serviceContainer(), live-verified 2026-05-07.
     const officerCountInput = this._serviceContainer(serviceIndex).locator('input[name="reqOfficers"]');
-    await expect(officerCountInput).toBeVisible({ timeout: 10_000 });
+    await expect(officerCountInput).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     await officerCountInput.scrollIntoViewIfNeeded();
-    await officerCountInput.click({ clickCount: 3, force: true });
-    await officerCountInput.fill(String(count));
+    await officerCountInput.click({ clickCount: 3 }).catch(async () => {
+      await officerCountInput.focus();
+    });
+    await officerCountInput.press('ControlOrMeta+A').catch(() => {});
+    await officerCountInput.press('Backspace').catch(() => {});
+    await officerCountInput.pressSequentially(String(count));
+    await expect(officerCountInput).toHaveValue(String(count), {
+      timeout: TIMEOUTS.BASE * 6,
+    });
     await officerCountInput.press('Tab').catch(() => {});
     const actual = await officerCountInput.inputValue().catch(() => "");
     if (actual.trim() !== String(count).trim()) {
@@ -1139,10 +1171,17 @@ class ContractModule {
     // Same duplicate-ID issue as fillOfficerCount — scope to the service container.
     // SKILL.md §2: selector scoped via _serviceContainer(), live-verified 2026-05-07.
     const hourlyRateInput = this._serviceContainer(serviceIndex).locator('input[name="hourlyRate"]');
-    await expect(hourlyRateInput).toBeVisible({ timeout: 10_000 });
+    await expect(hourlyRateInput).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     await hourlyRateInput.scrollIntoViewIfNeeded();
-    await hourlyRateInput.click({ clickCount: 3, force: true });
-    await hourlyRateInput.fill(String(rate));
+    await hourlyRateInput.click({ clickCount: 3 }).catch(async () => {
+      await hourlyRateInput.focus();
+    });
+    await hourlyRateInput.press('ControlOrMeta+A').catch(() => {});
+    await hourlyRateInput.press('Backspace').catch(() => {});
+    await hourlyRateInput.pressSequentially(String(rate));
+    await expect(hourlyRateInput).toHaveValue(String(rate), {
+      timeout: TIMEOUTS.BASE * 6,
+    });
     await hourlyRateInput.press('Tab').catch(() => {});
     const actual = await hourlyRateInput.inputValue().catch(() => "");
     if (actual.trim() !== String(rate).trim()) {
@@ -1219,7 +1258,7 @@ class ContractModule {
     }
 
     // Field is empty / showing a placeholder → open the dropdown
-    await triggerDiv.waitFor({ state: 'visible', timeout: 8_000 });
+    await triggerDiv.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 });
     await triggerDiv.scrollIntoViewIfNeeded().catch(() => {});
     // Use native Playwright .click() — evaluate((el)=>el.click()) bypasses React's synthetic
     // event system and the popper never opens for any service beyond the first.
@@ -1229,7 +1268,7 @@ class ContractModule {
 
     const popper = this.page.locator('#simple-popper').last();
     const popperVisible = await popper
-      .waitFor({ state: 'visible', timeout: 8_000 })
+      .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 })
       .then(() => true)
       .catch(() => false);
 
@@ -1249,7 +1288,7 @@ class ContractModule {
       }
 
       const fallbackPopperVisible = await popper
-        .waitFor({ state: 'visible', timeout: 3_000 })
+        .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 6 })
         .then(() => true)
         .catch(() => false);
 
@@ -1281,7 +1320,7 @@ class ContractModule {
       });
       // Wait for the popper to dismiss (signals React state update) instead of fixed delay
       await this.page.locator('#simple-popper').last()
-        .waitFor({ state: 'hidden', timeout: 3_000 })
+        .waitFor({ state: 'hidden', timeout: TIMEOUTS.BASE * 6 })
         .catch(() => {});
 
       const updatedValue = await triggerDiv.locator('h6').first().textContent().catch(() => '');
@@ -1333,7 +1372,7 @@ class ContractModule {
 
     const clickChip = async (chip) => {
       await chip.scrollIntoViewIfNeeded().catch(() => {});
-      await chip.click({ force: true, timeout: 8_000 }).catch(async () => {
+      await chip.click({ force: true, timeout: TIMEOUTS.BASE * 16 }).catch(async () => {
         const chipHandle = await chip.elementHandle().catch(() => null);
         if (chipHandle) {
           await chipHandle.evaluate((el) => {
@@ -1366,7 +1405,7 @@ class ContractModule {
     const currentMinutesListbox = this.page.getByRole('listbox', { name: 'Select minutes' }).last();
     const currentMeridiemListbox = this.page.getByRole('listbox', { name: 'Select meridiem' }).last();
 
-    await currentHoursListbox.waitFor({ state: 'visible', timeout: 8_000 });
+    await currentHoursListbox.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 });
     // Option names are e.g. "8 hours", "0 minutes", "AM"
     await currentHoursListbox
       .getByRole('option', { name: `${parseInt(hours, 10)} hours`, exact: true })
@@ -1380,7 +1419,7 @@ class ContractModule {
     const okBtn = this.page.getByRole('button', { name: 'OK' }).last();
     const okVisible = await okBtn.isVisible().catch(() => false);
     if (okVisible) {
-      await okBtn.click({ force: true, timeout: 2_000 }).catch(async () => {
+      await okBtn.click({ force: true, timeout: TIMEOUTS.BASE * 4 }).catch(async () => {
         await this.page.keyboard.press('Enter').catch(() => {});
       });
     } else {
@@ -1400,7 +1439,7 @@ class ContractModule {
     const startPickerBtn = this.page
       .getByRole('button', { name: /Choose time/ })
       .nth(serviceIndex * 2);
-    await startPickerBtn.waitFor({ state: 'visible', timeout: 8_000 });
+    await startPickerBtn.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 });
     await startPickerBtn.scrollIntoViewIfNeeded().catch(() => {});
     // Use JS click to bypass innerScrollBar overlay that intercepts pointer events
     await startPickerBtn.evaluate((el) => el.click());
@@ -1420,7 +1459,7 @@ class ContractModule {
     const endPickerBtn = this.page
       .getByRole('button', { name: /Choose time/ })
       .nth(serviceIndex * 2 + 1);
-    await expect(endPickerBtn).toBeEnabled({ timeout: 8_000 });
+    await expect(endPickerBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 16 });
     await endPickerBtn.scrollIntoViewIfNeeded().catch(() => {});
     // Use JS click to bypass innerScrollBar overlay that intercepts pointer events
     await endPickerBtn.evaluate((el) => el.click());
@@ -1447,7 +1486,7 @@ class ContractModule {
     // This guards against the wizard URL loading (URL matches /contract/\d+) but the
     // React component tree not yet having mounted the service form fields.
     const resourceTypeTrigger = this.page.locator("label[for='officerType'] + div").nth(serviceIndex);
-    await expect(resourceTypeTrigger).toBeVisible({ timeout: 15_000 });
+    await expect(resourceTypeTrigger).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
 
     await this.selectFirstAvailableLineItem(serviceIndex);
     await this.fillOfficerCount(officerCount, serviceIndex);
@@ -1483,7 +1522,7 @@ class ContractModule {
     // React form validation runs after all field updates.
     // Use expect to wait for the button to reach enabled state instead of fixed delay.
     const saveEnabled = await expect(this.saveAndNextBtn)
-      .toBeEnabled({ timeout: 5_000 })
+      .toBeEnabled({ timeout: TIMEOUTS.BASE * 10 })
       .then(() => true)
       .catch(() => false);
     if (!saveEnabled) {
@@ -1507,7 +1546,7 @@ class ContractModule {
       // Verify Save & Next is enabled after recovery; if not, the service name
       // may have been cleared again by a late React re-render — refill once more.
       const enabledAfterRecovery = await expect(this.saveAndNextBtn)
-        .toBeEnabled({ timeout: 5_000 })
+        .toBeEnabled({ timeout: TIMEOUTS.BASE * 10 })
         .then(() => true)
         .catch(() => false);
       if (!enabledAfterRecovery) {
@@ -1524,7 +1563,7 @@ class ContractModule {
       name: /Checkpoints\s*(?:&|and)\s*Devices/i,
       level: 3,
     });
-    await expect(devicesHeadingFallback.first()).toBeVisible({ timeout: 10_000 });
+    await expect(devicesHeadingFallback.first()).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   /**
@@ -1746,7 +1785,7 @@ class ContractModule {
 
   /** Assert Step 3 On Demand section heading is visible */
   async assertStep3Visible() {
-    await expect(this.onDemandPageHeading).toBeVisible({ timeout: 10_000 });
+    await expect(this.onDemandPageHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   // ── Step 3 — Line Item helpers ────────────────────────────────────────
@@ -1763,7 +1802,7 @@ class ContractModule {
     // Fill numeric fields first — React re-renders triggered by price/quantity fill
     // can clear the title if it was entered first. Fill title last, just before Save.
     const titleInput = this.page.getByPlaceholder('Title');
-    await titleInput.waitFor({ state: 'visible', timeout: 5_000 });
+    await titleInput.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 });
     // id="price" / placeholder="e.g, $50" — type=number; fill() triggers React fine
     await this.page.getByPlaceholder('e.g, $50').fill(String(pricePerMonth));
     // id="quantity" / placeholder="e.g, 2"
@@ -1779,11 +1818,11 @@ class ContractModule {
     await Promise.all([
       this.page.waitForResponse(
         resp => resp.request().method() !== 'GET' && resp.status() < 300,
-        { timeout: 15_000 }
+        { timeout: TIMEOUTS.BASE * 30 }
       ).catch(() => {}),
       this.page.getByRole('button', { name: 'Save', exact: true }).click(),
     ]);
-    await expect(this.getLineItemCard(title)).toBeVisible({ timeout: 10_000 });
+    await expect(this.getLineItemCard(title)).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   /**
@@ -1832,19 +1871,19 @@ class ContractModule {
   async editLineItemTitle(currentTitle, newTitle) {
     await this.getLineItemEditBtn(currentTitle).click();
     const titleInput = this.page.locator('#title');
-    await titleInput.waitFor({ state: 'visible', timeout: 5_000 });
+    await titleInput.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 });
     // fill() clears existing value and sets new one in a single operation,
     // avoiding the character-dropping issue with pressSequentially on long strings.
     await titleInput.fill(String(newTitle));
     await this.page.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(this.page.getByText(newTitle)).toBeVisible({ timeout: 5_000 });
+    await expect(this.page.getByText(newTitle)).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   // ── Step 4 — Payment Terms ─────────────────────────────────────────────
 
   /** Assert Step 4 Payment Terms section heading is visible */
   async assertStep4Visible() {
-    await expect(this.billingOccurrenceHeading).toBeVisible({ timeout: 10_000 });
+    await expect(this.billingOccurrenceHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   /**
@@ -1857,7 +1896,7 @@ class ContractModule {
     const trigger = this.page
       .getByRole('heading', { name: triggerNamePattern, level: 6 })
       .first();
-    await trigger.waitFor({ state: 'visible', timeout: 8_000 });
+    await trigger.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 });
 
     // Skip if already showing the desired value
     const currentText = (await trigger.textContent().catch(() => '')).trim();
@@ -1872,13 +1911,13 @@ class ContractModule {
       await trigger.scrollIntoViewIfNeeded().catch(() => {});
       await trigger.click();
       const opened = await popper
-        .waitFor({ state: 'visible', timeout: 4_000 })
+        .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 8 })
         .then(() => true).catch(() => false);
       if (opened) break;
       // Retry with parent click
       await trigger.locator('..').click().catch(() => {});
       const opened2 = await popper
-        .waitFor({ state: 'visible', timeout: 3_000 })
+        .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 6 })
         .then(() => true).catch(() => false);
       if (opened2) break;
     }
@@ -1887,13 +1926,13 @@ class ContractModule {
     const popperVisible = await popper.isVisible().catch(() => false);
     if (popperVisible) {
       const option = popper.getByText(optionText).first();
-      await option.waitFor({ state: 'visible', timeout: 5_000 });
+      await option.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 });
       await option.click();
-      await popper.waitFor({ state: 'hidden', timeout: 3_000 }).catch(() => {});
+      await popper.waitFor({ state: 'hidden', timeout: TIMEOUTS.BASE * 6 }).catch(() => {});
     } else {
       // Fallback: find option anywhere on the page
       const option = this.page.getByText(optionText, { exact: true }).first();
-      await option.waitFor({ state: 'visible', timeout: 5_000 });
+      await option.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 });
       await option.click();
     }
   }
@@ -1917,7 +1956,7 @@ class ContractModule {
         level: 6,
       })
       .first();
-    await triggerHeading.waitFor({ state: 'visible', timeout: 8_000 });
+    await triggerHeading.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 });
     const triggerContainer = triggerHeading.locator('..');
 
     await triggerContainer.click({ force: true }).catch(async () => {
@@ -1927,7 +1966,7 @@ class ContractModule {
     await this.page
       .locator('#simple-popper')
       .last()
-      .waitFor({ state: 'visible', timeout: 4_000 })
+      .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 8 })
       .catch(() => {});
   }
 
@@ -2025,11 +2064,11 @@ class ContractModule {
     const trigger = this.page
       .getByRole('heading', { name: /Select Payment Terms|Net |Due upon/, level: 6 })
       .first();
-    await trigger.waitFor({ state: 'visible', timeout: 8_000 });
+    await trigger.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 });
     await trigger.click();
     // Wait for the dropdown to appear before clicking option
     const termPopper = this.page.locator('#simple-popper').last();
-    await termPopper.waitFor({ state: 'visible', timeout: 3_000 }).catch(() => {});
+    await termPopper.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 6 }).catch(() => {});
     await this.page.getByText(termText).first().click();
     // Popper close signals selection; caller assertion auto-waits
   }
@@ -2047,7 +2086,7 @@ class ContractModule {
 
   /** Fill the Annual Rate Increase spinbutton */
   async fillAnnualRateIncrease(value) {
-    await this.annualRateIncreaseInput.waitFor({ state: 'visible', timeout: 8_000 });
+    await this.annualRateIncreaseInput.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 });
     await this.annualRateIncreaseInput.click({ clickCount: 3 });
     await this.annualRateIncreaseInput.fill(String(value));
   }
@@ -2063,7 +2102,7 @@ class ContractModule {
     await pickerBtn.click();
     // Calendar grid opens; wait for gridcell to become visible before clicking
     const targetCell = this.page.getByRole('gridcell', { name: day }).first();
-    await targetCell.waitFor({ state: 'visible', timeout: 5_000 });
+    await targetCell.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 });
     await targetCell.click();
     // Calendar closes synchronously; caller assertion auto-waits
   }
@@ -2113,7 +2152,7 @@ class ContractModule {
 
   /** Assert Step 5 Description section heading is visible */
   async assertStep5Visible() {
-    await expect(this.descriptionPageHeading).toBeVisible({ timeout: 10_000 });
+    await expect(this.descriptionPageHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   /**
@@ -2124,20 +2163,23 @@ class ContractModule {
     await this.assertStep5Visible();
     const editors = this.page.getByRole('textbox', { name: 'rdw-editor' });
 
-    // Wait for editor content to load (may load async after heading renders)
     let visibleEditorText = '';
-    for (let retry = 0; retry < 10; retry += 1) {
-      const count = await editors.count().catch(() => 0);
-      for (let i = 0; i < count; i += 1) {
-        const editor = editors.nth(i);
-        const isVisible = await editor.isVisible().catch(() => false);
-        if (!isVisible) continue;
-        visibleEditorText = String(await editor.textContent().catch(() => '')).trim();
-        if (visibleEditorText.length > 0) break;
-      }
-      if (visibleEditorText.length > 0) break;
-      await this.page.waitForTimeout(1_000);
-    }
+    await expect
+      .poll(
+        async () => {
+          const count = await editors.count().catch(() => 0);
+          for (let i = 0; i < count; i += 1) {
+            const editor = editors.nth(i);
+            const isVisible = await editor.isVisible().catch(() => false);
+            if (!isVisible) continue;
+            visibleEditorText = String(await editor.textContent().catch(() => '')).trim();
+            if (visibleEditorText.length > 0) return visibleEditorText;
+          }
+          return '';
+        },
+        { timeout: TIMEOUTS.BASE * 20, intervals: [TIMEOUTS.BASE] },
+      )
+      .not.toBe('');
 
     expect(
       visibleEditorText.length > 0,
@@ -2149,14 +2191,14 @@ class ContractModule {
 
   /** Assert Step 6 Signees section heading is visible */
   async assertStep6Visible() {
-    await expect(this.signeesPageHeading).toBeVisible({ timeout: 10_000 });
+    await expect(this.signeesPageHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   /** Assert at least one signee card ("Signee 1") is visible */
   async assertDefaultSigneeVisible() {
     await expect(
       this.page.getByRole('heading', { name: 'Signee 1', level: 4 })
-    ).toBeVisible({ timeout: 5_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -2164,11 +2206,11 @@ class ContractModule {
    * Waits for navigation back to the Deal Detail page.
    */
   async clickFinish() {
-    await this.finishBtn.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.finishBtn.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.finishBtn.click();
     // Navigation back to /app/sales/deals/deal/:id (without /contract/...)
-    await this.page.waitForURL(/\/deals\/deal\/\d+$/, { timeout: 30_000 });
-    await this.page.waitForLoadState('domcontentloaded', { timeout: 15_000 }).catch(() => {});
+    await this.page.waitForURL(/\/deals\/deal\/\d+$/, { timeout: TIMEOUTS.BASE * 60 });
+    await this.page.waitForLoadState('domcontentloaded', { timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
   }
 
   // ── Post-stepper: Proposal Card ─────────────────────────────────────────
@@ -2179,8 +2221,8 @@ class ContractModule {
    */
   async assertProposalCardVisible() {
     await this.clickContractTermsTab().catch(() => {});
-    await expect(this.publishContractBtn).toBeVisible({ timeout: 15_000 });
-    await expect(this.signatureBtnOnCard).toBeVisible({ timeout: 5_000 });
+    await expect(this.publishContractBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+    await expect(this.signatureBtnOnCard).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   async openExistingProposalEditor() {
@@ -2214,7 +2256,7 @@ class ContractModule {
       await this.signatureBtnOnCard.click({ force: true }).catch(() => {});
     }
     const openedOnContractUrl = await this.page
-      .waitForURL(/\/contract\/\d+/, { timeout: 15_000 })
+      .waitForURL(/\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 30 })
       .then(() => true)
       .catch(() => false);
     if (!openedOnContractUrl) {
@@ -2229,7 +2271,7 @@ class ContractModule {
       }
     }
 
-    await this.page.waitForLoadState('domcontentloaded', { timeout: 15_000 }).catch(() => {});
+    await this.page.waitForLoadState('domcontentloaded', { timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
     const stillNotStepper = !(await this.isOnStepperPage());
     if (stillNotStepper) {
       throw new Error('Edit action did not open contract stepper.');
@@ -2256,14 +2298,14 @@ class ContractModule {
     // and NO text content. getByText('Delete') never matches it — use [aria-label] CSS selector
     // (SKILL.md §2 priority 2). Clicking the inner div bubbles to the parent's React onclick handler.
     const deleteAction = this.deleteProposalActionByAriaLabel;
-    await expect(deleteAction).toBeVisible({ timeout: 8_000 });
+    await expect(deleteAction).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await deleteAction.click();
     // Confirm the "Delete Proposal!" modal
     const confirmBtn = this.page.getByRole('button', { name: 'Delete Proposal' });
-    await expect(confirmBtn).toBeVisible({ timeout: 8_000 });
+    await expect(confirmBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await confirmBtn.click();
     // Wait for the card to disappear — empty state or empty tabpanel
-    await expect(deleteAction).not.toBeVisible({ timeout: 10_000 });
+    await expect(deleteAction).not.toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   /**
@@ -2275,10 +2317,10 @@ class ContractModule {
    */
   async openUpdateProposalDrawer() {
     // The "Update Proposal" button on the stepper (not the one inside the drawer)
-    await expect(this.updateProposalBtn).toBeVisible({ timeout: 10_000 });
+    await expect(this.updateProposalBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     await this.updateProposalBtn.first().click();
     // Wait for the drawer to open — Auto Renewal text is our readiness signal
-    await expect(this.autoRenewalText).toBeVisible({ timeout: 10_000 });
+    await expect(this.autoRenewalText).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   /**
@@ -2286,7 +2328,7 @@ class ContractModule {
    */
   async closeUpdateProposalDrawer() {
     await this.cancelDrawerBtn.click();
-    await expect(this.autoRenewalText).not.toBeVisible({ timeout: 8_000 });
+    await expect(this.autoRenewalText).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   // ── PUBLISH FLOW — STEP A: Close Deal (Prerequisite) ────────────────────
@@ -2312,16 +2354,16 @@ class ContractModule {
    * Use this when the deal has NOT been closed yet.
    */
   async clickPublishContractToCloseDeal() {
-    await this.publishContractBtn.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.publishContractBtn.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.publishContractBtn.click();
-    await this.closeDealModalHeading.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.closeDealModalHeading.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
   }
 
   /** Assert the Close Deal modal is open */
   async assertCloseDealModalOpen() {
-    await expect(this.closeDealModalHeading).toBeVisible({ timeout: 10_000 });
-    await expect(this.closedWonRadio).toBeVisible({ timeout: 5_000 });
-    await expect(this.closedLostRadio).toBeVisible({ timeout: 5_000 });
+    await expect(this.closeDealModalHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.closedWonRadio).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.closedLostRadio).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -2345,11 +2387,11 @@ class ContractModule {
   async selectHubspotStage(stage) {
     const stageTrigger = this.page
       .getByRole('heading', { name: /Choose Hubspot Stage/, level: 6 });
-    await stageTrigger.waitFor({ state: 'visible', timeout: 8_000 });
+    await stageTrigger.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 });
     await stageTrigger.click();
     // Wait for the popper to appear before clicking the stage option
     const stagePopper = this.page.locator('#simple-popper').last();
-    await stagePopper.waitFor({ state: 'visible', timeout: 3_000 }).catch(() => {});
+    await stagePopper.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 6 }).catch(() => {});
     await this.page.getByText(stage, { exact: true }).click();
     // Stage selection enables the Save button; caller waits for button enabled state
   }
@@ -2360,11 +2402,11 @@ class ContractModule {
    * After saving, the "Deal closed successfully!" toast appears.
    */
   async saveCloseDeal() {
-    await this.publishSaveBtn.waitFor({ state: 'visible', timeout: 8_000 });
-    await expect(this.publishSaveBtn).toBeEnabled({ timeout: 5_000 });
+    await this.publishSaveBtn.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 });
+    await expect(this.publishSaveBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
     await this.publishSaveBtn.click();
     // waitForLoadState covers the navigation triggered by Save; no extra timeout needed
-    await this.page.waitForLoadState('domcontentloaded', { timeout: 15_000 }).catch(() => {});
+    await this.page.waitForLoadState('domcontentloaded', { timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
   }
 
   /** Assert the "Deal closed successfully!" toast is visible (after Step A-4) */
@@ -2374,7 +2416,7 @@ class ContractModule {
       .catch(() => false);
 
     if (toastVisible) {
-      await expect(this.dealClosedSuccessHeading).toBeVisible({ timeout: 15_000 });
+      await expect(this.dealClosedSuccessHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
       return;
     }
 
@@ -2387,7 +2429,7 @@ class ContractModule {
       .locator('button')
       .filter({ hasText: /^Closed Won$/ })
       .first();
-    await expect(closedWonStage).toBeVisible({ timeout: 10_000 });
+    await expect(closedWonStage).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   // ── PUBLISH FLOW — STEP B: Publish Contract (Actual) ─────────────────────
@@ -2398,16 +2440,16 @@ class ContractModule {
    * Live-verified: opens "Publish contract!" modal (lowercase 'c').
    */
   async clickPublishContractToConfirm() {
-    await this.publishContractBtn.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.publishContractBtn.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.publishContractBtn.click();
-    await this.publishConfirmModalHeading.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.publishConfirmModalHeading.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
   }
 
   /** Assert the "Publish contract!" confirmation modal is open */
   async assertPublishConfirmModalOpen() {
-    await expect(this.publishConfirmModalHeading).toBeVisible({ timeout: 10_000 });
-    await expect(this.publishConfirmText).toBeVisible({ timeout: 5_000 });
-    await expect(this.publishConfirmBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.publishConfirmModalHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.publishConfirmText).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.publishConfirmBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -2453,7 +2495,7 @@ class ContractModule {
       // Fill Renewal Date if visible and enabled — it starts disabled until
       // Start Date is filled, so wait briefly for it to become enabled.
       let renewalField = this.renewalDateInput;
-      await expect(renewalField).toBeEnabled({ timeout: 5_000 }).catch(() => {});
+      await expect(renewalField).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
       const hasRenewal = await renewalField.isEnabled().catch(() => false);
       if (hasRenewal) {
         const renewalVal = await renewalField.inputValue().catch(() => '');
@@ -2488,11 +2530,11 @@ class ContractModule {
     if (dialogButtonVisible) {
       await publishConfirmInDialog.click();
     } else {
-      await this.publishConfirmBtn.waitFor({ state: 'visible', timeout: 8_000 });
+      await this.publishConfirmBtn.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 });
       await this.publishConfirmBtn.click();
     }
     // waitForLoadState covers the publish navigation; no extra timeout needed
-    await this.page.waitForLoadState('domcontentloaded', { timeout: 15_000 }).catch(() => {});
+    await this.page.waitForLoadState('domcontentloaded', { timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
   }
 
   /**
@@ -2501,10 +2543,10 @@ class ContractModule {
    * "Publish Contract" button is gone, "Terminate" action button appears.
    */
   async assertContractPublishedSuccessfully() {
-    await expect(this.contractPublishedBadge).toBeVisible({ timeout: 15_000 });
-    await expect(this.publishContractBtn).not.toBeVisible({ timeout: 8_000 });
-    await expect(this.terminateContractGeneric).toBeVisible({ timeout: 8_000 });
-    await expect(this.signatureBtnOnCard).toBeVisible({ timeout: 8_000 });
+    await expect(this.contractPublishedBadge).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+    await expect(this.publishContractBtn).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
+    await expect(this.terminateContractGeneric).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
+    await expect(this.signatureBtnOnCard).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   // ── Step 1 — Multi-Service Management ───────────────────────────────────
@@ -2518,7 +2560,7 @@ class ContractModule {
    */
   async deleteFirstService() {
     const deleteBtn = this.page.getByRole('button', { name: 'Delete Service' }).first();
-    await deleteBtn.waitFor({ state: 'visible', timeout: 8_000 });
+    await deleteBtn.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 });
     await deleteBtn.scrollIntoViewIfNeeded().catch(() => {});
     // Use JS click to bypass the innerScrollBar overlay that intercepts pointer events
     await deleteBtn.evaluate((el) => el.click());
@@ -2537,14 +2579,14 @@ class ContractModule {
     const confirmBtn = this.page
       .getByRole('button', { name: 'Delete Service' })
       .last();
-    await confirmBtn.waitFor({ state: 'visible', timeout: 8_000 });
+    await confirmBtn.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 });
     await confirmBtn.scrollIntoViewIfNeeded().catch(() => {});
     await confirmBtn.evaluate((el) => el.click());
 
     // Wait for the modal heading to disappear
     await this.page
       .getByText('Delete Service!', { exact: true })
-      .waitFor({ state: 'hidden', timeout: 10_000 })
+      .waitFor({ state: 'hidden', timeout: TIMEOUTS.BASE * 20 })
       .catch(() => {});
   }
 
@@ -2563,7 +2605,7 @@ class ContractModule {
           const ariaLabel = await btn.getAttribute('aria-label').catch(() => '');
 
           if (text.toLowerCase().includes('delete') || ariaLabel.toLowerCase().includes('delete')) {
-            const visible = await btn.isVisible({ timeout: 2_000 }).catch(() => false);
+            const visible = await btn.isVisible({ timeout: TIMEOUTS.BASE * 4 }).catch(() => false);
             if (visible) {
               results.push(btn);
             }
@@ -2581,7 +2623,7 @@ class ContractModule {
         console.log(`[DELETE] Found ${possibleDeleteBtns.length} delete buttons, using index ${index}`);
         const btn = possibleDeleteBtns[index];
         await btn.click({ force: true });
-        await this.page.waitForLoadState('domcontentloaded', { timeout: 10_000 }).catch(() => {});
+        await this.page.waitForLoadState('domcontentloaded', { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
         return;
       } catch (e) {
         console.warn(`[DELETE] Failed to click delete button at index ${index}: ${e.message}`);
@@ -2599,12 +2641,12 @@ class ContractModule {
     for (let i = 0; i < selectors.length; i++) {
       try {
         const btn = selectors[i]();
-        const visible = await btn.isVisible({ timeout: 3_000 }).catch(() => false);
+        const visible = await btn.isVisible({ timeout: TIMEOUTS.BASE * 6 }).catch(() => false);
 
         if (visible) {
           console.log(`[DELETE] Found delete button at index ${index} using strategy ${i + 1}`);
           await btn.click({ force: true });
-          await this.page.waitForLoadState('domcontentloaded', { timeout: 10_000 }).catch(() => {});
+          await this.page.waitForLoadState('domcontentloaded', { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
           return;
         }
       } catch (e) {
@@ -2623,7 +2665,7 @@ class ContractModule {
   async assertServiceExists(serviceName) {
     // Try to find by visible text first
     const textLocator = this.page.getByText(serviceName, { exact: true });
-    const textVisible = await textLocator.isVisible({ timeout: 3_000 }).catch(() => false);
+    const textVisible = await textLocator.isVisible({ timeout: TIMEOUTS.BASE * 6 }).catch(() => false);
 
     if (textVisible) {
       await expect(textLocator).toBeVisible();
@@ -2632,7 +2674,7 @@ class ContractModule {
 
     // If not found as text, check input value (service name field)
     const inputLocator = this.page.locator(`input[value="${serviceName}"]`);
-    const inputVisible = await inputLocator.isVisible({ timeout: 3_000 }).catch(() => false);
+    const inputVisible = await inputLocator.isVisible({ timeout: TIMEOUTS.BASE * 6 }).catch(() => false);
 
     if (inputVisible) {
       await expect(inputLocator).toBeVisible();
@@ -2656,7 +2698,7 @@ class ContractModule {
     let grandTotalField = this.page.locator(':text-matches("Grand Total|Total:", "i") ~ input, :text-matches("Grand Total|Total:", "i") ~ div, :text-matches("Grand Total|Total:", "i") ~ span')
       .first();
 
-    let isVisible = await grandTotalField.isVisible({ timeout: 5_000 }).catch(() => false);
+    let isVisible = await grandTotalField.isVisible({ timeout: TIMEOUTS.BASE * 10 }).catch(() => false);
     if (isVisible) {
       const value = await grandTotalField.textContent().catch(() => null);
       console.log(`[getGrandTotal] Found via label: "${value}"`);
@@ -2671,7 +2713,7 @@ class ContractModule {
 
     console.log(`[getGrandTotal] Found ${count} USD matches, using last one`);
 
-    isVisible = await usdTotalText.isVisible({ timeout: 5_000 }).catch(() => false);
+    isVisible = await usdTotalText.isVisible({ timeout: TIMEOUTS.BASE * 10 }).catch(() => false);
     if (isVisible) {
       const value = await usdTotalText.textContent().catch(() => null);
       console.log(`[getGrandTotal] Found via USD text: "${value}"`);
@@ -2695,7 +2737,7 @@ class ContractModule {
    */
   async clickAddService() {
     // Ensure the heading is visible before attempting to click (SKILL.md §4 — web-first assertion)
-    await expect(this.addAnotherServiceHeading).toBeVisible({ timeout: 10_000 });
+    await expect(this.addAnotherServiceHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
 
     // Locate the "+" button in the "Add another service" card.
     // Live-verified 2026-05-07: the H3 heading's direct parent div (locator('..'))
@@ -2719,25 +2761,25 @@ class ContractModule {
     // Never swallow this error; if the form doesn't render, the test must fail loudly.
     await expect(
       this.page.getByRole('textbox', { name: expectedNewLabel }),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   // ── Step 1 — Toggle Helpers (live-verified 2026-05-06) ─────────────────
 
   /** Assert the Include Fuel Surcharge checkbox is visible */
   async assertFuelSurchargeVisible() {
-    await expect(this.fuelSurchargeLabel).toBeVisible({ timeout: 5_000 });
+    await expect(this.fuelSurchargeLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /** Assert the Include Vehicle checkbox is visible */
   async assertIncludeVehicleVisible() {
-    await expect(this.includeVehicleLabel).toBeVisible({ timeout: 5_000 });
+    await expect(this.includeVehicleLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /** Assert Visitor Management and Load Management labels are visible */
   async assertAdditionalServicesVisible() {
-    await expect(this.visitorManagementLabel).toBeVisible({ timeout: 5_000 });
-    await expect(this.loadManagementLabel).toBeVisible({ timeout: 5_000 });
+    await expect(this.visitorManagementLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.loadManagementLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -2761,12 +2803,12 @@ class ContractModule {
 
   /** Assert all rich text editor toolbar buttons are visible */
   async assertInstructionsToolbarVisible() {
-    await expect(this.boldToolbarBtn).toBeVisible({ timeout: 5_000 });
-    await expect(this.italicToolbarBtn).toBeVisible({ timeout: 5_000 });
-    await expect(this.unorderedListToolbarBtn).toBeVisible({ timeout: 5_000 });
-    await expect(this.orderedListToolbarBtn).toBeVisible({ timeout: 5_000 });
-    await expect(this.h1ToolbarBtn).toBeVisible({ timeout: 5_000 });
-    await expect(this.h2ToolbarBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.boldToolbarBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.italicToolbarBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.unorderedListToolbarBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.orderedListToolbarBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.h1ToolbarBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.h2ToolbarBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   // ── Step 3 — On Demand Helpers (live-verified 2026-05-06) ──────────────
@@ -2815,23 +2857,23 @@ class ContractModule {
       }
       el.click();
     });
-    await expect(radio).toBeChecked({ timeout: 5_000 });
+    await expect(radio).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /** Assert all five payment plan labels are visible */
   async assertAllPaymentPlansVisible() {
-    await expect(this.monthlyPlanRadio).toBeVisible({ timeout: 5_000 });
-    await expect(this.biWeeklyPlanRadio).toBeVisible({ timeout: 5_000 });
-    await expect(this.weeklyPlanRadio).toBeVisible({ timeout: 5_000 });
-    await expect(this.eventPlanRadio).toBeVisible({ timeout: 5_000 });
-    await expect(this.flatPlanRadio).toBeVisible({ timeout: 5_000 });
+    await expect(this.monthlyPlanRadio).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.biWeeklyPlanRadio).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.weeklyPlanRadio).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.eventPlanRadio).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.flatPlanRadio).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /** Assert the three Step 4 section headings are visible */
   async assertStep4SectionsVisible() {
-    await expect(this.billingOccurrenceHeading).toBeVisible({ timeout: 5_000 });
-    await expect(this.definePaymentTermsHeading).toBeVisible({ timeout: 5_000 });
-    await expect(this.billingInfoHeading).toBeVisible({ timeout: 5_000 });
+    await expect(this.billingOccurrenceHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.definePaymentTermsHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.billingInfoHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -2839,10 +2881,10 @@ class ContractModule {
    * Returns the popper locator.
    */
   async openHolidayGroupDropdown() {
-    await this.holidayGroupTrigger.waitFor({ state: 'visible', timeout: 8_000 });
+    await this.holidayGroupTrigger.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 });
     await this.holidayGroupTrigger.click();
     const popper = this.page.locator('#simple-popper').last();
-    await popper.waitFor({ state: 'visible', timeout: 5_000 }).catch(() => {});
+    await popper.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
     return popper;
   }
 
@@ -2850,14 +2892,14 @@ class ContractModule {
 
   /** Assert Step 5 banner upload area and editor heading are visible */
   async assertStep5BannerAndEditorVisible() {
-    await expect(this.uploadBannerHeading).toBeVisible({ timeout: 5_000 });
-    await expect(this.descriptionPageHeading).toBeVisible({ timeout: 5_000 });
+    await expect(this.uploadBannerHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.descriptionPageHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /** Assert banner upload constraints text and Choose File button are visible */
   async assertBannerUploadAreaVisible() {
-    await expect(this.clickToUploadText).toBeVisible({ timeout: 5_000 });
-    await expect(this.bannerConstraintsText).toBeVisible({ timeout: 5_000 });
+    await expect(this.clickToUploadText).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.bannerConstraintsText).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   // ── Step 6 — Signee Helpers (live-verified 2026-05-06) ─────────────────
@@ -2873,13 +2915,13 @@ class ContractModule {
     const addSigneeCardBtn = this.addSigneeCard.locator('..').getByRole('button').first();
     await addSigneeCardBtn.scrollIntoViewIfNeeded().catch(() => {});
     await addSigneeCardBtn.click();
-    await expect(this.addSigneeDrawerHeading).toBeVisible({ timeout: 8_000 });
+    await expect(this.addSigneeDrawerHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   /** Close the Add Signee drawer via Cancel */
   async cancelAddSignee() {
     await this.addSigneeCancelBtn.click();
-    await expect(this.addSigneeDrawerHeading).not.toBeVisible({ timeout: 5_000 });
+    await expect(this.addSigneeDrawerHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -2901,15 +2943,15 @@ class ContractModule {
   async assertSigneeCardVisible(signeeNumber) {
     await expect(
       this.page.getByRole('heading', { name: `Signee ${signeeNumber}`, level: 4 })
-    ).toBeVisible({ timeout: 5_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   // ── Contract Renewal Helpers (live-verified 2026-05-08) ──────────────────
 
   /** Assert the Contract Renewal modal is open */
   async assertContractRenewalModalOpen() {
-    await expect(this.contractRenewalModalHeading).toBeVisible({ timeout: 10_000 });
-    await expect(this.contractRenewalPublishBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.contractRenewalModalHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.contractRenewalPublishBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -2917,11 +2959,11 @@ class ContractModule {
    * Returns: 'closeDeal' | 'publishConfirm' | 'contractRenewal' | 'unknown'
    */
   async clickPublishAndDetectModal() {
-    await this.publishContractBtn.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.publishContractBtn.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.publishContractBtn.click();
     // Wait for any modal to appear
     const closeDeal = await this.closeDealModalHeading
-      .waitFor({ state: 'visible', timeout: 8_000 })
+      .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 })
       .then(() => 'closeDeal')
       .catch(() => null);
     if (closeDeal) return closeDeal;
@@ -2951,7 +2993,7 @@ class ContractModule {
       await this.confirmPublishContract();
     } else if (modalType === 'contractRenewal') {
       await this.contractRenewalPublishBtn.click();
-      await this.page.waitForLoadState('domcontentloaded', { timeout: 15_000 }).catch(() => {});
+      await this.page.waitForLoadState('domcontentloaded', { timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
     }
   }
 
@@ -2972,30 +3014,30 @@ class ContractModule {
 
   /** Open the Signature dropdown menu by clicking the Signature button */
   async openSignatureDropdown() {
-    await this.signatureBtnOnCard.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.signatureBtnOnCard.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.signatureBtnOnCard.click();
-    await expect(this.addSignMenuitem).toBeVisible({ timeout: 5_000 });
+    await expect(this.addSignMenuitem).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /** Click "Request Sign" menuitem from the Signature dropdown to open the modal */
   async openRequestSignaturesModal() {
     await this.openSignatureDropdown();
     await this.requestSignMenuitem.click();
-    await expect(this.requestSignaturesModalHeading).toBeVisible({ timeout: 10_000 });
+    await expect(this.requestSignaturesModalHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   /** Assert the Request Signatures modal is open with expected elements */
   async assertRequestSignaturesModalOpen() {
-    await expect(this.requestSignaturesModalHeading).toBeVisible({ timeout: 10_000 });
-    await expect(this.selectAllCheckboxLabel).toBeVisible({ timeout: 5_000 });
-    await expect(this.requestSignaturesBtn).toBeVisible({ timeout: 5_000 });
-    await expect(this.requestSignaturesCancelBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.requestSignaturesModalHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.selectAllCheckboxLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.requestSignaturesBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.requestSignaturesCancelBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /** Close the Request Signatures modal via Cancel button */
   async cancelRequestSignatures() {
     await this.requestSignaturesCancelBtn.click();
-    await expect(this.requestSignaturesModalHeading).not.toBeVisible({ timeout: 5_000 });
+    await expect(this.requestSignaturesModalHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -3025,7 +3067,7 @@ class ContractModule {
   async selectSigneeByIndex(index) {
     const signeeRows = this.getSigneeRows();
     const row = signeeRows.nth(index);
-    await row.waitFor({ state: 'visible', timeout: 5_000 });
+    await row.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 });
     const checkbox = row.getByRole('checkbox');
     await checkbox.click();
   }
@@ -3050,100 +3092,100 @@ class ContractModule {
    */
   async assertDealStageActive(stage) {
     const stageBtn = this.page.locator('button').filter({ hasText: new RegExp(`^${stage}$`) });
-    await expect(stageBtn).toBeVisible({ timeout: 10_000 });
+    await expect(stageBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   // ── Clone Contract Dialog (MCP-verified 2026-05-08) ───────────────────
 
   /** Click the Clone action icon on the proposal card and wait for dialog */
   async clickCloneAction() {
-    await expect(this.cloneProposalActionByAriaLabel).toBeVisible({ timeout: 8_000 });
+    await expect(this.cloneProposalActionByAriaLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await this.cloneProposalActionByAriaLabel.click();
-    await expect(this.cloneContractHeading).toBeVisible({ timeout: 8_000 });
+    await expect(this.cloneContractHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   /** Assert the Clone Contract dialog is open with all expected elements */
   async assertCloneContractDialogOpen() {
-    await expect(this.cloneContractHeading).toBeVisible({ timeout: 8_000 });
-    await expect(this.cloneContractText).toBeVisible({ timeout: 5_000 });
-    await expect(this.cloneContractCancelBtn).toBeVisible({ timeout: 5_000 });
-    await expect(this.cloneContractProceedBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.cloneContractHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
+    await expect(this.cloneContractText).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.cloneContractCancelBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.cloneContractProceedBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /** Dismiss the Clone Contract dialog via Cancel */
   async dismissCloneContractDialog() {
     await this.cloneContractCancelBtn.click();
-    await expect(this.cloneContractHeading).not.toBeVisible({ timeout: 5_000 });
+    await expect(this.cloneContractHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   // ── Delete Proposal Dialog (MCP-verified 2026-05-08) ──────────────────
 
   /** Click the Delete action icon on the proposal card and wait for dialog */
   async clickDeleteAction() {
-    await expect(this.deleteProposalActionByAriaLabel).toBeVisible({ timeout: 8_000 });
+    await expect(this.deleteProposalActionByAriaLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await this.deleteProposalActionByAriaLabel.click();
-    await expect(this.deleteProposalHeading).toBeVisible({ timeout: 8_000 });
+    await expect(this.deleteProposalHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   /** Assert the Delete Proposal dialog is open with all expected elements */
   async assertDeleteProposalDialogOpen() {
-    await expect(this.deleteProposalHeading).toBeVisible({ timeout: 8_000 });
-    await expect(this.deleteProposalText).toBeVisible({ timeout: 5_000 });
-    await expect(this.deleteProposalNoBtn).toBeVisible({ timeout: 5_000 });
-    await expect(this.deleteProposalConfirmBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.deleteProposalHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
+    await expect(this.deleteProposalText).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.deleteProposalNoBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.deleteProposalConfirmBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /** Dismiss the Delete Proposal dialog via No button */
   async dismissDeleteProposalDialog() {
     await this.deleteProposalNoBtn.click();
-    await expect(this.deleteProposalHeading).not.toBeVisible({ timeout: 5_000 });
+    await expect(this.deleteProposalHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   // ── Terminate Contract Dialog (MCP-verified 2026-05-08) ────────────────
 
   /** Click the Terminate action icon on the proposal card and wait for dialog */
   async clickTerminateAction() {
-    await expect(this.terminateContractGeneric).toBeVisible({ timeout: 8_000 });
+    await expect(this.terminateContractGeneric).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await this.terminateContractGeneric.click();
-    await expect(this.terminateDialogHeading).toBeVisible({ timeout: 8_000 });
+    await expect(this.terminateDialogHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   /** Assert the Terminate dialog is open with all expected elements */
   async assertTerminateDialogOpen() {
-    await expect(this.terminateDialogHeading).toBeVisible({ timeout: 8_000 });
-    await expect(this.terminationDateInput).toBeVisible({ timeout: 5_000 });
-    await expect(this.terminationReasonInput).toBeVisible({ timeout: 5_000 });
-    await expect(this.terminateContractNoBtn).toBeVisible({ timeout: 5_000 });
-    await expect(this.terminateContractConfirmBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.terminateDialogHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
+    await expect(this.terminationDateInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.terminationReasonInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.terminateContractNoBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.terminateContractConfirmBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /** Dismiss the Terminate dialog via No button */
   async dismissTerminateDialog() {
     await this.terminateContractNoBtn.click();
-    await expect(this.terminateDialogHeading).not.toBeVisible({ timeout: 5_000 });
+    await expect(this.terminateDialogHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   // ── Addendum Contract Dialog (MCP-verified 2026-05-08) ─────────────────
 
   /** Click the Addendum action icon on the proposal card and wait for dialog */
   async clickAddendumAction() {
-    await expect(this.addendumContractGeneric).toBeVisible({ timeout: 8_000 });
+    await expect(this.addendumContractGeneric).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await this.addendumContractGeneric.click();
-    await expect(this.addendumContractHeading).toBeVisible({ timeout: 8_000 });
+    await expect(this.addendumContractHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   /** Assert the Addendum Contract dialog is open with all expected elements */
   async assertAddendumDialogOpen() {
-    await expect(this.addendumContractHeading).toBeVisible({ timeout: 8_000 });
-    await expect(this.addendumContractText).toBeVisible({ timeout: 5_000 });
-    await expect(this.addendumContractCancelBtn).toBeVisible({ timeout: 5_000 });
-    await expect(this.addendumContractProceedBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.addendumContractHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
+    await expect(this.addendumContractText).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.addendumContractCancelBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.addendumContractProceedBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /** Dismiss the Addendum Contract dialog via Cancel */
   async dismissAddendumDialog() {
     await this.addendumContractCancelBtn.click();
-    await expect(this.addendumContractHeading).not.toBeVisible({ timeout: 5_000 });
+    await expect(this.addendumContractHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   // ── Clone Contract — Proceed (MCP-verified 2026-05-08) ────────────────
@@ -3159,9 +3201,9 @@ class ContractModule {
    *   false if the clone API returned an error and no navigation occurred.
    */
   async proceedCloneContract() {
-    await expect(this.cloneContractProceedBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.cloneContractProceedBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     const navigated = await Promise.all([
-      this.page.waitForURL(/\/contract\//, { timeout: 20_000 }).then(() => true).catch(() => false),
+      this.page.waitForURL(/\/contract\//, { timeout: TIMEOUTS.BASE * 40 }).then(() => true).catch(() => false),
       this.cloneContractProceedBtn.click(),
     ]).then(([nav]) => nav);
     return navigated;
@@ -3176,9 +3218,9 @@ class ContractModule {
    * @returns {Promise<boolean>} true if navigation occurred, false if blocked/errored.
    */
   async proceedAddendumContract() {
-    await expect(this.addendumContractProceedBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.addendumContractProceedBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     const navigated = await Promise.all([
-      this.page.waitForURL(/\/deals\/deal\/\d+\/contract\/\d+/, { timeout: 20_000 })
+      this.page.waitForURL(/\/deals\/deal\/\d+\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 40 })
         .then(() => true).catch(() => false),
       this.addendumContractProceedBtn.click(),
     ]).then(([nav]) => nav);
@@ -3189,7 +3231,7 @@ class ContractModule {
    * Assert the "Addendum contract created successfully!" toast is visible.
    */
   async assertAddendumCreatedToast() {
-    await expect(this.addendumCreatedToast).toBeVisible({ timeout: 10_000 });
+    await expect(this.addendumCreatedToast).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   /**
@@ -3197,7 +3239,7 @@ class ContractModule {
    * Used to verify that a second addendum cannot be created once one already exists.
    */
   async assertNoAddendumAction() {
-    await expect(this.addendumContractGeneric).not.toBeVisible({ timeout: 8_000 });
+    await expect(this.addendumContractGeneric).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   /**
@@ -3206,11 +3248,11 @@ class ContractModule {
    * (Addendum is only available on published contracts.)
    */
   async assertDraftCardActions() {
-    await expect(this.editProposalActionByAriaLabel).toBeVisible({ timeout: 8_000 });
-    await expect(this.cloneProposalActionByAriaLabel).toBeVisible({ timeout: 5_000 });
-    await expect(this.previewPdfActionByAriaLabel).toBeVisible({ timeout: 5_000 });
-    await expect(this.deleteProposalActionByAriaLabel).toBeVisible({ timeout: 5_000 });
-    await expect(this.addendumContractGeneric).not.toBeVisible({ timeout: 5_000 });
+    await expect(this.editProposalActionByAriaLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
+    await expect(this.cloneProposalActionByAriaLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.previewPdfActionByAriaLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.deleteProposalActionByAriaLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.addendumContractGeneric).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -3219,11 +3261,11 @@ class ContractModule {
    * (Used when a pending addendum already exists, blocking a second one.)
    */
   async assertPublishedCardActionsNoAddendum() {
-    await expect(this.viewContractGeneric).toBeVisible({ timeout: 8_000 });
-    await expect(this.cloneProposalActionByAriaLabel).toBeVisible({ timeout: 5_000 });
-    await expect(this.previewPdfActionByAriaLabel).toBeVisible({ timeout: 5_000 });
-    await expect(this.terminateContractGeneric).toBeVisible({ timeout: 5_000 });
-    await expect(this.addendumContractGeneric).not.toBeVisible({ timeout: 5_000 });
+    await expect(this.viewContractGeneric).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
+    await expect(this.cloneProposalActionByAriaLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.previewPdfActionByAriaLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.terminateContractGeneric).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.addendumContractGeneric).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -3232,11 +3274,11 @@ class ContractModule {
    * (Used for an eligible active published contract with no pending addendum.)
    */
   async assertPublishedCardWithAddendum() {
-    await expect(this.addendumContractGeneric).toBeVisible({ timeout: 8_000 });
-    await expect(this.viewContractGeneric).toBeVisible({ timeout: 5_000 });
-    await expect(this.cloneProposalActionByAriaLabel).toBeVisible({ timeout: 5_000 });
-    await expect(this.previewPdfActionByAriaLabel).toBeVisible({ timeout: 5_000 });
-    await expect(this.terminateContractGeneric).toBeVisible({ timeout: 5_000 });
+    await expect(this.addendumContractGeneric).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
+    await expect(this.viewContractGeneric).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.cloneProposalActionByAriaLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.previewPdfActionByAriaLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.terminateContractGeneric).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -3261,14 +3303,14 @@ class ContractModule {
    */
   async assertProposalCardNameMatches(pattern) {
     const re = pattern instanceof RegExp ? pattern : new RegExp(pattern, 'i');
-    await expect(this.proposalCardHeading).toHaveText(re, { timeout: 8_000 });
+    await expect(this.proposalCardHeading).toHaveText(re, { timeout: TIMEOUTS.BASE * 16 });
   }
 
   /**
    * Assert the Publish Contract button is visible (contract is in draft state).
    */
   async assertPublishContractBtnVisible() {
-    await expect(this.publishContractBtn).toBeVisible({ timeout: 8_000 });
+    await expect(this.publishContractBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
 }

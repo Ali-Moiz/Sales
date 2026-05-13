@@ -1,20 +1,22 @@
 const { test, expect } = require('@playwright/test');
+const { TIMEOUTS } = require('../../utils/playwright-timeouts');
 const { performLogin } = require('../../utils/auth/login-action');
 const { ContactNamePage } = require('../../pages/contact-module');
 const { writeCreatedContactName } = require('../../utils/shared-run-state');
 const { registerNotesTasksSuite } = require('../helpers/register-notes-tasks-suite');
 
-const uniqueSuffix = String(Date.now()).slice(-4);
-const alphabeticSuffix = uniqueSuffix
+const uniqueSuffix = `${Date.now()}${process.pid}`;
+const nameSuffix = uniqueSuffix.slice(-4);
+const alphabeticSuffix = nameSuffix
   .split('')
   .map((digit) => String.fromCharCode(65 + Number(digit)))
   .join('');
 
 const VALID_CONTACT = {
   email: `contact.${uniqueSuffix}@signal-qa.com`,
-  firstName: `Auto${alphabeticSuffix.slice(0, 2)}`,
+  firstName: `PAT`,
   lastName: `Contact${alphabeticSuffix.slice(2)}`,
-  jobTitle: 'QA Engineer',
+  jobTitle: 'PAT Engineer',
   phone: '1234567890',
   cellPhone: '1234567891'
 };
@@ -53,7 +55,6 @@ test.describe('Contact Module', () => {
   }
 
   test.beforeAll(async ({ browser }) => {
-    test.setTimeout(180_000);
     context = await browser.newContext();
     page = await context.newPage();
     contactPage = new ContactNamePage(page);
@@ -71,7 +72,6 @@ test.describe('Contact Module', () => {
   });
 
   test('TC-CN-001 | Contacts page loads after login', async () => {
-    test.setTimeout(180_000);
     await expect(page).toHaveURL(/\/app\/sales\/contacts/);
     await expect(page.getByText('Contacts').first()).toBeVisible();
   });
@@ -230,7 +230,9 @@ test.describe('Contact Module', () => {
     await expect(contactPage.prevPageBtn).toBeDisabled();
 
     await contactPage.nextPageBtn.click();
-    await page.waitForTimeout(500);
+    await expect
+      .poll(() => contactPage.getPaginationText(), { timeout: TIMEOUTS.BASE * 10 })
+      .toMatch(/11–20 of/);
 
     const nextInfo = await contactPage.getPaginationText();
     expect(nextInfo).toMatch(/11–20 of/);

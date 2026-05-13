@@ -19,7 +19,6 @@ test.describe('Signal Map Module', () => {
   let signalMap;
 
   test.beforeAll(async ({ browser }) => {
-    test.setTimeout(180_000);
     context   = await browser.newContext();
     page      = await context.newPage();
     signalMap = new SignalMapModule(page);
@@ -45,7 +44,6 @@ test.describe('Signal Map Module', () => {
    * Priority: P0 — Critical
    */
   test('TC-SMAP-001 | Signal Map module opens successfully', async () => {
-    test.setTimeout(180_000);
     await signalMap.assertSignalMapPageOpened();
   });
 
@@ -60,7 +58,6 @@ test.describe('Signal Map Module', () => {
    * Priority: P0 — Critical
    */
   test('TC-SMAP-002 | Map canvas renders on the page', async () => {
-    test.setTimeout(180_000);
     await signalMap.assertMapCanvasVisible();
   });
 
@@ -74,7 +71,6 @@ test.describe('Signal Map Module', () => {
    * Priority: P1 — High
    */
   test('TC-SMAP-003 | Search input is visible on the map page', async () => {
-    test.setTimeout(180_000);
     await signalMap.assertSearchInputVisible();
   });
 
@@ -88,7 +84,6 @@ test.describe('Signal Map Module', () => {
    * Priority: P1 — High
    */
   test('TC-SMAP-004 | SP Status filter dropdown is visible', async () => {
-    test.setTimeout(180_000);
     await signalMap.assertPropertyTypeFilterVisible();
   });
 
@@ -102,7 +97,6 @@ test.describe('Signal Map Module', () => {
    * Priority: P1 — High
    */
   test('TC-SMAP-005 | Create Property via Map button is visible', async () => {
-    test.setTimeout(180_000);
     await signalMap.assertStageFilterVisible();
   });
 
@@ -116,7 +110,6 @@ test.describe('Signal Map Module', () => {
    * Priority: P1 — High
    */
   test('TC-SMAP-006 | Status legend is visible', async () => {
-    test.setTimeout(180_000);
     await signalMap.assertDateRangePickerVisible();
   });
 
@@ -130,7 +123,6 @@ test.describe('Signal Map Module', () => {
    * Priority: P1 — High
    */
   test('TC-SMAP-007 | SP Status filter opens and shows options', async () => {
-    test.setTimeout(180_000);
     await signalMap.assertPropertyTypeFilterHasOptions();
   });
 
@@ -144,7 +136,6 @@ test.describe('Signal Map Module', () => {
    * Priority: P1 — High
    */
   test('TC-SMAP-008 | Status legend shows all expected categories', async () => {
-    test.setTimeout(180_000);
     await signalMap.assertStageFilterHasOptions();
   });
 
@@ -158,7 +149,6 @@ test.describe('Signal Map Module', () => {
    * Priority: P1 — High
    */
   test('TC-SMAP-009 | Map zoom controls are visible', async () => {
-    test.setTimeout(180_000);
     await signalMap.assertMapCanvasVisible();
     await signalMap.assertZoomControlsVisible();
   });
@@ -176,7 +166,6 @@ test.describe('Signal Map Module', () => {
    * Priority: P1 — High
    */
   test('TC-SMAP-010 | User can type in the search box without errors', async () => {
-    test.setTimeout(180_000);
     await signalMap.assertSearchInputVisible();
     await signalMap.searchOnMap('Omaha');
     // Map should still be present after search

@@ -1,9 +1,11 @@
 const { defineConfig, devices } = require('@playwright/test');
 require('./utils/auth/load-env');
+const { resolvePlaywrightTimeouts } = require('./utils/playwright-timeouts');
 
 
 const baseURL = process.env.BASE_URL || "https://uat.sales.teamsignal.com";
 const headless = (process.env.HEADLESS || "false").toLowerCase() === "true";
+const playwrightTimeouts = resolvePlaywrightTimeouts();
 
 module.exports = defineConfig({
   testDir: "./tests",
@@ -12,9 +14,9 @@ module.exports = defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : 1,
-  timeout: 60_000,
+  timeout: playwrightTimeouts.test,
   expect: {
-    timeout: 10_000,
+    timeout: playwrightTimeouts.expect,
   },
   reporter: [
     ['json'],
@@ -29,8 +31,8 @@ module.exports = defineConfig({
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
-    actionTimeout: 15_000,
-    navigationTimeout: 30_000,
+    actionTimeout: playwrightTimeouts.action,
+    navigationTimeout: playwrightTimeouts.navigation,
   },
   projects: [
     {

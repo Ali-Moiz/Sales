@@ -9,6 +9,7 @@
 // Locators follow Signal's consistent heading-level-6 dropdown pattern
 // and role-based selectors used across all other modules.
 
+const { TIMEOUTS } = require('../utils/playwright-timeouts');
 const { expect } = require('@playwright/test');
 
 class SignalMapModule {
@@ -89,21 +90,24 @@ class SignalMapModule {
 
   async gotoSignalMapFromMenu() {
     const menuVisible = await this.signalMapMenuLink
-      .waitFor({ state: 'visible', timeout: 20_000 }).then(() => true).catch(() => false);
+      .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 40 }).then(() => true).catch(() => false);
     if (menuVisible) {
       await this.signalMapMenuLink.click();
     } else {
       await this.page.goto('/app/sales/leads-map', { waitUntil: 'domcontentloaded' });
     }
-    await this.page.waitForLoadState('networkidle', { timeout: 25_000 }).catch(() => {});
-    // Map pages take longer to load — wait for any map container to appear
-    await this.page.waitForTimeout(2_000);
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 50 }).catch(() => {});
+    await Promise.any([
+      this.mapContainer.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 }),
+      this.leafletContainer.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 }),
+      this.genericMapContainer.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 }),
+    ]).catch(() => {});
   }
 
   // ── Page open assertion ────────────────────────────────────────────────
 
   async assertSignalMapPageOpened() {
-    await expect(this.page).toHaveURL(/\/app\/sales\/leads-map/, { timeout: 20_000 });
+    await expect(this.page).toHaveURL(/\/app\/sales\/leads-map/, { timeout: TIMEOUTS.BASE * 40 });
     // Page must have loaded — check URL is correct
     const url = this.page.url();
     expect(url).toContain('/app/sales/leads-map');
@@ -114,63 +118,63 @@ class SignalMapModule {
   async assertMapCanvasVisible() {
     // Try Google Maps first, then Leaflet, then generic
     const googleMap = await this.mapContainer
-      .waitFor({ state: 'visible', timeout: 15_000 }).then(() => true).catch(() => false);
+      .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 }).then(() => true).catch(() => false);
     if (googleMap) {
-      await expect(this.mapContainer).toBeVisible({ timeout: 5_000 });
+      await expect(this.mapContainer).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       return;
     }
 
     const leaflet = await this.leafletContainer
-      .waitFor({ state: 'visible', timeout: 5_000 }).then(() => true).catch(() => false);
+      .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 }).then(() => true).catch(() => false);
     if (leaflet) {
-      await expect(this.leafletContainer).toBeVisible({ timeout: 5_000 });
+      await expect(this.leafletContainer).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       return;
     }
 
     // Generic fallback — at least one map-like element should be present
-    await expect(this.genericMapContainer).toBeVisible({ timeout: 10_000 });
+    await expect(this.genericMapContainer).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   // ── Filter / control bar assertions ───────────────────────────────────
 
   async assertSearchInputVisible() {
-    await expect(this.searchInput).toBeVisible({ timeout: 10_000 });
+    await expect(this.searchInput).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertPropertyTypeFilterVisible() {
-    await expect(this.spStatusFilter).toBeVisible({ timeout: 10_000 });
+    await expect(this.spStatusFilter).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertStageFilterVisible() {
-    await expect(this.createPropertyViaMapButton).toBeVisible({ timeout: 10_000 });
+    await expect(this.createPropertyViaMapButton).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertDateRangePickerVisible() {
     for (const label of this.statusLegendLabels) {
-      await expect(this.page.getByText(label, { exact: true }).first()).toBeVisible({ timeout: 10_000 });
+      await expect(this.page.getByText(label, { exact: true }).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     }
   }
 
   // ── Filter interaction ────────────────────────────────────────────────
 
   async searchOnMap(searchText) {
-    await this.searchInput.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.searchInput.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.searchInput.fill(searchText);
-    await this.page.waitForTimeout(1_000);
+    await expect(this.searchInput).toHaveValue(searchText, { timeout: TIMEOUTS.BASE * 4 });
   }
 
   async clearSearch() {
     await this.searchInput.clear();
-    await this.page.waitForTimeout(500);
+    await expect(this.searchInput).toHaveValue('', { timeout: TIMEOUTS.BASE * 4 });
   }
 
   async openPropertyTypeFilter() {
-    await this.spStatusFilter.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.spStatusFilter.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.spStatusFilter.click();
     const tooltip = this.page.locator('[role="tooltip"]').filter({
       hasText: /All|Unassigned|SP - Active|SP - Target|Not SP/
     }).last();
-    await tooltip.waitFor({ state: 'visible', timeout: 8_000 });
+    await tooltip.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 });
     return tooltip;
   }
 
@@ -180,7 +184,7 @@ class SignalMapModule {
     const count = await options.count();
     expect(count).toBeGreaterThan(0);
     await this.page.keyboard.press('Escape');
-    await this.page.waitForTimeout(300);
+    await tooltip.waitFor({ state: 'hidden', timeout: TIMEOUTS.BASE * 6 }).catch(() => {});
   }
 
   async openStageFilter() {
@@ -189,7 +193,7 @@ class SignalMapModule {
 
   async assertStageFilterHasOptions() {
     for (const label of this.statusLegendLabels) {
-      await expect(this.page.getByText(label, { exact: true }).first()).toBeVisible({ timeout: 10_000 });
+      await expect(this.page.getByText(label, { exact: true }).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     }
   }
 
@@ -197,30 +201,30 @@ class SignalMapModule {
 
   async assertZoomControlsVisible() {
     const mapRegion = this.page.getByRole('region', { name: 'Map' }).first();
-    await mapRegion.waitFor({ state: 'visible', timeout: 10_000 });
+    await mapRegion.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await mapRegion.hover().catch(() => {});
 
     const mapCameraControls = this.page.getByRole('button', { name: /Map camera controls/i }).first();
     const zoomIn = this.page.getByRole('button', { name: /Zoom in/i }).first();
     const zoomOut = this.page.getByRole('button', { name: /Zoom out/i }).first();
 
-    const mapControlsVisible = await mapCameraControls.waitFor({ state: 'visible', timeout: 10_000 }).then(() => true).catch(() => false);
-    const zoomInVisible = await zoomIn.waitFor({ state: 'visible', timeout: 5_000 }).then(() => true).catch(() => false);
-    const zoomOutVisible = await zoomOut.waitFor({ state: 'visible', timeout: 5_000 }).then(() => true).catch(() => false);
+    const mapControlsVisible = await mapCameraControls.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 }).then(() => true).catch(() => false);
+    const zoomInVisible = await zoomIn.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 }).then(() => true).catch(() => false);
+    const zoomOutVisible = await zoomOut.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 }).then(() => true).catch(() => false);
 
     expect(mapControlsVisible || zoomInVisible || zoomOutVisible).toBeTruthy();
   }
 
   async clickZoomIn() {
-    await this.zoomInButton.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.zoomInButton.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.zoomInButton.click();
-    await this.page.waitForTimeout(800);
+    await expect(this.page.getByRole('region', { name: 'Map' }).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   async clickZoomOut() {
-    await this.zoomOutButton.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.zoomOutButton.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.zoomOutButton.click();
-    await this.page.waitForTimeout(800);
+    await expect(this.page.getByRole('region', { name: 'Map' }).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   // ── Map pin / marker interaction ───────────────────────────────────────
@@ -232,15 +236,15 @@ class SignalMapModule {
       .locator('.gm-style [role="button"]:not([aria-label*="zoom" i]):not([aria-label*="Street" i])')
       .first();
     const hasPins = await pin
-      .waitFor({ state: 'visible', timeout: 8_000 }).then(() => true).catch(() => false);
+      .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 }).then(() => true).catch(() => false);
     if (hasPins) {
       await pin.click({ force: true });
-      await this.page.waitForTimeout(1_000);
+      await this.mapInfoWindow.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
     }
   }
 
   async assertMapInfoWindowVisible() {
-    await expect(this.mapInfoWindow).toBeVisible({ timeout: 10_000 });
+    await expect(this.mapInfoWindow).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 }
 

@@ -53,6 +53,13 @@ Every selector must be verified via Playwright MCP DOM inspection or user codege
 
 ## 3. Timeouts
 
+**BASE_TIMEOUT is the only timeout source of truth.** All explicit timeout values in JavaScript must derive from `TIMEOUTS.BASE` imported from `utils/playwright-timeouts.js`, and Playwright config must use `resolvePlaywrightTimeouts()`.
+
+- Never add raw millisecond literals for timeout policy: no `timeout: 5000`, `timeoutMs = 10000`, `withTimeout(..., 120_000)`, helper calls like `clickVisibleDropdownOption(..., 10_000)`, `Math.min(timeout, 5_000)`, or raw `expect.poll` interval arrays like `[300, 500, 800]`.
+- Use `TIMEOUTS.BASE * n` for timeout options, timeout parameters, helper defaults, clamps, polling intervals, and custom promise timeouts. Example: `10_000` becomes `TIMEOUTS.BASE * 20`.
+- Do not use `test.setTimeout(...)` or `test.describe.configure({ timeout: ... })`; global Playwright config controls test and hook timeout.
+- Do not introduce `PLAYWRIGHT_TIMEOUT_MULTIPLIER` or any timeout multiplier env var.
+
 | Scenario                       | Limit      | Notes                          |
 | ------------------------------ | ---------- | ------------------------------ |
 | Navigation                     | 10s        |                                |

@@ -2,6 +2,7 @@
 
 "use strict";
 
+const { TIMEOUTS } = require('./playwright-timeouts');
 const { expect } = require("@playwright/test");
 const { ContractModule } = require("../pages/contract-module");
 
@@ -67,14 +68,20 @@ const resolveCheckboxFromLabel = async (page, labelRegex, labelTextForLogs) => {
   );
   if (isAdditionalServiceToggle) {
     const additionalServicesHeading = page.getByText(/Additional Services/i).first();
-    for (let i = 0; i < 6; i += 1) {
-      const headingVisible = await additionalServicesHeading
-        .isVisible()
-        .catch(() => false);
-      if (headingVisible) break;
-      await page.mouse.wheel(0, 900).catch(() => {});
-      await page.waitForTimeout(200);
-    }
+    await expect
+      .poll(
+        async () => {
+          const headingVisible = await additionalServicesHeading
+            .isVisible()
+            .catch(() => false);
+          if (headingVisible) return true;
+          await page.mouse.wheel(0, 900).catch(() => {});
+          return additionalServicesHeading.isVisible().catch(() => false);
+        },
+        { timeout: TIMEOUTS.BASE * 3, intervals: [TIMEOUTS.BASE / 2] },
+      )
+      .toBe(true)
+      .catch(() => {});
     const headingVisible = await additionalServicesHeading
       .isVisible()
       .catch(() => false);
@@ -127,12 +134,12 @@ const toggleLabelBasedCheckbox = async (
       await checkbox.check().catch(async () => {
         await checkbox.click({ force: true });
       });
-      await expect(checkbox).toBeChecked({ timeout: 6_000 });
+      await expect(checkbox).toBeChecked({ timeout: TIMEOUTS.BASE * 12 });
     } else {
       await checkbox.uncheck().catch(async () => {
         await checkbox.click({ force: true });
       });
-      await expect(checkbox).not.toBeChecked({ timeout: 6_000 });
+      await expect(checkbox).not.toBeChecked({ timeout: TIMEOUTS.BASE * 12 });
     }
     return;
   }
@@ -144,7 +151,6 @@ const toggleLabelBasedCheckbox = async (
       return container ? container.getAttribute("aria-checked") : null;
     })
     .catch(() => null);
-  // eslint-disable-next-line no-console
   console.log(
     `[TC-CONTRACT-031] ${labelText} toggled via label click; aria-checked=${ariaCheckedState}`,
   );

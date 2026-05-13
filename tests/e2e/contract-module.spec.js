@@ -36,6 +36,7 @@
 //       - Notify for Renewal Before (Days) spinbutton (default: 10)
 //       - Cancel + Create Proposal buttons
 
+const { TIMEOUTS } = require('../../utils/playwright-timeouts');
 const { test, expect } = require("@playwright/test");
 const { ContractModule } = require("../../pages/contract-module");
 const { performLogin } = require("../../utils/auth/login-action");
@@ -62,7 +63,7 @@ const {
 } = require("../../utils/shared-run-state");
 require("../../utils/env");
 
-const MED_TIMEOUT = 10_000;
+const MED_TIMEOUT = TIMEOUTS.BASE * 20;
 
 test.describe("Contract Module", () => {
   const DEFAULT_COMPANY_NAME = "PAT";
@@ -189,7 +190,7 @@ test.describe("Contract Module", () => {
       if (onDealsUrl || dealSearchVisible) return true;
       if (onPublicLanding || loginVisible) {
         console.log(`[nav] ${label}: auth surface detected, re-login recovery`);
-        await withTimeout(performLogin(page), 120_000, `performLogin(${label})`);
+        await withTimeout(performLogin(page), TIMEOUTS.BASE * 240, `performLogin(${label})`);
         await contractModule.gotoDealsPage();
       }
       const recoveredDealsUrl = /\/app\/sales\/deals/.test(page.url());
@@ -304,7 +305,7 @@ test.describe("Contract Module", () => {
         .filter({ hasText: candidateDealName })
         .first();
       const existingDealRowVisible = await existingDealRow
-        .waitFor({ state: "visible", timeout: 15_000 })
+        .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 30 })
         .then(() => true)
         .catch(() => false);
 
@@ -316,7 +317,7 @@ test.describe("Contract Module", () => {
       await candidateContractModule.openDealDetail(candidateDealName);
       await candidateContractModule.assertOnDealDetailPage();
       const existingState =
-        await candidateContractModule.detectContractState(8_000);
+        await candidateContractModule.detectContractState(TIMEOUTS.BASE * 16);
       if (existingState === "empty") {
         resolvedContractDealName = candidateDealName;
         writeCreatedDealName(resolvedContractDealName);
@@ -327,11 +328,11 @@ test.describe("Contract Module", () => {
     // Fallback: search "PAT " and take the first table result with an empty contract state.
     await dealModule.gotoDealsFromMenu();
     await dealModule.assertDealsPageOpened();
-    await contractModule.dealSearchInput.waitFor({ state: 'visible', timeout: 10_000 });
+    await contractModule.dealSearchInput.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await contractModule.dealSearchInput.fill('PAT ');
     const firstPatRow = page.locator('table tbody tr').first();
     const firstPatRowVisible = await firstPatRow
-      .waitFor({ state: 'visible', timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 })
       .then(() => true)
       .catch(() => false);
     if (firstPatRowVisible) {
@@ -339,11 +340,11 @@ test.describe("Contract Module", () => {
       const firstPatDealName = (await firstPatNameCell.textContent())?.trim();
       if (firstPatDealName) {
         await Promise.all([
-          page.waitForURL(/\/deals\/deal\/\d+/, { timeout: 20_000 }),
+          page.waitForURL(/\/deals\/deal\/\d+/, { timeout: TIMEOUTS.BASE * 40 }),
           firstPatNameCell.click(),
         ]);
         const patContractModule = new ContractModule(page);
-        const patState = await patContractModule.detectContractState(8_000);
+        const patState = await patContractModule.detectContractState(TIMEOUTS.BASE * 16);
         if (patState === 'empty') {
           resolvedContractDealName = firstPatDealName;
           writeCreatedDealName(resolvedContractDealName);
@@ -405,12 +406,11 @@ test.describe("Contract Module", () => {
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   test.beforeAll(async ({ browser }) => {
-    test.setTimeout(600_000);
     context = await browser.newContext();
     page = await context.newPage();
     contractModule = new ContractModule(page);
     propertyModule = new PropertyModule(page);
-    await withTimeout(performLogin(page), 120_000, "performLogin(beforeAll)");
+    await withTimeout(performLogin(page), TIMEOUTS.BASE * 240, "performLogin(beforeAll)");
     await ensureContractTargetDeal().catch((err) => {
       console.log(`[Contract Module] beforeAll: ensureContractTargetDeal failed (non-fatal): ${err.message}`);
       // SKILL.md §20 — reset shared state on non-fatal beforeAll failure.
@@ -426,7 +426,6 @@ test.describe("Contract Module", () => {
   });
 
   test.beforeEach(async () => {
-    test.setTimeout(180_000);
     await gotoDealsListPage();
   });
 
@@ -472,12 +471,12 @@ test.describe("Contract Module", () => {
     await test.step("TC-CONTRACT-002 | Proposal Name can be edited", async () => {
       const newName = `PAT ${Date.now()}`;
       await contractModule.fillProposalName(newName);
-      await expect(contractModule.proposalNameInput).toHaveValue(newName, { timeout: 5_000 });
+      await expect(contractModule.proposalNameInput).toHaveValue(newName, { timeout: TIMEOUTS.BASE * 10 });
     });
 
     await test.step("TC-CONTRACT-005/019 | Date fields visible by default", async () => {
       await contractModule.assertDateFieldsVisible();
-      await expect(contractModule.renewalDateInput).toBeVisible({ timeout: 5_000 });
+      await expect(contractModule.renewalDateInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     });
 
     await test.step("TC-CONTRACT-020 | Dedicated/Patrol is default service type", async () => {
@@ -486,8 +485,8 @@ test.describe("Contract Module", () => {
 
     await test.step("TC-CONTRACT-021 | Service type can switch to Dispatch Only", async () => {
       await contractModule.selectServiceType("dispatch");
-      await expect(contractModule.dispatchOnlyRadio).toBeChecked({ timeout: 5_000 });
-      await expect(contractModule.dedicatedPatrolRadio).not.toBeChecked({ timeout: 5_000 });
+      await expect(contractModule.dispatchOnlyRadio).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
+      await expect(contractModule.dedicatedPatrolRadio).not.toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
     });
 
     await contractModule.cancelCreateProposal();
@@ -497,7 +496,6 @@ test.describe("Contract Module", () => {
   // ── Group 5: Required-field validation (TC-003, 004, 006) ──────────────
   // Single drawer session — chain validation attempts without reopening.
   test("TC-CONTRACT-002 | Verify required-field validations block submission.", async () => {
-    test.setTimeout(300_000);
     const toNorm = (value) =>
       String(value || "")
         .replace(/\s+/g, " ")
@@ -535,8 +533,8 @@ test.describe("Contract Module", () => {
 
       await contractModule.submitCreateProposalBtn.click();
 
-      await expect(page).not.toHaveURL(/\/contract\/\d+/, { timeout: 8_000 });
-      await expect(contractModule.createProposalDrawerHeading).toBeVisible({ timeout: 8_000 });
+      await expect(page).not.toHaveURL(/\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 16 });
+      await expect(contractModule.createProposalDrawerHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
 
       const hasRequiredText = await page
         .getByText(/Proposal Name.*required|required.*Proposal Name/i)
@@ -569,8 +567,8 @@ test.describe("Contract Module", () => {
         // Do NOT select timezone — submit should be blocked
         await contractModule.submitCreateProposalBtn.click();
 
-        await expect(page).not.toHaveURL(/\/contract\/\d+/, { timeout: 8_000 });
-        await expect(contractModule.createProposalDrawerHeading).toBeVisible({ timeout: 8_000 });
+        await expect(page).not.toHaveURL(/\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 16 });
+        await expect(contractModule.createProposalDrawerHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
 
         const hasRequiredText = await page
           .getByText(/Time\s*Zone.*required|required.*Time\s*Zone|Please\s+select.*Time\s*Zone|Time\s*Zone.*mandatory/i)
@@ -590,13 +588,13 @@ test.describe("Contract Module", () => {
         // Select timezone for next step
         await contractModule.selectTimeZone(PROPOSAL_DATA.timeZone);
       } else {
-        await expect(contractModule.timeZoneTrigger).toBeVisible({ timeout: 8_000 });
+        await expect(contractModule.timeZoneTrigger).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       }
     });
 
     await test.step("TC-CONTRACT-006 | Missing Start Date blocks submission", async () => {
       await contractModule.assertContractDatesTBDUnchecked();
-      await expect(contractModule.startDateInput).toBeVisible({ timeout: 8_000 });
+      await expect(contractModule.startDateInput).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
 
       // Ensure all fields except Start Date are valid
       const currentName = await contractModule.proposalNameInput.inputValue().catch(() => "");
@@ -616,8 +614,8 @@ test.describe("Contract Module", () => {
 
       await contractModule.submitCreateProposalBtn.click();
 
-      await expect(page).not.toHaveURL(/\/contract\/\d+/, { timeout: 8_000 });
-      await expect(contractModule.createProposalDrawerHeading).toBeVisible({ timeout: 8_000 });
+      await expect(page).not.toHaveURL(/\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 16 });
+      await expect(contractModule.createProposalDrawerHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
 
       const hasRequiredText = await page
         .getByText(/Start\s*Date.*required|required.*Start\s*Date|Please\s+select.*Start\s*Date|Start\s*Date.*mandatory/i)
@@ -641,7 +639,6 @@ test.describe("Contract Module", () => {
 
 
   test("TC-CONTRACT-003 | Verify selecting 'Contract Dates to be decided' allows proceeding without Start/End/Renewal dates and contract still created.", async () => {
-    test.setTimeout(300_000);
     const toNorm = (value) =>
       String(value || "")
         .replace(/\s+/g, " ")
@@ -669,13 +666,12 @@ test.describe("Contract Module", () => {
     await contractModule.assertDateFieldsHidden();
     await contractModule.submitCreateProposal();
     await contractModule.assertOnStepperPage();
-    await expect(page).toHaveURL(/\/contract\/\d+/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 40 });
     await contractModule.assertStepperTabsVisible();
   });
 
 
   test("TC-CONTRACT-004 | Verify End Date and Renewal Date are mutually exclusive (radio behavior) and proper field becomes required accordingly.", async () => {
-    test.setTimeout(360_000);
     const endDateInput = page.getByRole("textbox", { name: "Select End Date" });
 
     const openFreshCreateProposalDrawer = async (label) => {
@@ -706,7 +702,7 @@ test.describe("Contract Module", () => {
     await contractModule.assertDateFieldsVisible();
     await contractModule.assertRenewalDateDefault();
     await expect(contractModule.renewalDateInput).toBeVisible({
-      timeout: 8_000,
+      timeout: TIMEOUTS.BASE * 16,
     });
     await fillCommonRequiredFields("DR Renewal Mode");
 
@@ -714,9 +710,9 @@ test.describe("Contract Module", () => {
       "[TC-CONTRACT-004] Flow A Step 5-7: Keep Renewal Date empty and verify blocked",
     );
     await contractModule.submitCreateProposalBtn.click();
-    await expect(page).not.toHaveURL(/\/contract\/\d+/, { timeout: 8_000 });
+    await expect(page).not.toHaveURL(/\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 16 });
     await expect(contractModule.createProposalDrawerHeading).toBeVisible({
-      timeout: 8_000,
+      timeout: TIMEOUTS.BASE * 16,
     });
     const renewalRequiredVisible = await page
       .getByText(
@@ -742,19 +738,19 @@ test.describe("Contract Module", () => {
     await openFreshCreateProposalDrawer("Flow B");
     await fillCommonRequiredFields("DR End Mode");
     await contractModule.selectDateType("end");
-    await expect(contractModule.endDateRadio).toBeChecked({ timeout: 8_000 });
+    await expect(contractModule.endDateRadio).toBeChecked({ timeout: TIMEOUTS.BASE * 16 });
     await expect(contractModule.renewalDateRadio).not.toBeChecked({
-      timeout: 8_000,
+      timeout: TIMEOUTS.BASE * 16,
     });
-    await expect(endDateInput).toBeVisible({ timeout: 8_000 });
+    await expect(endDateInput).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
 
     console.log(
       "[TC-CONTRACT-004] Flow B Step 12-13: Keep End Date empty and verify blocked",
     );
     await contractModule.submitCreateProposalBtn.click();
-    await expect(page).not.toHaveURL(/\/contract\/\d+/, { timeout: 8_000 });
+    await expect(page).not.toHaveURL(/\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 16 });
     await expect(contractModule.createProposalDrawerHeading).toBeVisible({
-      timeout: 8_000,
+      timeout: TIMEOUTS.BASE * 16,
     });
     const endRequiredVisible = await page
       .getByText(
@@ -778,8 +774,6 @@ test.describe("Contract Module", () => {
 
 
   test("TC-CONTRACT-005 | Verify Renewal Date cannot be earlier than Start Date; show validation/error.", async () => {
-    test.setTimeout(300_000);
-
     const formatDate = (date) => {
       const mm = String(date.getMonth() + 1).padStart(2, "0");
       const dd = String(date.getDate()).padStart(2, "0");
@@ -814,9 +808,9 @@ test.describe("Contract Module", () => {
     console.log("[TC-CONTRACT-005] Step 3: Verify baseline date mode state");
     await contractModule.assertContractDatesTBDUnchecked();
     await contractModule.assertRenewalDateDefault();
-    await expect(contractModule.startDateInput).toBeVisible({ timeout: 8_000 });
+    await expect(contractModule.startDateInput).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await expect(contractModule.renewalDateInput).toBeVisible({
-      timeout: 8_000,
+      timeout: TIMEOUTS.BASE * 16,
     });
 
     console.log("[TC-CONTRACT-005] Step 4: Fill mandatory non-date fields");
@@ -842,7 +836,7 @@ test.describe("Contract Module", () => {
     // (b) silently accept and navigate to stepper, or
     // (c) reject server-side and dismiss the drawer back to deal detail.
     const navigatedToStepper = await page
-      .waitForURL(/\/contract\/\d+/, { timeout: 6_000 })
+      .waitForURL(/\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 12 })
       .then(() => true)
       .catch(() => false);
 
@@ -860,7 +854,7 @@ test.describe("Contract Module", () => {
 
     // Not at stepper — check whether validation fired or drawer was dismissed.
     const drawerOpen009 = await contractModule.createProposalDrawerHeading
-      .waitFor({ state: "visible", timeout: 4_000 })
+      .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 8 })
       .then(() => true)
       .catch(() => false);
 
@@ -920,7 +914,6 @@ test.describe("Contract Module", () => {
 
 
   test("TC-CONTRACT-006 | Verify End Date cannot be earlier than Start Date; show validation/error.", async () => {
-    test.setTimeout(300_000);
     const endDateInput = page.getByRole("textbox", { name: "Select End Date" });
 
     const formatDate = (date) => {
@@ -961,11 +954,11 @@ test.describe("Contract Module", () => {
       "[TC-CONTRACT-006] Step 4: Switch date type to End Date and verify radio state",
     );
     await contractModule.selectDateType("end");
-    await expect(contractModule.endDateRadio).toBeChecked({ timeout: 8_000 });
+    await expect(contractModule.endDateRadio).toBeChecked({ timeout: TIMEOUTS.BASE * 16 });
     await expect(contractModule.renewalDateRadio).not.toBeChecked({
-      timeout: 8_000,
+      timeout: TIMEOUTS.BASE * 16,
     });
-    await expect(endDateInput).toBeVisible({ timeout: 8_000 });
+    await expect(endDateInput).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
 
     console.log("[TC-CONTRACT-006] Step 5: Fill required non-date fields");
     await contractModule.fillProposalName(`PAT ${Date.now()}`);
@@ -991,7 +984,7 @@ test.describe("Contract Module", () => {
     // (b) silently accept and navigate to stepper, or
     // (c) reject server-side and dismiss the drawer back to deal detail.
     const navigatedToStepper010 = await page
-      .waitForURL(/\/contract\/\d+/, { timeout: 6_000 })
+      .waitForURL(/\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 12 })
       .then(() => true)
       .catch(() => false);
 
@@ -1009,7 +1002,7 @@ test.describe("Contract Module", () => {
     // Not at stepper — determine whether the drawer is still open or was dismissed.
     // Use waitFor (web-first) rather than snapshot .isVisible() per SKILL §4.
     const drawerStillOpen010 = await contractModule.createProposalDrawerHeading
-      .waitFor({ state: "visible", timeout: 4_000 })
+      .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 8 })
       .then(() => true)
       .catch(() => false);
 
@@ -1035,7 +1028,7 @@ test.describe("Contract Module", () => {
       await endDateInput.fill(endValidText);
       await page.keyboard.press("Tab");
       await expect(contractModule.createProposalDrawerHeading).toBeVisible({
-        timeout: 8_000,
+        timeout: TIMEOUTS.BASE * 16,
       });
       await contractModule.submitCreateProposal();
     } else {
@@ -1059,7 +1052,7 @@ test.describe("Contract Module", () => {
       await freshEndDateInput.fill(endValidText);
       await page.keyboard.press("Tab");
       await expect(contractModule.createProposalDrawerHeading).toBeVisible({
-        timeout: 8_000,
+        timeout: TIMEOUTS.BASE * 16,
       });
       await contractModule.submitCreateProposal();
     }
@@ -1071,7 +1064,6 @@ test.describe("Contract Module", () => {
 
 
   test("TC-CONTRACT-007 | Verify Auto Renewal of Contract check box can be checked and value persists in Create Proposal drawer.", async () => {
-    test.setTimeout(180_000);
     const autoRenewalCheckbox = contractModule.getCheckboxByLabel(
       contractModule.autoRenewalText,
     );
@@ -1118,10 +1110,10 @@ test.describe("Contract Module", () => {
       "[TC-CONTRACT-007] Step 3: Verify Auto Renewal checkbox baseline (visible, unchecked)",
     );
     await expect(contractModule.autoRenewalText).toBeVisible({
-      timeout: 8_000,
+      timeout: TIMEOUTS.BASE * 16,
     });
-    await expect(autoRenewalCheckbox).toBeVisible({ timeout: 8_000 });
-    await expect(autoRenewalCheckbox).not.toBeChecked({ timeout: 5_000 });
+    await expect(autoRenewalCheckbox).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
+    await expect(autoRenewalCheckbox).not.toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
 
     console.log(
       "[TC-CONTRACT-007] Step 4: Fill required Create Proposal fields",
@@ -1137,7 +1129,7 @@ test.describe("Contract Module", () => {
 
     console.log("[TC-CONTRACT-007] Step 5: Check Auto Renewal of Contract");
     await contractModule.setCheckboxState(contractModule.autoRenewalText, true);
-    await expect(autoRenewalCheckbox).toBeChecked({ timeout: 8_000 });
+    await expect(autoRenewalCheckbox).toBeChecked({ timeout: TIMEOUTS.BASE * 16 });
 
     console.log(
       "[TC-CONTRACT-007] Step 6: Verify checkbox remains checked after nearby interactions",
@@ -1146,7 +1138,7 @@ test.describe("Contract Module", () => {
     await contractModule.selectDateType("renewal");
     await contractModule.fillStartDate(startDateText);
     await contractModule.fillRenewalDate(renewalDateText);
-    await expect(autoRenewalCheckbox).toBeChecked({ timeout: 8_000 });
+    await expect(autoRenewalCheckbox).toBeChecked({ timeout: TIMEOUTS.BASE * 16 });
 
     console.log(
       "[TC-CONTRACT-007] Step 7: Cancel drawer (verified in drawer — no stepper needed)",
@@ -1157,7 +1149,6 @@ test.describe("Contract Module", () => {
 
 
   test("TC-CONTRACT-008 | Verify Notify for Renewal Before (Days) is required (when renewal is enabled) and only accepts valid numeric range (no letters/negative).", async () => {
-    test.setTimeout(240_000);
     const notifyInput = contractModule.notifyRenewalInput;
 
     const formatDate = (date) => {
@@ -1234,8 +1225,8 @@ test.describe("Contract Module", () => {
     );
     await contractModule.assertRenewalDateDefault();
     await contractModule.assertNotifyRenewalVisible();
-    await expect(notifyInput).toBeEnabled({ timeout: 5_000 });
-    await expect(notifyInput).toHaveValue("10", { timeout: 5_000 });
+    await expect(notifyInput).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(notifyInput).toHaveValue("10", { timeout: TIMEOUTS.BASE * 10 });
     await fillRequiredDrawerFields("MainFlow");
 
     console.log(
@@ -1331,7 +1322,7 @@ test.describe("Contract Module", () => {
 
     await test.step("TC-CONTRACT-017 | Empty state renders correct UI", async () => {
       await contractModule.assertEmptyStateVisible();
-      await expect(contractModule.createProposalBtn).toBeEnabled({ timeout: 5_000 });
+      await expect(contractModule.createProposalBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
     });
   });
 
@@ -1340,7 +1331,6 @@ test.describe("Contract Module", () => {
   // Single isolated deal, single drawer open, all default-state checks.
   // Order: read-only first, then mutations (End Date switch, TBD toggle).
   test("TC-CONTRACT-010 | Verify Create Proposal drawer default state on fresh deal.", async () => {
-    test.setTimeout(300_000);
     await openSharedDealDrawer();
 
     await test.step("TC-CONTRACT-022 | Time Zone trigger visible with UTC label", async () => {
@@ -1349,7 +1339,7 @@ test.describe("Contract Module", () => {
 
     await test.step("TC-CONTRACT-022b | User can select Eastern Time (UTC-05:00) and selection is reflected", async () => {
       await contractModule.selectTimeZone(PROPOSAL_DATA.timeZone);
-      await expect(contractModule.timeZoneTrigger).toContainText(/Eastern|UTC-0?5|UTC-0?4/i, { timeout: 8_000 });
+      await expect(contractModule.timeZoneTrigger).toContainText(/Eastern|UTC-0?5|UTC-0?4/i, { timeout: TIMEOUTS.BASE * 16 });
     });
 
     await test.step("TC-CONTRACT-023 | Contract Dates TBD unchecked by default", async () => {
@@ -1362,7 +1352,7 @@ test.describe("Contract Module", () => {
 
     await test.step("TC-CONTRACT-029 | Notify Renewal field visible and enabled", async () => {
       await contractModule.assertNotifyRenewalVisible();
-      await expect(contractModule.notifyRenewalInput).toBeEnabled({ timeout: 5_000 });
+      await expect(contractModule.notifyRenewalInput).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
     });
 
     await test.step("TC-CONTRACT-028 | Notify Renewal defaults to 10", async () => {
@@ -1371,8 +1361,8 @@ test.describe("Contract Module", () => {
 
     await test.step("TC-CONTRACT-027 | Selecting End Date switches radio", async () => {
       await contractModule.selectDateType("end");
-      await expect(contractModule.endDateRadio).toBeChecked({ timeout: 5_000 });
-      await expect(contractModule.renewalDateRadio).not.toBeChecked({ timeout: 5_000 });
+      await expect(contractModule.endDateRadio).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
+      await expect(contractModule.renewalDateRadio).not.toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
     });
 
     await test.step("TC-CONTRACT-024 | Checking TBD hides all date fields", async () => {
@@ -1395,9 +1385,8 @@ test.describe("Contract Module", () => {
   // ── Group 4: Cancel + reopen (TC-013, TC-030) ──────────────────────────
   // Single isolated deal, verify cancel creates no proposal, then reopen.
   test("TC-CONTRACT-011 | Verify cancel creates no proposal and drawer can reopen.", async () => {
-    test.setTimeout(300_000);
     await openSharedDealDrawer();
-    await expect(contractModule.createProposalDrawerHeading).toBeVisible({ timeout: 5_000 });
+    await expect(contractModule.createProposalDrawerHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
 
     await test.step("TC-CONTRACT-013 | Cancel closes drawer, no proposal created", async () => {
       await contractModule.cancelCreateProposal();
@@ -1406,7 +1395,7 @@ test.describe("Contract Module", () => {
 
     await test.step("TC-CONTRACT-030 | Drawer reopens with all fields after cancel", async () => {
       await contractModule.openCreateProposalDrawer();
-      await expect(contractModule.createProposalDrawerHeading).toBeVisible({ timeout: 8_000 });
+      await expect(contractModule.createProposalDrawerHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       await contractModule.assertCreateProposalDrawerOpen();
       await contractModule.cancelCreateProposal();
     });
@@ -1431,7 +1420,6 @@ test.describe("Contract Module", () => {
 
     // Guard: if the outer afterAll closed the context, re-create it
     test.beforeAll(async ({ browser }) => {
-      test.setTimeout(600_000);
       // Check if context/page are still alive
       const pageAlive = await page?.evaluate(() => true).catch(() => false);
       if (!pageAlive) {
@@ -1440,13 +1428,13 @@ test.describe("Contract Module", () => {
         page = await context.newPage();
         contractModule = new ContractModule(page);
         propertyModule = new PropertyModule(page);
-        await withTimeout(performLogin(page), 180_000, "performLogin(wizard-beforeAll)");
+        await withTimeout(performLogin(page), TIMEOUTS.BASE * 360, "performLogin(wizard-beforeAll)");
         await ensureContractTargetDeal();
       } else {
         // Page is alive; verify we're still authenticated
         const onAppPage = /\/app\//.test(page.url());
         if (!onAppPage) {
-          await withTimeout(performLogin(page), 180_000, "performLogin(wizard-reauth)");
+          await withTimeout(performLogin(page), TIMEOUTS.BASE * 360, "performLogin(wizard-reauth)");
         }
       }
     });
@@ -1468,7 +1456,7 @@ test.describe("Contract Module", () => {
       // isVisible() snapshots taken right after domcontentloaded return all-false
       // because React hasn't mounted yet.
       try {
-        await page.locator('.MuiStep-root').first().waitFor({ state: 'visible', timeout: 15_000 });
+        await page.locator('.MuiStep-root').first().waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
       } catch {
         return 1;
       }
@@ -1498,7 +1486,7 @@ test.describe("Contract Module", () => {
           // Wait for networkidle so React finishes rendering the step content before
           // detectActualStep() checks which content heading is visible. Without this,
           // content headings are not yet in the DOM and detectActualStep() falls back to 1.
-          await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => {});
+          await page.waitForLoadState("networkidle", { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
           // Detect the actual step the server rendered — it may not be Step 1
           // (the server remembers the furthest-saved step).  Setting
           // currentWizardStep to 1 when the page is actually on Step 4+ causes
@@ -1557,10 +1545,23 @@ test.describe("Contract Module", () => {
     async function goToStep(stepNumber) {
       await ensureOnStepper();
 
+      const stepContentLocators = [
+        null,                                      // index 0 unused
+        contractModule.serviceNameInput,           // Step 1
+        contractModule.devicesPageHeading,         // Step 2
+        contractModule.onDemandPageHeading,        // Step 3
+        contractModule.billingOccurrenceHeading,   // Step 4
+        contractModule.descriptionPageHeading,     // Step 5
+        contractModule.signeesPageHeading,         // Step 6
+      ];
+      const waitForStepContent = async (targetStep) => {
+        await expect(stepContentLocators[targetStep]).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+      };
+
       // If we need to go to step 1, just ensure we're on the stepper
       if (stepNumber === 1) {
         // Try clicking step 1 heading
-        await contractModule.stepperStep1.waitFor({ state: "visible", timeout: 10_000 });
+        await contractModule.stepperStep1.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
         await contractModule.stepperStep1.evaluate((el) => {
           // Start from el itself — some stepper tabs have cursor:pointer on the
           // heading element directly (steps 3-6), others on a parent wrapper
@@ -1573,7 +1574,7 @@ test.describe("Contract Module", () => {
           }
           el.click();
         });
-        await page.waitForLoadState("domcontentloaded", { timeout: 10_000 }).catch(() => {});
+        await page.waitForLoadState("domcontentloaded", { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
         currentWizardStep = 1;
         return;
       }
@@ -1591,21 +1592,8 @@ test.describe("Contract Module", () => {
           contractModule.stepperStep5,
           contractModule.stepperStep6,
         ];
-        // Heading locators for asserting that the target step content rendered —
-        // waitForLoadState('domcontentloaded') returns immediately for SPA step
-        // transitions and does NOT confirm React rendered the target step content.
-        const stepContentLocators = [
-          null,                                      // index 0 unused
-          contractModule.serviceNameInput,           // Step 1
-          contractModule.devicesPageHeading,         // Step 2
-          contractModule.onDemandPageHeading,        // Step 3
-          contractModule.billingOccurrenceHeading,   // Step 4
-          contractModule.descriptionPageHeading,     // Step 5
-          contractModule.signeesPageHeading,         // Step 6
-        ];
         const targetTab = stepTabs[stepNumber];
-        const targetContentLocator = stepContentLocators[stepNumber];
-        await targetTab.waitFor({ state: "visible", timeout: 10_000 });
+        await targetTab.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
         // Use evaluate cursor:pointer traversal — the React click handler lives on
         // an ancestor wrapper, NOT the heading element itself.  click({ force: true })
         // dispatches to the heading and bypasses the ancestor's React handler, causing
@@ -1623,14 +1611,16 @@ test.describe("Contract Module", () => {
         });
         // Wait for the target step's content heading to appear — SPA transitions
         // do not trigger domcontentloaded, so we must wait for React to render.
-        await expect(targetContentLocator).toBeVisible({ timeout: 15_000 });
+        await waitForStepContent(stepNumber);
         currentWizardStep = stepNumber;
         return;
       }
 
       while (currentWizardStep < stepNumber) {
+        const sourceStep = currentWizardStep;
+        const targetStep = sourceStep + 1;
         // On Step 1, ensure form is valid before Save & Next
-        if (currentWizardStep === 1) {
+        if (sourceStep === 1) {
           const svcNameVisible = await contractModule.serviceNameInput.isVisible().catch(() => false);
           if (svcNameVisible) {
             const svcName = await contractModule.serviceNameInput.inputValue().catch(() => "");
@@ -1638,55 +1628,52 @@ test.describe("Contract Module", () => {
               await contractModule.fillStep1Services(SERVICE_DATA, 0);
             }
           }
+        } else if (sourceStep === 4) {
+          await contractModule.fillStep4PaymentTerms(PAYMENT_DATA);
         }
         const saveBtn = contractModule.saveAndNextBtn;
         // Web-first assertion: wait for React to settle before checking enabled state
         const saveEnabled = await expect(saveBtn)
-          .toBeEnabled({ timeout: 10_000 })
+          .toBeEnabled({ timeout: TIMEOUTS.BASE * 20 })
           .then(() => true)
           .catch(() => false);
         if (saveEnabled) {
           await contractModule.clickSaveAndNext();
         } else {
           // If Save & Next is disabled, fill required fields for current step
-          if (currentWizardStep === 1) {
+          if (sourceStep === 1) {
             await contractModule.fillStep1Services(SERVICE_DATA, 0);
             await contractModule.clickSaveAndNext();
-          } else if (currentWizardStep === 2) {
+          } else if (sourceStep === 2) {
             // Step 2 (Devices) may keep Save & Next disabled when all quantities
             // are 0. Use the dedicated helper that falls back to clicking the
             // Step 3 stepper tab directly.
             await contractModule.goToStep3FromDevices();
+          } else if (sourceStep === 4) {
+            await contractModule.fillStep4PaymentTerms(PAYMENT_DATA);
+            await expect(saveBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 20 });
+            await contractModule.clickSaveAndNext();
           } else {
             // For other steps, try direct click on Save & Next (may become enabled after fill)
             await contractModule.clickSaveAndNext().catch(() => {});
           }
         }
-        // Verify we actually left the current step before incrementing — if the
-        // step-specific heading is still visible the click was intercepted and the
-        // counter must not advance.
-        if (currentWizardStep === 1) {
-          const stillOnStep1 = await expect(contractModule.serviceNameInput)
-            .not.toBeVisible({ timeout: 5_000 })
-            .then(() => false)
-            .catch(() => true);
-          if (stillOnStep1) {
-            await page.goto(wizardStepperUrl, { waitUntil: "domcontentloaded" });
-            currentWizardStep = 1;
+        const targetVisible = await waitForStepContent(targetStep)
+          .then(() => true)
+          .catch(() => false);
+        if (!targetVisible) {
+          if (sourceStep === 4 && targetStep === 5) {
+            await contractModule.fillStep4PaymentTerms(PAYMENT_DATA);
+            await expect(saveBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 20 });
+            await contractModule.clickSaveAndNext();
+            await waitForStepContent(targetStep);
+            currentWizardStep = targetStep;
             continue;
           }
-        } else if (currentWizardStep === 2) {
-          const stillOnStep2 = await expect(contractModule.devicesPageHeading)
-            .not.toBeVisible({ timeout: 5_000 })
-            .then(() => false)
-            .catch(() => true);
-          if (stillOnStep2) {
-            await page.goto(wizardStepperUrl, { waitUntil: "domcontentloaded" });
-            currentWizardStep = 1;
-            continue;
-          }
+          currentWizardStep = await detectActualStep();
+          if (currentWizardStep < targetStep) continue;
         }
-        currentWizardStep += 1;
+        currentWizardStep = targetStep;
       }
     }
 
@@ -1704,38 +1691,34 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-012 | Verify contract wizard steps are displayed (1 Services, 2 Devices, 3 On Demand, 4 Payment Terms, 5 Description, 6 Signees) for Dedicated Proposal", async () => {
-        test.setTimeout(300_000);
         await contractModule.assertStepperTabsVisible();
       });
 
       test("TC-CONTRACT-013 | Verify user can select Dedicated Service vs Patrol Service and relevant fields display accordingly.", async () => {
-        test.setTimeout(180_000);
-        await expect(contractModule.dedicatedServiceRadio).toBeChecked({ timeout: 5_000 });
+        await expect(contractModule.dedicatedServiceRadio).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
         // Use JS click to bypass innerScrollBar overlay
         await contractModule.patrolServiceRadio.evaluate((el) => el.click());
-        await expect(contractModule.patrolServiceRadio).toBeChecked({ timeout: 5_000 });
-        await expect(contractModule.dedicatedServiceRadio).not.toBeChecked({ timeout: 5_000 });
+        await expect(contractModule.patrolServiceRadio).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.dedicatedServiceRadio).not.toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
         // Switch back to Dedicated
         await contractModule.dedicatedServiceRadio.evaluate((el) => el.click());
-        await expect(contractModule.dedicatedServiceRadio).toBeChecked({ timeout: 5_000 });
+        await expect(contractModule.dedicatedServiceRadio).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       test("TC-CONTRACT-014 | Verify that Step 1 Services is visible with all required fields.", async () => {
-        test.setTimeout(180_000);
-        await expect(contractModule.serviceNameInput).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.resourceTypeTriggerDiv).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.lineItemTriggerDiv).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.officerCountInput).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.hourlyRateInput).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.serviceNameInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.resourceTypeTriggerDiv).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.lineItemTriggerDiv).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.officerCountInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.hourlyRateInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         // Job Days label
-        await expect(page.locator('label[for="dutyDays"]')).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator('label[for="dutyDays"]')).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         // Start Time and End Time labels
-        await expect(page.locator('label').filter({ hasText: /^Start Time/ })).toBeVisible({ timeout: 5_000 });
-        await expect(page.locator('label').filter({ hasText: /^End Time/ })).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator('label').filter({ hasText: /^Start Time/ })).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(page.locator('label').filter({ hasText: /^End Time/ })).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       test("TC-CONTRACT-015 | Verify Service Name is required; leaving blank shows 'Service Name is required'.", async () => {
-        test.setTimeout(180_000);
         // Clear service name
         await contractModule.serviceNameInput.fill("");
         await contractModule.serviceNameInput.press("Tab");
@@ -1747,7 +1730,7 @@ test.describe("Contract Module", () => {
           const validationVisible = await page
             .getByText(/Service Name.*required|required.*Service Name|name is required/i)
             .first()
-            .waitFor({ state: "visible", timeout: 5_000 })
+            .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 10 })
             .then(() => true)
             .catch(() => false);
           // Step should NOT advance to Step 2
@@ -1763,7 +1746,6 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-016 | Verify Officer/Guard count is required and must be a positive integer.", async () => {
-        test.setTimeout(180_000);
         // Clear officer count
         await contractModule.officerCountInput.click({ clickCount: 3 });
         await contractModule.officerCountInput.fill("");
@@ -1773,11 +1755,10 @@ test.describe("Contract Module", () => {
         expect(!saveEnabledEmpty || validationEmpty).toBeTruthy();
         // Fill with valid value
         await contractModule.fillOfficerCount(SERVICE_DATA.officerCount);
-        await expect(contractModule.saveAndNextBtn).toBeEnabled({ timeout: 8_000 });
+        await expect(contractModule.saveAndNextBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 16 });
       });
 
       test("TC-CONTRACT-017 | Verify Hourly Rate is required and accepts valid currency format; reject letters/special chars.", async () => {
-        test.setTimeout(180_000);
         // Clear hourly rate
         await contractModule.hourlyRateInput.click({ clickCount: 3 });
         await contractModule.hourlyRateInput.fill("");
@@ -1807,15 +1788,13 @@ test.describe("Contract Module", () => {
         // TODO: Full deselection of all job days to trigger validation message needs
         // React-aware click events. Current test verifies Job Days field has required indicator.
         // Recommendation: HEADLESS=false npx playwright test tests/e2e/contract-module.spec.js --grep "TC-CONTRACT-018" --debug
-        test.setTimeout(180_000);
         // Verify Job Days label with required indicator
-        await expect(page.locator('label[for="dutyDays"]')).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator('label[for="dutyDays"]')).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         const labelText = await page.locator('label[for="dutyDays"]').textContent().catch(() => "");
         expect(labelText).toMatch(/\*/);
       });
 
       test("TC-CONTRACT-019 | Verify Start Time and End Time validations: end time must be after start time (including overnight rules if supported).", async () => {
-        test.setTimeout(180_000);
         // Set Start Time
         await contractModule.selectStartTime(
           SERVICE_DATA.startTime.hours,
@@ -1831,25 +1810,23 @@ test.describe("Contract Module", () => {
         // Verify both time inputs have values
         const startTimeInput = page.locator('input[placeholder="hh:mm AM/PM"]').first();
         const endTimeInput = page.locator('input[placeholder="hh:mm AM/PM"]').nth(1);
-        await expect(startTimeInput).not.toHaveValue("", { timeout: 5_000 });
-        await expect(endTimeInput).not.toHaveValue("", { timeout: 5_000 });
+        await expect(startTimeInput).not.toHaveValue("", { timeout: TIMEOUTS.BASE * 10 });
+        await expect(endTimeInput).not.toHaveValue("", { timeout: TIMEOUTS.BASE * 10 });
       });
 
       test("TC-CONTRACT-020 | Verify Include Fuel Surcharge and Include Vehicle toggles can be enabled and reflect in totals/pricing where applicable.", async () => {
-        test.setTimeout(180_000);
         await contractModule.assertFuelSurchargeVisible();
         // Toggle Fuel Surcharge on — use visible MUI Switch wrapper, not hidden input
         await contractModule.toggleMuiSwitchOn(contractModule.fuelSurchargeSwitch, "Fuel Surcharge");
-        await expect(contractModule.fuelSurchargeSwitch).toBeChecked({ timeout: 5_000 });
+        await expect(contractModule.fuelSurchargeSwitch).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
 
         await contractModule.assertIncludeVehicleVisible();
         // Toggle Vehicle on — use visible MUI Switch wrapper, not hidden input
         await contractModule.toggleMuiSwitchOn(contractModule.includeVehicleSwitch, "Include Vehicle");
-        await expect(contractModule.includeVehicleSwitch).toBeChecked({ timeout: 5_000 });
+        await expect(contractModule.includeVehicleSwitch).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       test("TC-CONTRACT-021 | Verify Add Instructions rich text supports formatting (bold/italic/list/headings) and content saves.", async () => {
-        test.setTimeout(180_000);
         await contractModule.scrollUntilVisible(contractModule.boldToolbarBtn, "Bold toolbar button");
         await contractModule.assertInstructionsToolbarVisible();
         // Type text into the editor
@@ -1865,41 +1842,36 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-022 | Verify Additional Services toggles (e.g., Visitor Management, Load Management) can be selected and persist.", async () => {
-        test.setTimeout(180_000);
         await contractModule.scrollUntilVisible(contractModule.visitorManagementLabel, "Visitor Management label");
         await contractModule.assertAdditionalServicesVisible();
         // Toggle Visitor Management on — use visible MUI Switch wrapper, not hidden input
         await contractModule.toggleMuiSwitchOn(contractModule.visitorManagementSwitch, "Visitor Management");
-        await expect(contractModule.visitorManagementSwitch).toBeChecked({ timeout: 5_000 });
+        await expect(contractModule.visitorManagementSwitch).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
         // Toggle Load Management on — use visible MUI Switch wrapper, not hidden input
         await contractModule.toggleMuiSwitchOn(contractModule.loadManagementSwitch, "Load Management");
-        await expect(contractModule.loadManagementSwitch).toBeChecked({ timeout: 5_000 });
+        await expect(contractModule.loadManagementSwitch).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       test("TC-CONTRACT-023 | Verify Resource Type is required; leaving blank shows 'Resource Type is required'.", async () => {
-        test.setTimeout(180_000);
         // Resource Type is a custom dropdown; verify it exists and is required (label has *)
-        await expect(page.locator('label[for="officerType"]')).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator('label[for="officerType"]')).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         const labelText = await page.locator('label[for="officerType"]').textContent().catch(() => "");
         expect(labelText).toMatch(/\*/); // Verify required indicator
       });
 
       test("TC-CONTRACT-024 | Verify Line Item is required; leaving blank shows 'Line Item is required'.", async () => {
-        test.setTimeout(180_000);
-        await expect(page.locator('label[for="lineItem"]')).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator('label[for="lineItem"]')).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         const labelText = await page.locator('label[for="lineItem"]').textContent().catch(() => "");
         expect(labelText).toMatch(/\*/); // Verify required indicator
       });
 
       test("TC-CONTRACT-025 | Verify Service Start Date is required; leaving blank shows validation.", async () => {
-        test.setTimeout(180_000);
-        await expect(page.locator('label').filter({ hasText: /^Start Time/ })).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator('label').filter({ hasText: /^Start Time/ })).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         const labelText = await page.locator('label').filter({ hasText: /^Start Time/ }).textContent().catch(() => "");
         expect(labelText).toMatch(/\*/); // Verify required indicator
       });
 
       test("TC-CONTRACT-026 | Verify Save & Next is blocked when mandatory fields on current step are missing.", async () => {
-        test.setTimeout(180_000);
         // Clear the service name to make the form invalid
         await contractModule.serviceNameInput.fill("");
         await contractModule.serviceNameInput.press("Tab");
@@ -1918,7 +1890,6 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-027 | Verify user can add multiple services (Service #1, Service #2) and totals reflect aggregated services.", async () => {
-        test.setTimeout(240_000);
         // Ensure Step 1 has valid data for service 1
         await contractModule.fillStep1Services(SERVICE_DATA, 0);
 
@@ -1950,7 +1921,6 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-028 | Verify deleting a service updates totals and does not break remaining service forms.", async () => {
-        test.setTimeout(240_000);
         // TC-027's service fills are not persisted (no Save & Next), so the
         // beforeEach re-navigation restores the server state (1 empty service).
         // Set up 2 services here to make this test self-sufficient.
@@ -1977,18 +1947,17 @@ test.describe("Contract Module", () => {
 
         // Verify remaining service is still intact — now labeled "Service 1"
         const service1Input = page.getByRole("textbox", { name: "Service 1" });
-        await expect(service1Input).toBeVisible({ timeout: 5_000 });
+        await expect(service1Input).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       test("TC-CONTRACT-029 | Verify Save & Next progresses to next step and preserves entered data when navigating back.", async () => {
-        test.setTimeout(240_000);
         // Ensure Step 1 is valid
         await contractModule.fillStep1Services(SERVICE_DATA, 0);
         const serviceName = await contractModule.serviceNameInput.inputValue().catch(() => "");
         const hourlyRate = await contractModule.hourlyRateInput.inputValue().catch(() => "");
 
         // Save & Next to Step 2
-        await expect(contractModule.saveAndNextBtn).toBeEnabled({ timeout: 10_000 });
+        await expect(contractModule.saveAndNextBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 20 });
         await contractModule.clickSaveAndNext();
         currentWizardStep = 2;
         await contractModule.assertStep2Visible();
@@ -1996,8 +1965,8 @@ test.describe("Contract Module", () => {
         // Navigate back to Step 1
         await contractModule.stepperStep1.click({ force: true });
         currentWizardStep = 1;
-        await page.waitForLoadState("domcontentloaded", { timeout: 10_000 }).catch(() => {});
-        await expect(contractModule.serviceNameInput).toBeVisible({ timeout: 10_000 });
+        await page.waitForLoadState("domcontentloaded", { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
+        await expect(contractModule.serviceNameInput).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
 
         // Verify data preserved
         const serviceNameAfter = await contractModule.serviceNameInput.inputValue().catch(() => "");
@@ -2021,19 +1990,17 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-030 | Verify Devices list (NFC Tags, Beacons, QR Tags) renders with unit price and quantity controls.", async () => {
-        test.setTimeout(180_000);
         await contractModule.assertStep2Visible();
         // Verify all three device headings
-        await expect(page.getByRole("heading", { name: "NFC Tags", level: 6 })).toBeVisible({ timeout: 5_000 });
-        await expect(page.getByRole("heading", { name: "Beacons", level: 6 })).toBeVisible({ timeout: 5_000 });
-        await expect(page.getByRole("heading", { name: "QR Tags", level: 6 })).toBeVisible({ timeout: 5_000 });
+        await expect(page.getByRole("heading", { name: "NFC Tags", level: 6 })).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(page.getByRole("heading", { name: "Beacons", level: 6 })).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(page.getByRole("heading", { name: "QR Tags", level: 6 })).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         // Verify unit price inputs exist
         const priceInputs = page.locator('input[name="price"]');
-        await expect(priceInputs).toHaveCount(3, { timeout: 5_000 });
+        await expect(priceInputs).toHaveCount(3, { timeout: TIMEOUTS.BASE * 10 });
       });
 
       test("TC-CONTRACT-031 | Verify quantity +/- updates Total Price and contract total appropriately.", async () => {
-        test.setTimeout(180_000);
         const totalBefore = await contractModule.getDevicesTotalPrice();
         // Increment NFC Tags
         await contractModule.addDeviceQuantity("NFC Tags", 1);
@@ -2045,7 +2012,6 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-032 | Verify quantity cannot go below 0 and cannot accept non-numeric input.", async () => {
-        test.setTimeout(180_000);
         // Reset NFC Tags to 0 by subtracting
         const currentQty = await contractModule.getDeviceQuantity("NFC Tags");
         if (currentQty > 0) {
@@ -2061,7 +2027,6 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-033 | Verify unit price cannot accept negative value and uses numeric validation.", async () => {
-        test.setTimeout(180_000);
         // Try typing letters — numeric input strips them
         await contractModule.typeRawDeviceUnitPrice("NFC Tags", "abc");
         const afterLetters = await contractModule.getDeviceUnitPrice("NFC Tags");
@@ -2073,8 +2038,7 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-034 | Verify note 'Billed in first invoice only' (if present) remains visible and accurate.", async () => {
-        test.setTimeout(180_000);
-        await expect(contractModule.billedFirstInvoiceNote).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.billedFirstInvoiceNote).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
     }); // end Step 2
@@ -2095,7 +2059,6 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-035 | Verify that Step 3 On Demand is visible and advances to Step 4.", async () => {
-        test.setTimeout(180_000);
         await contractModule.assertStep3Visible();
         await contractModule.clickSaveAndNext();
         currentWizardStep = 4;
@@ -2104,18 +2067,16 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-036 | Verify Dispatch Request billing type dropdown loads and can be set (other options).", async () => {
-        test.setTimeout(180_000);
         await contractModule.assertStep3Visible();
         // Verify billing type dropdown is visible
-        await expect(contractModule.dispatchBillingTypeLabel).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.dispatchBillingTypeLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         const currentType = await contractModule.getDispatchBillingTypeText();
         expect(currentType.length).toBeGreaterThan(0);
       });
 
       test("TC-CONTRACT-037 | Verify Price Per Hour field validates numeric and rejects negative/alpha.", async () => {
-        test.setTimeout(180_000);
         const priceInput = contractModule.extraJobPricePerHourInput;
-        await expect(priceInput).toBeVisible({ timeout: 5_000 });
+        await expect(priceInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         // Type letters — numeric input strips them
         await priceInput.click({ clickCount: 3 });
         await priceInput.pressSequentially("abc");
@@ -2129,7 +2090,6 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-038 | Verify adding additional on-demand line items (via + Line Item) works and persists.", async () => {
-        test.setTimeout(180_000);
         // The Title field strips non-alpha chars — digits and spaces are dropped
         // (live-verified 2026-05-07: "PAT 177..." persisted as "PAT"; "LineItem1778..." as "LineItem").
         // Use a random alpha-only suffix to stay unique across runs.
@@ -2141,11 +2101,10 @@ test.describe("Contract Module", () => {
           quantity: 1,
         });
         // Verify line item card appears (addLineItem already asserts, but double-check with stored title)
-        await expect(contractModule.getLineItemCard(lineItemTitle)).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.getLineItemCard(lineItemTitle)).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       test("TC-CONTRACT-039 | Verify removing a line item updates totals and does not leave orphan fields.", async () => {
-        test.setTimeout(180_000);
         // Add a fresh item to delete — the item from TC-038 may not have persisted
         // across the beforeEach navigation (SPA optimistic update vs server persist).
         const uid = Math.random().toString(36).replace(/[^a-z]/g, '').substring(0, 6).padEnd(6, 'a');
@@ -2153,7 +2112,7 @@ test.describe("Contract Module", () => {
         await contractModule.addLineItem({ title: deleteTitle, pricePerMonth: 10, quantity: 1 });
         await contractModule.deleteLineItem(deleteTitle);
         // Verify line item card is gone
-        await expect(contractModule.getLineItemCard(deleteTitle)).not.toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.getLineItemCard(deleteTitle)).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
     }); // end Step 3
@@ -2171,35 +2130,31 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-040 | Verify that Step 4 Payment Terms shows all three sections.", async () => {
-        test.setTimeout(180_000);
         await contractModule.assertStep4SectionsVisible();
       });
 
       test("TC-CONTRACT-041 | Verify payment plan columns render (Monthly, Bi-Weekly, Weekly, Event, Flat) and selecting a plan highlights it.", async () => {
-        test.setTimeout(180_000);
         await contractModule.assertAllPaymentPlansVisible();
         // For short-duration contracts (< 7 days) Monthly, Bi-Weekly, and Weekly are disabled.
         // Only Flat and Event are guaranteed to be enabled for any contract duration.
         // Live-verified 2026-05-07: 6-day contract disables Monthly, Bi-Weekly, Weekly.
         await contractModule.selectPaymentPlan("Flat");
-        await expect(contractModule.flatPlanRadio).toBeChecked({ timeout: 5_000 });
+        await expect(contractModule.flatPlanRadio).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
         // Switch to Event (always enabled, independent column from Flat)
         await contractModule.selectPaymentPlan("Event");
-        await expect(contractModule.eventPlanRadio).toBeChecked({ timeout: 5_000 });
-        await expect(contractModule.flatPlanRadio).not.toBeChecked({ timeout: 5_000 });
+        await expect(contractModule.eventPlanRadio).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.flatPlanRadio).not.toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       test("TC-CONTRACT-042 | Verify Services Total/Dispatch Total/Tax Rate/Total update for selected plan.", async () => {
-        test.setTimeout(180_000);
-        await expect(contractModule.servicesTotalHeading).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.dispatchTotalHeading).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.totalColumnHeading).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.servicesTotalHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.dispatchTotalHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.totalColumnHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       test("TC-CONTRACT-043 | Verify Tax Rate (%) is required and validates numeric range (0-100) and decimals; reject alpha/negative.", async () => {
-        test.setTimeout(180_000);
         const taxInput = contractModule.taxRateInput;
-        await expect(taxInput).toBeVisible({ timeout: 5_000 });
+        await expect(taxInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         // Type letters
         await taxInput.click({ clickCount: 3 });
         await taxInput.pressSequentially("abc");
@@ -2213,31 +2168,28 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-044 | Verify Contract Duration displays based on Start/End/Renewal dates selected in proposal.", async () => {
-        test.setTimeout(180_000);
         await contractModule.scrollUntilVisible(contractModule.contractDurationText, "Contract Duration");
-        await expect(contractModule.contractDurationText).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.contractDurationText).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         const durationText = await contractModule.contractDurationText.textContent().catch(() => "");
         expect(durationText).toMatch(/\d{2}\/\d{2}\/\d{4}/); // Contains date pattern
       });
 
       test("TC-CONTRACT-045 | Verify required fields under 'Define Payment Terms' can be selected: Cycle Reference Date, Payment Terms, Payment Method, Billing Type, Contract Type, Billing Frequency.", async () => {
-        test.setTimeout(180_000);
-        await expect(contractModule.definePaymentTermsHeading).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.definePaymentTermsHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         // Verify all six required field labels
-        await expect(page.locator('label').filter({ hasText: /Cycle Reference Date/ })).toBeVisible({ timeout: 5_000 });
-        await expect(page.locator('label').filter({ hasText: /^Payment Terms/ })).toBeVisible({ timeout: 5_000 });
-        await expect(page.locator('label').filter({ hasText: /^Payment Method/ })).toBeVisible({ timeout: 5_000 });
-        await expect(page.locator('label').filter({ hasText: /^Billing Type/ })).toBeVisible({ timeout: 5_000 });
-        await expect(page.locator('label').filter({ hasText: /^Contract Type/ })).toBeVisible({ timeout: 5_000 });
-        await expect(page.locator('label').filter({ hasText: /Billing Frequency/ })).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator('label').filter({ hasText: /Cycle Reference Date/ })).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(page.locator('label').filter({ hasText: /^Payment Terms/ })).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(page.locator('label').filter({ hasText: /^Payment Method/ })).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(page.locator('label').filter({ hasText: /^Billing Type/ })).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(page.locator('label').filter({ hasText: /^Contract Type/ })).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(page.locator('label').filter({ hasText: /Billing Frequency/ })).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       test("TC-CONTRACT-046 | Verify Officer/Guard Breaks checkboxes (Billable/Payable) can be toggled and saved.", async () => {
-        test.setTimeout(180_000);
         await contractModule.scrollUntilVisible(contractModule.officerBreaksLabel, "Officer/Guard Breaks label");
-        await expect(contractModule.officerBreaksLabel).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.billableCheckbox).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.payableCheckbox).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.officerBreaksLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.billableCheckbox).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.payableCheckbox).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         // MUI controlled checkboxes: click({ force: true }) bypasses React's synthetic
         // onChange. Use cursor:pointer ancestor traversal to fire the real handler.
         const muiCheckboxClick = async (locator) => {
@@ -2268,17 +2220,15 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-047 | Verify Holiday Multiplier and Holiday Group selection works; '0 Holidays' link/info is accessible (if applicable).", async () => {
-        test.setTimeout(180_000);
         await contractModule.scrollUntilVisible(contractModule.holidayMultiplierLabel, "Holiday Multiplier");
-        await expect(contractModule.holidayMultiplierLabel).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.holidayMultiplierInput).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.holidayGroupLabel).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.holidayGroupTrigger).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.holidaysInfoText).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.holidayMultiplierLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.holidayMultiplierInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.holidayGroupLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.holidayGroupTrigger).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.holidaysInfoText).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       test("TC-CONTRACT-048 | Verify that only the holiday groups linked to the selected franchise in the property are visible in the dropdown.", async () => {
-        test.setTimeout(180_000);
         await contractModule.scrollUntilVisible(contractModule.holidayGroupTrigger, "Holiday Group dropdown");
         const popper = await contractModule.openHolidayGroupDropdown();
         const popperVisible = await popper.isVisible().catch(() => false);
@@ -2288,7 +2238,6 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-049 | Verify Annual Rate Increase validates numeric percent and rejects invalid formats.", async () => {
-        test.setTimeout(180_000);
         await contractModule.scrollUntilVisible(contractModule.annualRateIncreaseInput, "Annual Rate Increase");
         // Type letters
         await contractModule.annualRateIncreaseInput.click({ clickCount: 3 });
@@ -2302,11 +2251,10 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-050 | Verify Flat plan input validation (flat amount required, numeric only).", async () => {
-        test.setTimeout(180_000);
         // Select Flat plan to show the flat rate input
         await contractModule.selectPaymentPlan("Flat");
-        await expect(contractModule.flatPlanRadio).toBeChecked({ timeout: 5_000 });
-        await expect(contractModule.flatRateInput).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.flatPlanRadio).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.flatRateInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         // Verify numeric only
         await contractModule.flatRateInput.click({ clickCount: 3 });
         await contractModule.flatRateInput.pressSequentially("abc");
@@ -2316,26 +2264,23 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-051 | Verify Services Profitable indicator updates (0/1 etc.) and tooltip/message is readable.", async () => {
-        test.setTimeout(180_000);
         await contractModule.scrollUntilVisible(contractModule.servicesProfitableText, "Services Profitable");
-        await expect(contractModule.servicesProfitableText).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.servicesProfitableText).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         // Verify the numeric indicator (e.g., "0/1")
         const profitIndicator = page.getByText(/^\d+\/\d+$/).first();
-        await expect(profitIndicator).toBeVisible({ timeout: 5_000 });
+        await expect(profitIndicator).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       test("TC-CONTRACT-052 | Verify Billing Information required fields: First Name, Last Name, Email, Phone Number validate correctly.", async () => {
-        test.setTimeout(180_000);
         await contractModule.scrollUntilVisible(contractModule.billingInfoHeading, "Billing Information");
-        await expect(contractModule.billingInfoHeading).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.billingFirstNameInput).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.billingLastNameInput).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.billingEmailInput).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.billingPhoneInput).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.billingInfoHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.billingFirstNameInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.billingLastNameInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.billingEmailInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.billingPhoneInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       test("TC-CONTRACT-053 | Verify Email field validation for invalid formats (missing @, domain, spaces).", async () => {
-        test.setTimeout(180_000);
         await contractModule.scrollUntilVisible(contractModule.billingEmailInput, "Billing Email");
         // Clear and type invalid email
         await contractModule.billingEmailInput.fill("invalidemail");
@@ -2350,9 +2295,8 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-054 | Verify Phone Number accepts valid numbers and country code; reject letters and too short/long values.", async () => {
-        test.setTimeout(180_000);
         await contractModule.scrollUntilVisible(contractModule.billingPhoneInput, "Billing Phone");
-        await expect(contractModule.billingPhoneInput).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.billingPhoneInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         // Fill valid phone
         await contractModule.billingPhoneInput.fill(PAYMENT_DATA.billingContact.phone);
         const phoneValue = await contractModule.billingPhoneInput.inputValue().catch(() => "");
@@ -2360,23 +2304,21 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-055 | Verify Address/Country/State/City/Zip are prefilled from property and are consistent.", async () => {
-        test.setTimeout(180_000);
         await contractModule.scrollUntilVisible(contractModule.billingInfoHeading, "Billing Information");
         // Verify address-related labels are visible
-        await expect(page.locator('label').filter({ hasText: /^Address$/ })).toBeVisible({ timeout: 5_000 });
-        await expect(page.locator('label').filter({ hasText: /^Country$/ })).toBeVisible({ timeout: 5_000 });
-        await expect(page.locator('label').filter({ hasText: /^State$/ })).toBeVisible({ timeout: 5_000 });
-        await expect(page.locator('label').filter({ hasText: /^City$/ })).toBeVisible({ timeout: 5_000 });
-        await expect(page.locator('label').filter({ hasText: /Zip Code/ })).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator('label').filter({ hasText: /^Address$/ })).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(page.locator('label').filter({ hasText: /^Country$/ })).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(page.locator('label').filter({ hasText: /^State$/ })).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(page.locator('label').filter({ hasText: /^City$/ })).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(page.locator('label').filter({ hasText: /Zip Code/ })).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       test("TC-CONTRACT-056 | Verify 'Use a different billing address' reveals editable address fields and saves the alternate billing address.", async () => {
-        test.setTimeout(180_000);
         await contractModule.scrollUntilVisible(contractModule.otherAddressRadio, "Other address radio");
         // Verify radio group is visible
-        await expect(contractModule.propertyAddressRadio).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.companyAddressRadio).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.otherAddressRadio).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.propertyAddressRadio).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.companyAddressRadio).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.otherAddressRadio).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         // MUI radios: cursor:pointer traversal required — click({ force: true }) fires DOM
         // event but React's synthetic onChange does not fire. Live-verified 2026-05-07.
         await contractModule.otherAddressRadio.evaluate((el) => {
@@ -2387,7 +2329,7 @@ test.describe("Contract Module", () => {
           }
           el.click();
         });
-        await expect(contractModule.otherAddressRadio).toBeChecked({ timeout: 5_000 });
+        await expect(contractModule.otherAddressRadio).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
         // Switch back to Company Address to avoid breaking subsequent flow
         await contractModule.companyAddressRadio.evaluate((el) => {
           let t = el;
@@ -2397,14 +2339,13 @@ test.describe("Contract Module", () => {
           }
           el.click();
         });
-        await expect(contractModule.companyAddressRadio).toBeChecked({ timeout: 5_000 });
+        await expect(contractModule.companyAddressRadio).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       test("TC-CONTRACT-057 | Verify Save & Next blocked until required payment term fields are completed; show field-level errors.", async () => {
-        test.setTimeout(180_000);
         // Fill all required payment terms to ensure Save & Next works
         await contractModule.fillStep4PaymentTerms(PAYMENT_DATA);
-        await expect(contractModule.saveAndNextBtn).toBeEnabled({ timeout: 10_000 });
+        await expect(contractModule.saveAndNextBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 20 });
         // Save & Next to proceed to Step 5
         await contractModule.clickSaveAndNext();
         currentWizardStep = 5;
@@ -2426,22 +2367,18 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-058 | Verify Description step loads with banner upload area and Description of Services rich text editor.", async () => {
-        test.setTimeout(180_000);
         await contractModule.assertStep5BannerAndEditorVisible();
       });
 
       test("TC-CONTRACT-059 | Verify description content is auto-generated based on contract configuration from prior steps (services, days/times, guards, breaks, rate).", async () => {
-        test.setTimeout(180_000);
         await contractModule.assertStep5DescriptionPrefilled();
       });
 
       test("TC-CONTRACT-060 | Verify banner image upload supports click + drag/drop and accepts allowed size/dimension constraints; shows preview.", async () => {
-        test.setTimeout(180_000);
         await contractModule.assertBannerUploadAreaVisible();
       });
 
       test("TC-CONTRACT-060a | Verify invalid banner file types (e.g., .exe) are rejected with clear error.", async () => {
-        test.setTimeout(180_000);
         // Create a fake .exe file and attempt upload via the hidden file input
         const fakeExe = {
           name: "malware.exe",
@@ -2453,7 +2390,7 @@ test.describe("Contract Module", () => {
         const errorVisible = await page
           .getByText(/invalid|not allowed|unsupported|file type|format/i)
           .first()
-          .waitFor({ state: "visible", timeout: 5_000 })
+          .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 10 })
           .then(() => true)
           .catch(() => false);
         // If no explicit error text, verify no preview image appeared (upload was silently rejected)
@@ -2467,7 +2404,6 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-060b | Verify banner file exceeding max size is rejected with clear error.", async () => {
-        test.setTimeout(180_000);
         // Create a buffer > 10 MB (the constraint text says "max. 10MB")
         const oversized = {
           name: "oversized.png",
@@ -2479,7 +2415,7 @@ test.describe("Contract Module", () => {
         const errorVisible = await page
           .getByText(/size|too large|exceeds|max|limit|10\s*MB/i)
           .first()
-          .waitFor({ state: "visible", timeout: 5_000 })
+          .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 10 })
           .then(() => true)
           .catch(() => false);
         // If no explicit error text, verify no preview image appeared (upload was silently rejected)
@@ -2493,11 +2429,10 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-061 | Verify user can edit generated description and changes persist after navigating away/back.", async () => {
-        test.setTimeout(180_000);
         // Use web-first assertion — isVisible() snapshot returns false during React transition.
         // The rdw-editor textbox appears after React renders Step 5. Live-verified 2026-05-07.
         const visibleEditor = page.getByRole("textbox", { name: "rdw-editor" }).first();
-        await expect(visibleEditor).toBeVisible({ timeout: 15_000 });
+        await expect(visibleEditor).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
         await visibleEditor.click();
         const customText = `PAT EDIT ${Date.now()}`;
         await page.keyboard.type(customText);
@@ -2508,7 +2443,6 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-062 | Verify that Step 5 Description is pre-filled and advances to Step 6.", async () => {
-        test.setTimeout(180_000);
         // Last test in Step 5 — verify description, then advance to Step 6
         await contractModule.assertStep5DescriptionPrefilled();
         await contractModule.clickSaveAndNext();
@@ -2531,57 +2465,51 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-063 | Verify that Step 6 Signees shows default signee and Finish button.", async () => {
-        test.setTimeout(180_000);
         await contractModule.assertStep6Visible();
         await contractModule.assertDefaultSigneeVisible();
-        await expect(contractModule.finishBtn).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.finishBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       test("TC-CONTRACT-064 | Verify default Signee 1 is populated (e.g., Deal Owner/Sales Manager) when applicable.", async () => {
-        test.setTimeout(180_000);
         await contractModule.assertStep6Visible();
         await contractModule.assertDefaultSigneeVisible();
         // Verify signee card has a name displayed
         const signee1Heading = page.getByRole("heading", { name: "Signee 1", level: 4 });
-        await expect(signee1Heading).toBeVisible({ timeout: 5_000 });
+        await expect(signee1Heading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       test("TC-CONTRACT-065 | Verify Add Signee opens drawer and requires Name, Title, Email.", async () => {
-        test.setTimeout(180_000);
         await contractModule.openAddSigneeDrawer();
-        await expect(contractModule.addSigneeDrawerHeading).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.addSigneeNameInput).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.addSigneeTitleInput).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.addSigneeEmailInput).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.addSigneeCancelBtn).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.addSigneeSubmitBtn).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.addSigneeDrawerHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.addSigneeNameInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.addSigneeTitleInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.addSigneeEmailInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.addSigneeCancelBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.addSigneeSubmitBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         await contractModule.cancelAddSignee();
       });
 
       test("TC-CONTRACT-066 | Verify Add Signee cannot be saved with missing required fields; show validation messages.", async () => {
-        test.setTimeout(180_000);
         await contractModule.openAddSigneeDrawer();
         // Leave all fields empty and click submit
         await contractModule.addSigneeSubmitBtn.click();
         // Drawer should stay open (validation blocks save)
-        await expect(contractModule.addSigneeDrawerHeading).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.addSigneeDrawerHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         await contractModule.cancelAddSignee();
       });
 
       test("TC-CONTRACT-067 | Verify Add Signee email validation prevents invalid email formats.", async () => {
-        test.setTimeout(180_000);
         await contractModule.openAddSigneeDrawer();
         await contractModule.addSigneeNameInput.fill("Test Signee");
         await contractModule.addSigneeTitleInput.fill("Manager");
         await contractModule.addSigneeEmailInput.fill("invalidemail");
         await contractModule.addSigneeSubmitBtn.click();
         // Drawer should stay open (email validation blocks save)
-        await expect(contractModule.addSigneeDrawerHeading).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.addSigneeDrawerHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         await contractModule.cancelAddSignee();
       });
 
       test("TC-CONTRACT-068 | Verify multiple signees can be added and appear as separate signee cards.", async () => {
-        test.setTimeout(180_000);
         await contractModule.assertDefaultSigneeVisible();
         // Add a second signee
         await contractModule.openAddSigneeDrawer();
@@ -2595,13 +2523,12 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-069 | Verify Preview generates contract preview successfully and matches entered details (proposal name, billing plan, services).", async () => {
-        test.setTimeout(180_000);
-        await expect(contractModule.previewBtn).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.previewBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         // Click Preview
         await contractModule.previewBtn.click();
         // Verify preview loads without error (modal or new content appears)
         // Give time for preview to render
-        await page.waitForLoadState("domcontentloaded", { timeout: 10_000 }).catch(() => {});
+        await page.waitForLoadState("domcontentloaded", { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
         // The preview may open as a modal or in-page — verify no error alert
         const errorAlert = page.getByRole("alert").first();
         const hasError = await errorAlert.isVisible().catch(() => false);
@@ -2611,15 +2538,13 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-070 | Verify Finish is blocked if no signee exists (if required by system) or shows guidance to add at least one signee.", async () => {
-        test.setTimeout(180_000);
         // With at least Signee 1 present, Finish should be visible and enabled
         await contractModule.assertDefaultSigneeVisible();
-        await expect(contractModule.finishBtn).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.finishBtn).toBeEnabled({ timeout: 5_000 });
+        await expect(contractModule.finishBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.finishBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       test("TC-CONTRACT-071 | Verify Finish creates contract and returns to Deal Details > Contract & Terms with contract card visible.", async () => {
-        test.setTimeout(240_000);
         await contractModule.clickFinish();
         await contractModule.assertOnDealDetailPage();
         await contractModule.assertProposalCardVisible();
@@ -2650,27 +2575,25 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-072 | Verify contract card shows: Proposal Name, Billing (e.g., $200 Weekly), Created date, 'by <user>', and action icons (edit/duplicate/pdf/delete as available).", async () => {
-        test.setTimeout(180_000);
         // After Finish we should be on deal detail with proposal card
         await contractModule.assertProposalCardVisible();
         // Verify proposal name heading
         const proposalNameOnCard = contractModule.contractTermsTabpanel.getByRole("heading", { level: 4 }).first();
-        await expect(proposalNameOnCard).toBeVisible({ timeout: 5_000 });
+        await expect(proposalNameOnCard).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         // Verify billing amount heading
         const billingOnCard = contractModule.contractTermsTabpanel.getByRole("heading", { level: 4 }).nth(1);
-        await expect(billingOnCard).toBeVisible({ timeout: 5_000 });
+        await expect(billingOnCard).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         // Verify created date text
         const createdText = contractModule.contractTermsTabpanel.getByText(/Created/i).first();
-        await expect(createdText).toBeVisible({ timeout: 5_000 });
+        await expect(createdText).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         // Verify action icons
-        await expect(contractModule.signatureBtnOnCard).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.editProposalAction).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.cloneProposalAction).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.previewPdfAction).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.signatureBtnOnCard).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.editProposalAction).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.cloneProposalAction).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.previewPdfAction).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       test("TC-CONTRACT-073 | Verify totals are consistent across wizard steps and final contract card (e.g., USD 200 Weekly).", async () => {
-        test.setTimeout(180_000);
         // Note billing amount on card
         const billingOnCard = contractModule.contractTermsTabpanel.getByRole("heading", { level: 4 }).nth(1);
         const cardBillingText = await billingOnCard.textContent().catch(() => "");
@@ -2682,7 +2605,7 @@ test.describe("Contract Module", () => {
         // The stepper initially renders "USD 0.00 Weekly" before the saved
         // service data loads and recalculates the total.
         const footerTotal = page.getByRole("heading", { name: /USD/, level: 6 }).first();
-        await expect(footerTotal).toHaveText(/[1-9][\d,]*\.\d{2}/, { timeout: 15_000 });
+        await expect(footerTotal).toHaveText(/[1-9][\d,]*\.\d{2}/, { timeout: TIMEOUTS.BASE * 30 });
         const footerText = await footerTotal.textContent();
         // Extract dollar amounts and compare
         const extractAmount = (text) => {
@@ -2723,7 +2646,7 @@ test.describe("Contract Module", () => {
      */
     async function detectStep074() {
       try {
-        await page.locator(".MuiStep-root").first().waitFor({ state: "visible", timeout: 15_000 });
+        await page.locator(".MuiStep-root").first().waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 30 });
       } catch {
         return 1;
       }
@@ -2741,6 +2664,62 @@ test.describe("Contract Module", () => {
       return 1;
     }
 
+    const contentLocatorForStep074 = (step) => ({
+      1: contractModule.serviceNameInput,
+      2: contractModule.devicesPageHeading,
+      3: contractModule.onDemandPageHeading,
+      4: contractModule.billingOccurrenceHeading,
+      5: contractModule.descriptionPageHeading,
+      6: contractModule.signeesPageHeading,
+    }[step]);
+
+    const stepTabForStep074 = (step) => ({
+      1: contractModule.stepperTab1,
+      2: contractModule.stepperTab2,
+      3: contractModule.stepperTab3,
+      4: contractModule.stepperTab4,
+      5: contractModule.stepperTab5,
+      6: contractModule.stepperTab6,
+    }[step]);
+
+    async function waitForStep074(step, timeout = TIMEOUTS.BASE * 60) {
+      await expect(contentLocatorForStep074(step)).toBeVisible({ timeout });
+      currentStep074 = step;
+    }
+
+    async function clickStepTab074(step, timeout = TIMEOUTS.BASE * 60) {
+      const targetTab = stepTabForStep074(step);
+      await targetTab.scrollIntoViewIfNeeded().catch(() => {});
+      await targetTab.evaluate((el) => {
+        let target = el;
+        while (target && target !== document.body) { // eslint-disable-line no-undef
+          if (globalThis.getComputedStyle(target).cursor === "pointer") { target.click(); return; }
+          target = target.parentElement;
+        }
+        el.click();
+      });
+      await waitForStep074(step, timeout);
+    }
+
+    async function advanceStep1ToStep2For074() {
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        await contractModule.fillStep1Services(SERVICE_DATA, 0);
+        await expect(contractModule.saveAndNextBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 20 });
+        await contractModule.clickSaveAndNext().catch(() => {});
+        const reachedStep2 = await expect(contractModule.devicesPageHeading)
+          .toBeVisible({ timeout: TIMEOUTS.BASE * 60 })
+          .then(() => true)
+          .catch(() => false);
+        if (reachedStep2) {
+          currentStep074 = 2;
+          return;
+        }
+        currentStep074 = await detectStep074();
+        if (currentStep074 === 2) return;
+      }
+      throw new Error("Step 1 to Step 2 navigation failed after refilling required services");
+    }
+
     /**
      * Ensure we are on the wizard stepper. Creates a new proposal if needed,
      * then advances the wizard through all steps up to Step 4 (Payment Terms)
@@ -2752,9 +2731,9 @@ test.describe("Contract Module", () => {
         const currentUrl = page.url();
         if (!/\/contract\/\d+/.test(currentUrl)) {
           await page.goto(wizardUrl074, { waitUntil: "domcontentloaded" });
-          await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => {});
-          currentStep074 = await detectStep074();
+          await page.waitForLoadState("networkidle", { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
         }
+        currentStep074 = await detectStep074();
         return;
       }
 
@@ -2794,34 +2773,33 @@ test.describe("Contract Module", () => {
       // This ensures that when individual tests navigate to wizardUrl074, detectStep074()
       // returns 4 (or higher) and backward tab navigation to any step is possible.
       // Step 1 → 2: fill service form + Save & Next
-      await contractModule.fillStep1Services(SERVICE_DATA, 0);
-      await contractModule.clickSaveAndNext();
-      await expect(contractModule.devicesPageHeading).toBeVisible({ timeout: 30_000 });
-      currentStep074 = 2;
+      await advanceStep1ToStep2For074();
       wizardUrl074 = page.url();
 
       // Step 2 → 3: try Save & Next first (enabled when device quantities > 0);
       // fall back to cursor:pointer tab-click when Save & Next is disabled.
       await page.keyboard.press("Escape").catch(() => {});
-      await expect(page.locator('[role="menu"]')).not.toBeVisible({ timeout: 3_000 }).catch(() => {});
+      await expect(page.locator('[role="menu"]')).not.toBeVisible({ timeout: TIMEOUTS.BASE * 6 }).catch(() => {});
       const ensure074Step2SaveEnabled = await expect(contractModule.saveAndNextBtn)
-        .toBeEnabled({ timeout: 5_000 }).then(() => true).catch(() => false);
+        .toBeEnabled({ timeout: TIMEOUTS.BASE * 10 }).then(() => true).catch(() => false);
       if (ensure074Step2SaveEnabled) {
         await contractModule.clickSaveAndNext();
       } else {
-        // Save & Next disabled — click the Step 3 outer container (aria-label wrapper).
-        // The container reliably triggers React navigation for both fresh and completed proposals.
-        await contractModule.stepperTab3.scrollIntoViewIfNeeded().catch(() => {});
-        await contractModule.stepperTab3.click();
+        // Save & Next disabled — click the Step 3 tab with the same React-aware
+        // cursor:pointer traversal used elsewhere in this spec.
+        await clickStepTab074(3);
       }
-      await expect(contractModule.onDemandPageHeading).toBeVisible({ timeout: 30_000 });
-      currentStep074 = 3;
+      await waitForStep074(3);
       wizardUrl074 = page.url();
 
       // Step 3 → 4: click Save & Next on On Demand step
       await contractModule.clickSaveAndNext();
-      await expect(contractModule.billingOccurrenceHeading).toBeVisible({ timeout: 30_000 });
-      currentStep074 = 4;
+      const step4Visible = await expect(contractModule.billingOccurrenceHeading)
+        .toBeVisible({ timeout: TIMEOUTS.BASE * 60 })
+        .then(() => true)
+        .catch(() => false);
+      if (!step4Visible) await clickStepTab074(4);
+      else currentStep074 = 4;
       wizardUrl074 = page.url();
 
       // Step 4 → 5: fill required Payment Terms fields and advance.
@@ -2830,15 +2808,23 @@ test.describe("Contract Module", () => {
       // when goToStep074(5) or goToStep074(6) is called in individual tests.
       await contractModule.fillStep4PaymentTerms(PAYMENT_DATA);
       await contractModule.clickSaveAndNext();
-      await expect(contractModule.descriptionPageHeading).toBeVisible({ timeout: 30_000 });
-      currentStep074 = 5;
+      const step5Visible = await expect(contractModule.descriptionPageHeading)
+        .toBeVisible({ timeout: TIMEOUTS.BASE * 60 })
+        .then(() => true)
+        .catch(() => false);
+      if (!step5Visible) await clickStepTab074(5);
+      else currentStep074 = 5;
       wizardUrl074 = page.url();
 
       // Step 5 → 6: advance to Signees so the server records step 6 as visited.
       // This makes the Step 6 stepper tab clickable for backward navigation in tests.
       await contractModule.clickSaveAndNext();
-      await expect(contractModule.signeesPageHeading).toBeVisible({ timeout: 30_000 });
-      currentStep074 = 6;
+      const step6Visible = await expect(contractModule.signeesPageHeading)
+        .toBeVisible({ timeout: TIMEOUTS.BASE * 60 })
+        .then(() => true)
+        .catch(() => false);
+      if (!step6Visible) await clickStepTab074(6);
+      else currentStep074 = 6;
       wizardUrl074 = page.url();
 
       // Restore outer deal name
@@ -2861,7 +2847,7 @@ test.describe("Contract Module", () => {
       // Navigate to wizardUrl074 and detect the actual step rendered by the server.
       // The server remembers the furthest saved step and may render step 4+ directly.
       await page.goto(wizardUrl074, { waitUntil: "domcontentloaded" });
-      await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => {});
+      await page.waitForLoadState("networkidle", { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
       currentStep074 = await detectStep074();
 
       // If already on the target step, verify with a web-first assertion before
@@ -2869,18 +2855,10 @@ test.describe("Contract Module", () => {
       // give false positives during page load (SKILL.md §4 — snapshot checks
       // resolve immediately). If verification fails, re-detect the actual step.
       if (currentStep074 === targetStep) {
-        const contentForStep = {
-          1: contractModule.serviceNameInput,
-          2: contractModule.devicesPageHeading,
-          3: contractModule.onDemandPageHeading,
-          4: contractModule.billingOccurrenceHeading,
-          5: contractModule.descriptionPageHeading,
-          6: contractModule.signeesPageHeading,
-        };
-        const stepContent = contentForStep[targetStep];
+        const stepContent = contentLocatorForStep074(targetStep);
         if (stepContent) {
           const confirmed = await expect(stepContent)
-            .toBeVisible({ timeout: 10_000 })
+            .toBeVisible({ timeout: TIMEOUTS.BASE * 20 })
             .then(() => true)
             .catch(() => false);
           if (!confirmed) {
@@ -2897,37 +2875,9 @@ test.describe("Contract Module", () => {
 
       // If above target step, navigate backward using stepper tab click.
       if (currentStep074 > targetStep) {
-        const stepTabMap = {
-          1: contractModule.stepperStep1,
-          2: contractModule.stepperStep2,
-          3: contractModule.stepperStep3,
-          4: contractModule.stepperStep4,
-          5: contractModule.stepperStep5,
-          6: contractModule.stepperStep6,
-        };
-        const contentLocatorMap = {
-          1: contractModule.serviceNameInput,
-          2: contractModule.devicesPageHeading,
-          3: contractModule.onDemandPageHeading,
-          4: contractModule.billingOccurrenceHeading,
-          5: contractModule.descriptionPageHeading,
-          6: contractModule.signeesPageHeading,
-        };
-        const targetTab = stepTabMap[targetStep];
-        const targetContent = contentLocatorMap[targetStep];
-        await targetTab.scrollIntoViewIfNeeded().catch(() => {});
-        await targetTab.evaluate((el) => {
-          let t = el;
-          while (t && t !== document.body) { // eslint-disable-line no-undef
-            if (globalThis.getComputedStyle(t).cursor === "pointer") { t.click(); return; }
-            t = t.parentElement;
-          }
-          el.click();
-        });
-        await expect(targetContent).toBeVisible({ timeout: 15_000 });
+        await clickStepTab074(targetStep, TIMEOUTS.BASE * 30);
         // Allow React to fully hydrate step components (dropdowns, inputs)
-        await page.waitForLoadState("networkidle", { timeout: 8_000 }).catch(() => {});
-        currentStep074 = targetStep;
+        await page.waitForLoadState("networkidle", { timeout: TIMEOUTS.BASE * 16 }).catch(() => {});
         return;
       }
 
@@ -2938,59 +2888,40 @@ test.describe("Contract Module", () => {
       while (currentStep074 < targetStep) {
         if (currentStep074 === 1) {
           // Step 1 — fill service form if empty, then click Save & Next
-          const svcNameVisible = await contractModule.serviceNameInput.isVisible().catch(() => false);
-          if (svcNameVisible) {
-            const svcName = await contractModule.serviceNameInput.inputValue().catch(() => "");
-            if (!svcName.trim()) {
-              await contractModule.fillStep1Services(SERVICE_DATA, 0);
-            }
-          }
-          // Wait for Save & Next to be enabled (form validity check)
-          const saveEnabled = await expect(contractModule.saveAndNextBtn)
-            .toBeEnabled({ timeout: 15_000 }).then(() => true).catch(() => false);
-          if (!saveEnabled) {
-            await contractModule.fillStep1Services(SERVICE_DATA, 0);
-          }
-          await contractModule.clickSaveAndNext();
-          await expect(contractModule.devicesPageHeading).toBeVisible({ timeout: 30_000 });
-          currentStep074 = 2;
+          await advanceStep1ToStep2For074();
         } else if (currentStep074 === 2) {
           // Step 2 (Devices) — try Save & Next first (it may be enabled if quantities > 0).
           // If disabled (all device quantities are 0), add 1 device to enable Save & Next.
           // Close any open overlay first to avoid intercepted clicks.
           await page.keyboard.press("Escape").catch(() => {});
-          await expect(page.locator('[role="menu"]')).not.toBeVisible({ timeout: 3_000 }).catch(() => {});
+          await expect(page.locator('[role="menu"]')).not.toBeVisible({ timeout: TIMEOUTS.BASE * 6 }).catch(() => {});
           let step2SaveEnabled = await expect(contractModule.saveAndNextBtn)
-            .toBeEnabled({ timeout: 5_000 }).then(() => true).catch(() => false);
+            .toBeEnabled({ timeout: TIMEOUTS.BASE * 10 }).then(() => true).catch(() => false);
           if (!step2SaveEnabled) {
             // All device quantities are 0 — click "+" on the first device to enable Save & Next.
             const firstPlusBtn = page.getByRole('button', { name: '+' }).first();
             await firstPlusBtn.click();
             step2SaveEnabled = await expect(contractModule.saveAndNextBtn)
-              .toBeEnabled({ timeout: 5_000 }).then(() => true).catch(() => false);
+              .toBeEnabled({ timeout: TIMEOUTS.BASE * 10 }).then(() => true).catch(() => false);
           }
           if (step2SaveEnabled) {
             await contractModule.clickSaveAndNext();
           } else {
             // Last resort — click the Step 3 stepper tab directly.
-            await contractModule.stepperTab3.scrollIntoViewIfNeeded().catch(() => {});
-            await contractModule.stepperTab3.click();
+            await clickStepTab074(3);
           }
-          await expect(contractModule.onDemandPageHeading).toBeVisible({ timeout: 30_000 });
-          currentStep074 = 3;
+          await waitForStep074(3);
         } else if (currentStep074 === 3) {
           // Step 3 (On Demand) — Click Save & Next, fall back to step-4 tab container click
           const saveEnabled = await expect(contractModule.saveAndNextBtn)
-            .toBeEnabled({ timeout: 10_000 }).then(() => true).catch(() => false);
+            .toBeEnabled({ timeout: TIMEOUTS.BASE * 20 }).then(() => true).catch(() => false);
           if (saveEnabled) {
             await contractModule.clickSaveAndNext();
           } else {
             // Fallback: click Step 4 outer container (aria-label wrapper) to trigger React nav.
-            await contractModule.stepperTab4.scrollIntoViewIfNeeded().catch(() => {});
-            await contractModule.stepperTab4.click();
+            await clickStepTab074(4);
           }
-          await expect(contractModule.billingOccurrenceHeading).toBeVisible({ timeout: 30_000 });
-          currentStep074 = 4;
+          await waitForStep074(4);
         } else if (currentStep074 === 4) {
           // Step 4 (Payment Terms) → Step 5.
           // Try clicking the Step 5 outer container first (server must have visited step 5 in beforeAll).
@@ -2998,10 +2929,17 @@ test.describe("Contract Module", () => {
           const step5TabClickable = await contractModule.stepperTab5
             .isVisible().catch(() => false);
           if (step5TabClickable) {
-            await contractModule.stepperTab5.scrollIntoViewIfNeeded().catch(() => {});
-            await contractModule.stepperTab5.click();
+            await stepTabForStep074(5).scrollIntoViewIfNeeded().catch(() => {});
+            await stepTabForStep074(5).evaluate((el) => {
+              let target = el;
+              while (target && target !== document.body) { // eslint-disable-line no-undef
+                if (globalThis.getComputedStyle(target).cursor === "pointer") { target.click(); return; }
+                target = target.parentElement;
+              }
+              el.click();
+            });
             const step5Appeared = await expect(contractModule.descriptionPageHeading)
-              .toBeVisible({ timeout: 20_000 }).then(() => true).catch(() => false);
+              .toBeVisible({ timeout: TIMEOUTS.BASE * 40 }).then(() => true).catch(() => false);
             if (step5Appeared) {
               currentStep074 = 5;
               break;
@@ -3010,7 +2948,7 @@ test.describe("Contract Module", () => {
           // Fallback: fill required payment term fields and use Save & Next
           await contractModule.fillStep4PaymentTerms(PAYMENT_DATA);
           await contractModule.clickSaveAndNext();
-          await expect(contractModule.descriptionPageHeading).toBeVisible({ timeout: 30_000 });
+          await expect(contractModule.descriptionPageHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 60 });
           currentStep074 = 5;
         } else if (currentStep074 === 5) {
           // Step 5 (Description) → Step 6: use Save & Next.
@@ -3023,7 +2961,7 @@ test.describe("Contract Module", () => {
             .then(() => true).catch(() => false);
           if (saveNextWorked) {
             reachedStep6 = await contractModule.signeesPageHeading
-              .waitFor({ state: 'visible', timeout: 30_000 })
+              .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 60 })
               .then(() => true).catch(() => false);
           }
 
@@ -3036,9 +2974,16 @@ test.describe("Contract Module", () => {
             const tabClickable = await step6Tab.isVisible().catch(() => false);
             if (tabClickable) {
               await step6Tab.scrollIntoViewIfNeeded().catch(() => {});
-              await step6Tab.click();
+              await step6Tab.evaluate((el) => {
+                let target = el;
+                while (target && target !== document.body) { // eslint-disable-line no-undef
+                  if (globalThis.getComputedStyle(target).cursor === "pointer") { target.click(); return; }
+                  target = target.parentElement;
+                }
+                el.click();
+              });
               reachedStep6 = await contractModule.signeesPageHeading
-                .waitFor({ state: 'visible', timeout: 15_000 })
+                .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 })
                 .then(() => true).catch(() => false);
             }
           }
@@ -3060,19 +3005,16 @@ test.describe("Contract Module", () => {
     }
 
     test.beforeAll(async ({ browser }) => {
-      test.setTimeout(600_000);
       const pageAlive = await page?.evaluate(() => true).catch(() => false);
       if (!pageAlive) {
         context = await browser.newContext();
         page = await context.newPage();
         contractModule = new ContractModule(page);
         propertyModule = new PropertyModule(page);
-        await withTimeout(performLogin(page), 180_000, "performLogin(074-beforeAll)");
+        await withTimeout(performLogin(page), TIMEOUTS.BASE * 360, "performLogin(074-beforeAll)");
       }
       // Pre-create the wizard in beforeAll so all step sub-describes start with a known URL.
-      await ensureOnStepper074().catch((err) => {
-        console.log(`[TC-074-beforeAll] ensureOnStepper074 failed (non-fatal): ${err.message}`);
-      });
+      await ensureOnStepper074();
     });
 
     // Step 4 – Billing Info Validation (TC-074 to TC-077)
@@ -3083,9 +3025,8 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-074 | Verify Phone Number accepts valid numbers and country code; reject letters and too short/long values.", async () => {
-        test.setTimeout(180_000);
         await contractModule.scrollUntilVisible(contractModule.billingPhoneInput, "Billing Phone");
-        await expect(contractModule.billingPhoneInput).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.billingPhoneInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         // Fill valid phone number
         await contractModule.billingPhoneInput.fill(PAYMENT_DATA.billingContact.phone);
         const phoneValue = await contractModule.billingPhoneInput.inputValue().catch(() => "");
@@ -3099,21 +3040,19 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-075 | Verify Address/Country/State/City/Zip are prefilled from property and are consistent.", async () => {
-        test.setTimeout(180_000);
         await contractModule.scrollUntilVisible(contractModule.billingInfoHeading, "Billing Information");
-        await expect(page.locator("label").filter({ hasText: /^Address$/ })).toBeVisible({ timeout: 5_000 });
-        await expect(page.locator("label").filter({ hasText: /^Country$/ })).toBeVisible({ timeout: 5_000 });
-        await expect(page.locator("label").filter({ hasText: /^State$/ })).toBeVisible({ timeout: 5_000 });
-        await expect(page.locator("label").filter({ hasText: /^City$/ })).toBeVisible({ timeout: 5_000 });
-        await expect(page.locator("label").filter({ hasText: /Zip Code/ })).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator("label").filter({ hasText: /^Address$/ })).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(page.locator("label").filter({ hasText: /^Country$/ })).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(page.locator("label").filter({ hasText: /^State$/ })).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(page.locator("label").filter({ hasText: /^City$/ })).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(page.locator("label").filter({ hasText: /Zip Code/ })).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       test("TC-CONTRACT-076 | Verify 'Use a different billing address' reveals editable address fields and saves the alternate billing address.", async () => {
-        test.setTimeout(180_000);
         await contractModule.scrollUntilVisible(contractModule.otherAddressRadio, "Other address radio");
-        await expect(contractModule.propertyAddressRadio).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.companyAddressRadio).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.otherAddressRadio).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.propertyAddressRadio).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.companyAddressRadio).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.otherAddressRadio).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         // MUI radios require cursor:pointer traversal — force:true bypasses React synthetic events.
         await contractModule.otherAddressRadio.evaluate((el) => {
           let t = el;
@@ -3123,7 +3062,7 @@ test.describe("Contract Module", () => {
           }
           el.click();
         });
-        await expect(contractModule.otherAddressRadio).toBeChecked({ timeout: 5_000 });
+        await expect(contractModule.otherAddressRadio).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
         // Restore to company address to avoid breaking the subsequent flow
         await contractModule.companyAddressRadio.evaluate((el) => {
           let t = el;
@@ -3133,13 +3072,12 @@ test.describe("Contract Module", () => {
           }
           el.click();
         });
-        await expect(contractModule.companyAddressRadio).toBeChecked({ timeout: 5_000 });
+        await expect(contractModule.companyAddressRadio).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       test("TC-CONTRACT-077 | Verify Save & Next blocked until required payment term fields are completed; show field-level errors.", async () => {
-        test.setTimeout(180_000);
         await contractModule.fillStep4PaymentTerms(PAYMENT_DATA);
-        await expect(contractModule.saveAndNextBtn).toBeEnabled({ timeout: 15_000 });
+        await expect(contractModule.saveAndNextBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 30 });
         await contractModule.clickSaveAndNext();
         currentStep074 = 5;
         await contractModule.assertStep5Visible();
@@ -3154,7 +3092,6 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-078 | Verify that Step 5 Description is pre-filled and advances to Step 6.", async () => {
-        test.setTimeout(180_000);
         await contractModule.assertStep5Visible();
         await contractModule.assertStep5DescriptionPrefilled();
         // Advance to Step 6
@@ -3164,20 +3101,17 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-079 | Verify Description step loads with banner upload area and Description of Services rich text editor.", async () => {
-        test.setTimeout(180_000);
         await contractModule.assertStep5BannerAndEditorVisible();
       });
 
       test("TC-CONTRACT-080 | Verify description content is auto-generated based on contract configuration from prior steps (services, days/times, guards, breaks, rate).", async () => {
-        test.setTimeout(180_000);
         await contractModule.assertStep5DescriptionPrefilled();
       });
 
       test("TC-CONTRACT-081 | Verify user can edit generated description and changes persist after navigating away/back.", async () => {
-        test.setTimeout(180_000);
         // The rdw-editor textbox appears after React renders Step 5.
         const descEditor = page.getByRole("textbox", { name: "rdw-editor" }).first();
-        await expect(descEditor).toBeVisible({ timeout: 10_000 });
+        await expect(descEditor).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
         // Type additional text at end of existing content
         await descEditor.click();
         await page.keyboard.press("End");
@@ -3188,12 +3122,10 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-082 | Verify banner image upload supports click + drag/drop and accepts allowed size/dimension constraints; shows preview.", async () => {
-        test.setTimeout(180_000);
         await contractModule.assertBannerUploadAreaVisible();
       });
 
       test("TC-CONTRACT-083 | Verify invalid banner file types (e.g., .exe) are rejected with clear error.", async () => {
-        test.setTimeout(180_000);
         await contractModule.assertBannerUploadAreaVisible();
         // Attempt to upload an invalid file type via the file input
         const invalidContent = Buffer.from("MZ\x90\x00").toString();
@@ -3213,7 +3145,6 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-084 | Verify banner file > max size is rejected with clear error.", async () => {
-        test.setTimeout(180_000);
         await contractModule.assertBannerUploadAreaVisible();
         // Attempt to upload a file larger than the 10 MB limit with a valid MIME type
         // We simulate a large file using a buffer — the browser's file-size check fires
@@ -3253,7 +3184,7 @@ test.describe("Contract Module", () => {
             // not snapshot check). goToStep074 may return without throwing even when
             // navigation silently failed (e.g., stale wizardUrl074 or silent catch).
             await expect(contractModule.signeesPageHeading)
-              .toBeVisible({ timeout: 10_000 });
+              .toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
             currentStep074 = 6;
           } catch {
             step6Available = false;
@@ -3266,7 +3197,7 @@ test.describe("Contract Module", () => {
           await goToStep074(6);
           // Verify we actually landed on Step 6 before committing step6Available=true.
           await expect(contractModule.signeesPageHeading)
-            .toBeVisible({ timeout: 10_000 });
+            .toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
           step6Available = true;
           currentStep074 = 6;
         } catch {
@@ -3276,48 +3207,43 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-085 | Verify that Step 6 Signees shows default signee and Finish button.", async () => {
-        test.setTimeout(180_000);
         if (!step6Available) { console.log("[TC-085] Step 6 unreachable — covered by TC-063. Passing."); return; }
         await contractModule.assertStep6Visible();
         await contractModule.assertDefaultSigneeVisible();
-        await expect(contractModule.finishBtn).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.finishBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       test("TC-CONTRACT-086 | Verify default Signee 1 is populated (e.g., Deal Owner/Sales Manager) when applicable.", async () => {
-        test.setTimeout(180_000);
         if (!step6Available) return;
         await contractModule.assertStep6Visible();
         await contractModule.assertDefaultSigneeVisible();
         const signee1Heading = page.getByRole("heading", { name: "Signee 1", level: 4 });
-        await expect(signee1Heading).toBeVisible({ timeout: 5_000 });
+        await expect(signee1Heading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       test("TC-CONTRACT-087 | Verify Add Signee opens drawer and requires Name, Title, Email.", async () => {
-        test.setTimeout(180_000);
         if (!step6Available) return;
         await contractModule.openAddSigneeDrawer();
-        await expect(contractModule.addSigneeDrawerHeading).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.addSigneeNameInput).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.addSigneeTitleInput).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.addSigneeEmailInput).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.addSigneeCancelBtn).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.addSigneeSubmitBtn).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.addSigneeDrawerHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.addSigneeNameInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.addSigneeTitleInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.addSigneeEmailInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.addSigneeCancelBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.addSigneeSubmitBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         await contractModule.cancelAddSignee();
       });
 
       test("TC-CONTRACT-088 | Verify Add Signee cannot be saved with missing required fields; show validation messages.", async () => {
-        test.setTimeout(180_000);
         if (!step6Available) return;
         await contractModule.openAddSigneeDrawer();
         // Leave all fields empty and click submit
         await contractModule.addSigneeSubmitBtn.click();
         // Drawer should stay open — validation blocks save
-        await expect(contractModule.addSigneeDrawerHeading).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.addSigneeDrawerHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         await contractModule.cancelAddSignee();
       });
 
       test("TC-CONTRACT-089 | Verify Add Signee email validation prevents invalid email formats.", async () => {
-        test.setTimeout(180_000);
         if (!step6Available) return;
         await contractModule.openAddSigneeDrawer();
         await contractModule.addSigneeNameInput.fill("Test Signee");
@@ -3325,12 +3251,11 @@ test.describe("Contract Module", () => {
         await contractModule.addSigneeEmailInput.fill("invalidemail");
         await contractModule.addSigneeSubmitBtn.click();
         // Drawer should stay open — email validation blocks save
-        await expect(contractModule.addSigneeDrawerHeading).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.addSigneeDrawerHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         await contractModule.cancelAddSignee();
       });
 
       test("TC-CONTRACT-090 | Verify multiple signees can be added and appear as separate signee cards.", async () => {
-        test.setTimeout(180_000);
         if (!step6Available) return;
         await contractModule.assertDefaultSigneeVisible();
         // Add a second signee
@@ -3345,11 +3270,10 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-091 | Verify Preview generates contract preview successfully and matches entered details (proposal name, billing plan, services).", async () => {
-        test.setTimeout(180_000);
         if (!step6Available) return;
-        await expect(contractModule.previewBtn).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.previewBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         await contractModule.previewBtn.click();
-        await page.waitForLoadState("domcontentloaded", { timeout: 10_000 }).catch(() => {});
+        await page.waitForLoadState("domcontentloaded", { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
         const errorAlert = page.getByRole("alert").first();
         const hasError = await errorAlert.isVisible().catch(() => false);
         expect(hasError).toBeFalsy();
@@ -3358,16 +3282,14 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-092 | Verify Finish is blocked if no signee exists (if required by system) or shows guidance to add at least one signee.", async () => {
-        test.setTimeout(180_000);
         if (!step6Available) return;
         // With Signee 1 present, Finish should be enabled
         await contractModule.assertDefaultSigneeVisible();
-        await expect(contractModule.finishBtn).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.finishBtn).toBeEnabled({ timeout: 5_000 });
+        await expect(contractModule.finishBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.finishBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       test("TC-CONTRACT-093 | Verify Finish creates contract and returns to Deal Details > Contract & Terms with contract card visible.", async () => {
-        test.setTimeout(240_000);
         if (!step6Available) return;
         await contractModule.clickFinish();
         await contractModule.assertOnDealDetailPage();
@@ -3391,7 +3313,6 @@ test.describe("Contract Module", () => {
       });
 
       test("TC-CONTRACT-094 | Verify contract card shows: Proposal Name, Billing (e.g., $200 Weekly), Created date, 'by <user>', and action icons (edit/duplicate/pdf/delete as available).", async () => {
-        test.setTimeout(180_000);
         await contractModule.assertProposalCardVisible();
         const tabpanel = contractModule.contractTermsTabpanel;
         // Billing heading (h4) — level 4 inside card
@@ -3399,9 +3320,9 @@ test.describe("Contract Module", () => {
         const cardBillingText = await billingOnCard.textContent().catch(() => "");
         expect(cardBillingText.length).toBeGreaterThan(0);
         // Action icons present via aria-label
-        await expect(contractModule.editProposalActionByAriaLabel).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.cloneProposalActionByAriaLabel).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.previewPdfActionByAriaLabel).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.editProposalActionByAriaLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.cloneProposalActionByAriaLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.previewPdfActionByAriaLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       // AUDIT NOTE: TC-CONTRACT-095 is not in docs/contract-module-test-steps.md (doc ends at TC-094 then jumps to TC-096).
@@ -3409,7 +3330,6 @@ test.describe("Contract Module", () => {
       // The TC code mismatch is a cascading numbering shift from the 074-095 range; kept as-is to avoid breaking
       // active test runs. TODO: reconcile 074-095 numbering with the doc in a dedicated refactor session.
       test("TC-CONTRACT-095 | Verify totals are consistent across wizard steps and final contract card (e.g., USD 200 Weekly).", async () => {
-        test.setTimeout(180_000);
         await contractModule.assertProposalCardVisible();
         const tabpanel = contractModule.contractTermsTabpanel;
         const billingOnCard = tabpanel.getByRole("heading", { level: 4 }).nth(1);
@@ -3419,7 +3339,7 @@ test.describe("Contract Module", () => {
         await contractModule.openExistingProposalEditor();
         await contractModule.assertOnStepperPage();
         const footerTotal = page.getByRole("heading", { name: /USD/, level: 6 }).first();
-        await expect(footerTotal).toHaveText(/[1-9][\d,]*\.\d{2}/, { timeout: 15_000 });
+        await expect(footerTotal).toHaveText(/[1-9][\d,]*\.\d{2}/, { timeout: TIMEOUTS.BASE * 30 });
         const footerText = await footerTotal.textContent();
         const extractAmount = (text) => {
           const match = String(text || "").match(/[\d,]+\.\d{2}/);
@@ -3450,7 +3370,6 @@ test.describe("Contract Module", () => {
     let publishDealDetailUrl = "";
 
     test.beforeAll(async ({ browser }) => {
-      test.setTimeout(600_000);
       // Ensure page is alive
       const pageAlive = await page?.evaluate(() => true).catch(() => false);
       if (!pageAlive) {
@@ -3459,7 +3378,7 @@ test.describe("Contract Module", () => {
         page = await context.newPage();
         contractModule = new ContractModule(page);
         propertyModule = new PropertyModule(page);
-        await withTimeout(performLogin(page), 180_000, "performLogin(publish-beforeAll)");
+        await withTimeout(performLogin(page), TIMEOUTS.BASE * 360, "performLogin(publish-beforeAll)");
       }
 
       // Find a deal with a proposal card for publish testing.
@@ -3499,7 +3418,7 @@ test.describe("Contract Module", () => {
           await contractModule.dealSearchInput.fill(searchTerm);
           await page.keyboard.press("Enter");
           await page.locator("table tbody tr").first()
-            .waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
+            .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
 
           const dealRows = page.locator("table tbody tr");
           const rowCount = await dealRows.count();
@@ -3537,7 +3456,7 @@ test.describe("Contract Module", () => {
               await contractModule.dealSearchInput.fill(searchTerm);
               await page.keyboard.press("Enter");
               await page.locator("table tbody tr").first()
-                .waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
+                .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
             } catch (innerErr) {
               console.log(`[Publish] Error checking deal "${dealName.trim()}": ${innerErr.message}`);
               await gotoDealsListPage().catch(() => {});
@@ -3552,7 +3471,6 @@ test.describe("Contract Module", () => {
     });
 
     test.beforeEach(async () => {
-      test.setTimeout(180_000);
       if (publishDealDetailUrl) {
         await page.goto(publishDealDetailUrl, { waitUntil: "domcontentloaded" });
         await contractModule.assertOnDealDetailPage();
@@ -3564,45 +3482,43 @@ test.describe("Contract Module", () => {
     });
 
     test("TC-CONTRACT-096 | Verify that proposal card is visible with Publish Contract button and expected actions", async () => {
-      test.setTimeout(180_000);
-
       await test.step("Verify Contract & Terms tab and proposal card", async () => {
         // Contract & Terms tab should be the selected tab
-        await expect(contractModule.contractTermsTab).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.contractTermsTab).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         // Proposal card is visible if either Publish Contract button OR Published badge is present
         const publishBtnOrBadge = contractModule.publishContractBtn
           .or(contractModule.contractPublishedBadge);
-        await expect(publishBtnOrBadge).toBeVisible({ timeout: 15_000 });
+        await expect(publishBtnOrBadge).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
       });
 
       await test.step("Verify proposal card headings: name and billing amount", async () => {
         const proposalNameHeading = contractModule.contractTermsTabpanel
           .getByRole("heading", { level: 4 }).first();
-        await expect(proposalNameHeading).toBeVisible({ timeout: 5_000 });
+        await expect(proposalNameHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         const billingHeading = contractModule.contractTermsTabpanel
           .getByRole("heading", { level: 4 }).nth(1);
-        await expect(billingHeading).toBeVisible({ timeout: 5_000 });
+        await expect(billingHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Verify created date text is visible", async () => {
         const createdText = contractModule.contractTermsTabpanel
           .getByText(/Created/i).first();
-        await expect(createdText).toBeVisible({ timeout: 5_000 });
+        await expect(createdText).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Verify Publish Contract button or Published badge is visible", async () => {
         const publishBtnOrBadge = contractModule.publishContractBtn
           .or(contractModule.contractPublishedBadge);
-        await expect(publishBtnOrBadge).toBeVisible({ timeout: 5_000 });
+        await expect(publishBtnOrBadge).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Verify action icons: Signature and card actions visible", async () => {
-        await expect(contractModule.signatureBtnOnCard).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.signatureBtnOnCard).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         // Draft cards have Edit/Clone/Preview PDF/Delete;
         // Published cards have View/Addendum/Clone/Preview PDF/Terminate
         // Verify at least Signature + Clone + Preview PDF which exist in both states
-        await expect(contractModule.cloneProposalActionByAriaLabel).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.previewPdfActionByAriaLabel).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.cloneProposalActionByAriaLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.previewPdfActionByAriaLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
     });
 
@@ -3612,29 +3528,27 @@ test.describe("Contract Module", () => {
     let contractAlreadyPublished = false;
 
     test("TC-CONTRACT-097 | Verify Publish Contract button is visible after contract creation and opens publish flow successfully", async () => {
-      test.setTimeout(180_000);
-
       await test.step("Check if contract is already published", async () => {
         // Ensure the Contract & Terms tab content is loaded before checking
         await contractModule.clickContractTermsTab().catch(() => {});
         // Wait briefly for the card to render
         const publishBtnOrBadge = contractModule.publishContractBtn
           .or(contractModule.contractPublishedBadge);
-        await expect(publishBtnOrBadge).toBeVisible({ timeout: 10_000 });
+        await expect(publishBtnOrBadge).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
 
         const alreadyPublished = await contractModule.contractPublishedBadge
           .isVisible().catch(() => false);
         if (alreadyPublished) {
           contractAlreadyPublished = true;
           console.log("[TC-097] Contract already published — verifying published state instead.");
-          await expect(contractModule.contractPublishedBadge).toBeVisible({ timeout: 5_000 });
-          await expect(contractModule.signatureBtnOnCard).toBeVisible({ timeout: 5_000 });
+          await expect(contractModule.contractPublishedBadge).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+          await expect(contractModule.signatureBtnOnCard).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         }
       });
 
       if (!contractAlreadyPublished) {
         await test.step("Verify Publish Contract button is visible", async () => {
-          await expect(contractModule.publishContractBtn).toBeVisible({ timeout: 5_000 });
+          await expect(contractModule.publishContractBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         });
 
         await test.step("Click Publish Contract and verify modal opens", async () => {
@@ -3642,7 +3556,7 @@ test.describe("Contract Module", () => {
           if (publishModalType === "unknown") {
             // App returned an error toast (e.g. "Start date cannot be before publishing date.")
             console.log("[TC-097] Publish returned unknown — likely error toast. Verifying button still visible.");
-            await expect(contractModule.publishContractBtn).toBeVisible({ timeout: 5_000 });
+            await expect(contractModule.publishContractBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
             return;
           }
           expect(["closeDeal", "publishConfirm", "contractRenewal"]).toContain(publishModalType);
@@ -3658,15 +3572,13 @@ test.describe("Contract Module", () => {
     });
 
     test("TC-CONTRACT-098 | Verify attempting to Publish with incomplete required contract fields is blocked and shows error (if applicable)", async () => {
-      test.setTimeout(180_000);
-
       if (contractAlreadyPublished) {
         console.log("[TC-098] Contract already published — skipping field validation test.");
         return;
       }
 
       await test.step("Click Publish Contract and observe behavior", async () => {
-        await expect(contractModule.publishContractBtn).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.publishContractBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         const modalType = await contractModule.clickPublishAndDetectModal();
 
         // Document actual behavior: modal opened = no client-side field validation
@@ -3675,7 +3587,7 @@ test.describe("Contract Module", () => {
         } else {
           // Validation message may have appeared
           const validationError = page.getByText(/required|missing|incomplete/i).first();
-          await expect(validationError).toBeVisible({ timeout: 5_000 });
+          await expect(validationError).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         }
       });
 
@@ -3685,8 +3597,6 @@ test.describe("Contract Module", () => {
     });
 
     test("TC-CONTRACT-099 | Verify if user publishes contract before manually updating stage system shows deal stages update popup and handles update", async () => {
-      test.setTimeout(240_000);
-
       if (contractAlreadyPublished) {
         console.log("[TC-099] Contract already published — skipping Close Deal flow.");
         return;
@@ -3708,8 +3618,8 @@ test.describe("Contract Module", () => {
           await contractModule.clickPublishContractToCloseDeal();
           await contractModule.assertCloseDealModalOpen();
 
-          await expect(contractModule.closedWonRadio).toBeVisible({ timeout: 5_000 });
-          await expect(contractModule.closedLostRadio).toBeVisible({ timeout: 5_000 });
+          await expect(contractModule.closedWonRadio).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+          await expect(contractModule.closedLostRadio).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
 
           await contractModule.selectCloseStatus("Closed Won");
           await contractModule.selectHubspotStage("Closed Won (Sales Pipeline)");
@@ -3725,15 +3635,13 @@ test.describe("Contract Module", () => {
     });
 
     test("TC-CONTRACT-100 | Verify that Publish Contract after deal close opens confirmation modal", async () => {
-      test.setTimeout(180_000);
-
       if (contractAlreadyPublished) {
         console.log("[TC-100] Contract already published — skipping confirmation modal test.");
         return;
       }
 
       await test.step("Verify Publish Contract button is still visible", async () => {
-        await expect(contractModule.publishContractBtn).toBeVisible({ timeout: 10_000 });
+        await expect(contractModule.publishContractBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
       });
 
       await test.step("Click Publish Contract and verify confirmation modal", async () => {
@@ -3744,7 +3652,7 @@ test.describe("Contract Module", () => {
           // App rejected publish with a toast (e.g., "Start date cannot be before publishing date.")
           // This is a valid app response — the button was clickable and app responded.
           console.log("[TC-100] Publish returned unknown modal — likely an error toast (e.g. start date validation). Verifying button still visible.");
-          await expect(contractModule.publishContractBtn).toBeVisible({ timeout: 5_000 });
+          await expect(contractModule.publishContractBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
           return;
         }
 
@@ -3753,7 +3661,7 @@ test.describe("Contract Module", () => {
 
         if (modalType === "publishConfirm") {
           await contractModule.assertPublishConfirmModalOpen();
-          await expect(contractModule.publishConfirmText).toBeVisible({ timeout: 5_000 });
+          await expect(contractModule.publishConfirmText).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         } else if (modalType === "contractRenewal") {
           await contractModule.assertContractRenewalModalOpen();
         }
@@ -3762,18 +3670,16 @@ test.describe("Contract Module", () => {
       if (publishModalType !== "unknown") {
         await test.step("Cancel the modal without confirming", async () => {
           await contractModule.dismissPublishModal();
-          await expect(contractModule.publishContractBtn).toBeVisible({ timeout: 5_000 });
+          await expect(contractModule.publishContractBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         });
       }
     });
 
     test("TC-CONTRACT-101 | Verify that confirming Publish Contract marks the contract as Published", async () => {
-      test.setTimeout(240_000);
-
       if (contractAlreadyPublished) {
         console.log("[TC-101] Contract already published — verifying published state.");
-        await expect(contractModule.contractPublishedBadge).toBeVisible({ timeout: 15_000 });
-        await expect(contractModule.signatureBtnOnCard).toBeVisible({ timeout: 8_000 });
+        await expect(contractModule.contractPublishedBadge).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+        await expect(contractModule.signatureBtnOnCard).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
         return;
       }
 
@@ -3783,29 +3689,27 @@ test.describe("Contract Module", () => {
       });
 
       await test.step("Verify Published without sign badge appears", async () => {
-        await expect(contractModule.contractPublishedBadge).toBeVisible({ timeout: 15_000 });
+        await expect(contractModule.contractPublishedBadge).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
         contractAlreadyPublished = true;
       });
 
       await test.step("Verify Publish Contract button is gone", async () => {
-        await expect(contractModule.publishContractBtn).not.toBeVisible({ timeout: 8_000 });
+        await expect(contractModule.publishContractBtn).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       });
 
       await test.step("Verify Signature button is still visible", async () => {
-        await expect(contractModule.signatureBtnOnCard).toBeVisible({ timeout: 8_000 });
+        await expect(contractModule.signatureBtnOnCard).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       });
     });
 
     test("TC-CONTRACT-102 | Verify Request Signatures opens selection modal listing all signees with status tags", async () => {
-      test.setTimeout(180_000);
-
       await test.step("Click Signature button and open Request Sign", async () => {
         await contractModule.openRequestSignaturesModal();
         await contractModule.assertRequestSignaturesModalOpen();
       });
 
       await test.step("Verify modal heading", async () => {
-        await expect(contractModule.requestSignaturesModalHeading).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.requestSignaturesModalHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Verify at least one signee row with checkbox, name, and email", async () => {
@@ -3815,15 +3719,15 @@ test.describe("Contract Module", () => {
         // Verify first signee row has name and email paragraphs
         const firstRow = signeeRows.first();
         const nameP = firstRow.locator("p").first();
-        await expect(nameP).toBeVisible({ timeout: 5_000 });
+        await expect(nameP).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         const nameText = await nameP.textContent();
         expect(nameText.length).toBeGreaterThan(0);
       });
 
       await test.step("Verify Select All, Cancel, and Request Signatures buttons", async () => {
-        await expect(contractModule.selectAllCheckboxLabel).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.requestSignaturesCancelBtn).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.requestSignaturesBtn).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.selectAllCheckboxLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.requestSignaturesCancelBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.requestSignaturesBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Close the modal", async () => {
@@ -3832,8 +3736,6 @@ test.describe("Contract Module", () => {
     });
 
     test("TC-CONTRACT-103 | Verify default status tag is Not Requested for signees who were not sent a request", async () => {
-      test.setTimeout(180_000);
-
       await test.step("Open Request Signatures modal", async () => {
         await contractModule.openRequestSignaturesModal();
       });
@@ -3842,7 +3744,7 @@ test.describe("Contract Module", () => {
         // Default is "Not Requested" but prior runs may have changed it.
         // Check each individually to avoid .or() strict mode violations when multiple are visible.
         const notReqVis = await contractModule.notRequestedTag.first()
-          .waitFor({ state: 'visible', timeout: 5_000 }).then(() => true).catch(() => false);
+          .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 }).then(() => true).catch(() => false);
         const pendingVis = !notReqVis && await contractModule.pendingSignTag.first().isVisible().catch(() => false);
         const requestedVis = !notReqVis && !pendingVis && await contractModule.requestedTag.first().isVisible().catch(() => false);
         const signedVis = !notReqVis && !pendingVis && !requestedVis && await contractModule.signedTag.first().isVisible().catch(() => false);
@@ -3865,8 +3767,6 @@ test.describe("Contract Module", () => {
     });
 
     test("TC-CONTRACT-104 | Verify selecting a signee and clicking Request Signatures sends email and updates status tag to Requested", async () => {
-      test.setTimeout(240_000);
-
       await test.step("Open Request Signatures modal and select first signee", async () => {
         await contractModule.openRequestSignaturesModal();
         await contractModule.selectSigneeByIndex(0);
@@ -3875,7 +3775,7 @@ test.describe("Contract Module", () => {
       await test.step("Click Request Signatures", async () => {
         await contractModule.submitRequestSignatures();
         // Wait for the modal to close or a success indication
-        await expect(contractModule.requestSignaturesModalHeading).not.toBeVisible({ timeout: 15_000 });
+        await expect(contractModule.requestSignaturesModalHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
       });
 
       await test.step("Reopen modal and verify status changed to Requested or Pending Sign", async () => {
@@ -3883,7 +3783,7 @@ test.describe("Contract Module", () => {
         // Status may show "Requested" or "Pending Sign" depending on app version
         const requestedOrPending = contractModule.requestedTag.first()
           .or(contractModule.pendingSignTag.first());
-        await expect(requestedOrPending).toBeVisible({ timeout: 10_000 });
+        await expect(requestedOrPending).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
       });
 
       await test.step("Close the modal", async () => {
@@ -3892,8 +3792,6 @@ test.describe("Contract Module", () => {
     });
 
     test("TC-CONTRACT-105 | Verify Request Signatures is blocked if no signee is selected show validation/toast", async () => {
-      test.setTimeout(180_000);
-
       await test.step("Open Request Signatures modal", async () => {
         await contractModule.openRequestSignaturesModal();
       });
@@ -3904,18 +3802,18 @@ test.describe("Contract Module", () => {
 
       await test.step("Verify validation or toast error appears and modal remains open", async () => {
         // Modal should remain open
-        await expect(contractModule.requestSignaturesModalHeading).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.requestSignaturesModalHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         // Check for a toast/snackbar or validation message
         const toastOrValidation = page.getByText(/select|choose|at least one/i).first();
         const toastVisible = await toastOrValidation
-          .waitFor({ state: "visible", timeout: 8_000 })
+          .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 })
           .then(() => true)
           .catch(() => false);
         // If no toast, at minimum the modal should still be open (submit was blocked)
         if (!toastVisible) {
           console.log("[TC-105] No explicit validation toast found, but modal remains open — submit was effectively blocked.");
         }
-        await expect(contractModule.requestSignaturesModalHeading).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.requestSignaturesModalHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Close the modal", async () => {
@@ -4006,7 +3904,6 @@ test.describe("Contract Module", () => {
     let hasPublishedDeal = false;
 
     test.beforeAll(async ({ browser }) => {
-      test.setTimeout(600_000);
       // Ensure page is alive
       const pageAlive = await page?.evaluate(() => true).catch(() => false);
       if (!pageAlive) {
@@ -4015,7 +3912,7 @@ test.describe("Contract Module", () => {
         page = await context.newPage();
         contractModule = new ContractModule(page);
         propertyModule = new PropertyModule(page);
-        await withTimeout(performLogin(page), 180_000, "performLogin(closeDeal-beforeAll)");
+        await withTimeout(performLogin(page), TIMEOUTS.BASE * 360, "performLogin(closeDeal-beforeAll)");
       }
 
       // Search for deals with proposals — draft and published
@@ -4027,7 +3924,7 @@ test.describe("Contract Module", () => {
           await contractModule.dealSearchInput.fill(searchTerm);
           await page.keyboard.press("Enter");
           await page.locator("table tbody tr").first()
-            .waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
+            .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
 
           const dealRows = page.locator("table tbody tr");
           const rowCount = await dealRows.count();
@@ -4067,7 +3964,7 @@ test.describe("Contract Module", () => {
                 await contractModule.dealSearchInput.fill(searchTerm);
                 await page.keyboard.press("Enter");
                 await page.locator("table tbody tr").first()
-                  .waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
+                  .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
               }
             } catch (innerErr) {
               console.log(`[Close Deal] Error checking deal "${dealName.trim()}": ${innerErr.message}`);
@@ -4102,8 +3999,6 @@ test.describe("Contract Module", () => {
     // The deal used for publish testing is reused here.
 
     test("TC-CONTRACT-113 | Verify Close button opens Close Deal modal with options Closed Won / Closed Lost", async () => {
-      test.setTimeout(180_000);
-
       if (!hasDraftDeal) {
         console.log("[TC-113] No draft deal found — using published deal to verify Close Deal modal via Publish Contract.");
       }
@@ -4116,9 +4011,9 @@ test.describe("Contract Module", () => {
         // Avoid .or() since both may be visible simultaneously (strict mode violation).
         const anyStageBtn = page.locator('button').filter({ hasText: /Closed|Proposal Creation|Negotiation/ }).first();
         const publishVisible = await contractModule.publishContractBtn
-          .waitFor({ state: 'visible', timeout: 15_000 }).then(() => true).catch(() => false);
+          .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 }).then(() => true).catch(() => false);
         if (!publishVisible) {
-          await expect(anyStageBtn).toBeVisible({ timeout: 10_000 });
+          await expect(anyStageBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
         }
         const publishBtnVisible = await contractModule.publishContractBtn
           .isVisible().catch(() => false);
@@ -4126,28 +4021,26 @@ test.describe("Contract Module", () => {
           // Contract is already published — Close Deal modal won't appear
           // Deal stage button text may be "Closed", "Closed Won", or "Closed Lost" depending on state
           console.log("[TC-113] Publish Contract button not visible — contract already published. Verifying deal stage buttons instead.");
-          await expect(anyStageBtn).toBeVisible({ timeout: 10_000 });
+          await expect(anyStageBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
           return;
         }
         const modalType = await contractModule.clickPublishAndDetectModal();
         if (modalType === "closeDeal") {
           await contractModule.assertCloseDealModalOpen();
-          await expect(contractModule.closedWonRadio).toBeVisible({ timeout: 5_000 });
-          await expect(contractModule.closedLostRadio).toBeVisible({ timeout: 5_000 });
+          await expect(contractModule.closedWonRadio).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+          await expect(contractModule.closedLostRadio).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
           await contractModule.dismissPublishModal();
         } else {
           // Deal is already closed — closeDeal modal won't appear (e.g., contractRenewal modal shown instead)
           console.log(`[TC-113] Modal type is "${modalType}" — deal already closed. Verifying deal stage is visible.`);
           await contractModule.dismissPublishModal();
           // Deal stage button text may be "Closed Won", "Closed Lost", or "Closed" depending on close state
-          await expect(anyStageBtn).toBeVisible({ timeout: 10_000 });
+          await expect(anyStageBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
         }
       });
     });
 
     test("TC-CONTRACT-114 | Verify Save is disabled until HubSpot Stage to map is selected", async () => {
-      test.setTimeout(180_000);
-
       const targetUrl = draftDealDetailUrl || publishedDealDetailUrl;
       await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
       await contractModule.assertOnDealDetailPage();
@@ -4168,12 +4061,12 @@ test.describe("Contract Module", () => {
 
       await test.step("Select Closed Won radio and verify Save is disabled", async () => {
         await contractModule.selectCloseStatus("Closed Won");
-        await expect(contractModule.publishSaveBtn).toBeDisabled({ timeout: 5_000 });
+        await expect(contractModule.publishSaveBtn).toBeDisabled({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Select HubSpot Stage and verify Save becomes enabled", async () => {
         await contractModule.selectHubspotStage("Closed Won (Sales Pipeline)");
-        await expect(contractModule.publishSaveBtn).toBeEnabled({ timeout: 5_000 });
+        await expect(contractModule.publishSaveBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Dismiss the modal", async () => {
@@ -4182,8 +4075,6 @@ test.describe("Contract Module", () => {
     });
 
     test("TC-CONTRACT-115 | Verify closing as Closed Won updates stage and shows confirmation/toast", async () => {
-      test.setTimeout(240_000);
-
       const targetUrl = draftDealDetailUrl || publishedDealDetailUrl;
       await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
       await contractModule.assertOnDealDetailPage();
@@ -4193,16 +4084,16 @@ test.describe("Contract Module", () => {
       const anyStageBtn115 = page.locator('button').filter({ hasText: /Closed|Proposal Creation|Negotiation/ }).first();
       // Wait for either the Publish button or a stage button to appear (don't use .or() since both may be visible)
       const publishVisible = await contractModule.publishContractBtn
-        .waitFor({ state: 'visible', timeout: 15_000 }).then(() => true).catch(() => false);
+        .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 }).then(() => true).catch(() => false);
       if (!publishVisible) {
-        await expect(anyStageBtn115).toBeVisible({ timeout: 10_000 });
+        await expect(anyStageBtn115).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
       }
 
       const publishBtnVisible = await contractModule.publishContractBtn
         .isVisible().catch(() => false);
       if (!publishBtnVisible) {
         console.log("[TC-115] Publish Contract button not visible — contract already published. Verifying deal detail page loaded.");
-        await expect(anyStageBtn115).toBeVisible({ timeout: 10_000 });
+        await expect(anyStageBtn115).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
         return;
       }
 
@@ -4211,7 +4102,7 @@ test.describe("Contract Module", () => {
       if (modalType !== "closeDeal") {
         console.log(`[TC-115] Modal type is "${modalType}" — deal already closed or renewal. Dismissing and verifying stage.`);
         await contractModule.dismissPublishModal();
-        await expect(anyStageBtn115).toBeVisible({ timeout: 10_000 });
+        await expect(anyStageBtn115).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
         return;
       }
 
@@ -4227,8 +4118,6 @@ test.describe("Contract Module", () => {
     });
 
     test("TC-CONTRACT-116 | Verify closing as Closed Lost updates stage and shows confirmation/toast", async () => {
-      test.setTimeout(240_000);
-
       // TC-116 requires an unclosed deal — but we cannot close a deal as Closed Lost
       // without risking test data corruption. Verify the Closed Lost radio option
       // is functional in the modal without actually saving.
@@ -4238,14 +4127,14 @@ test.describe("Contract Module", () => {
 
       const publishBtnOrBadge = contractModule.publishContractBtn
         .or(contractModule.contractPublishedBadge);
-      await expect(publishBtnOrBadge).toBeVisible({ timeout: 15_000 });
+      await expect(publishBtnOrBadge).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
       const publishBtnVisible = await contractModule.publishContractBtn
         .isVisible().catch(() => false);
       if (!publishBtnVisible) {
         console.log("[TC-116] Publish Contract button not visible — verifying Closed Lost radio in a modal is not possible.");
         // Contract is already published — verify deal detail page is intact
         const anyStageBtn = page.locator('button').filter({ hasText: /Closed|Proposal Creation|Negotiation|Expired|Terminated/ }).first();
-        await expect(anyStageBtn).toBeVisible({ timeout: 10_000 });
+        await expect(anyStageBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
         return;
       }
 
@@ -4258,12 +4147,12 @@ test.describe("Contract Module", () => {
 
       await test.step("Select Closed Lost and verify radio is checked", async () => {
         await contractModule.selectCloseStatus("Closed Lost");
-        await expect(contractModule.closedLostRadio).toBeChecked({ timeout: 5_000 });
+        await expect(contractModule.closedLostRadio).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Verify HubSpot Stage dropdown is accessible", async () => {
         const stageTrigger = page.getByRole("heading", { name: /Choose Hubspot Stage/, level: 6 });
-        await expect(stageTrigger).toBeVisible({ timeout: 5_000 });
+        await expect(stageTrigger).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Dismiss the modal without saving", async () => {
@@ -4272,8 +4161,6 @@ test.describe("Contract Module", () => {
     });
 
     test("TC-CONTRACT-117 | Verify cancel closes modal without changing deal stage", async () => {
-      test.setTimeout(180_000);
-
       const targetUrl = draftDealDetailUrl || publishedDealDetailUrl;
       await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
       await contractModule.assertOnDealDetailPage();
@@ -4281,15 +4168,15 @@ test.describe("Contract Module", () => {
       // Wait for either Publish Contract button or deal stage buttons to render.
       // Avoid .or() since both may be visible simultaneously (strict mode violation).
       const publishBtnVisible = await contractModule.publishContractBtn
-        .waitFor({ state: 'visible', timeout: 15_000 }).then(() => true).catch(() => false);
+        .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 }).then(() => true).catch(() => false);
       if (!publishBtnVisible) {
         const stageBtn = page.locator('button').filter({ hasText: /^(Closed Won|Closed Lost|Closed|Proposal Creation|Negotiation|Expired|Terminated)$/ }).first();
-        await expect(stageBtn).toBeVisible({ timeout: 10_000 });
+        await expect(stageBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
       }
       if (!publishBtnVisible) {
         console.log("[TC-117] Publish Contract button not visible — contract already published. Verifying stage is unchanged.");
         const anyStageBtn = page.locator('button').filter({ hasText: /Closed Won|Closed Lost|Closed|Proposal Creation|Negotiation|Expired|Terminated/ }).first();
-        await expect(anyStageBtn).toBeVisible({ timeout: 10_000 });
+        await expect(anyStageBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
         return;
       }
 
@@ -4312,21 +4199,19 @@ test.describe("Contract Module", () => {
       });
 
       await test.step("Verify modal is closed", async () => {
-        await expect(contractModule.closeDealModalHeading).not.toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.publishConfirmModalHeading).not.toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.closeDealModalHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.publishConfirmModalHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Verify deal stage is unchanged", async () => {
         // At minimum, verify the Publish Contract button is still there (deal was not modified)
-        await expect(contractModule.publishContractBtn).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.publishContractBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
     });
 
     // ── TC-CONTRACT-118: Page Refresh ────────────────────────────────────
 
     test("TC-CONTRACT-118 | Verify refreshing the Deal Details page retains contract card and statuses remain correct", async () => {
-      test.setTimeout(180_000);
-
       const targetUrl = draftDealDetailUrl || publishedDealDetailUrl;
       await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
       await contractModule.assertOnDealDetailPage();
@@ -4334,7 +4219,7 @@ test.describe("Contract Module", () => {
       await test.step("Verify contract card is visible before refresh", async () => {
         const publishBtnOrBadge = contractModule.publishContractBtn
           .or(contractModule.contractPublishedBadge);
-        await expect(publishBtnOrBadge).toBeVisible({ timeout: 15_000 });
+        await expect(publishBtnOrBadge).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
       });
 
       await test.step("Reload the page", async () => {
@@ -4344,7 +4229,7 @@ test.describe("Contract Module", () => {
       await test.step("Verify contract card is still visible after refresh", async () => {
         const publishBtnOrBadge = contractModule.publishContractBtn
           .or(contractModule.contractPublishedBadge);
-        await expect(publishBtnOrBadge).toBeVisible({ timeout: 15_000 });
+        await expect(publishBtnOrBadge).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
       });
 
       await test.step("Verify deal stage buttons are still visible", async () => {
@@ -4352,7 +4237,7 @@ test.describe("Contract Module", () => {
         // verify at least one stage button is visible. Use .first() to avoid
         // strict mode violation when multiple stage buttons match.
         const anyStageBtn = page.locator('button').filter({ hasText: /Closed|Proposal Creation|Negotiation/ }).first();
-        await expect(anyStageBtn).toBeVisible({ timeout: 10_000 });
+        await expect(anyStageBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
       });
     });
 
@@ -4370,14 +4255,12 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-120: Clone Contract ──────────────────────────────────
 
     test("TC-CONTRACT-120 | Verify that the Clone button is visible when the contract is created and that the user is able to clone the contract", async () => {
-      test.setTimeout(180_000);
-
       const targetUrl = draftDealDetailUrl || publishedDealDetailUrl;
       await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
       await contractModule.assertOnDealDetailPage();
 
       await test.step("Verify Clone action icon is visible", async () => {
-        await expect(contractModule.cloneProposalActionByAriaLabel).toBeVisible({ timeout: 8_000 });
+        await expect(contractModule.cloneProposalActionByAriaLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       });
 
       await test.step("Click Clone and verify dialog opens", async () => {
@@ -4386,8 +4269,8 @@ test.describe("Contract Module", () => {
       });
 
       await test.step("Verify Cancel and Proceed buttons are visible", async () => {
-        await expect(contractModule.cloneContractCancelBtn).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.cloneContractProceedBtn).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.cloneContractCancelBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.cloneContractProceedBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Cancel the dialog without cloning", async () => {
@@ -4398,24 +4281,22 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-121: PDF View ────────────────────────────────────────
 
     test("TC-CONTRACT-121 | Verify that the PDF View button is visible to the user and allows the user to view the contract in PDF format", async () => {
-      test.setTimeout(180_000);
-
       const targetUrl = draftDealDetailUrl || publishedDealDetailUrl;
       await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
       await contractModule.assertOnDealDetailPage();
 
       await test.step("Verify Preview PDF action icon is visible", async () => {
-        await expect(contractModule.previewPdfActionByAriaLabel).toBeVisible({ timeout: 8_000 });
+        await expect(contractModule.previewPdfActionByAriaLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       });
 
       await test.step("Click Preview PDF and verify new tab opens with PDF", async () => {
         // Listen for new page (tab) before clicking
         const [newPage] = await Promise.all([
-          page.context().waitForEvent("page", { timeout: 15_000 }),
+          page.context().waitForEvent("page", { timeout: TIMEOUTS.BASE * 30 }),
           contractModule.previewPdfActionByAriaLabel.click(),
         ]);
         // Verify the new tab opened with a PDF URL
-        await newPage.waitForLoadState("domcontentloaded", { timeout: 15_000 }).catch(() => {});
+        await newPage.waitForLoadState("domcontentloaded", { timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
         const newUrl = newPage.url();
         const isPdf = /\.pdf/i.test(newUrl) || /blob:/i.test(newUrl) || /application\/pdf/i.test(newUrl);
         expect(isPdf || newUrl.length > 0).toBeTruthy();
@@ -4428,8 +4309,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-122 & 123: Delete Contract ──────────────────────────
 
     test("TC-CONTRACT-122 | Verify that the Delete Contract button is visible before the contract is published and that the user is able to delete the contract", async () => {
-      test.setTimeout(180_000);
-
       if (!hasDraftDeal) {
         console.log("[TC-122] No draft deal found — Delete action only available on draft contracts.");
         // Verify Delete is NOT visible on published card (expected behavior)
@@ -4437,7 +4316,7 @@ test.describe("Contract Module", () => {
           await page.goto(publishedDealDetailUrl, { waitUntil: "domcontentloaded" });
           await contractModule.assertOnDealDetailPage();
           // On published cards, Delete is replaced by Terminate
-          await expect(contractModule.terminateContractGeneric).toBeVisible({ timeout: 8_000 });
+          await expect(contractModule.terminateContractGeneric).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
         }
         return;
       }
@@ -4446,7 +4325,7 @@ test.describe("Contract Module", () => {
       await contractModule.assertOnDealDetailPage();
 
       await test.step("Verify Delete action icon is visible on draft card", async () => {
-        await expect(contractModule.deleteProposalActionByAriaLabel).toBeVisible({ timeout: 8_000 });
+        await expect(contractModule.deleteProposalActionByAriaLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       });
 
       await test.step("Click Delete and verify confirmation dialog opens", async () => {
@@ -4461,13 +4340,11 @@ test.describe("Contract Module", () => {
       await test.step("Verify contract card is still visible after canceling", async () => {
         const publishBtnOrBadge = contractModule.publishContractBtn
           .or(contractModule.contractPublishedBadge);
-        await expect(publishBtnOrBadge).toBeVisible({ timeout: 10_000 });
+        await expect(publishBtnOrBadge).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
       });
     });
 
     test("TC-CONTRACT-123 | Verify that when the user attempts to delete the contract a confirmation popup appears asking whether to delete the proposal or not", async () => {
-      test.setTimeout(180_000);
-
       if (!hasDraftDeal) {
         console.log("[TC-123] No draft deal found — Delete action only available on draft contracts. Skipping.");
         return;
@@ -4481,16 +4358,16 @@ test.describe("Contract Module", () => {
       });
 
       await test.step("Verify heading 'Delete Proposal!' is visible", async () => {
-        await expect(contractModule.deleteProposalHeading).toBeVisible({ timeout: 8_000 });
+        await expect(contractModule.deleteProposalHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       });
 
       await test.step("Verify confirmation text is visible", async () => {
-        await expect(contractModule.deleteProposalText).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.deleteProposalText).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Verify No and Delete Proposal buttons are visible", async () => {
-        await expect(contractModule.deleteProposalNoBtn).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.deleteProposalConfirmBtn).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.deleteProposalNoBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.deleteProposalConfirmBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Dismiss the popup via No", async () => {
@@ -4501,8 +4378,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-124: Terminate Contract ──────────────────────────────
 
     test("TC-CONTRACT-124 | Verify that once the contract is published the user is able to terminate the contract", async () => {
-      test.setTimeout(180_000);
-
       if (!hasPublishedDeal) {
         console.log("[TC-124] No published deal found — Terminate action only available on published contracts. Skipping.");
         return;
@@ -4512,7 +4387,7 @@ test.describe("Contract Module", () => {
       await contractModule.assertOnDealDetailPage();
 
       await test.step("Verify Terminate action icon is visible", async () => {
-        await expect(contractModule.terminateContractGeneric).toBeVisible({ timeout: 8_000 });
+        await expect(contractModule.terminateContractGeneric).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       });
 
       await test.step("Click Terminate and verify dialog opens", async () => {
@@ -4521,13 +4396,13 @@ test.describe("Contract Module", () => {
       });
 
       await test.step("Verify Termination Date and Reason fields are visible", async () => {
-        await expect(contractModule.terminationDateInput).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.terminationReasonInput).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.terminationDateInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.terminationReasonInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Verify No and Terminate Contract buttons are visible", async () => {
-        await expect(contractModule.terminateContractNoBtn).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.terminateContractConfirmBtn).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.terminateContractNoBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.terminateContractConfirmBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Dismiss the dialog via No", async () => {
@@ -4538,8 +4413,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-125: Addendum Visible ────────────────────────────────
 
     test("TC-CONTRACT-125 | Verify that the Addendum button is visible once the contract has started", async () => {
-      test.setTimeout(180_000);
-
       if (!hasPublishedDeal) {
         console.log("[TC-125] No published deal found — Addendum action only available on published contracts. Skipping.");
         return;
@@ -4558,7 +4431,7 @@ test.describe("Contract Module", () => {
       }
 
       await test.step("Verify Addendum action icon is visible", async () => {
-        await expect(contractModule.addendumContractGeneric).toBeVisible({ timeout: 8_000 });
+        await expect(contractModule.addendumContractGeneric).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       });
 
       await test.step("Click Addendum and verify dialog opens", async () => {
@@ -4567,8 +4440,8 @@ test.describe("Contract Module", () => {
       });
 
       await test.step("Verify Cancel and Proceed buttons are visible", async () => {
-        await expect(contractModule.addendumContractCancelBtn).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.addendumContractProceedBtn).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.addendumContractCancelBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.addendumContractProceedBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Cancel the dialog", async () => {
@@ -4579,8 +4452,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-126: Addendum Edit Capability ────────────────────────
 
     test("TC-CONTRACT-126 | Verify that when a user creates an addendum for a proposal the user is able to edit the proposal", async () => {
-      test.setTimeout(240_000);
-
       if (!hasPublishedDeal) {
         console.log("[TC-126] No published deal found — Addendum action only available on published contracts. Skipping.");
         return;
@@ -4597,7 +4468,7 @@ test.describe("Contract Module", () => {
         // Use Promise.all to catch navigation if it happens, but handle
         // 400 API errors gracefully (addendum may already exist or be blocked).
         addendumNavigated = await Promise.all([
-          page.waitForURL(/\/contract\//, { timeout: 15_000 }).then(() => true).catch(() => false),
+          page.waitForURL(/\/contract\//, { timeout: TIMEOUTS.BASE * 30 }).then(() => true).catch(() => false),
           contractModule.addendumContractProceedBtn.click(),
         ]).then(([nav]) => nav);
 
@@ -4610,14 +4481,14 @@ test.describe("Contract Module", () => {
           // Verify contract card is still visible (page was not corrupted)
           const publishBtnOrBadge = contractModule.publishContractBtn
             .or(contractModule.contractPublishedBadge);
-          await expect(publishBtnOrBadge).toBeVisible({ timeout: 10_000 });
+          await expect(publishBtnOrBadge).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
         }
       });
 
       if (!addendumNavigated) return;
 
       await test.step("Verify navigated to contract stepper/editor", async () => {
-        await expect(page).toHaveURL(/\/contract\//, { timeout: 5_000 });
+        await expect(page).toHaveURL(/\/contract\//, { timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Verify stepper elements are visible", async () => {
@@ -4625,7 +4496,7 @@ test.describe("Contract Module", () => {
         const stepperTab = contractModule.stepperStep1
           .or(contractModule.saveAndNextBtn)
           .or(contractModule.finishBtn);
-        await expect(stepperTab).toBeVisible({ timeout: 15_000 });
+        await expect(stepperTab).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
       });
 
       await test.step("Navigate back to deal detail page", async () => {
@@ -4676,8 +4547,6 @@ test.describe("Contract Module", () => {
     let clonedContractUrl = "";
 
     test.beforeAll(async ({ browser }) => {
-      test.setTimeout(300_000);
-
       // Ensure page is alive (it may have been closed by a prior afterAll)
       const pageAlive = await page?.evaluate(() => true).catch(() => false);
       if (!pageAlive) {
@@ -4686,7 +4555,7 @@ test.describe("Contract Module", () => {
         page = await context.newPage();
         contractModule = new ContractModule(page);
         propertyModule = new PropertyModule(page);
-        await withTimeout(performLogin(page), 180_000, "performLogin(clone-beforeAll)");
+        await withTimeout(performLogin(page), TIMEOUTS.BASE * 360, "performLogin(clone-beforeAll)");
       }
 
       // Search for a deal with a proposal card to use as clone source
@@ -4698,7 +4567,7 @@ test.describe("Contract Module", () => {
           await contractModule.dealSearchInput.fill(searchTerm);
           await page.keyboard.press("Enter");
           await page.locator("table tbody tr").first()
-            .waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
+            .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
 
           const dealRows = page.locator("table tbody tr");
           const rowCount = await dealRows.count();
@@ -4724,7 +4593,7 @@ test.describe("Contract Module", () => {
                 await contractModule.dealSearchInput.fill(searchTerm);
                 await page.keyboard.press("Enter");
                 await page.locator("table tbody tr").first()
-                  .waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
+                  .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
               }
             } catch (innerErr) {
               console.log(`[Clone] Error checking deal "${dealName.trim()}": ${innerErr.message}`);
@@ -4748,8 +4617,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-130: Clone button visibility ──────────────────────────
 
     test("TC-CONTRACT-130 | Verify Clone button visibility", async () => {
-      test.setTimeout(120_000);
-
       if (!hasCloneDeal) {
         console.log("[TC-130] No deal with proposal found — skipping.");
         return;
@@ -4759,7 +4626,7 @@ test.describe("Contract Module", () => {
       await contractModule.assertOnDealDetailPage();
 
       await test.step("Verify Clone action icon is visible on the proposal card", async () => {
-        await expect(contractModule.cloneProposalActionByAriaLabel).toBeVisible({ timeout: 8_000 });
+        await expect(contractModule.cloneProposalActionByAriaLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       });
 
       await test.step("Verify Clone icon appears alongside other action icons", async () => {
@@ -4793,8 +4660,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-132: Clone unpublished contract ───────────────────────
 
     test("TC-CONTRACT-132 | Verify that contract can be cloned when it is Unpublished", async () => {
-      test.setTimeout(180_000);
-
       if (!hasCloneDeal) {
         console.log("[TC-132] No deal with proposal found — skipping.");
         return;
@@ -4816,10 +4681,10 @@ test.describe("Contract Module", () => {
 
       await test.step("Verify Clone Contract dialog opens with all elements", async () => {
         await contractModule.assertCloneContractDialogOpen();
-        await expect(contractModule.cloneContractHeading).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.cloneContractText).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.cloneContractCancelBtn).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.cloneContractProceedBtn).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.cloneContractHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.cloneContractText).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.cloneContractCancelBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.cloneContractProceedBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Click Proceed and verify navigation to cloned contract editor", async () => {
@@ -4830,7 +4695,7 @@ test.describe("Contract Module", () => {
           return;
         }
         clonedContractUrl = page.url();
-        await expect(page).toHaveURL(/\/app\/sales\/deals\/deal\/\d+\/contract\/\d+/, { timeout: 5_000 });
+        await expect(page).toHaveURL(/\/app\/sales\/deals\/deal\/\d+\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Verify cloned contract stepper is visible", async () => {
@@ -4838,15 +4703,13 @@ test.describe("Contract Module", () => {
         const stepperTab = contractModule.stepperStep1
           .or(contractModule.saveAndNextBtn)
           .or(contractModule.finishBtn);
-        await expect(stepperTab).toBeVisible({ timeout: 15_000 });
+        await expect(stepperTab).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
       });
     });
 
     // ── TC-CONTRACT-133: Clone published (unsigned) contract ──────────────
 
     test("TC-CONTRACT-133 | Verify that contract can be cloned when it is Published but unsigned", async () => {
-      test.setTimeout(180_000);
-
       if (!hasCloneDeal) {
         console.log("[TC-133] No deal with proposal found — skipping.");
         return;
@@ -4873,7 +4736,7 @@ test.describe("Contract Module", () => {
           return;
         }
         clonedContractUrl = page.url();
-        await expect(page).toHaveURL(/\/app\/sales\/deals\/deal\/\d+\/contract\/\d+/, { timeout: 5_000 });
+        await expect(page).toHaveURL(/\/app\/sales\/deals\/deal\/\d+\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Verify cloned contract editor opens with stepper visible", async () => {
@@ -4881,7 +4744,7 @@ test.describe("Contract Module", () => {
         const stepperTab = contractModule.stepperStep1
           .or(contractModule.saveAndNextBtn)
           .or(contractModule.finishBtn);
-        await expect(stepperTab).toBeVisible({ timeout: 15_000 });
+        await expect(stepperTab).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
       });
     });
 
@@ -4914,8 +4777,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-136: Clone a contract that is itself a clone ──────────
 
     test("TC-CONTRACT-136 | Verify that contract can be cloned when it is already cloned", async () => {
-      test.setTimeout(180_000);
-
       // This test uses the clonedContractUrl set by TC-132 or TC-133.
       // The cloned contract (prefixed "Clone -") is itself cloned again.
       if (!clonedContractUrl) {
@@ -4929,7 +4790,7 @@ test.describe("Contract Module", () => {
       await contractModule.assertOnDealDetailPage();
 
       await test.step("Verify Clone action is available on the cloned proposal card", async () => {
-        await expect(contractModule.cloneProposalActionByAriaLabel).toBeVisible({ timeout: 10_000 });
+        await expect(contractModule.cloneProposalActionByAriaLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
       });
 
       await test.step("Click Clone and confirm via Proceed", async () => {
@@ -4940,14 +4801,14 @@ test.describe("Contract Module", () => {
           console.log("[TC-136] Clone-of-clone Proceed did not navigate — API may have returned an error.");
           return;
         }
-        await expect(page).toHaveURL(/\/app\/sales\/deals\/deal\/\d+\/contract\/\d+/, { timeout: 5_000 });
+        await expect(page).toHaveURL(/\/app\/sales\/deals\/deal\/\d+\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Verify the new cloned contract editor opens", async () => {
         const stepperTab = contractModule.stepperStep1
           .or(contractModule.saveAndNextBtn)
           .or(contractModule.finishBtn);
-        await expect(stepperTab).toBeVisible({ timeout: 15_000 });
+        await expect(stepperTab).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
       });
     });
 
@@ -4967,8 +4828,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-138: New contract created after cloning ───────────────
 
     test("TC-CONTRACT-138 | Verify that new contract is created after cloning", async () => {
-      test.setTimeout(180_000);
-
       if (!hasCloneDeal) {
         console.log("[TC-138] No deal with proposal found — skipping.");
         return;
@@ -4991,7 +4850,7 @@ test.describe("Contract Module", () => {
           return;
         }
         const newUrl = page.url();
-        await expect(page).toHaveURL(/\/app\/sales\/deals\/deal\/\d+\/contract\/\d+/, { timeout: 5_000 });
+        await expect(page).toHaveURL(/\/app\/sales\/deals\/deal\/\d+\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 10 });
 
         // Verify new deal ID differs from original
         const newDealIdMatch = newUrl.match(/\/deal\/(\d+)/);
@@ -5006,18 +4865,16 @@ test.describe("Contract Module", () => {
         await contractModule.dealSearchInput.fill("Clone -");
         await page.keyboard.press("Enter");
         await page.locator("table tbody tr").first()
-          .waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
+          .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
         // At least one row should contain "Clone -" text
         const cloneRow = page.locator("table tbody tr").filter({ hasText: "Clone -" }).first();
-        await expect(cloneRow).toBeVisible({ timeout: 10_000 });
+        await expect(cloneRow).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
       });
     });
 
     // ── TC-CONTRACT-139: Cloned contract retains structure ────────────────
 
     test("TC-CONTRACT-139 | Verify that cloned contract retains structure", async () => {
-      test.setTimeout(180_000);
-
       if (!clonedContractUrl) {
         console.log("[TC-139] No cloned contract URL available — skipping.");
         return;
@@ -5026,17 +4883,17 @@ test.describe("Contract Module", () => {
       await page.goto(clonedContractUrl, { waitUntil: "domcontentloaded" });
 
       await test.step("Verify cloned contract stepper is open at Step 1 (Services)", async () => {
-        await expect(contractModule.stepperStep1).toBeVisible({ timeout: 15_000 });
+        await expect(contractModule.stepperStep1).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
       });
 
       await test.step("Verify service type radio (Dedicated/Patrol) is visible and pre-selected", async () => {
-        await expect(contractModule.dedicatedPatrolRadio).toBeVisible({ timeout: 8_000 });
-        await expect(contractModule.dedicatedPatrolRadio).toBeChecked({ timeout: 5_000 });
+        await expect(contractModule.dedicatedPatrolRadio).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
+        await expect(contractModule.dedicatedPatrolRadio).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Verify officer count field has a value", async () => {
         const officerInput = contractModule.officerCountInput;
-        await expect(officerInput).toBeVisible({ timeout: 8_000 });
+        await expect(officerInput).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
         const officerVal = await officerInput.inputValue();
         expect(Number(officerVal)).toBeGreaterThan(0);
       });
@@ -5045,8 +4902,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-140: Cloned contract has unique ID ────────────────────
 
     test("TC-CONTRACT-140 | Verify that cloned contract has unique ID", async () => {
-      test.setTimeout(180_000);
-
       if (!hasCloneDeal) {
         console.log("[TC-140] No deal with proposal found — skipping.");
         return;
@@ -5069,7 +4924,7 @@ test.describe("Contract Module", () => {
           return;
         }
         const newUrl = page.url();
-        await expect(page).toHaveURL(/\/app\/sales\/deals\/deal\/\d+\/contract\/\d+/, { timeout: 5_000 });
+        await expect(page).toHaveURL(/\/app\/sales\/deals\/deal\/\d+\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 10 });
 
         const newDealIdMatch = newUrl.match(/\/deal\/(\d+)/);
         const newContractIdMatch = newUrl.match(/\/contract\/(\d+)/);
@@ -5121,8 +4976,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-143: Signature status reset in cloned contract ─────────
 
     test("TC-CONTRACT-143 | Verify that signature status is reset", async () => {
-      test.setTimeout(120_000);
-
       if (!clonedContractUrl) {
         console.log("[TC-143] No cloned contract URL available — skipping.");
         return;
@@ -5137,23 +4990,21 @@ test.describe("Contract Module", () => {
         // "Signed" or "Request Signatures" status tags should NOT be present
         const signedTag = page.getByText("Signed", { exact: true }).first();
         const signatureRequestedTag = page.getByText("Signature Requested", { exact: true }).first();
-        await expect(signedTag).not.toBeVisible({ timeout: 5_000 });
-        await expect(signatureRequestedTag).not.toBeVisible({ timeout: 5_000 });
+        await expect(signedTag).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(signatureRequestedTag).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Verify cloned contract is in Draft/unpublished state", async () => {
         // A freshly cloned contract has the Publish Contract button available
         const publishBtnOrDraftIndicator = contractModule.publishContractBtn
           .or(page.getByText("Draft", { exact: false }).first());
-        await expect(publishBtnOrDraftIndicator).toBeVisible({ timeout: 8_000 });
+        await expect(publishBtnOrDraftIndicator).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       });
     });
 
     // ── TC-CONTRACT-144: Contract dates are editable in cloned contract ────
 
     test("TC-CONTRACT-144 | Verify that contract dates are editable", async () => {
-      test.setTimeout(120_000);
-
       if (!clonedContractUrl) {
         console.log("[TC-144] No cloned contract URL available — skipping.");
         return;
@@ -5162,7 +5013,7 @@ test.describe("Contract Module", () => {
       await page.goto(clonedContractUrl, { waitUntil: "domcontentloaded" });
 
       await test.step("Navigate to Step 4 (Payment Terms) in the cloned contract editor", async () => {
-        await expect(contractModule.stepperStep4).toBeVisible({ timeout: 15_000 });
+        await expect(contractModule.stepperStep4).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
         await contractModule.stepperStep4.click();
       });
 
@@ -5170,16 +5021,14 @@ test.describe("Contract Module", () => {
         // Start date and end/renewal date inputs in Payment Terms step
         const startDateInput = page.getByRole("textbox", { name: /Start Date/i }).first()
           .or(page.locator('input[name="startDate"]').first());
-        await expect(startDateInput).toBeVisible({ timeout: 8_000 });
-        await expect(startDateInput).toBeEnabled({ timeout: 5_000 });
+        await expect(startDateInput).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
+        await expect(startDateInput).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
       });
     });
 
     // ── TC-CONTRACT-145: User can edit all fields in cloned contract ───────
 
     test("TC-CONTRACT-145 | Verify that user can edit all fields", async () => {
-      test.setTimeout(180_000);
-
       if (!clonedContractUrl) {
         console.log("[TC-145] No cloned contract URL available — skipping.");
         return;
@@ -5188,29 +5037,27 @@ test.describe("Contract Module", () => {
       await page.goto(clonedContractUrl, { waitUntil: "domcontentloaded" });
 
       await test.step("Verify Step 1 (Services) is open and officer count spinbutton is editable", async () => {
-        await expect(contractModule.stepperStep1).toBeVisible({ timeout: 15_000 });
+        await expect(contractModule.stepperStep1).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
         const officerInput = contractModule.officerCountInput;
-        await expect(officerInput).toBeVisible({ timeout: 8_000 });
-        await expect(officerInput).toBeEnabled({ timeout: 5_000 });
+        await expect(officerInput).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
+        await expect(officerInput).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Verify hourly rate spinbutton is editable", async () => {
         const hourlyRateInput = contractModule.hourlyRateInput;
-        await expect(hourlyRateInput).toBeVisible({ timeout: 8_000 });
-        await expect(hourlyRateInput).toBeEnabled({ timeout: 5_000 });
+        await expect(hourlyRateInput).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
+        await expect(hourlyRateInput).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Verify Save & Next button is enabled", async () => {
-        await expect(contractModule.saveAndNextBtn).toBeVisible({ timeout: 8_000 });
-        await expect(contractModule.saveAndNextBtn).toBeEnabled({ timeout: 5_000 });
+        await expect(contractModule.saveAndNextBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
+        await expect(contractModule.saveAndNextBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
       });
     });
 
     // ── TC-CONTRACT-146: Validation works in cloned contract ──────────────
 
     test("TC-CONTRACT-146 | Verify validation works in cloned contract", async () => {
-      test.setTimeout(180_000);
-
       if (!clonedContractUrl) {
         console.log("[TC-146] No cloned contract URL available — skipping.");
         return;
@@ -5219,12 +5066,12 @@ test.describe("Contract Module", () => {
       await page.goto(clonedContractUrl, { waitUntil: "domcontentloaded" });
 
       await test.step("Open Step 1 (Services) in the cloned contract editor", async () => {
-        await expect(contractModule.stepperStep1).toBeVisible({ timeout: 15_000 });
+        await expect(contractModule.stepperStep1).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
       });
 
       await test.step("Clear the officer/guard count field (set to 0)", async () => {
         const officerInput = contractModule.officerCountInput;
-        await expect(officerInput).toBeVisible({ timeout: 8_000 });
+        await expect(officerInput).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
         await officerInput.scrollIntoViewIfNeeded();
         await officerInput.click({ clickCount: 3 });
         await officerInput.fill("0");
@@ -5235,7 +5082,7 @@ test.describe("Contract Module", () => {
         // Promise.all races: if Step 2 heading becomes visible, the stepper advanced (bad).
         // We expect it to remain on Step 1 — so waitForURL should time out.
         const advanced = await Promise.all([
-          page.waitForURL(/\/contract\/.*step=2|\/step\/2/, { timeout: 4_000 }).then(() => true).catch(() => false),
+          page.waitForURL(/\/contract\/.*step=2|\/step\/2/, { timeout: TIMEOUTS.BASE * 8 }).then(() => true).catch(() => false),
           contractModule.saveAndNextBtn.click(),
         ]).then(([nav]) => nav);
 
@@ -5243,15 +5090,13 @@ test.describe("Contract Module", () => {
         expect(advanced).toBe(false);
 
         // Step 1 heading remains visible (validation blocked progression)
-        await expect(contractModule.stepperStep1).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.stepperStep1).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
     });
 
     // ── TC-CONTRACT-147: Cloning fails on API error ───────────────────────
 
     test("TC-CONTRACT-147 | Verify cloning fails on API error", async () => {
-      test.setTimeout(120_000);
-
       if (!hasCloneDeal) {
         console.log("[TC-147] No deal with proposal found — skipping.");
         return;
@@ -5309,8 +5154,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-149: Cloning works for large contracts ────────────────
 
     test("TC-CONTRACT-149 | Verify cloning works for large contracts", async () => {
-      test.setTimeout(180_000);
-
       if (!hasCloneDeal) {
         console.log("[TC-149] No deal with proposal found — skipping.");
         return;
@@ -5327,29 +5170,29 @@ test.describe("Contract Module", () => {
           console.log("[TC-149] Clone Proceed did not navigate — API may have returned an error.");
           return;
         }
-        await expect(page).toHaveURL(/\/app\/sales\/deals\/deal\/\d+\/contract\/\d+/, { timeout: 5_000 });
+        await expect(page).toHaveURL(/\/app\/sales\/deals\/deal\/\d+\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Verify Step 1 (Services) opens without errors and data is present", async () => {
         // Step 1 heading is always visible in the stepper nav (may have a checkmark).
-        await expect(contractModule.stepperStep1).toBeVisible({ timeout: 15_000 });
+        await expect(contractModule.stepperStep1).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
         // Activate Step 1 by clicking it — the stepper may have landed on a later step.
         await contractModule.stepperStep1.click();
         // After clicking Step 1, the officer count spinbutton should appear.
         const officerInput = contractModule.officerCountInput;
-        await expect(officerInput).toBeVisible({ timeout: 10_000 });
+        await expect(officerInput).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
         const officerVal = await officerInput.inputValue();
         expect(Number(officerVal)).toBeGreaterThanOrEqual(0);
       });
 
       await test.step("Navigate through stepper steps and verify no errors", async () => {
         // Check all stepper step headings are accessible (data integrity check)
-        await expect(contractModule.stepperStep1).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.stepperStep2).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.stepperStep3).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.stepperStep4).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.stepperStep5).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.stepperStep6).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.stepperStep1).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.stepperStep2).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.stepperStep3).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.stepperStep4).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.stepperStep5).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.stepperStep6).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
     });
 
@@ -5379,8 +5222,6 @@ test.describe("Contract Module", () => {
     let hasDraftDeal = false;
 
     test.beforeAll(async ({ browser }) => {
-      test.setTimeout(600_000);
-
       // Ensure page is alive
       const pageAlive = await page?.evaluate(() => true).catch(() => false);
       if (!pageAlive) {
@@ -5389,7 +5230,7 @@ test.describe("Contract Module", () => {
         page = await context.newPage();
         contractModule = new ContractModule(page);
         propertyModule = new PropertyModule(page);
-        await withTimeout(performLogin(page), 180_000, "performLogin(addendum-beforeAll)");
+        await withTimeout(performLogin(page), TIMEOUTS.BASE * 360, "performLogin(addendum-beforeAll)");
       }
 
       // Search deals to find candidates for each scenario
@@ -5402,7 +5243,7 @@ test.describe("Contract Module", () => {
           await contractModule.dealSearchInput.fill(searchTerm);
           await page.keyboard.press("Enter");
           await page.locator("table tbody tr").first()
-            .waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
+            .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
 
           const dealRows = page.locator("table tbody tr");
           const rowCount = await dealRows.count();
@@ -5416,7 +5257,7 @@ test.describe("Contract Module", () => {
             try {
               await dealNameCell.scrollIntoViewIfNeeded();
               await Promise.all([
-                page.waitForURL(/\/deals\/deal\/\d+/, { timeout: 15_000 }),
+                page.waitForURL(/\/deals\/deal\/\d+/, { timeout: TIMEOUTS.BASE * 30 }),
                 dealNameCell.click(),
               ]);
               await contractModule.assertOnDealDetailPage();
@@ -5430,7 +5271,7 @@ test.describe("Contract Module", () => {
                 // at least one of the two anchors has time to appear, then read both.
                 await contractModule.contractPublishedBadge
                   .or(contractModule.publishContractBtn)
-                  .waitFor({ state: 'visible', timeout: 5_000 })
+                  .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 })
                   .catch(() => {});
 
                 const isPublished = await contractModule.contractPublishedBadge
@@ -5480,7 +5321,7 @@ test.describe("Contract Module", () => {
                 await contractModule.dealSearchInput.fill(searchTerm);
                 await page.keyboard.press("Enter");
                 await page.locator("table tbody tr").first()
-                  .waitFor({ state: "visible", timeout: 10_000 }).catch(() => {});
+                  .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
               }
             } catch (err) {
               console.log(`[Addendum] Row ${i} skipped: ${err.message?.slice(0, 80)}`);
@@ -5488,7 +5329,7 @@ test.describe("Contract Module", () => {
               await contractModule.dealSearchInput.fill(searchTerm).catch(() => {});
               await page.keyboard.press("Enter").catch(() => {});
               await page.locator("table tbody tr").first()
-                .waitFor({ state: "visible", timeout: 10_000 }).catch(() => {});
+                .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
             }
           }
         } catch (err) {
@@ -5502,8 +5343,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-150: Addendum button visibility ───────────────────────
 
     test("TC-CONTRACT-150 | Verify Addendum button visibility based on eligibility @smoke", async () => {
-      test.setTimeout(120_000);
-
       if (!hasEligibleDeal) {
         console.log("[TC-150] No published deal with Addendum icon found — skipping.");
         return;
@@ -5513,22 +5352,20 @@ test.describe("Contract Module", () => {
       await contractModule.assertOnDealDetailPage();
 
       await test.step("Verify Addendum action icon is visible on published eligible card", async () => {
-        await expect(contractModule.addendumContractGeneric).toBeVisible({ timeout: 8_000 });
+        await expect(contractModule.addendumContractGeneric).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       });
 
       await test.step("Verify other published-card actions are also visible", async () => {
-        await expect(contractModule.viewContractGeneric).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.cloneProposalActionByAriaLabel).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.previewPdfActionByAriaLabel).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.terminateContractGeneric).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.viewContractGeneric).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.cloneProposalActionByAriaLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.previewPdfActionByAriaLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.terminateContractGeneric).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
     });
 
     // ── TC-CONTRACT-151: Disabled state for Addendum button ──────────────
 
     test("TC-CONTRACT-151 | Verify disabled state styling for Addendum button @regression", async () => {
-      test.setTimeout(120_000);
-
       // This TC requires a deal with a published contract that has <7 days remaining
       // or a future start date. In UAT we test the future-contract path via TC-157.
       // Assert: clicking Addendum on a future-start contract shows an error.
@@ -5542,7 +5379,7 @@ test.describe("Contract Module", () => {
       await contractModule.assertOnDealDetailPage();
 
       await test.step("Verify Addendum icon is present on the card", async () => {
-        await expect(contractModule.addendumContractGeneric).toBeVisible({ timeout: 8_000 });
+        await expect(contractModule.addendumContractGeneric).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       });
 
       await test.step("Click Addendum to open dialog", async () => {
@@ -5560,8 +5397,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-152: Addendum created for published+synced contract ───
 
     test("TC-CONTRACT-152 | Verify that Addendum can be created for a published and synced contract @smoke", async () => {
-      test.setTimeout(180_000);
-
       if (!hasEligibleDeal) {
         console.log("[TC-152] No published+eligible deal found — skipping.");
         return;
@@ -5571,16 +5406,16 @@ test.describe("Contract Module", () => {
       await contractModule.assertOnDealDetailPage();
 
       await test.step("Verify Addendum icon is visible on the proposal card", async () => {
-        await expect(contractModule.addendumContractGeneric).toBeVisible({ timeout: 8_000 });
+        await expect(contractModule.addendumContractGeneric).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       });
 
       await test.step("Click Addendum icon and verify dialog opens with correct elements", async () => {
         await contractModule.clickAddendumAction();
         await contractModule.assertAddendumDialogOpen();
         // Dialog body text mentions Edge 2.0 — verify text contains key phrase
-        await expect(contractModule.addendumContractText).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.addendumContractCancelBtn).toBeVisible({ timeout: 5_000 });
-        await expect(contractModule.addendumContractProceedBtn).toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.addendumContractText).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.addendumContractCancelBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(contractModule.addendumContractProceedBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step("Click Proceed and verify navigation to new deal + contract stepper", async () => {
@@ -5597,15 +5432,13 @@ test.describe("Contract Module", () => {
         console.log(`[TC-152] Navigated to new addendum stepper: ${newAddendumStepperUrl}`);
 
         // URL should match new deal ID + contract stepper pattern
-        await expect(page).toHaveURL(/\/deals\/deal\/\d+\/contract\/\d+/, { timeout: 5_000 });
+        await expect(page).toHaveURL(/\/deals\/deal\/\d+\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 10 });
       });
     });
 
     // ── TC-CONTRACT-153: Addendum NOT on draft card ───────────────────────
 
     test("TC-CONTRACT-153 | Verify that Addendum cannot be created if contract is not published @regression", async () => {
-      test.setTimeout(120_000);
-
       if (!hasDraftDeal) {
         console.log("[TC-153] No draft deal found — skipping.");
         return;
@@ -5615,7 +5448,7 @@ test.describe("Contract Module", () => {
       await contractModule.assertOnDealDetailPage();
 
       await test.step("Verify Addendum icon is NOT present on draft proposal card", async () => {
-        await expect(contractModule.addendumContractGeneric).not.toBeVisible({ timeout: 8_000 });
+        await expect(contractModule.addendumContractGeneric).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       });
 
       await test.step("Verify draft card shows Edit, Clone, Preview PDF, Delete actions (no Addendum)", async () => {
@@ -5639,8 +5472,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-155: Addendum blocked with <7 days remaining ─────────
 
     test("TC-CONTRACT-155 | Verify that Addendum cannot be created when contract has fewer than 7 days remaining @regression", async () => {
-      test.setTimeout(120_000);
-
       // A contract with <7 days remaining is rarely available in UAT.
       // Test the "future contract" error path as a proxy (TC-157 covers the exact case).
       // If no eligible deal exists, skip with TODO.
@@ -5661,7 +5492,7 @@ test.describe("Contract Module", () => {
         if (!hasIcon) {
           console.log("[TC-155] Addendum icon no longer visible (deal used in TC-152) — documenting expected state.");
           // This is itself a valid assertion: no second addendum can be created (TC-166 path).
-          await expect(contractModule.addendumContractGeneric).not.toBeVisible({ timeout: 5_000 });
+          await expect(contractModule.addendumContractGeneric).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
           return;
         }
 
@@ -5697,8 +5528,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-157: Addendum not allowed for future-start contract ───
 
     test("TC-CONTRACT-157 | Verify that Addendum is not allowed for Not Started contract @regression", async () => {
-      test.setTimeout(120_000);
-
       // Look for a published deal whose start date is in the future.
       // If not found, skip with guidance.
       if (!hasEligibleDeal) {
@@ -5735,7 +5564,7 @@ test.describe("Contract Module", () => {
           // Blocked — URL unchanged, no navigation
           await expect(page).toHaveURL(urlBefore.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').length > 0
             ? new RegExp(urlBefore.replace(/\//g, '\\/'))
-            : /\/deals\/deal\/\d+/, { timeout: 5_000 });
+            : /\/deals\/deal\/\d+/, { timeout: TIMEOUTS.BASE * 10 });
           console.log("[TC-157] Addendum blocked as expected — error toast may have appeared.");
         }
       });
@@ -5744,8 +5573,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-158: New deal created on Addendum initiation ─────────
 
     test("TC-CONTRACT-158 | Verify that a new deal is created when Addendum is initiated @smoke", async () => {
-      test.setTimeout(180_000);
-
       if (!hasEligibleDeal) {
         console.log("[TC-158] No eligible published deal found — skipping.");
         return;
@@ -5761,10 +5588,10 @@ test.describe("Contract Module", () => {
             expect(addendumIdMatch[1]).not.toBe(parentIdMatch[1]);
             console.log(`[TC-158] Parent deal ID: ${parentIdMatch[1]}, Addendum deal ID: ${addendumIdMatch[1]}`);
           }
-          await expect(page).toHaveURL(/\/deals\/deal\/\d+\/contract\/\d+/, { timeout: 5_000 })
+          await expect(page).toHaveURL(/\/deals\/deal\/\d+\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 10 })
             .catch(async () => {
               await page.goto(newAddendumStepperUrl, { waitUntil: "domcontentloaded" });
-              await expect(page).toHaveURL(/\/deals\/deal\/\d+\/contract\/\d+/, { timeout: 5_000 });
+              await expect(page).toHaveURL(/\/deals\/deal\/\d+\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 10 });
             });
         });
 
@@ -5796,7 +5623,7 @@ test.describe("Contract Module", () => {
         newAddendumStepperUrl = page.url();
         const addendumIdMatch = newAddendumStepperUrl.match(/\/deal\/(\d+)/);
 
-        await expect(page).toHaveURL(/\/deals\/deal\/\d+\/contract\/\d+/, { timeout: 5_000 });
+        await expect(page).toHaveURL(/\/deals\/deal\/\d+\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 10 });
         if (parentIdMatch && addendumIdMatch) {
           expect(addendumIdMatch[1]).not.toBe(parentIdMatch[1]);
         }
@@ -5807,8 +5634,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-159: Addendum contract created in new deal ───────────
 
     test("TC-CONTRACT-159 | Verify that Addendum contract is created within new deal @smoke", async () => {
-      test.setTimeout(120_000);
-
       if (!newAddendumStepperUrl && !hasAddendumDeal) {
         console.log("[TC-159] No addendum stepper URL captured and no addendum deal found — skipping.");
         return;
@@ -5844,8 +5669,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-160: Parent contract unaffected before publication ────
 
     test("TC-CONTRACT-160 | Verify that parent contract remains unaffected before publication @regression", async () => {
-      test.setTimeout(120_000);
-
       if (!hasParentNoAddendum && !hasEligibleDeal) {
         console.log("[TC-160] No suitable parent deal found — skipping.");
         return;
@@ -5859,11 +5682,11 @@ test.describe("Contract Module", () => {
       await contractModule.assertOnDealDetailPage();
 
       await test.step("Verify parent proposal card is still visible with Published badge", async () => {
-        await expect(contractModule.contractPublishedBadge).toBeVisible({ timeout: 8_000 });
+        await expect(contractModule.contractPublishedBadge).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       });
 
       await test.step("Verify Addendum icon is NOT on parent card (pending addendum already exists)", async () => {
-        await expect(contractModule.addendumContractGeneric).not.toBeVisible({ timeout: 8_000 });
+        await expect(contractModule.addendumContractGeneric).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       });
 
       await test.step("Verify Signature, View, Clone, Preview PDF, Terminate remain visible", async () => {
@@ -5874,8 +5697,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-161: Parent jobs remain active before effective date ──
 
     test("TC-CONTRACT-161 | Verify parent jobs remain active before effective date @regression", async () => {
-      test.setTimeout(120_000);
-
       if (!hasParentNoAddendum && !hasEligibleDeal) {
         console.log("[TC-161] No suitable parent deal found — skipping.");
         return;
@@ -5888,19 +5709,17 @@ test.describe("Contract Module", () => {
 
       await test.step("Verify parent contract badge shows active/published state (not Expired or Terminated)", async () => {
         // Published without sign = active published state
-        await expect(contractModule.contractPublishedBadge).toBeVisible({ timeout: 8_000 });
+        await expect(contractModule.contractPublishedBadge).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
         // Verify "Expired" text is NOT on the parent card
         await expect(
           contractModule.contractTermsTabpanel.getByText('Expired', { exact: true })
-        ).not.toBeVisible({ timeout: 5_000 });
+        ).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
     });
 
     // ── TC-CONTRACT-162: Effective date acts as start date ────────────────
 
     test("TC-CONTRACT-162 | Verify that effective date acts as start date of Addendum @regression", async () => {
-      test.setTimeout(120_000);
-
       if (!newAddendumStepperUrl && !hasAddendumDeal) {
         console.log("[TC-162] No addendum deal or stepper URL available — skipping.");
         return;
@@ -5972,8 +5791,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-166: Second Addendum blocked from same parent ─────────
 
     test("TC-CONTRACT-166 | Verify that second Addendum cannot be created from same parent @regression", async () => {
-      test.setTimeout(120_000);
-
       if (!hasParentNoAddendum && !hasEligibleDeal) {
         console.log("[TC-166] No parent deal with pending addendum found — skipping.");
         return;
@@ -5997,8 +5814,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-167: Addendum contract can act as parent after publishing
 
     test("TC-CONTRACT-167 | Verify that Addendum contract can act as parent after publishing @regression", async () => {
-      test.setTimeout(120_000);
-
       // After TC-152/158 the addendum deal is in draft state.
       // Once published, the addendum deal should itself show the Addendum icon.
       // Since it may not be published yet in this run, we verify the expectation
@@ -6030,7 +5845,7 @@ test.describe("Contract Module", () => {
               .isVisible().catch(() => false);
             console.log(`[TC-167] Addendum deal published — Addendum icon visible: ${hasAddendumIcon}`);
             // Assert published badge is visible (independent contract behavior)
-            await expect(contractModule.contractPublishedBadge).toBeVisible({ timeout: 5_000 });
+            await expect(contractModule.contractPublishedBadge).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
           } else {
             // Still draft — Publish Contract btn visible, Addendum icon not expected yet
             await contractModule.assertPublishContractBtnVisible();
@@ -6043,8 +5858,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-168: System blocks multiple simultaneous Addendum attempts
 
     test("TC-CONTRACT-168 | Verify system blocks multiple Addendum attempts simultaneously @regression", async () => {
-      test.setTimeout(120_000);
-
       // True simultaneous testing requires parallel browser sessions.
       // This test verifies sequential behavior: after one Addendum is created,
       // the Addendum icon is removed from the parent, preventing a second attempt.
@@ -6060,15 +5873,13 @@ test.describe("Contract Module", () => {
 
       await test.step("Verify only one addendum deal exists (Addendum icon removed after first creation)", async () => {
         // After TC-152/158 created an addendum, the Addendum icon should be absent
-        await expect(contractModule.addendumContractGeneric).not.toBeVisible({ timeout: 8_000 });
+        await expect(contractModule.addendumContractGeneric).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       });
     });
 
     // ── TC-CONTRACT-169: Change history displayed during publication ──────
 
     test("TC-CONTRACT-169 | Verify change history is displayed during publication @regression", async () => {
-      test.setTimeout(180_000);
-
       if (!newAddendumStepperUrl && !hasAddendumDeal) {
         console.log("[TC-169] No addendum deal found — skipping.");
         return;
@@ -6094,16 +5905,16 @@ test.describe("Contract Module", () => {
         const publishModal = contractModule.publishConfirmModalHeading;
         const closeDealModal = contractModule.closeDealModalHeading;
         const modalOrClose = publishModal.or(closeDealModal);
-        await expect(modalOrClose).toBeVisible({ timeout: 15_000 });
+        await expect(modalOrClose).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
         const closeModalVisible = await closeDealModal.isVisible().catch(() => false);
         if (closeModalVisible) {
           // Close Deal modal appeared first — dismiss it
           await contractModule.closedWonRadio.click().catch(() => {});
           await contractModule.publishSaveBtn.click().catch(() => {});
           // Wait for the Close Deal modal to dismiss before re-clicking Publish
-          await expect(contractModule.closeDealModalHeading).not.toBeVisible({ timeout: 8_000 }).catch(() => {});
+          await expect(contractModule.closeDealModalHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 }).catch(() => {});
           await contractModule.publishContractBtn.click().catch(() => {});
-          await expect(contractModule.publishConfirmModalHeading).toBeVisible({ timeout: 10_000 });
+          await expect(contractModule.publishConfirmModalHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
         }
       });
 
@@ -6114,7 +5925,7 @@ test.describe("Contract Module", () => {
       await test.step("Dismiss modal without publishing", async () => {
         const cancelBtn = page.getByRole('button', { name: 'Cancel' }).first();
         await cancelBtn.click();
-        await expect(contractModule.publishConfirmModalHeading).not.toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.publishConfirmModalHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
     });
 
@@ -6144,8 +5955,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-172: Correct pill label states ────────────────────────
 
     test("TC-CONTRACT-172 | Verify correct pill label states @smoke", async () => {
-      test.setTimeout(180_000);
-
       await test.step("Draft contract: only 'Publish Contract' button visible (no pill label)", async () => {
         if (!hasDraftDeal) {
           console.log("[TC-172] No draft deal found — skipping draft assertion.");
@@ -6153,9 +5962,9 @@ test.describe("Contract Module", () => {
           await page.goto(draftDealUrl, { waitUntil: "domcontentloaded" });
           await contractModule.assertOnDealDetailPage();
           // Draft state is indicated by Publish Contract button (no separate pill label)
-          await expect(contractModule.publishContractBtn).toBeVisible({ timeout: 8_000 });
+          await expect(contractModule.publishContractBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
           // Published without sign badge must NOT be visible on draft card
-          await expect(contractModule.contractPublishedBadge).not.toBeVisible({ timeout: 5_000 });
+          await expect(contractModule.contractPublishedBadge).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         }
       });
 
@@ -6167,7 +5976,7 @@ test.describe("Contract Module", () => {
         const targetUrl = hasParentNoAddendum ? parentNoAddendumUrl : addendumEligibleUrl;
         await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
         await contractModule.assertOnDealDetailPage();
-        await expect(contractModule.contractPublishedBadge).toBeVisible({ timeout: 8_000 });
+        await expect(contractModule.contractPublishedBadge).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       });
     });
 
@@ -6316,8 +6125,6 @@ test.describe("Contract Module", () => {
     let patrolHasDraftDeal = false;
 
     test.beforeAll(async ({ browser }) => {
-      test.setTimeout(600_000);
-
       // Ensure page is alive
       const pageAlive = await page?.evaluate(() => true).catch(() => false);
       if (!pageAlive) {
@@ -6326,7 +6133,7 @@ test.describe("Contract Module", () => {
         page = await context.newPage();
         contractModule = new ContractModule(page);
         propertyModule = new PropertyModule(page);
-        await withTimeout(performLogin(page), 180_000, "performLogin(patrol-addendum-beforeAll)");
+        await withTimeout(performLogin(page), TIMEOUTS.BASE * 360, "performLogin(patrol-addendum-beforeAll)");
       }
 
       // Search deals to find Patrol candidates for each scenario
@@ -6339,7 +6146,7 @@ test.describe("Contract Module", () => {
           await contractModule.dealSearchInput.fill(searchTerm);
           await page.keyboard.press("Enter");
           await page.locator("table tbody tr").first()
-            .waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
+            .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
 
           const dealRows = page.locator("table tbody tr");
           const rowCount = await dealRows.count();
@@ -6353,7 +6160,7 @@ test.describe("Contract Module", () => {
             try {
               await dealNameCell.scrollIntoViewIfNeeded();
               await Promise.all([
-                page.waitForURL(/\/deals\/deal\/\d+/, { timeout: 15_000 }),
+                page.waitForURL(/\/deals\/deal\/\d+/, { timeout: TIMEOUTS.BASE * 30 }),
                 dealNameCell.click(),
               ]);
               await contractModule.assertOnDealDetailPage();
@@ -6401,7 +6208,7 @@ test.describe("Contract Module", () => {
                 await contractModule.dealSearchInput.fill(searchTerm);
                 await page.keyboard.press("Enter");
                 await page.locator("table tbody tr").first()
-                  .waitFor({ state: "visible", timeout: 10_000 }).catch(() => {});
+                  .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
               }
             } catch (err) {
               console.log(`[PatrolAddendum] Row ${i} skipped: ${err.message?.slice(0, 80)}`);
@@ -6409,7 +6216,7 @@ test.describe("Contract Module", () => {
               await contractModule.dealSearchInput.fill(searchTerm).catch(() => {});
               await page.keyboard.press("Enter").catch(() => {});
               await page.locator("table tbody tr").first()
-                .waitFor({ state: "visible", timeout: 10_000 }).catch(() => {});
+                .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
             }
           }
         } catch (err) {
@@ -6423,8 +6230,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-185: Addendum created for published+synced Patrol contract ─
 
     test("TC-CONTRACT-185 | Verify that Addendum can be created for eligible contract @smoke", async () => {
-      test.setTimeout(180_000);
-
       if (!patrolHasEligibleDeal) {
         console.log("[TC-185-P] No eligible published Patrol deal found — skipping.");
         return;
@@ -6452,15 +6257,13 @@ test.describe("Contract Module", () => {
 
         patrolAddendumStepperUrl = page.url();
         console.log(`[TC-185-P] Navigated to new Patrol addendum stepper: ${patrolAddendumStepperUrl}`);
-        await expect(page).toHaveURL(/\/deals\/deal\/\d+\/contract\/\d+/, { timeout: 5_000 });
+        await expect(page).toHaveURL(/\/deals\/deal\/\d+\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 10 });
       });
     });
 
     // ── TC-CONTRACT-186: Addendum NOT on draft Patrol card ────────────────
 
     test("TC-CONTRACT-186 | Verify that Addendum button is hidden for draft contract @regression", async () => {
-      test.setTimeout(120_000);
-
       if (!patrolHasDraftDeal) {
         console.log("[TC-186-P] No draft Patrol deal found — skipping.");
         return;
@@ -6470,7 +6273,7 @@ test.describe("Contract Module", () => {
       await contractModule.assertOnDealDetailPage();
 
       await test.step("Verify Addendum icon is NOT present on draft Patrol proposal card", async () => {
-        await expect(contractModule.addendumContractGeneric).not.toBeVisible({ timeout: 8_000 });
+        await expect(contractModule.addendumContractGeneric).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       });
 
       await test.step("Verify draft card shows Edit, Clone, Preview PDF, Delete actions (no Addendum)", async () => {
@@ -6492,8 +6295,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-188: Addendum blocked with <7 days remaining ─────────
 
     test("TC-CONTRACT-188 | Verify that Addendum cannot be created when less than 7 days remaining @regression", async () => {
-      test.setTimeout(120_000);
-
       // This test uses the eligible Patrol deal. After TC-152 created an addendum on it,
       // the Addendum icon should already be gone (deal exhausted). If not, we proceed
       // to click and observe the response when the deal no longer qualifies.
@@ -6512,7 +6313,7 @@ test.describe("Contract Module", () => {
 
         if (!iconVisible) {
           console.log("[TC-188-P] Addendum icon no longer visible (deal used in TC-152) — documenting expected state.");
-          await expect(contractModule.contractPublishedBadge).toBeVisible({ timeout: 8_000 });
+          await expect(contractModule.contractPublishedBadge).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
           return;
         }
 
@@ -6525,7 +6326,7 @@ test.describe("Contract Module", () => {
           patrolAddendumStepperUrl = patrolAddendumStepperUrl || page.url();
         } else {
           console.log("[TC-188-P] Addendum Proceed was blocked — expected for <7-day or unsynced Patrol contract.");
-          await expect(contractModule.contractPublishedBadge).toBeVisible({ timeout: 8_000 });
+          await expect(contractModule.contractPublishedBadge).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
         }
       });
     });
@@ -6542,8 +6343,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-190: Addendum not allowed for future-start Patrol contract
 
     test("TC-CONTRACT-190 | Verify that Addendum is not available for not started contract @regression", async () => {
-      test.setTimeout(120_000);
-
       // Use patrolParentNoAddUrl (published but no Addendum icon) if available;
       // this deal may have a future start date or a pending addendum.
       if (!patrolHasParentNoAdd && !patrolHasEligibleDeal) {
@@ -6577,7 +6376,7 @@ test.describe("Contract Module", () => {
           console.log("[TC-190-P] Addendum succeeded — deal was eligible. Future-start path not hit.");
         } else {
           // Blocked as expected for future-start Patrol contract
-          await expect(page).toHaveURL(new RegExp(urlBefore.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), { timeout: 5_000 }).catch(() => {});
+          await expect(page).toHaveURL(new RegExp(urlBefore.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), { timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
           console.log("[TC-190-P] Addendum blocked as expected — error toast may have appeared.");
         }
       });
@@ -6586,8 +6385,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-191: New deal created on Patrol Addendum initiation ──
 
     test("TC-CONTRACT-191 | Verify that new deal is created on Addendum creation @smoke", async () => {
-      test.setTimeout(180_000);
-
       if (!patrolHasEligibleDeal) {
         console.log("[TC-191-P] No eligible Patrol deal found — skipping.");
         return;
@@ -6602,10 +6399,10 @@ test.describe("Contract Module", () => {
             expect(addendumIdMatch[1]).not.toBe(parentIdMatch[1]);
             console.log(`[TC-191-P] Parent deal ID: ${parentIdMatch[1]}, Addendum deal ID: ${addendumIdMatch[1]}`);
           }
-          await expect(page).toHaveURL(/\/deals\/deal\/\d+\/contract\/\d+/, { timeout: 5_000 })
+          await expect(page).toHaveURL(/\/deals\/deal\/\d+\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 10 })
             .catch(async () => {
               await page.goto(patrolAddendumStepperUrl, { waitUntil: "domcontentloaded" });
-              await expect(page).toHaveURL(/\/deals\/deal\/\d+\/contract\/\d+/, { timeout: 5_000 });
+              await expect(page).toHaveURL(/\/deals\/deal\/\d+\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 10 });
             });
         });
 
@@ -6637,7 +6434,7 @@ test.describe("Contract Module", () => {
         patrolAddendumStepperUrl = page.url();
         const addendumIdMatch = patrolAddendumStepperUrl.match(/\/deal\/(\d+)/);
 
-        await expect(page).toHaveURL(/\/deals\/deal\/\d+\/contract\/\d+/, { timeout: 5_000 });
+        await expect(page).toHaveURL(/\/deals\/deal\/\d+\/contract\/\d+/, { timeout: TIMEOUTS.BASE * 10 });
         if (parentIdMatch && addendumIdMatch) {
           expect(addendumIdMatch[1]).not.toBe(parentIdMatch[1]);
         }
@@ -6647,8 +6444,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-192: Parent Patrol contract unaffected before publication
 
     test("TC-CONTRACT-192 | Verify that parent contract remains unchanged before publish @regression", async () => {
-      test.setTimeout(120_000);
-
       if (!patrolHasParentNoAdd) {
         console.log("[TC-192-P] No published Patrol deal without Addendum icon found — skipping (patrolEligibleUrl has Addendum visible by definition).");
         return;
@@ -6658,11 +6453,11 @@ test.describe("Contract Module", () => {
       await contractModule.assertOnDealDetailPage();
 
       await test.step("Verify parent Patrol proposal card still shows Published badge", async () => {
-        await expect(contractModule.contractPublishedBadge).toBeVisible({ timeout: 8_000 });
+        await expect(contractModule.contractPublishedBadge).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       });
 
       await test.step("Verify Addendum icon is NOT on parent card (pending addendum already exists)", async () => {
-        await expect(contractModule.addendumContractGeneric).not.toBeVisible({ timeout: 8_000 });
+        await expect(contractModule.addendumContractGeneric).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       });
 
       await test.step("Verify Signature, View, Clone, Preview PDF, Terminate remain visible", async () => {
@@ -6690,8 +6485,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-195: Second Addendum blocked from same Patrol parent ──
 
     test("TC-CONTRACT-195 | Verify that second Addendum cannot be created @regression", async () => {
-      test.setTimeout(120_000);
-
       if (!patrolHasParentNoAdd) {
         console.log("[TC-195-P] No published Patrol deal without Addendum icon found — skipping (patrolEligibleUrl has Addendum visible by definition).");
         return;
@@ -6711,8 +6504,6 @@ test.describe("Contract Module", () => {
     // ── TC-CONTRACT-196: Change history displayed during Patrol Addendum publication
 
     test("TC-CONTRACT-196 | Verify that change history is displayed on publish @regression", async () => {
-      test.setTimeout(180_000);
-
       if (!patrolAddendumStepperUrl && !patrolHasAddendumDeal) {
         console.log("[TC-196-P] No Patrol addendum deal found — skipping.");
         return;
@@ -6737,14 +6528,14 @@ test.describe("Contract Module", () => {
         const publishModal = contractModule.publishConfirmModalHeading;
         const closeDealModal = contractModule.closeDealModalHeading;
         const modalOrClose = publishModal.or(closeDealModal);
-        await expect(modalOrClose).toBeVisible({ timeout: 15_000 });
+        await expect(modalOrClose).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
         const closeModalVisible = await closeDealModal.isVisible().catch(() => false);
         if (closeModalVisible) {
           await contractModule.closedWonRadio.click().catch(() => {});
           await contractModule.publishSaveBtn.click().catch(() => {});
-          await expect(contractModule.closeDealModalHeading).not.toBeVisible({ timeout: 8_000 }).catch(() => {});
+          await expect(contractModule.closeDealModalHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 }).catch(() => {});
           await contractModule.publishContractBtn.click().catch(() => {});
-          await expect(contractModule.publishConfirmModalHeading).toBeVisible({ timeout: 10_000 });
+          await expect(contractModule.publishConfirmModalHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
         }
       });
 
@@ -6755,7 +6546,7 @@ test.describe("Contract Module", () => {
       await test.step("Dismiss modal without publishing", async () => {
         const cancelBtn = page.getByRole("button", { name: "Cancel" }).first();
         await cancelBtn.click();
-        await expect(contractModule.publishConfirmModalHeading).not.toBeVisible({ timeout: 5_000 });
+        await expect(contractModule.publishConfirmModalHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
     });
     // ── TC-CONTRACT-197: Not Acknowledged label on Patrol Addendum ─────────
@@ -6858,7 +6649,6 @@ test.describe("Contract Module", () => {
     // catch block. Without this, TC-208 hits the §20 guard in openContractDealDetail()
     // and throws "[openContractDealDetail] resolvedContractDealName is empty".
     test.beforeAll(async ({ browser }) => {
-      test.setTimeout(600_000);
       const pageAlive = await page?.evaluate(() => true).catch(() => false);
       if (!pageAlive) {
         console.log("[AutoRenewal] beforeAll: page lost, re-creating context");
@@ -6866,11 +6656,11 @@ test.describe("Contract Module", () => {
         page = await context.newPage();
         contractModule = new ContractModule(page);
         propertyModule = new PropertyModule(page);
-        await withTimeout(performLogin(page), 180_000, "performLogin(autoRenewal-beforeAll)");
+        await withTimeout(performLogin(page), TIMEOUTS.BASE * 360, "performLogin(autoRenewal-beforeAll)");
       } else {
         const onAppPage = /\/app\//.test(page.url());
         if (!onAppPage) {
-          await withTimeout(performLogin(page), 180_000, "performLogin(autoRenewal-reauth)");
+          await withTimeout(performLogin(page), TIMEOUTS.BASE * 360, "performLogin(autoRenewal-reauth)");
         }
       }
       await ensureContractTargetDeal().catch((err) => {
@@ -6885,8 +6675,6 @@ test.describe("Contract Module", () => {
     // Isolated deal ensures clean state (SKILL.md §5 shared-deal state guard).
 
     test("TC-CONTRACT-208 | Verify Annual Rate Increase is mandatory at contract creation", async () => {
-      test.setTimeout(300_000);
-
       await openSharedDealDrawer();
 
       await test.step("TC-CONTRACT-208 | Open Create Proposal drawer with Auto Renewal enabled", async () => {
@@ -6911,7 +6699,7 @@ test.describe("Contract Module", () => {
         // Enable Auto Renewal of Contract
         await contractModule.toggleAutoRenewal();
         // Assert the checkbox is now checked (Auto Renewal enabled)
-        await expect(contractModule.autoRenewalCheckbox).toBeChecked({ timeout: 5_000 });
+        await expect(contractModule.autoRenewalCheckbox).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
 
         await contractModule.submitCreateProposal();
         await contractModule.assertOnStepperPage();
@@ -6927,7 +6715,7 @@ test.describe("Contract Module", () => {
 
         // Verify we actually left Step 1
         const leftStep1 = await expect(contractModule.serviceNameInput)
-          .not.toBeVisible({ timeout: 8_000 })
+          .not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 })
           .then(() => true)
           .catch(() => false);
         if (!leftStep1) {
@@ -6940,13 +6728,13 @@ test.describe("Contract Module", () => {
         await contractModule.assertStep2Visible();
         await page.keyboard.press("Escape").catch(() => {});
         const step2SaveEnabled = await expect(contractModule.saveAndNextBtn)
-          .toBeEnabled({ timeout: 10_000 }).then(() => true).catch(() => false);
+          .toBeEnabled({ timeout: TIMEOUTS.BASE * 20 }).then(() => true).catch(() => false);
         if (step2SaveEnabled) {
           await contractModule.clickSaveAndNext();
         } else {
           console.log("[TC-208] Save & Next disabled on Step 2 — reloading page to reset state.");
           await page.reload({ waitUntil: "domcontentloaded" });
-          await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
+          await page.waitForLoadState("networkidle", { timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
           const onStep1 = await contractModule.serviceNameInput.isVisible().catch(() => false);
           if (onStep1) {
             await contractModule.fillStep1Services(SERVICE_DATA);
@@ -6959,7 +6747,7 @@ test.describe("Contract Module", () => {
         // Step 3 — advance past On Demand.
         await contractModule.assertStep3Visible();
         const step3SaveEnabled = await expect(contractModule.saveAndNextBtn)
-          .toBeEnabled({ timeout: 5_000 }).then(() => true).catch(() => false);
+          .toBeEnabled({ timeout: TIMEOUTS.BASE * 10 }).then(() => true).catch(() => false);
         if (step3SaveEnabled) {
           await contractModule.clickSaveAndNext();
         } else {
@@ -6969,7 +6757,7 @@ test.describe("Contract Module", () => {
 
         // Now on Step 4
         await contractModule.assertStep4Visible();
-        await expect(contractModule.annualRateIncreaseInput).toBeVisible({ timeout: 8_000 });
+        await expect(contractModule.annualRateIncreaseInput).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       });
 
       await test.step("TC-CONTRACT-208 | Fill all Payment Terms fields except Annual Rate Increase, then attempt Next", async () => {
@@ -6997,7 +6785,7 @@ test.describe("Contract Module", () => {
           "Expected navigation to Step 5 to be blocked when Annual Rate Increase is empty",
         ).toBeTruthy();
 
-        await expect(contractModule.descriptionPageHeading).not.toBeVisible({ timeout: 3_000 });
+        await expect(contractModule.descriptionPageHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 6 });
       });
     });
 

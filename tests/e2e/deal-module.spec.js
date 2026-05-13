@@ -15,6 +15,7 @@
 //   Property prefix: 'PAT' as requested — generated via propertyModule.generateUniquePropertyName()
 //   in the property suite. When running the full pipeline these will resolve automatically.
 
+const { TIMEOUTS } = require('../../utils/playwright-timeouts');
 const { test, expect } = require('@playwright/test');
 const { DealModule }   = require('../../pages/deal-module');
 const { PropertyModule } = require('../../pages/property-module');
@@ -155,7 +156,6 @@ test.describe('Deal Module', () => {
   }
 
   test.beforeAll(async ({ browser }) => {
-    test.setTimeout(180_000);
     context    = await browser.newContext();
     page       = await context.newPage();
     dealModule = new DealModule(page);
@@ -191,7 +191,6 @@ test.describe('Deal Module', () => {
      * Priority: P0 — Critical
      */
     test('TC-DEAL-001 | Verify that Create Deal modal opens successfully', async () => {
-      test.setTimeout(180_000);
       await dealModule.openCreateDealModal();
       await dealModule.assertCreateDealDrawerOpen();
     });
@@ -210,8 +209,6 @@ test.describe('Deal Module', () => {
      * Priority: P0 — Critical
      */
     test('TC-DEAL-002 | Verify that mandatory field validation works correctly', async () => {
-      test.setTimeout(180_000);
-
       await test.step('Open Create Deal drawer', async () => {
         await dealModule.openCreateDealModal();
         await dealModule.assertCreateDealDrawerOpen();
@@ -221,13 +218,13 @@ test.describe('Deal Module', () => {
         await dealModule.submitCreateDeal();
 
         // Drawer must remain open — not dismissed
-        await expect(dealModule.createDealHeading).toBeVisible({ timeout: 5_000 });
+        await expect(dealModule.createDealHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
 
         // All 4 mandatory-field validation messages must be visible
         await dealModule.assertMandatoryFieldValidationErrors();
 
         // No success toast — deal was NOT created
-        await expect(dealModule.successToast).not.toBeVisible({ timeout: 3_000 });
+        await expect(dealModule.successToast).not.toBeVisible({ timeout: TIMEOUTS.BASE * 6 });
       });
 
       await test.step('Clean up — close the drawer', async () => {
@@ -249,7 +246,6 @@ test.describe('Deal Module', () => {
      * Priority: P0 — Critical
      */
     test('TC-DEAL-003 | Verify that deal is created with valid inputs', async () => {
-      test.setTimeout(180_000);
       createdDealName = dealModule.generateUniqueDealName();
       await ensureValidDealDependencies();
 
@@ -275,10 +271,9 @@ test.describe('Deal Module', () => {
      * Priority: P0 — Critical
      */
     test('TC-DEAL-004 | Verify that newly created deal appears in listing', async () => {
-      test.setTimeout(180_000);
       const dealName = await ensureCreatedDealExists();
       await dealModule.searchDeal(dealName);
-      await expect(page.getByText(dealName, { exact: true }).first()).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByText(dealName, { exact: true }).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
       await dealModule.clearDealSearch();
     });
 
@@ -293,25 +288,23 @@ test.describe('Deal Module', () => {
      * Priority: P0 — Critical
      */
     test('TC-DEAL-005 | Verify that Company dropdown searches and shows matching results', async () => {
-      test.setTimeout(180_000);
       await dealModule.openCreateDealModal();
       await dealModule.assertCreateDealDrawerOpen();
 
       await dealModule.companySelector.click();
       const tooltip = page.locator('#simple-popper').last()
         .or(page.getByRole('tooltip').last());
-      await tooltip.waitFor({ state: 'visible', timeout: 10_000 });
+      await tooltip.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
 
       const searchBox = tooltip.getByRole('textbox', { name: 'Search' });
       await searchBox.fill(resolvedTargetCompanyName);
-      await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
-      await page.waitForTimeout(1_000);
+      await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
 
       const matchingResult = tooltip.getByText(resolvedTargetCompanyName, { exact: false }).first();
-      await expect(matchingResult).toBeVisible({ timeout: 10_000 });
+      await expect(matchingResult).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
 
       await page.keyboard.press('Escape');
-      await page.waitForTimeout(300);
+      await tooltip.waitFor({ state: 'hidden', timeout: TIMEOUTS.BASE * 6 }).catch(() => {});
     });
 
     /**
@@ -326,31 +319,30 @@ test.describe('Deal Module', () => {
      * Priority: P0 — Critical
      */
     test('TC-DEAL-006 | Verify that Property dropdown searches and shows matching results', async () => {
-      test.setTimeout(180_000);
       await dealModule.openCreateDealModal();
       await dealModule.assertCreateDealDrawerOpen();
       // Select company first — property dropdown requires a company to be selected
       await dealModule.selectCompany(resolvedTargetCompanyName.substring(0, 4), resolvedTargetCompanyName);
-      await page.waitForTimeout(2_000);
+      await expect(dealModule.propertySelector).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
 
-      await dealModule.propertySelector.click({ force: true });
+      await dealModule.propertySelector.click();
       const tooltip = page.locator('#simple-popper').last()
         .or(page.getByRole('tooltip').last());
-      await tooltip.waitFor({ state: 'visible', timeout: 10_000 });
+      await tooltip.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
 
       const searchBox = tooltip.getByRole('textbox', { name: 'Search' });
       // Search with a short prefix — the goal is to verify the dropdown
       // returns results, not that one specific property exists.
       const propertySearchPrefix = resolvedTargetPropertyName.substring(0, 6) || 'PAT';
       await searchBox.fill(propertySearchPrefix);
-      await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+      await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
 
       // Assert at least one result appears (any property matching the prefix)
       const anyResult = tooltip.locator('p, h6, [role="option"]').first();
-      await expect(anyResult).toBeVisible({ timeout: 10_000 });
+      await expect(anyResult).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
 
       await page.keyboard.press('Escape');
-      await page.waitForTimeout(300);
+      await tooltip.waitFor({ state: 'hidden', timeout: TIMEOUTS.BASE * 6 }).catch(() => {});
     });
 
     /**
@@ -364,7 +356,6 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-007 | Verify that Cancel Create Deal closes drawer without creating a record', async () => {
-      test.setTimeout(180_000);
       const cancelledDealName = `CANCELLED DEAL ${String(Date.now()).slice(-4)}`;
       await dealModule.openCreateDealModal();
       await dealModule.fillDealName(cancelledDealName);
@@ -384,23 +375,20 @@ test.describe('Deal Module', () => {
   test.describe('Deals Dashboard & Listing', () => {
 
     test('TC-DEAL-008 | Verify that Deals dashboard loads correctly', async () => {
-      test.setTimeout(180_000);
       await dealModule.assertDealsPageOpened();
     });
 
     test('TC-DEAL-009 | Verify that Deals charts render correct data', async () => {
-      test.setTimeout(180_000);
-
       await test.step('Check charts section headings', async () => {
-        await expect(dealModule.chartBreakdownHeading).toBeVisible({ timeout: 10_000 });
-        await expect(dealModule.chartTotalDealsHeading).toBeVisible({ timeout: 5_000 });
+        await expect(dealModule.chartBreakdownHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+        await expect(dealModule.chartTotalDealsHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         const totalDealsText = await dealModule.chartTotalDealsHeading.textContent();
         expect(totalDealsText).toMatch(/\d+/);
       });
 
       await test.step('Check Total Deal Amount and Deals Won vs Lost headings', async () => {
-        await expect(dealModule.chartTotalDealAmountHeading).toBeVisible({ timeout: 5_000 });
-        await expect(dealModule.chartWonVsLostHeading).toBeVisible({ timeout: 5_000 });
+        await expect(dealModule.chartTotalDealAmountHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(dealModule.chartWonVsLostHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step('Verify chart images are rendered', async () => {
@@ -413,11 +401,9 @@ test.describe('Deal Module', () => {
     });
 
     test('TC-DEAL-010 | Verify that total deal amount displays correctly', async () => {
-      test.setTimeout(180_000);
-
       await test.step('Verify Total Deal Amount section', async () => {
-        await expect(dealModule.chartTotalDealAmountHeading).toBeVisible({ timeout: 5_000 });
-        await expect(dealModule.chartTotalDealAmountValue).toBeVisible({ timeout: 5_000 });
+        await expect(dealModule.chartTotalDealAmountHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(dealModule.chartTotalDealAmountValue).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step('Verify value matches dollar pattern', async () => {
@@ -428,23 +414,20 @@ test.describe('Deal Module', () => {
     });
 
     test('TC-DEAL-011 | Verify that search by Deal Name works correctly', async () => {
-      test.setTimeout(180_000);
+      await test.step('Search known deal name', async () => {
+        const dealName = await ensureCreatedDealExists();
 
-      await test.step('Read first deal name and search', async () => {
-        // Wait for table data to load before reading cell text — avoids
-        // race condition where pagination still shows "0–0 of 0"
+        // Wait for table data to load before capturing the initial total —
+        // avoids a race where pagination still shows "0–0 of 0".
         await dealModule.waitForTableData();
-
-        // Column index 1 = Deal Name (index 0 = checkbox column)
-        const firstDealName = await dealModule.getFirstRowCellText(1);
-        expect(firstDealName.length).toBeGreaterThan(0);
+        expect(dealName.length).toBeGreaterThan(0);
 
         const initialTotal = await dealModule.getPaginationTotal();
-        await dealModule.searchDeal(firstDealName);
+        await dealModule.searchDeal(dealName);
 
         await expect(
-          page.locator('table tbody tr').filter({ hasText: firstDealName }).first(),
-        ).toBeVisible({ timeout: 10_000 });
+          page.locator('table tbody tr').filter({ hasText: dealName }).first(),
+        ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
 
         const filteredTotal = await dealModule.getPaginationTotal();
         expect(filteredTotal).toBeLessThanOrEqual(initialTotal);
@@ -457,8 +440,6 @@ test.describe('Deal Module', () => {
     });
 
     test('TC-DEAL-012 | Verify that All Deals filter shows all records', async () => {
-      test.setTimeout(180_000);
-
       let initialTotal;
 
       await test.step('Record initial pagination and switch to Assigned', async () => {
@@ -475,14 +456,12 @@ test.describe('Deal Module', () => {
         // Poll until the full "All Deals" count loads — the table may still
         // show the Assigned filter's stale count immediately after switching.
         await expect
-          .poll(async () => dealModule.getPaginationTotal(), { timeout: 15_000 })
+          .poll(async () => dealModule.getPaginationTotal(), { timeout: TIMEOUTS.BASE * 30 })
           .toBeGreaterThanOrEqual(initialTotal);
       });
     });
 
     test('TC-DEAL-013 | Verify that Assigned filter shows assigned deals only', async () => {
-      test.setTimeout(180_000);
-
       let initialTotal;
 
       await test.step('Record initial total and apply Assigned filter', async () => {
@@ -500,15 +479,15 @@ test.describe('Deal Module', () => {
       await test.step('Verify Deal Owner column is not empty for visible rows', async () => {
         // Wait for table rows to be populated after filter
         const firstRow = page.locator('table tbody tr').first();
-        await firstRow.waitFor({ state: 'visible', timeout: 10_000 });
+        await firstRow.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
         // Deal Owner is in the 4th column (index 3) — cell contains img + text span
         const ownerCell = firstRow.locator('td').nth(3);
-        await expect(ownerCell).toBeVisible({ timeout: 5_000 });
+        await expect(ownerCell).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         // Use innerText which waits for rendered text, and check for any content
         await expect
           .poll(
             async () => (await ownerCell.innerText().catch(() => "")).trim().length,
-            { timeout: 10_000 },
+            { timeout: TIMEOUTS.BASE * 20 },
           )
           .toBeGreaterThan(0);
       });
@@ -519,8 +498,6 @@ test.describe('Deal Module', () => {
     });
 
     test('TC-DEAL-014 | Verify that Unassigned filter shows unassigned deals only', async () => {
-      test.setTimeout(180_000);
-
       let initialTotal;
 
       await test.step('Record initial total and apply Unassigned filter', async () => {
@@ -549,14 +526,12 @@ test.describe('Deal Module', () => {
       // Hypothesis: MUI filter drawer dropdowns in headless mode may use a different popper instance
       //   or React synthetic event handlers are not triggered by Playwright clicks on h6 headings.
       // Recommendation: HEADLESS=false npx playwright test tests/e2e/deal-module.spec.js --debug --grep "TC-DEAL-015"
-      test.setTimeout(180_000);
-
       let initialTotal;
 
       await test.step('Record pagination and open More Filters', async () => {
         initialTotal = await dealModule.getPaginationTotal();
         await dealModule.openMoreFilters();
-        await expect(dealModule.allFiltersHeading).toBeVisible({ timeout: 5_000 });
+        await expect(dealModule.allFiltersHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step('Select Deal Type "New" and Stages "Proposal Creation"', async () => {
@@ -572,14 +547,12 @@ test.describe('Deal Module', () => {
 
       await test.step('Reopen filters to verify persistence', async () => {
         await dealModule.openMoreFilters();
-        await expect(dealModule.allFiltersHeading).toBeVisible({ timeout: 5_000 });
-        await expect(dealModule.clearAllFiltersBtn).toBeEnabled({ timeout: 5_000 });
+        await expect(dealModule.allFiltersHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(dealModule.clearAllFiltersBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
       });
     });
 
     test('TC-DEAL-016 | Verify that Clear All resets applied filters', async () => {
-      test.setTimeout(180_000);
-
       let initialTotal;
 
       await test.step('Record initial total and apply a filter first', async () => {
@@ -594,14 +567,14 @@ test.describe('Deal Module', () => {
 
       await test.step('Open filters, click Clear All, then Apply', async () => {
         await dealModule.openMoreFilters();
-        await expect(dealModule.clearAllFiltersBtn).toBeEnabled({ timeout: 5_000 });
+        await expect(dealModule.clearAllFiltersBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
         await dealModule.clearAllFilters();
         // Wait briefly for Apply button to become enabled after Clear All
         await dealModule.applyFiltersBtn
-          .waitFor({ state: "visible", timeout: 5_000 })
+          .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 10 })
           .catch(() => {});
         const applyEnabled = await dealModule.applyFiltersBtn
-          .isEnabled({ timeout: 3_000 })
+          .isEnabled({ timeout: TIMEOUTS.BASE * 6 })
           .catch(() => false);
         if (applyEnabled) {
           await dealModule.applyFilters();
@@ -609,7 +582,7 @@ test.describe('Deal Module', () => {
           // Apply disabled — close drawer and navigate fresh to reset filters
           await dealModule.cancelFiltersBtn.click();
           await dealModule.allFiltersHeading
-            .waitFor({ state: "hidden", timeout: 10_000 })
+            .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 20 })
             .catch(() => {});
           await dealModule.gotoDealsFromMenu();
         }
@@ -623,13 +596,10 @@ test.describe('Deal Module', () => {
     });
 
     test('TC-DEAL-017 | Verify that deal listing columns show correct values', async () => {
-      test.setTimeout(180_000);
       await dealModule.assertDealsTableHasColumns();
     });
 
     test('TC-DEAL-018 | Verify that sorting works on Deal Name', async () => {
-      test.setTimeout(180_000);
-
       let initialName;
 
       await test.step('Read first row and sort ascending', async () => {
@@ -654,8 +624,6 @@ test.describe('Deal Module', () => {
     });
 
     test('TC-DEAL-019 | Verify that sorting works on deal listing grid', async () => {
-      test.setTimeout(180_000);
-
       const sortableColumns = [
         { name: 'Deal Name', btn: dealModule.sortDealNameBtn },
         { name: 'Amount', btn: dealModule.sortAmountBtn },
@@ -669,7 +637,7 @@ test.describe('Deal Module', () => {
 
       for (const col of sortableColumns) {
         await test.step(`Sort by ${col.name}`, async () => {
-          await expect(col.btn).toBeVisible({ timeout: 5_000 });
+          await expect(col.btn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
           await dealModule.clickColumnSort(col.btn);
           await dealModule.assertPaginationVisible();
         });
@@ -677,37 +645,33 @@ test.describe('Deal Module', () => {
     });
 
     test('TC-DEAL-020 | Verify that pagination works correctly', async () => {
-      test.setTimeout(180_000);
       await dealModule.assertPaginationVisible();
     });
 
     test('TC-DEAL-021 | Verify that bulk assignment works correctly', async () => {
-      test.setTimeout(180_000);
-
       await test.step('Verify Bulk Assignment button is initially disabled', async () => {
-        await expect(dealModule.bulkAssignmentBtn).toBeVisible({ timeout: 5_000 });
-        await expect(dealModule.bulkAssignmentBtn).toBeDisabled({ timeout: 5_000 });
+        await expect(dealModule.bulkAssignmentBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(dealModule.bulkAssignmentBtn).toBeDisabled({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step('Check first row and verify button enabled', async () => {
         await dealModule.clickRowCheckbox(0);
-        await expect(dealModule.bulkAssignmentBtn).toBeEnabled({ timeout: 5_000 });
+        await expect(dealModule.bulkAssignmentBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step('Check second row and verify still enabled', async () => {
         await dealModule.clickRowCheckbox(1);
-        await expect(dealModule.bulkAssignmentBtn).toBeEnabled({ timeout: 5_000 });
+        await expect(dealModule.bulkAssignmentBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step('Uncheck both rows and verify button disabled again', async () => {
         await dealModule.clickRowCheckbox(1);
         await dealModule.clickRowCheckbox(0);
-        await expect(dealModule.bulkAssignmentBtn).toBeDisabled({ timeout: 5_000 });
+        await expect(dealModule.bulkAssignmentBtn).toBeDisabled({ timeout: TIMEOUTS.BASE * 10 });
       });
     });
 
     test('TC-DEAL-022 | Verify that searching with a non-existent deal name returns no results', async () => {
-      test.setTimeout(180_000);
       await dealModule.searchDeal('zzz_no_match_deal_xyz_99999');
       await dealModule.assertSearchShowsNoResults();
       await dealModule.clearDealSearch();
@@ -734,7 +698,6 @@ test.describe('Deal Module', () => {
      * Priority: P0 — Critical
      */
     test('TC-DEAL-023 | Verify that Deal Details page opens correctly', async () => {
-      test.setTimeout(180_000);
       await ensureCreatedDealExists();
       await dealModule.openDealDetail(createdDealName);
       await dealModule.assertDealDetailOpened(createdDealName);
@@ -756,7 +719,6 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-024 | Verify that deal overview data is accurate', async () => {
-      test.setTimeout(180_000);
       await ensureCreatedDealExists();
       await dealModule.openDealDetail(createdDealName);
       await dealModule.assertDealDetailOpened(createdDealName);
@@ -783,8 +745,6 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-025 | Verify that stage update persists after refresh', async () => {
-      test.setTimeout(180_000);
-
       // Create a throwaway deal so we don't advance the shared deal's stage
       await ensureValidDealDependencies();
       const throwawayDealName = `STG ${String(Date.now()).slice(-4)}`;
@@ -799,17 +759,17 @@ test.describe('Deal Module', () => {
       await test.step('Open throwaway deal and advance stage', async () => {
         await dealModule.openDealDetail(throwawayDealName);
         await dealModule.assertDealDetailOpened(throwawayDealName);
-        await expect(dealModule.markStageCompletedBtn).toBeVisible({ timeout: 10_000 });
+        await expect(dealModule.markStageCompletedBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
         await dealModule.markStageCompletedBtn.click();
         // Wait for the stage advancement to persist
-        await expect(dealModule.negotiationStage).toBeVisible({ timeout: 10_000 });
+        await expect(dealModule.negotiationStage).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
       });
 
       await test.step('Refresh page and verify stage persists', async () => {
         await page.reload({ waitUntil: 'domcontentloaded' });
         await dealModule.assertDealDetailOpened(throwawayDealName);
         // After refresh, Negotiation stage should still be visible as current/completed
-        await expect(dealModule.negotiationStage).toBeVisible({ timeout: 10_000 });
+        await expect(dealModule.negotiationStage).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
       });
     });
 
@@ -828,13 +788,12 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-026 | Verify that proposal creation starts successfully', async () => {
-      test.setTimeout(180_000);
       await ensureCreatedDealExists();
       await dealModule.openDealDetail(createdDealName);
       await dealModule.assertDealDetailOpened(createdDealName);
 
       await test.step('Verify Contract & Terms tab is selected', async () => {
-        await expect(dealModule.contractTermsTab).toHaveAttribute('aria-selected', 'true', { timeout: 5_000 });
+        await expect(dealModule.contractTermsTab).toHaveAttribute('aria-selected', 'true', { timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step('Verify Create Proposal section', async () => {
@@ -857,7 +816,6 @@ test.describe('Deal Module', () => {
      * Priority: P0 — Critical
      */
     test('TC-DEAL-027 | Verify that deal can be edited successfully', async () => {
-      test.setTimeout(180_000);
       const editedDealName = dealModule.generateUniqueEditedDealName();
 
       await ensureCreatedDealExists();
@@ -870,7 +828,7 @@ test.describe('Deal Module', () => {
       // Verify updated name is reflected on the detail page heading
       await expect(
         page.getByRole('heading', { name: new RegExp(editedDealName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }).first()
-      ).toBeVisible({ timeout: 15_000 });
+      ).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
 
       // Carry edited name forward for subsequent tests
       createdDealName = editedDealName;
@@ -886,7 +844,6 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-031 | Verify that Deal detail page shows all sidebar sections', async () => {
-      test.setTimeout(180_000);
       await ensureCreatedDealExists();
       await dealModule.openDealDetail(createdDealName);
       await dealModule.assertDealDetailOpened(createdDealName);
@@ -903,7 +860,6 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-032 | Verify that Deal detail page shows the stages bar and all overview tabs', async () => {
-      test.setTimeout(180_000);
       await ensureCreatedDealExists();
       await dealModule.openDealDetail(createdDealName);
       await dealModule.assertDealDetailOpened(createdDealName);
@@ -927,7 +883,6 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-033 | Verify that Edit Deal form opens pre-filled and Save remains disabled without changes', async () => {
-      test.setTimeout(180_000);
       await ensureCreatedDealExists();
       await dealModule.openDealDetail(createdDealName);
       await dealModule.assertDealDetailOpened(createdDealName);
@@ -942,7 +897,7 @@ test.describe('Deal Module', () => {
       // Verify the name field is pre-filled with current deal name
       await expect(dealModule.editDealNameInput).toHaveValue(
         new RegExp(createdDealName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'),
-        { timeout: 5_000 }
+        { timeout: TIMEOUTS.BASE * 10 }
       );
 
       await dealModule.cancelEditDealForm();
@@ -964,7 +919,6 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-034 | Verify that Cancel Edit Deal closes drawer without saving changes', async () => {
-      test.setTimeout(180_000);
       const cancelledName = `SHOULD NOT SAVE ${String(Date.now()).slice(-4)}`;
 
       await ensureCreatedDealExists();
@@ -980,10 +934,10 @@ test.describe('Deal Module', () => {
       // Original deal name heading must still be visible — not the cancelled name
       await expect(
         page.getByRole('heading', { name: new RegExp(createdDealName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }).first()
-      ).toBeVisible({ timeout: 10_000 });
+      ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
       await expect(
         page.getByText(cancelledName, { exact: true }).first()
-      ).not.toBeVisible({ timeout: 5_000 });
+      ).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     });
 
     /**
@@ -1005,7 +959,6 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-028 | Verify that closing deal as Won updates status', async () => {
-      test.setTimeout(180_000);
       await ensureCreatedDealExists();
       await dealModule.openDealDetail(createdDealName);
       await dealModule.assertDealDetailOpened(createdDealName);
@@ -1017,9 +970,9 @@ test.describe('Deal Module', () => {
 
       await test.step('Select Closed Won and verify radio state', async () => {
         await dealModule.closedWonRadio.click();
-        await expect(dealModule.closedWonRadio).toBeChecked({ timeout: 5_000 });
+        await expect(dealModule.closedWonRadio).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
         // Save button should be disabled until HubSpot stage is selected
-        await expect(dealModule.closeDealSaveBtn).toBeDisabled({ timeout: 5_000 });
+        await expect(dealModule.closeDealSaveBtn).toBeDisabled({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step('Cancel to preserve deal state', async () => {
@@ -1045,7 +998,6 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-029 | Verify that closing deal as Lost updates status', async () => {
-      test.setTimeout(180_000);
       await ensureCreatedDealExists();
       await dealModule.openDealDetail(createdDealName);
       await dealModule.assertDealDetailOpened(createdDealName);
@@ -1057,9 +1009,9 @@ test.describe('Deal Module', () => {
 
       await test.step('Select Closed Lost and verify radio state', async () => {
         await dealModule.closedLostRadio.click();
-        await expect(dealModule.closedLostRadio).toBeChecked({ timeout: 5_000 });
+        await expect(dealModule.closedLostRadio).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
         // Save button should be disabled until HubSpot stage is selected
-        await expect(dealModule.closeDealSaveBtn).toBeDisabled({ timeout: 5_000 });
+        await expect(dealModule.closeDealSaveBtn).toBeDisabled({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step('Cancel to preserve deal state', async () => {
@@ -1083,15 +1035,14 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-030 | Verify that closed deals are handled correctly', async () => {
-      test.setTimeout(180_000);
       await ensureCreatedDealExists();
       await dealModule.openDealDetail(createdDealName);
       await dealModule.assertDealDetailOpened(createdDealName);
 
       await test.step('Open Close Deal drawer and verify Save is disabled', async () => {
         await dealModule.openCloseDealDrawer();
-        await expect(dealModule.closeDealSaveBtn).toBeDisabled({ timeout: 5_000 });
-        await expect(dealModule.hubspotStageHeading).toBeVisible({ timeout: 5_000 });
+        await expect(dealModule.closeDealSaveBtn).toBeDisabled({ timeout: TIMEOUTS.BASE * 10 });
+        await expect(dealModule.hubspotStageHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step('Cancel', async () => {
@@ -1122,7 +1073,6 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-037 | Verify that activities logs load for different record types', async () => {
-      test.setTimeout(180_000);
       await ensureCreatedDealExists();
       await dealModule.openDealDetail(createdDealName);
       await dealModule.assertDealDetailOpened(createdDealName);
@@ -1149,7 +1099,6 @@ test.describe('Deal Module', () => {
      * Priority: P2 — Medium
      */
     test('TC-DEAL-038 | Verify that note log title uses creator username', async () => {
-      test.setTimeout(180_000);
       await ensureCreatedDealExists();
       await dealModule.openDealDetail(createdDealName);
       await dealModule.assertDealDetailOpened(createdDealName);
@@ -1164,7 +1113,6 @@ test.describe('Deal Module', () => {
      * Priority: P3 — Low
      */
     test('TC-DEAL-039 | Verify that note HTML formatting: bullets/links', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
       const subject = `HTML Note ${ts()}`;
@@ -1194,7 +1142,7 @@ test.describe('Deal Module', () => {
         await dealModule.assertActivitiesTabActive();
         // Verify the note entry is visible in the activity log with content
         const activityEntry = page.getByText(bulletText, { exact: false }).first();
-        await expect(activityEntry).toBeVisible({ timeout: 15_000 });
+        await expect(activityEntry).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
       });
     });
 
@@ -1209,7 +1157,6 @@ test.describe('Deal Module', () => {
      * Priority: P2 — Medium
      */
     test('TC-DEAL-040 | Verify that note long text truncation + See more/less', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
       const subject = `Long Note ${ts()}`;
@@ -1235,7 +1182,6 @@ test.describe('Deal Module', () => {
      * Priority: P2 — Medium
      */
     test('TC-DEAL-041 | Verify that note update reflects new content + user + timestamp', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
       const subject = `Update Log Note ${ts()}`;
@@ -1257,7 +1203,7 @@ test.describe('Deal Module', () => {
         await dealModule.assertActivityLogHasAuthor();
         // Verify a recent date header is visible (confirms fresh activity)
         const dateHeader = page.getByText(/\w+,\s+\d{4}/).first();
-        await expect(dateHeader).toBeVisible({ timeout: 10_000 });
+        await expect(dateHeader).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
       });
     });
 
@@ -1272,7 +1218,6 @@ test.describe('Deal Module', () => {
      * Priority: P2 — Medium
      */
     test('TC-DEAL-042 | Verify that task log title uses creator username', async () => {
-      test.setTimeout(180_000);
       await ensureCreatedDealExists();
       await dealModule.openDealDetail(createdDealName);
       await dealModule.assertDealDetailOpened(createdDealName);
@@ -1294,7 +1239,6 @@ test.describe('Deal Module', () => {
      * Priority: P2 — Medium
      */
     test('TC-DEAL-043 | Verify that task fields render: title/type/priority/description', async () => {
-      test.setTimeout(180_000);
       await ensureCreatedDealExists();
       await dealModule.openDealDetail(createdDealName);
       await dealModule.assertDealDetailOpened(createdDealName);
@@ -1303,11 +1247,11 @@ test.describe('Deal Module', () => {
 
       // Verify at least one activity entry has a title paragraph and a description
       const activityTitle = page.locator('p').filter({ hasText: /by \w+/ }).first();
-      await expect(activityTitle).toBeVisible({ timeout: 10_000 });
+      await expect(activityTitle).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
       // The sibling paragraph contains the description text
       const activityContainer = activityTitle.locator('..').locator('..');
       const descriptionText = activityContainer.locator('p').last();
-      await expect(descriptionText).toBeVisible({ timeout: 5_000 });
+      await expect(descriptionText).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     });
 
     /**
@@ -1348,10 +1292,9 @@ test.describe('Deal Module', () => {
      * Priority: P2 — Medium
      */
     test('TC-DEAL-046 | Verify that task long description truncation + toggle', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
-      const title = `Long Task ${ts()}`;
+      const title = `Long ${ts()} Task`;
       // Generate text long enough to trigger truncation (> 200 chars)
       const longDescription = 'This is a long task description that should trigger the See more toggle. '.repeat(5);
 
@@ -1374,10 +1317,9 @@ test.describe('Deal Module', () => {
      * Priority: P2 — Medium
      */
     test('TC-DEAL-047 | Verify that task update reflects new content + updater + timestamp', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
-      const title = `Update Log Task ${ts()}`;
+      const title = `Update ${ts()} Log Task`;
       const updatedTitle = `${title} UPDATED`;
 
       await test.step('Create and edit a task', async () => {
@@ -1400,7 +1342,7 @@ test.describe('Deal Module', () => {
         await dealModule.assertActivitiesTabActive();
         await dealModule.assertActivityLogHasAuthor();
         const dateHeader = page.getByText(/\w+,\s+\d{4}/).first();
-        await expect(dateHeader).toBeVisible({ timeout: 10_000 });
+        await expect(dateHeader).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
       });
     });
 
@@ -1415,14 +1357,13 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-050 | Verify that Activities tab loads with at least one dated entry', async () => {
-      test.setTimeout(180_000);
       await ensureCreatedDealExists();
       await dealModule.openDealDetail(createdDealName);
       await dealModule.assertDealDetailOpened(createdDealName);
       await dealModule.gotoActivitiesTab();
       await dealModule.assertActivitiesTabActive();
       const dateHeader = page.getByText(/\w+,\s+\d{4}/).first();
-      await dateHeader.waitFor({ state: 'visible', timeout: 15_000 });
+      await dateHeader.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
     });
 
   });
@@ -1446,7 +1387,6 @@ test.describe('Deal Module', () => {
      * Priority: P0 — Critical
      */
     test('TC-DEAL-051 | Verify that Subject field is mandatory while creating a note', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
       await ntPage.clickNotesTab();
@@ -1472,7 +1412,6 @@ test.describe('Deal Module', () => {
      * Priority: P0 — Critical
      */
     test('TC-DEAL-052 | Verify that system shows validation error when Subject is empty', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
       await ntPage.clickNotesTab();
@@ -1499,7 +1438,6 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-053 | Verify that system shows validation error when Description is empty', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
       await ntPage.clickNotesTab();
@@ -1533,7 +1471,6 @@ test.describe('Deal Module', () => {
      * Priority: P0 — Critical
      */
     test('TC-DEAL-054 | Verify that note count updates after adding a note', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
       const subject = `Auto Note Deal ${ts()}`;
@@ -1562,7 +1499,6 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-055 | Verify that edited note shows updated content in listing', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
       const subject = `Edit Note Deal ${ts()}`;
@@ -1588,7 +1524,6 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-056 | Verify that delete confirmation modal appears before deleting note', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
       const subject = `Delete Note Deal ${ts()}`;
@@ -1613,7 +1548,6 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-057 | Verify that note is not deleted when cancel is clicked on confirmation modal', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
       const subject = `Stay Note Deal ${ts()}`;
@@ -1638,7 +1572,6 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-058 | Verify that empty state is shown again after deleting last note', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
       const subject = `Deletable Note Deal ${ts()}`;
@@ -1665,7 +1598,6 @@ test.describe('Deal Module', () => {
      * Priority: P0 — Critical
      */
     test('TC-DEAL-059 | Verify that user cannot save note when required fields are missing', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
       await ntPage.clickNotesTab();
@@ -1692,7 +1624,6 @@ test.describe('Deal Module', () => {
      * Priority: P0 — Critical
      */
     test('TC-DEAL-060 | Verify that Notes tab is visible and Create New Note drawer opens with correct fields', async () => {
-      test.setTimeout(180_000);
       await ensureCreatedDealExists();
       await dealModule.openDealDetail(createdDealName);
       await dealModule.assertDealDetailOpened(createdDealName);
@@ -1726,7 +1657,6 @@ test.describe('Deal Module', () => {
      * Priority: P0 — Critical
      */
     test('TC-DEAL-061 | Verify that Task Title field is mandatory while creating a task', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
       await ntPage.clickTasksTab();
@@ -1755,7 +1685,6 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-062 | Verify that Task Description field is mandatory while creating a task', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
       await ntPage.clickTasksTab();
@@ -1788,7 +1717,6 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-063 | Verify that Type dropdown shows options: To-do, Email, Call, LinkedIn', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
       await ntPage.clickTasksTab();
@@ -1814,7 +1742,6 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-064 | Verify that Priority dropdown shows options: High, Medium, Low', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
       await ntPage.clickTasksTab();
@@ -1840,7 +1767,6 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-065 | Verify that Due Date field is mandatory while creating a task', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
       await ntPage.clickTasksTab();
@@ -1868,7 +1794,6 @@ test.describe('Deal Module', () => {
      * Priority: P0 — Critical
      */
     test('TC-DEAL-066 | Verify that system shows validation error when required fields are missing', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
       await ntPage.clickTasksTab();
@@ -1889,10 +1814,9 @@ test.describe('Deal Module', () => {
      * Priority: P2 — Medium
      */
     test('TC-DEAL-067 | Verify that user can filter tasks by Type', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
-      const title = `Type Filter Task ${ts()}`;
+      const title = `Type ${ts()} Filter Task`;
 
       await test.step('Create a task with type "Email"', async () => {
         await ntPage.clickTasksTab();
@@ -1915,7 +1839,7 @@ test.describe('Deal Module', () => {
         await ntPage.typeFilterTrigger.click();
         const popper = page.locator('#simple-popper').or(page.getByRole('tooltip'));
         const allOption = popper.getByText('All', { exact: true });
-        const allVisible = await allOption.isVisible({ timeout: 3_000 }).catch(() => false);
+        const allVisible = await allOption.isVisible({ timeout: TIMEOUTS.BASE * 6 }).catch(() => false);
         if (allVisible) {
           await allOption.click();
         } else {
@@ -1930,10 +1854,9 @@ test.describe('Deal Module', () => {
      * Priority: P2 — Medium
      */
     test('TC-DEAL-068 | Verify that user can filter tasks by Priority', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
-      const title = `Priority Filter Task ${ts()}`;
+      const title = `Priority ${ts()} Filter Task`;
 
       await test.step('Create a task with priority "High"', async () => {
         await ntPage.clickTasksTab();
@@ -1955,7 +1878,7 @@ test.describe('Deal Module', () => {
         await ntPage.priorityFilterTrigger.click();
         const popper = page.locator('#simple-popper').or(page.getByRole('tooltip'));
         const allOption = popper.getByText('All', { exact: true });
-        const allVisible = await allOption.isVisible({ timeout: 3_000 }).catch(() => false);
+        const allVisible = await allOption.isVisible({ timeout: TIMEOUTS.BASE * 6 }).catch(() => false);
         if (allVisible) {
           await allOption.click();
         } else {
@@ -1970,30 +1893,29 @@ test.describe('Deal Module', () => {
      * Priority: P2 — Medium
      */
     test('TC-DEAL-069 | Verify that user can filter tasks by Status', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
       await test.step('Open Tasks tab and verify status filter is visible', async () => {
         await ntPage.clickTasksTab();
-        await expect(ntPage.statusFilterTrigger).toBeVisible({ timeout: 10_000 });
+        await expect(ntPage.statusFilterTrigger).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
       });
 
       await test.step('Filter by Status "To Do" and verify results', async () => {
         await ntPage.selectTaskFilterOption(ntPage.statusFilterTrigger, 'To-do');
         // Table should still render (may have 0 or more rows)
-        await expect(ntPage.taskTable).toBeVisible({ timeout: 10_000 });
+        await expect(ntPage.taskTable).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
       });
 
       await test.step('Switch to "Completed" status filter', async () => {
         await ntPage.selectTaskFilterOption(ntPage.statusFilterTrigger, 'Completed');
-        await expect(ntPage.taskTable).toBeVisible({ timeout: 10_000 });
+        await expect(ntPage.taskTable).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
       });
 
       await test.step('Reset filter', async () => {
         await ntPage.statusFilterTrigger.click();
         const popper = page.locator('#simple-popper').or(page.getByRole('tooltip'));
         const allOption = popper.getByText('All', { exact: true });
-        const allVisible = await allOption.isVisible({ timeout: 3_000 }).catch(() => false);
+        const allVisible = await allOption.isVisible({ timeout: TIMEOUTS.BASE * 6 }).catch(() => false);
         if (allVisible) {
           await allOption.click();
         } else {
@@ -2008,19 +1930,18 @@ test.describe('Deal Module', () => {
      * Priority: P2 — Medium
      */
     test('TC-DEAL-070 | Verify that user can filter tasks by Due Date range', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
       await test.step('Open Tasks tab and verify date range picker is visible', async () => {
         await ntPage.clickTasksTab();
-        await expect(ntPage.dueDateRangeInput).toBeVisible({ timeout: 10_000 });
-        await expect(ntPage.dueDatePickerBtn).toBeVisible({ timeout: 5_000 });
+        await expect(ntPage.dueDateRangeInput).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+        await expect(ntPage.dueDatePickerBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step('Open date picker and select a date range', async () => {
         await ntPage.dueDatePickerBtn.click();
         const calendar = page.getByRole('dialog');
-        await expect(calendar).toBeVisible({ timeout: 5_000 });
+        await expect(calendar).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
 
         // Select 1st of current month as start date
         const firstDay = calendar.getByRole('gridcell', { name: '1' }).first();
@@ -2031,7 +1952,7 @@ test.describe('Deal Module', () => {
         await lastDay.click();
 
         // Calendar should close after selecting the range
-        await calendar.waitFor({ state: 'hidden', timeout: 5_000 }).catch(() => {});
+        await calendar.waitFor({ state: 'hidden', timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
       });
 
       await test.step('Verify date range is applied and table renders', async () => {
@@ -2040,7 +1961,7 @@ test.describe('Deal Module', () => {
         expect(inputValue).toMatch(/\d{2}\/\d{2}\/\d{4}/);
 
         // Table should still be visible (may have 0 or more filtered rows)
-        await expect(ntPage.taskTable).toBeVisible({ timeout: 10_000 });
+        await expect(ntPage.taskTable).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
       });
     });
 
@@ -2055,10 +1976,9 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-071 | Verify that user can search tasks using Search by Title', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
-      const title = `Searchable Task Deal ${ts()}`;
+      const title = `Searchable ${ts()} Task Deal`;
 
       await ntPage.clickTasksTab();
       await ntPage.createTask({
@@ -2085,10 +2005,9 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-072 | Verify that user can edit an existing task', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
-      const title = `Update Task Deal ${ts()}`;
+      const title = `Update ${ts()} Task Deal`;
       const updatedTitle = `${title} UPDATED`;
 
       await ntPage.clickTasksTab();
@@ -2118,10 +2037,9 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-073 | Verify that edited task details are updated in listing', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
-      const title = `Verify Edit Task Deal ${ts()}`;
+      const title = `Verify ${ts()} Edit Task Deal`;
       const updatedTitle = `${title} VERIFIED`;
 
       await ntPage.clickTasksTab();
@@ -2152,10 +2070,9 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-074 | Verify that user can delete a task after confirmation', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
-      const title = `Deletable Task Deal ${ts()}`;
+      const title = `Deletable ${ts()} Task Deal`;
 
       await ntPage.clickTasksTab();
       await ntPage.createTask({
@@ -2170,7 +2087,7 @@ test.describe('Deal Module', () => {
       await ntPage.searchTask(title);
 
       await expect
-        .poll(() => ntPage.getTaskRowCount(), { timeout: 10_000 })
+        .poll(() => ntPage.getTaskRowCount(), { timeout: TIMEOUTS.BASE * 20 })
         .toBe(0);
     });
 
@@ -2186,10 +2103,9 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-075 | Verify that task is not deleted when delete action is cancelled', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
-      const title = `Stay Task Deal ${ts()}`;
+      const title = `Stay ${ts()} Task Deal`;
 
       await ntPage.clickTasksTab();
       await ntPage.createTask({
@@ -2203,7 +2119,7 @@ test.describe('Deal Module', () => {
       await ntPage.cancelDeleteTask();
 
       await expect
-        .poll(() => ntPage.getTaskRowCount(), { timeout: 10_000 })
+        .poll(() => ntPage.getTaskRowCount(), { timeout: TIMEOUTS.BASE * 20 })
         .toBeGreaterThan(0);
       await expect(ntPage.deleteTaskDialog).toBeHidden();
     });
@@ -2220,10 +2136,9 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-076 | Verify that completed task is shown under Completed status filter', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
-      const title = `Complete Task Deal ${ts()}`;
+      const title = `Complete ${ts()} Task Deal`;
 
       await ntPage.clickTasksTab();
       await ntPage.createTask({
@@ -2234,10 +2149,13 @@ test.describe('Deal Module', () => {
       });
       await ntPage.searchTask(title);
 
-      const checkbox = ntPage.taskTable.locator('tbody tr').first().getByRole('checkbox');
-      await expect(checkbox).not.toBeChecked();
-      await ntPage.toggleTaskComplete(title);
-      await expect(checkbox).toBeChecked();
+      await expect.poll(() => ntPage.isTaskChecked(title), {
+        timeout: TIMEOUTS.BASE * 20,
+      }).toBe(false);
+      await ntPage.setTaskComplete(title, true);
+      await expect.poll(() => ntPage.isTaskChecked(title), {
+        timeout: TIMEOUTS.BASE * 20,
+      }).toBe(true);
     });
 
     /**
@@ -2252,25 +2170,27 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-077 | Verify that unchecking completed checkbox marks task as To-Do again', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
-      const title = `Unmark Task Deal ${ts()}`;
+      const title = `Complete ${ts()} Toggle Deal`;
 
       await ntPage.clickTasksTab();
       await ntPage.createTask({
         title,
-        description: 'Will be marked then unmarked.',
-        type: 'Call',
-        priority: 'Medium',
+        description: 'Will be marked complete.',
+        type: 'To-do',
+        priority: 'High',
       });
       await ntPage.searchTask(title);
 
-      const checkbox = ntPage.taskTable.locator('tbody tr').first().getByRole('checkbox');
-      await ntPage.toggleTaskComplete(title);
-      await expect(checkbox).toBeChecked();
-      await ntPage.toggleTaskComplete(title);
-      await expect(checkbox).not.toBeChecked();
+      await ntPage.setTaskComplete(title, true);
+      await expect.poll(() => ntPage.isTaskChecked(title), {
+        timeout: TIMEOUTS.BASE * 20,
+      }).toBe(true);
+      await ntPage.setTaskComplete(title, false);
+      await expect.poll(() => ntPage.isTaskChecked(title), {
+        timeout: TIMEOUTS.BASE * 20,
+      }).toBe(false);
     });
 
     /**
@@ -2279,7 +2199,6 @@ test.describe('Deal Module', () => {
      * Priority: P2 — Medium
      */
     test('TC-DEAL-078 | Verify that pagination works correctly in task listing', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
       await test.step('Open Tasks tab and check pagination', async () => {
@@ -2308,7 +2227,7 @@ test.describe('Deal Module', () => {
       });
 
       await test.step('Verify rows-per-page selector is present', async () => {
-        await expect(ntPage.taskRowsPerPage).toBeVisible({ timeout: 5_000 });
+        await expect(ntPage.taskRowsPerPage).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
     });
 
@@ -2318,7 +2237,6 @@ test.describe('Deal Module', () => {
      * Priority: P2 — Medium
      */
     test('TC-DEAL-079 | Verify that tasks are sorted correctly by Due Date', async () => {
-      test.setTimeout(180_000);
       await openCreatedDealDetail();
 
       await test.step('Open Tasks tab and ensure tasks exist', async () => {
@@ -2341,7 +2259,7 @@ test.describe('Deal Module', () => {
 
       await test.step('Click Due Date column header to sort and verify table re-renders', async () => {
         const dueDateHeader = page.getByRole('columnheader', { name: 'Due Date' });
-        await expect(dueDateHeader).toBeVisible({ timeout: 5_000 });
+        await expect(dueDateHeader).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
 
         // Read first row text before sort
         const cellBefore = await page.locator('table tbody tr').first()
@@ -2349,11 +2267,13 @@ test.describe('Deal Module', () => {
 
         // Click to sort ascending
         await dueDateHeader.click();
-        await page.waitForTimeout(1_000);
+        await expect(page.locator('table tbody tr').first().locator('td').nth(3))
+          .toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
 
         // Click again to sort descending
         await dueDateHeader.click();
-        await page.waitForTimeout(1_000);
+        await expect(page.locator('table tbody tr').first().locator('td').nth(3))
+          .toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
 
         // Read first row text after double-sort
         const cellAfter = await page.locator('table tbody tr').first()
@@ -2379,7 +2299,6 @@ test.describe('Deal Module', () => {
      * Priority: P0 — Critical
      */
     test('TC-DEAL-080 | Verify that Tasks tab shows expected columns and New Task button', async () => {
-      test.setTimeout(180_000);
       await ensureCreatedDealExists();
       await dealModule.openDealDetail(createdDealName);
       await dealModule.assertDealDetailOpened(createdDealName);
@@ -2400,7 +2319,6 @@ test.describe('Deal Module', () => {
      * Priority: P0 — Critical
      */
     test('TC-DEAL-081 | Verify that Create New Task drawer opens with all required fields', async () => {
-      test.setTimeout(180_000);
       await ensureCreatedDealExists();
       await dealModule.openDealDetail(createdDealName);
       await dealModule.gotoTasksTab();
@@ -2427,8 +2345,6 @@ test.describe('Deal Module', () => {
      * Priority: P2 — Medium
      */
     test('TC-DEAL-048 | Verify that permissions: unauthorized user cannot see logs', async ({ browser }) => {
-      test.setTimeout(180_000);
-
       // Ensure a deal exists so we can navigate to its detail page
       const dealName = await ensureCreatedDealExists();
 
@@ -2480,7 +2396,7 @@ test.describe('Deal Module', () => {
 
           // Verify the tab itself loaded (not an error state)
           await expect(smDealModule.activitiesTab).toHaveAttribute(
-            'aria-selected', 'true', { timeout: 5_000 },
+            'aria-selected', 'true', { timeout: TIMEOUTS.BASE * 10 },
           );
         });
       } finally {

@@ -4,6 +4,7 @@
 // Live-verified selectors: 2026-05-04 via MCP browser
 // Doc file: docs/tasks-module-test-steps.md
 
+const { TIMEOUTS } = require('../../utils/playwright-timeouts');
 const { test, expect } = require('@playwright/test');
 const { performLogin }  = require('../../utils/auth/login-action');
 const { TasksModule }   = require('../../pages/tasks-module');
@@ -46,7 +47,7 @@ test.describe('Tasks Module E2E Tests', () => {
     await dealSearchInput.fill('deal');
     // Wait for results and click first one
     const firstResult = dealPopper.locator('p, div').filter({ hasText: /deal/i }).first();
-    await expect(firstResult).toBeVisible({ timeout: 10_000 });
+    await expect(firstResult).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     await firstResult.click();
     await tasksModule.fillTaskForm({
       title: patTaskName,
@@ -358,7 +359,7 @@ test.describe('Tasks Module E2E Tests', () => {
       // Use search with a non-matching term on the global Tasks page to trigger empty state
       await test.step('Search for non-existent task to trigger empty state', async () => {
         await tasksModule.searchByTitle(NON_MATCH_SEARCH);
-        await expect(tasksModule.emptyStateHeading).toBeVisible({ timeout: 10_000 });
+        await expect(tasksModule.emptyStateHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
       });
 
       // clearSearch not needed -- beforeEach reloads the page
@@ -407,7 +408,7 @@ test.describe('Tasks Module E2E Tests', () => {
     test('TC-TASK-016 | Verify that Edit Task option opens the update form with pre-filled values. @regression', async () => {
       await test.step('Search for PAT task and open detail panel', async () => {
         await tasksModule.searchByTitle(patTaskName);
-        await expect(tasksModule.getTableRows().first()).toBeVisible({ timeout: 10_000 });
+        await expect(tasksModule.getTableRows().first()).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
         await tasksModule.openTaskDetailByTitle(patTaskName);
       });
 
@@ -427,7 +428,7 @@ test.describe('Tasks Module E2E Tests', () => {
     test('TC-TASK-017 | Verify that user can edit task title and save successfully. @smoke', async () => {
       await test.step('Search for PAT task and open Edit drawer', async () => {
         await tasksModule.searchByTitle(patTaskName);
-        await expect(tasksModule.getTableRows().first()).toBeVisible({ timeout: 10_000 });
+        await expect(tasksModule.getTableRows().first()).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
         await tasksModule.openTaskDetailByTitle(patTaskName);
         await tasksModule.clickEdit();
       });
@@ -449,7 +450,7 @@ test.describe('Tasks Module E2E Tests', () => {
     test('TC-TASK-018 | Verify that Cancel on Edit Task closes drawer without saving. @regression', async () => {
       await test.step('Search for PAT task and open Edit drawer', async () => {
         await tasksModule.searchByTitle(patTaskName);
-        await expect(tasksModule.getTableRows().first()).toBeVisible({ timeout: 10_000 });
+        await expect(tasksModule.getTableRows().first()).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
         await tasksModule.openTaskDetailByTitle(patTaskName);
         await tasksModule.clickEdit();
       });
@@ -480,7 +481,7 @@ test.describe('Tasks Module E2E Tests', () => {
         const toastVisible = await tasksModule.successToast.isVisible().catch(() => false);
         if (!toastVisible) {
           // Task may have been moved out of current filter view
-          await expect(tasksModule.getTableRows().first()).toBeVisible({ timeout: 5_000 });
+          await expect(tasksModule.getTableRows().first()).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         }
         // If toast appeared or table updated, the toggle worked
         expect(true).toBeTruthy();
@@ -506,7 +507,7 @@ test.describe('Tasks Module E2E Tests', () => {
       await test.step('Verify success toast or status change', async () => {
         const toastVisible = await tasksModule.successToast.isVisible().catch(() => false);
         if (!toastVisible) {
-          await expect(tasksModule.getTableRows().first()).toBeVisible({ timeout: 5_000 }).catch(() => {});
+          await expect(tasksModule.getTableRows().first()).toBeVisible({ timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
         }
         expect(true).toBeTruthy();
       });
@@ -515,7 +516,7 @@ test.describe('Tasks Module E2E Tests', () => {
     test('TC-TASK-021 | Verify that Delete Task action opens confirmation dialog. @regression', async () => {
       await test.step('Search for PAT task and open detail panel', async () => {
         await tasksModule.searchByTitle(patTaskName);
-        await expect(tasksModule.getTableRows().first()).toBeVisible({ timeout: 10_000 });
+        await expect(tasksModule.getTableRows().first()).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
         await tasksModule.openTaskDetailByTitle(patTaskName);
       });
 
@@ -536,7 +537,7 @@ test.describe('Tasks Module E2E Tests', () => {
     test('TC-TASK-022 | Verify that cancelling task deletion keeps the task intact. @regression', async () => {
       await test.step('Open delete confirmation for PAT task', async () => {
         await tasksModule.searchByTitle(patTaskName);
-        await expect(tasksModule.getTableRows().first()).toBeVisible({ timeout: 10_000 });
+        await expect(tasksModule.getTableRows().first()).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
         await tasksModule.openTaskDetailByTitle(patTaskName);
         await tasksModule.clickDelete();
       });
@@ -558,7 +559,7 @@ test.describe('Tasks Module E2E Tests', () => {
     test('TC-TASK-023 | Verify that confirming task deletion removes the task successfully. @regression', async () => {
       await test.step('Open delete confirmation for PAT task', async () => {
         await tasksModule.searchByTitle(patTaskName);
-        await expect(tasksModule.getTableRows().first()).toBeVisible({ timeout: 10_000 });
+        await expect(tasksModule.getTableRows().first()).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
         await tasksModule.openTaskDetailByTitle(patTaskName);
         await tasksModule.clickDelete();
       });
@@ -571,7 +572,7 @@ test.describe('Tasks Module E2E Tests', () => {
         // After deletion, either empty state shows or the task is no longer present
         await expect(
           sharedPage.getByRole('cell', { name: patTaskName }).first()
-        ).toBeHidden({ timeout: 10_000 });
+        ).toBeHidden({ timeout: TIMEOUTS.BASE * 20 });
       });
 
       // clearSearch not needed -- beforeEach reloads the page
@@ -826,7 +827,7 @@ test.describe('Tasks Module E2E Tests', () => {
 
       await test.step('Verify displayed tasks contain search term', async () => {
         const rows = tasksModule.getTableRows();
-        await expect(rows.first()).toBeVisible({ timeout: 10_000 });
+        await expect(rows.first()).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
         const rowCount = await rows.count();
         expect(rowCount).toBeGreaterThan(0);
 
@@ -848,7 +849,7 @@ test.describe('Tasks Module E2E Tests', () => {
       });
 
       await test.step('Verify empty state or zero rows', async () => {
-        await expect(tasksModule.emptyStateHeading).toBeVisible({ timeout: 10_000 });
+        await expect(tasksModule.emptyStateHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
       });
 
       // clearSearch not needed -- beforeEach reloads the page

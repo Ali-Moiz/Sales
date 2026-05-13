@@ -1,4 +1,3 @@
-const readline = require('readline');
 const { readCreatedPropertyName, readCreatedPropertyPath } = require('./shared-run-state');
 
 const DEFAULT_COMPANY_NAME = 'PAT';
@@ -16,20 +15,6 @@ function resolveActivityRegressionProperty() {
     );
   }
   return { name, path };
-}
-
-function ask(question) {
-  return new Promise((resolve) => {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout
-    });
-
-    rl.question(question, (answer) => {
-      rl.close();
-      resolve((answer || '').trim());
-    });
-  });
 }
 
 async function resolvePropertyCompanyName() {

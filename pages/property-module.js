@@ -3,6 +3,7 @@
 // ALL locators live-verified via MCP browser on 2026-03-20
 // Test-data constants for prod vs non-prod are declared at the top of this file.
 
+const { TIMEOUTS } = require('../utils/playwright-timeouts');
 const { expect } = require("@playwright/test");
 const { env } = require("../utils/env");
 const {
@@ -321,7 +322,7 @@ class PropertyModule {
 
   async gotoPropertiesFromMenu() {
     const menuVisible = await this.propertiesMenuLink
-      .waitFor({ state: "visible", timeout: 20_000 })
+      .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 40 })
       .then(() => true)
       .catch(() => false);
     if (menuVisible) {
@@ -332,7 +333,7 @@ class PropertyModule {
       });
     }
     await this.page
-      .waitForLoadState("networkidle", { timeout: 20_000 })
+      .waitForLoadState("networkidle", { timeout: TIMEOUTS.BASE * 40 })
       .catch(() => {});
   }
 
@@ -340,10 +341,10 @@ class PropertyModule {
 
   async assertPropertiesPageOpened() {
     await expect(this.page).toHaveURL(/\/app\/sales\/locations/, {
-      timeout: 20_000,
+      timeout: TIMEOUTS.BASE * 40,
     });
     await expect(this.createPropertyButton.first()).toBeVisible({
-      timeout: 15_000,
+      timeout: TIMEOUTS.BASE * 30,
     });
   }
 
@@ -361,15 +362,15 @@ class PropertyModule {
     for (const col of expectedColumns) {
       await expect(
         this.page.getByRole("columnheader", { name: col }),
-      ).toBeVisible({ timeout: 10_000 });
+      ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     }
   }
 
   async assertPaginationVisible() {
-    await expect(this.paginationInfo).toBeVisible({ timeout: 10_000 });
+    await expect(this.paginationInfo).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     // Wait for real data: requires a non-zero total (e.g. "1–10 of 42"), not "0–0 of 0"
     await expect(this.paginationInfo).toHaveText(/\d+–\d+ of [1-9][\d,]*/, {
-      timeout: 15_000,
+      timeout: TIMEOUTS.BASE * 30,
     });
   }
 
@@ -377,13 +378,13 @@ class PropertyModule {
     this.lastSearchTerm = term;
     await this.propertySearchInput.waitFor({
       state: "visible",
-      timeout: 10_000,
+      timeout: TIMEOUTS.BASE * 20,
     });
     await Promise.all([
       this.page
         .waitForResponse(
           (r) => r.url().includes("/locations") && r.status() === 200,
-          { timeout: 15_000 },
+          { timeout: TIMEOUTS.BASE * 30 },
         )
         .catch(() => {}),
       this.propertySearchInput.fill(term),
@@ -399,13 +400,13 @@ class PropertyModule {
 
     await expect(
       this.page.locator("table tbody").getByText(searchTerm, { exact: false }),
-    ).toHaveCount(0, { timeout: 10_000 });
+    ).toHaveCount(0, { timeout: TIMEOUTS.BASE * 20 });
   }
 
   async clearPropertySearch() {
     await this.propertySearchInput.clear();
     await this.page
-      .waitForLoadState("networkidle", { timeout: 10_000 })
+      .waitForLoadState("networkidle", { timeout: TIMEOUTS.BASE * 20 })
       .catch(() => {});
   }
 
@@ -415,18 +416,18 @@ class PropertyModule {
     await this.createPropertyButton.first().click();
     await this.createPropertyHeading.waitFor({
       state: "visible",
-      timeout: 15_000,
+      timeout: TIMEOUTS.BASE * 30,
     });
   }
 
   async assertCreatePropertyDrawerOpen() {
-    await expect(this.createPropertyHeading).toBeVisible({ timeout: 10_000 });
-    await expect(this.companyDropdownTrigger).toBeVisible({ timeout: 5_000 });
-    await expect(this.propertyNameInput).toBeVisible({ timeout: 5_000 });
-    await expect(this.propertySourceTrigger).toBeVisible({ timeout: 5_000 });
-    await expect(this.stageTrigger).toBeVisible({ timeout: 5_000 });
-    await expect(this.addressInput).toBeVisible({ timeout: 5_000 });
-    await expect(this.cancelCreateBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.createPropertyHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.companyDropdownTrigger).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.propertyNameInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.propertySourceTrigger).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.stageTrigger).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.addressInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.cancelCreateBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   createPropertyDrawerRoot() {
@@ -440,17 +441,17 @@ class PropertyModule {
    * M-PROP-04B — Parent Company label + input visible in Create Property drawer.
    */
   async assertParentCompanyFieldVisibleInCreatePropertyDrawer() {
-    await expect(this.createPropertyHeading).toBeVisible({ timeout: 10_000 });
+    await expect(this.createPropertyHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     const drawer = this.createPropertyDrawerRoot();
     await expect(
       drawer.getByText("Parent Company", { exact: true }),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     const parentField = drawer
       .getByRole("textbox", { name: /Parent Company/i })
       .first()
       .or(drawer.getByPlaceholder(/Parent Company/i).first())
       .or(drawer.getByRole("combobox", { name: /Parent Company/i }).first());
-    await expect(parentField).toBeVisible({ timeout: 8_000 });
+    await expect(parentField).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   /**
@@ -465,18 +466,16 @@ class PropertyModule {
       })
       .catch(() => {});
     await expect(this.associatedFranchiseTrigger).toBeVisible({
-      timeout: 10_000,
+      timeout: TIMEOUTS.BASE * 20,
     });
-    await expect(this.assigneeTrigger).toBeVisible({ timeout: 10_000 });
+    await expect(this.assigneeTrigger).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     await drawer
       .evaluate((el) => {
         el.scrollTop = el.scrollHeight;
       })
       .catch(() => {});
-    // debounce: no DOM signal after programmatic scroll — allow layout to settle
-    await this.page.waitForTimeout(400);
-    await expect(this.contactTrigger).toBeVisible({ timeout: 10_000 });
-    await expect(this.submitCreateBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.contactTrigger).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.submitCreateBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -489,7 +488,7 @@ class PropertyModule {
    * the drawer is still open.
    */
   async submitCreateDrawerExpectingValidation() {
-    await this.submitCreateBtn.waitFor({ state: "visible", timeout: 10_000 });
+    await this.submitCreateBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await this.submitCreateBtn.scrollIntoViewIfNeeded();
     await this.submitCreateBtn.click({ force: true });
     await expect(
@@ -497,16 +496,16 @@ class PropertyModule {
         .locator(".MuiDrawer-root")
         .getByText(/is required/i)
         .first(),
-    ).toBeVisible({ timeout: 8_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   async assertEmptyCreatePropertyValidationMessages() {
     const drawer = this.createPropertyDrawerRoot();
     await expect(
       drawer.getByText(/Property\s*\/\s*Property Name is required/i).first(),
-    ).toBeVisible({ timeout: 8_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await expect(drawer.getByText(/Address is required/i).first()).toBeVisible({
-      timeout: 8_000,
+      timeout: TIMEOUTS.BASE * 16,
     });
   }
 
@@ -524,13 +523,13 @@ class PropertyModule {
       .locator('a[href="#"]')
       .first()
       .or(drawer.getByRole("button", { name: /^close$/i }).first());
-    await closeBtn.waitFor({ state: "visible", timeout: 8_000 });
+    await closeBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     // Do NOT use force:true — it bypasses focus/blur sequencing and prevents the
     // React onClick handler from firing when an input field is focused (MCP-verified 2026-05-04).
     await closeBtn.click();
     await this.createPropertyHeading.waitFor({
       state: "hidden",
-      timeout: 12_000,
+      timeout: TIMEOUTS.BASE * 24,
     });
   }
 
@@ -540,11 +539,11 @@ class PropertyModule {
   async dismissCreatePropertyViaBackdrop() {
     const backdrop = this.page.locator(".MuiBackdrop-root").first();
     await backdrop
-      .waitFor({ state: "visible", timeout: 8_000 })
+      .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 })
       .catch(() => {});
     await backdrop.click({ force: true, position: { x: 5, y: 5 } });
     await this.createPropertyHeading
-      .waitFor({ state: "hidden", timeout: 12_000 })
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 24 })
       .catch(() => {});
   }
 
@@ -583,29 +582,29 @@ class PropertyModule {
       .getByRole("button", { name: /\+?\s*Create New/i })
       .first()
       .or(drawer.getByText(/\+?\s*Create New/i).first());
-    await createNewTrigger.waitFor({ state: "visible", timeout: 10_000 });
+    await createNewTrigger.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await createNewTrigger.click({ force: true });
   }
 
   async assertCreateNewCompanyFlowOpened() {
     const heading = this.createNewCompanyHeading();
-    await expect(heading).toBeVisible({ timeout: 12_000 });
+    await expect(heading).toBeVisible({ timeout: TIMEOUTS.BASE * 24 });
     const modal = this.createNewCompanyModalRoot();
     await expect(
       modal.getByPlaceholder(/Add Company Name/i).first(),
-    ).toBeVisible({ timeout: 8_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await expect(
       modal.getByRole("button", { name: /Create Company/i }).first(),
-    ).toBeVisible({ timeout: 8_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   async closeCreateNewCompanyFlowViaCancel() {
     const modal = this.createNewCompanyModalRoot();
     const cancelBtn = modal.getByRole("button", { name: /^Cancel$/i }).first();
-    await cancelBtn.waitFor({ state: "visible", timeout: 10_000 });
+    await cancelBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await cancelBtn.click({ force: true });
     await this.createNewCompanyHeading()
-      .waitFor({ state: "hidden", timeout: 10_000 })
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 20 })
       .catch(() => {});
   }
 
@@ -618,13 +617,13 @@ class PropertyModule {
       // Avoid broad image-link locators that can click Google Maps links.
       .or(modal.locator('a[href="#"]').first())
       .or(modal.locator("button:has(svg)").first());
-    await closeBtn.waitFor({ state: "visible", timeout: 10_000 });
+    await closeBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     // Do NOT use force:true — it bypasses focus/blur sequencing and can
     // prevent the React onClick handler from firing (MCP-verified 2026-05-04).
     await closeBtn.click();
     await this.createNewCompanyHeading().waitFor({
       state: "hidden",
-      timeout: 10_000,
+      timeout: TIMEOUTS.BASE * 20,
     });
   }
 
@@ -634,12 +633,12 @@ class PropertyModule {
   async assertCompanyPickerDefaultListHasResults() {
     await this.companyDropdownTrigger.click({ force: true });
     const tooltip = this.companyPickerTooltip();
-    await tooltip.waitFor({ state: "visible", timeout: 10_000 });
+    await tooltip.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     const row = tooltip.locator('p, [role="option"], li').first();
-    await expect(row).toBeVisible({ timeout: 15_000 });
+    await expect(row).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
     // Click drawer title — Escape can dismiss the entire MUI drawer on some builds.
     await this.createPropertyHeading.click({ force: true });
-    await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+    await tooltip.waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
   }
 
   /**
@@ -650,7 +649,7 @@ class PropertyModule {
     const escaped = this.escapeRegex(companyName.trim());
     const fullMatch = drawer.getByText(new RegExp(escaped, "i")).first();
     if (await fullMatch.isVisible().catch(() => false)) {
-      await expect(fullMatch).toBeVisible({ timeout: 5_000 });
+      await expect(fullMatch).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       return;
     }
     const prefix = companyName
@@ -661,12 +660,12 @@ class PropertyModule {
         .getByText(new RegExp(this.escapeRegex(prefix), "i"))
         .first();
       if (await partial.isVisible().catch(() => false)) {
-        await expect(partial).toBeVisible({ timeout: 5_000 });
+        await expect(partial).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         return;
       }
     }
     // UAT often omits full company string in the collapsed field; affiliation unlock confirms pick.
-    await expect(this.managedButton).toBeVisible({ timeout: 12_000 });
+    await expect(this.managedButton).toBeVisible({ timeout: TIMEOUTS.BASE * 24 });
   }
 
   /**
@@ -684,9 +683,9 @@ class PropertyModule {
         name: /Property Affiliation/i,
         level: 5,
       }),
-    ).toBeVisible({ timeout: 8_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await expect(drawer.getByText(/^N\/A$/).first()).toBeVisible({
-      timeout: 8_000,
+      timeout: TIMEOUTS.BASE * 16,
     });
   }
 
@@ -709,14 +708,14 @@ class PropertyModule {
           .first(),
       );
     await affiliationNA
-      .waitFor({ state: "hidden", timeout: 15_000 })
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 30 })
       .catch(() => {});
-    await expect(this.managedButton).toBeVisible({ timeout: 10_000 });
-    await expect(this.ownedButton).toBeVisible({ timeout: 5_000 });
-    await expect(this.regionalOfficeButton).toBeVisible({ timeout: 5_000 });
-    await expect(this.sharedButton).toBeVisible({ timeout: 5_000 });
-    await expect(this.tenantButton).toBeVisible({ timeout: 5_000 });
-    await expect(this.headquartersButton).toBeVisible({ timeout: 5_000 });
+    await expect(this.managedButton).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.ownedButton).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.regionalOfficeButton).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.sharedButton).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.tenantButton).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.headquartersButton).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   async affiliationChipAppearsSelected(locator) {
@@ -744,13 +743,13 @@ class PropertyModule {
    * Fallback: when border-width/class detection fails, assert aria-pressed changes on each click.
    */
   async assertAffiliationChipInteraction(locator) {
-    await locator.waitFor({ state: "visible", timeout: 8_000 });
+    await locator.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     const before = await this.affiliationChipAppearsSelected(locator);
     await locator.click({ force: true });
-    await expect.poll(() => this.affiliationChipAppearsSelected(locator), { timeout: 4_000 }).not.toBe(before).catch(() => {});
+    await expect.poll(() => this.affiliationChipAppearsSelected(locator), { timeout: TIMEOUTS.BASE * 8 }).not.toBe(before).catch(() => {});
     const mid = await this.affiliationChipAppearsSelected(locator);
     await locator.click({ force: true });
-    await expect.poll(() => this.affiliationChipAppearsSelected(locator), { timeout: 4_000 }).toBe(before).catch(() => {});
+    await expect.poll(() => this.affiliationChipAppearsSelected(locator), { timeout: TIMEOUTS.BASE * 8 }).toBe(before).catch(() => {});
     const after = await this.affiliationChipAppearsSelected(locator);
     const selectionDetectable =
       before !== mid || mid !== after || before !== after;
@@ -778,17 +777,17 @@ class PropertyModule {
    * M-PROP-09 — click an alternate stage on detail and verify stage bar still present after reload.
    */
   async clickDetailStageApproved() {
-    await this.approvedStageBtn.waitFor({ state: "visible", timeout: 10_000 });
+    await this.approvedStageBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await this.approvedStageBtn.click({ force: true });
     await this.page
-      .waitForLoadState("networkidle", { timeout: 15_000 })
+      .waitForLoadState("networkidle", { timeout: TIMEOUTS.BASE * 30 })
       .catch(() => {});
   }
 
   async reloadPropertyDetailAndAssertStageBar(propertyName, expectedActiveStageText = null) {
     await this.page.reload({ waitUntil: "domcontentloaded" });
     await this.page
-      .waitForLoadState("networkidle", { timeout: 20_000 })
+      .waitForLoadState("networkidle", { timeout: TIMEOUTS.BASE * 40 })
       .catch(() => {});
     await this.assertPropertyDetailOpened(propertyName);
     await this.assertPropertyStageBarVisible();
@@ -798,7 +797,7 @@ class PropertyModule {
       const activeStage = this.page
         .getByText(expectedActiveStageText, { exact: true })
         .first();
-      await activeStage.waitFor({ state: "visible", timeout: 8_000 });
+      await activeStage.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
       // Confirm via aria-pressed or by checking the button isn't in a "deselected" state
       const ariaPressedValue = await activeStage.getAttribute("aria-pressed").catch(() => null);
       if (ariaPressedValue !== null) {
@@ -829,15 +828,15 @@ class PropertyModule {
       .first();
 
     const modernVisible = await franchiseLabel
-      .waitFor({ state: "visible", timeout: 6_000 })
+      .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 12 })
       .then(() => true)
       .catch(() => false);
     if (modernVisible) {
-      await expect(franchiseValue).toBeVisible({ timeout: 10_000 });
+      await expect(franchiseValue).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
       return;
     }
 
-    await expect(legacyTrigger).toBeVisible({ timeout: 10_000 });
+    await expect(legacyTrigger).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   /**
@@ -854,7 +853,7 @@ class PropertyModule {
       .getByRole("heading", { level: 6 })
       .filter({ hasText: /Associated Franchise|Add Associated Franchise/i })
       .first();
-    await trigger.waitFor({ state: "visible", timeout: 8_000 });
+    await trigger.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     await trigger.click({ force: true });
 
     const tooltip = this.page
@@ -862,19 +861,19 @@ class PropertyModule {
       .or(this.page.locator("#simple-popper"))
       .or(this.page.locator("[data-popper-placement]"))
       .first();
-    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    await tooltip.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
 
     const searchInput = tooltip.getByRole("textbox", { name: "Search" });
-    if (await searchInput.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    if (await searchInput.isVisible({ timeout: TIMEOUTS.BASE * 6 }).catch(() => false)) {
       await searchInput.fill(franchiseText);
     }
 
     const option = tooltip
       .getByText(franchiseText, { exact: false })
       .first();
-    await option.waitFor({ state: "visible", timeout: 10_000 });
+    await option.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await option.click();
-    await tooltip.waitFor({ state: "hidden", timeout: 6_000 }).catch(() => {});
+    await tooltip.waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 12 }).catch(() => {});
   }
 
   /**
@@ -888,7 +887,7 @@ class PropertyModule {
       .first();
     await expect(
       sidebarSection.getByText(franchiseText, { exact: false }).first(),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   escapeRegex(value) {
@@ -898,7 +897,7 @@ class PropertyModule {
   async clickVisibleDropdownOption(
     container,
     optionText,
-    timeout = 10_000,
+    timeout = TIMEOUTS.BASE * 20,
     skipCount = 0,
   ) {
     const exactOptions = container.locator('p, h6, [role="option"]').filter({
@@ -961,7 +960,7 @@ class PropertyModule {
       .first();
 
     const searchedHeadingVisible = await this.companyDropdownTrigger
-      .waitFor({ state: "visible", timeout: 4_000 })
+      .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 8 })
       .then(() => true)
       .catch(() => false);
 
@@ -970,7 +969,7 @@ class PropertyModule {
       await this.companyDropdownTrigger.scrollIntoViewIfNeeded();
       await this.companyDropdownTrigger.click({ force: true });
     } else {
-      await companySectionTrigger.waitFor({ state: "visible", timeout: 8_000 });
+      await companySectionTrigger.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
       await companySectionTrigger.scrollIntoViewIfNeeded();
       await companySectionTrigger.click({ force: true });
     }
@@ -979,10 +978,10 @@ class PropertyModule {
       .locator('#simple-popper')
       .first()
       .or(this.page.getByRole("tooltip").first());
-    await tooltip.waitFor({ state: "visible", timeout: 10_000 });
+    await tooltip.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
 
     const searchInput = tooltip.getByRole("textbox", { name: "Search" });
-    await searchInput.waitFor({ state: "visible", timeout: 5_000 });
+    await searchInput.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 10 });
     const searchAttempts = [
       companyName,
       companyName.substring(0, Math.min(4, companyName.length)),
@@ -993,20 +992,20 @@ class PropertyModule {
       await searchInput.fill("");
       await searchInput.fill(searchText);
       await this.page
-        .waitForLoadState("networkidle", { timeout: 10_000 })
+        .waitForLoadState("networkidle", { timeout: TIMEOUTS.BASE * 20 })
         .catch(() => {});
 
       const optionSelected = await this.clickVisibleDropdownOption(
         tooltip,
         companyName,
-        5_000,
+        TIMEOUTS.BASE * 10,
         optionIndex,
       )
         .then(() => true)
         .catch(() => false);
 
       if (optionSelected) {
-        await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+        await tooltip.waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
         // Capture the actual company name that was committed to the field.
         // After selection the h6 trigger text changes to the chosen company name;
         // use readSelectedCompanyName() which re-queries without filtering by the
@@ -1021,13 +1020,13 @@ class PropertyModule {
         const fallbackSelected = await this.clickVisibleDropdownOption(
           tooltip,
           companyName,
-          3_000,
+          TIMEOUTS.BASE * 6,
           0,
         )
           .then(() => true)
           .catch(() => false);
         if (fallbackSelected) {
-          await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+          await tooltip.waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
           this.lastSelectedCompanyName = await this._readSelectedCompanyName(companyName);
           return;
         }
@@ -1039,12 +1038,12 @@ class PropertyModule {
     const firstVisibleOptionSelected = await this.clickVisibleDropdownOption(
       tooltip,
       "",
-      4_000,
+      TIMEOUTS.BASE * 8,
     )
       .then(() => true)
       .catch(() => false);
     if (firstVisibleOptionSelected) {
-      await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+      await tooltip.waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
       this.lastSelectedCompanyName = await this._readSelectedCompanyName(companyName);
       return;
     }
@@ -1071,7 +1070,7 @@ class PropertyModule {
         has: this.page.locator('p', { hasText: /^Company\s*\*?$/ }),
       }).first();
       const heading = companySection.getByRole('heading', { level: 6 });
-      const text = await heading.textContent({ timeout: 3_000 }).catch(() => '');
+      const text = await heading.textContent({ timeout: TIMEOUTS.BASE * 6 }).catch(() => '');
       return text.trim() || fallback;
     } catch {
       return fallback;
@@ -1079,7 +1078,7 @@ class PropertyModule {
   }
 
   async fillPropertyName(propertyName) {
-    await this.propertyNameInput.waitFor({ state: "visible", timeout: 8_000 });
+    await this.propertyNameInput.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     await this.propertyNameInput.click();
     await this.propertyNameInput.fill(propertyName);
     this.createdPropertyName = propertyName;
@@ -1115,7 +1114,7 @@ class PropertyModule {
       return tooltip;
     }
     const trigger = this.propertySourceTriggerInCreateDrawer();
-    await trigger.waitFor({ state: "visible", timeout: 8_000 });
+    await trigger.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     // SKILL.md §4: scrollIntoViewIfNeeded() before click — trigger may be below
     // the fold of the drawer's scroll container; force:true bypasses viewport checks
     // but does not scroll the element into the clip rect of the scroll container.
@@ -1123,20 +1122,20 @@ class PropertyModule {
     for (let attempt = 0; attempt < 2; attempt++) {
       await trigger.click({ force: true });
       const visible = await tooltip
-        .waitFor({ state: "visible", timeout: 4_000 })
+        .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 8 })
         .then(() => true)
         .catch(() => false);
       if (visible) {
         return tooltip;
       }
     }
-    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    await tooltip.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     return tooltip;
   }
 
   async getPropertySourceOptionsFromOpenDropdown() {
     const tooltip = this.propertySourceTooltip();
-    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    await tooltip.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     const options = tooltip.locator('p, [role="option"], h6');
     const total = await options.count();
     const values = [];
@@ -1150,29 +1149,29 @@ class PropertyModule {
 
   async assertPropertySourceTriggerValue(expectedText) {
     const trigger = this.propertySourceTriggerInCreateDrawer();
-    await expect(trigger).toBeVisible({ timeout: 8_000 });
+    await expect(trigger).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await expect(trigger).toHaveText(new RegExp(this.escapeRegex(expectedText), "i"), {
-      timeout: 8_000,
+      timeout: TIMEOUTS.BASE * 16,
     });
   }
 
   async selectPropertySourceByText(sourceText) {
     const tooltip = await this.openPropertySourceDropdown();
-    await this.clickVisibleDropdownOption(tooltip, sourceText, 8_000);
+    await this.clickVisibleDropdownOption(tooltip, sourceText, TIMEOUTS.BASE * 16);
     await this.assertPropertySourceTriggerValue(sourceText);
   }
 
   async dismissPropertySourceDropdownWithEscape() {
     await this.page.keyboard.press("Escape");
     await this.propertySourceTooltip()
-      .waitFor({ state: "hidden", timeout: 5_000 })
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 10 })
       .catch(() => {});
   }
 
   async dismissPropertySourceDropdownWithoutSelection() {
     await this.createPropertyHeading.click({ force: true });
     await this.propertySourceTooltip()
-      .waitFor({ state: "hidden", timeout: 5_000 })
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 10 })
       .catch(() => {});
   }
 
@@ -1207,18 +1206,18 @@ class PropertyModule {
       return tooltip;
     }
     const trigger = this.associatedFranchiseTriggerInCreateDrawer();
-    await trigger.waitFor({ state: "visible", timeout: 8_000 });
+    await trigger.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     for (let attempt = 0; attempt < 2; attempt++) {
       await trigger.click({ force: true });
       const visible = await tooltip
-        .waitFor({ state: "visible", timeout: 4_000 })
+        .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 8 })
         .then(() => true)
         .catch(() => false);
       if (visible) {
         return tooltip;
       }
     }
-    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    await tooltip.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     return tooltip;
   }
 
@@ -1238,34 +1237,34 @@ class PropertyModule {
 
   async assertAssociatedFranchiseTriggerValue(expectedText) {
     const trigger = this.associatedFranchiseTriggerInCreateDrawer();
-    await expect(trigger).toBeVisible({ timeout: 8_000 });
+    await expect(trigger).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await expect(
       trigger,
       `Associated Franchise trigger should contain "${expectedText}"`,
     ).toHaveText(new RegExp(this.escapeRegex(expectedText), "i"), {
-      timeout: 8_000,
+      timeout: TIMEOUTS.BASE * 16,
     });
   }
 
   async searchInAssociatedFranchiseDropdown(searchText) {
     const tooltip = await this.openAssociatedFranchiseDropdown();
     const searchInput = tooltip.getByRole("textbox", { name: "Search" });
-    await searchInput.waitFor({ state: "visible", timeout: 5_000 });
+    await searchInput.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 10 });
     await searchInput.fill(searchText);
-    await tooltip.locator("p").first().waitFor({ state: "visible", timeout: 8_000 }).catch(() => {});
+    await tooltip.locator("p").first().waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 }).catch(() => {});
     return tooltip;
   }
 
   async selectAssociatedFranchiseByText(franchiseText) {
     const tooltip = await this.openAssociatedFranchiseDropdown();
-    await this.clickVisibleDropdownOption(tooltip, franchiseText, 8_000);
+    await this.clickVisibleDropdownOption(tooltip, franchiseText, TIMEOUTS.BASE * 16);
     await this.assertAssociatedFranchiseTriggerValue(franchiseText);
   }
 
   async dismissAssociatedFranchiseDropdownWithoutSelection() {
     await this.createPropertyHeading.click({ force: true });
     await this.associatedFranchiseTooltip()
-      .waitFor({ state: "hidden", timeout: 5_000 })
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 10 })
       .catch(() => {});
   }
 
@@ -1294,19 +1293,19 @@ class PropertyModule {
       return this.stageTooltip();
     }
     const trigger = this.stageTriggerInCreateDrawer();
-    await trigger.waitFor({ state: "visible", timeout: 8_000 });
+    await trigger.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     const tooltip = this.stageTooltip();
     for (let attempt = 0; attempt < 2; attempt++) {
       await trigger.click({ force: true });
       const visible = await tooltip
-        .waitFor({ state: "visible", timeout: 4_000 })
+        .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 8 })
         .then(() => true)
         .catch(() => false);
       if (visible) {
         return tooltip;
       }
     }
-    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    await tooltip.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     return tooltip;
   }
 
@@ -1325,25 +1324,25 @@ class PropertyModule {
 
   async assertStageTriggerValue(expectedText) {
     const trigger = this.stageTriggerInCreateDrawer();
-    await expect(trigger).toBeVisible({ timeout: 8_000 });
+    await expect(trigger).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await expect(
       trigger,
       `Stage trigger should contain "${expectedText}"`,
     ).toHaveText(new RegExp(this.escapeRegex(expectedText), "i"), {
-      timeout: 8_000,
+      timeout: TIMEOUTS.BASE * 16,
     });
   }
 
   async selectStageByText(stageText) {
     const tooltip = await this.openStageDropdown();
-    await this.clickVisibleDropdownOption(tooltip, stageText, 8_000);
+    await this.clickVisibleDropdownOption(tooltip, stageText, TIMEOUTS.BASE * 16);
     await this.assertStageTriggerValue(stageText);
   }
 
   async dismissStageDropdownWithoutSelection() {
     await this.createPropertyHeading.click({ force: true });
     await this.stageTooltip()
-      .waitFor({ state: "hidden", timeout: 5_000 })
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 10 })
       .catch(() => {});
   }
 
@@ -1356,22 +1355,22 @@ class PropertyModule {
   async selectPropertySource() {
     await this.propertySourceTrigger.waitFor({
       state: "visible",
-      timeout: 8_000,
+      timeout: TIMEOUTS.BASE * 16,
     });
     await this.propertySourceTrigger.click();
     const tooltip = this.page
       .locator('#simple-popper')
       .last()
       .or(this.page.getByRole("tooltip").last());
-    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    await tooltip.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     const sourceOption = tooltip
       .getByText("ALN", { exact: true })
       .first()
       .or(tooltip.locator("p").filter({ hasText: /^ALN$/ }).first())
       .or(tooltip.getByRole("paragraph").first());
-    await sourceOption.waitFor({ state: "visible", timeout: 5_000 });
+    await sourceOption.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 10 });
     await sourceOption.click({ force: true });
-    await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+    await tooltip.waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
   }
 
   async selectAssociatedFranchise() {
@@ -1391,14 +1390,14 @@ class PropertyModule {
       .getByRole("heading", { name: "Add Associated Franchise", level: 6 })
       .first();
 
-    await franchiseTrigger.waitFor({ state: "visible", timeout: 8_000 });
+    await franchiseTrigger.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     await franchiseTrigger.click({ force: true });
 
     const tooltip = this.page
       .locator('#simple-popper')
       .last()
       .or(this.page.getByRole("tooltip").last());
-    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    await tooltip.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
 
     const searchInput = tooltip.getByRole("textbox", { name: "Search" });
     await searchInput.fill(franchiseLabel);
@@ -1412,9 +1411,9 @@ class PropertyModule {
           .filter({ hasText: franchiseLabel })
           .first(),
       );
-    await franchiseOption.waitFor({ state: "visible", timeout: 8_000 });
+    await franchiseOption.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     await franchiseOption.click({ force: true });
-    await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+    await tooltip.waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
   }
 
   /**
@@ -1423,13 +1422,13 @@ class PropertyModule {
    * Picks the first option dynamically.
    */
   async selectStage() {
-    await this.stageTrigger.waitFor({ state: "visible", timeout: 8_000 });
+    await this.stageTrigger.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     await this.stageTrigger.click();
     const tooltip = this.page
       .locator('#simple-popper')
       .last()
       .or(this.page.getByRole("tooltip").last());
-    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    await tooltip.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     const stageOption = tooltip
       .getByText("New Location", { exact: true })
       .first()
@@ -1446,9 +1445,9 @@ class PropertyModule {
           .first(),
       )
       .or(tooltip.getByRole("paragraph").first());
-    await stageOption.waitFor({ state: "visible", timeout: 5_000 });
+    await stageOption.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 10 });
     await stageOption.click({ force: true });
-    await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+    await tooltip.waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
   }
 
   /**
@@ -1461,13 +1460,13 @@ class PropertyModule {
     const assigneeLabel =
       env.envName === "prod" ? ASSIGNEE_PROD : ASSIGNEE_NONPROD;
 
-    await this.assigneeTrigger.waitFor({ state: "visible", timeout: 8_000 });
+    await this.assigneeTrigger.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     await this.assigneeTrigger.click();
     const tooltip = this.page
       .locator('#simple-popper')
       .last()
       .or(this.page.getByRole("tooltip").last());
-    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    await tooltip.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
 
     const searchInput = tooltip.getByRole("textbox", { name: "Search" });
     await searchInput.fill(assigneeLabel);
@@ -1476,9 +1475,9 @@ class PropertyModule {
       .getByRole("heading", { name: assigneeLabel })
       .first()
       .or(tooltip.getByText(assigneeLabel, { exact: false }).first());
-    await assigneeOption.waitFor({ state: "visible", timeout: 8_000 });
+    await assigneeOption.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     await assigneeOption.click({ force: true });
-    await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+    await tooltip.waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
   }
 
   assigneeTooltip() {
@@ -1509,7 +1508,7 @@ class PropertyModule {
         const assigneeRowTrigger = assigneeLabel
           .locator("+ *")
           .first();
-        await assigneeLabel.waitFor({ state: "visible", timeout: 8_000 });
+        await assigneeLabel.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
         await assigneeLabel.scrollIntoViewIfNeeded().catch(() => {});
         const rowVisible = await assigneeRowTrigger.isVisible().catch(() => false);
         if (rowVisible) {
@@ -1520,21 +1519,21 @@ class PropertyModule {
         }
       }
       const opened = await tooltip
-        .waitFor({ state: "visible", timeout: 4_000 })
+        .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 8 })
         .then(() => true)
         .catch(() => false);
       if (opened) return tooltip;
     }
-    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    await tooltip.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     return tooltip;
   }
 
   async searchAssigneeInDropdown(searchText) {
     const tooltip = await this.openAssigneeDropdown();
     const searchInput = tooltip.getByRole("textbox", { name: "Search" });
-    await searchInput.waitFor({ state: "visible", timeout: 5_000 });
+    await searchInput.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 10 });
     await searchInput.fill(searchText);
-    await tooltip.getByRole("heading", { level: 4 }).first().waitFor({ state: "visible", timeout: 8_000 }).catch(() => {});
+    await tooltip.getByRole("heading", { level: 4 }).first().waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 }).catch(() => {});
     return tooltip;
   }
 
@@ -1558,15 +1557,15 @@ class PropertyModule {
       .getByRole("heading", { level: 4, name: new RegExp(this.escapeRegex(assigneeText), "i") })
       .first()
       .or(tooltip.getByText(assigneeText, { exact: false }).first());
-    await assigneeOption.waitFor({ state: "visible", timeout: 8_000 });
+    await assigneeOption.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     await assigneeOption.click({ force: true });
-    await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+    await tooltip.waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
   }
 
   async dismissAssigneeDropdownWithoutSelection() {
     await this.createPropertyHeading.click({ force: true });
     await this.assigneeTooltip()
-      .waitFor({ state: "hidden", timeout: 5_000 })
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 10 })
       .catch(() => {});
   }
 
@@ -1601,31 +1600,31 @@ class PropertyModule {
     await this.assertCreatePropertyDrawerOpen();
     await this.scrollCreateDrawerToAssignSupervisor();
     const checkbox = this.assignSupervisorCheckboxInCreateDrawer();
-    await expect(checkbox).toBeVisible({ timeout: 10_000 });
+    await expect(checkbox).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     await expect(
       this.createPropertyDrawerRoot().getByText(/Assign Supervisor/i).first(),
-    ).toBeVisible({ timeout: 8_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   async isAssignSupervisorCheckedInCreateDrawer() {
     const checkbox = this.assignSupervisorCheckboxInCreateDrawer();
-    await checkbox.waitFor({ state: "visible", timeout: 8_000 });
+    await checkbox.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     return checkbox.isChecked().catch(() => false);
   }
 
   async setAssignSupervisorCheckedInCreateDrawer(shouldBeChecked) {
     await this.scrollCreateDrawerToAssignSupervisor();
     const checkbox = this.assignSupervisorCheckboxInCreateDrawer();
-    await checkbox.waitFor({ state: "visible", timeout: 8_000 });
+    await checkbox.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     const isChecked = await this.isAssignSupervisorCheckedInCreateDrawer();
     if (isChecked === shouldBeChecked) return;
     if (shouldBeChecked) {
       await checkbox.check({ force: true });
-      await expect(checkbox).toBeChecked({ timeout: 5_000 });
+      await expect(checkbox).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
       return;
     }
     await checkbox.uncheck({ force: true });
-    await expect(checkbox).not.toBeChecked({ timeout: 5_000 });
+    await expect(checkbox).not.toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   selectSupervisorFieldInCreateDrawer() {
@@ -1919,7 +1918,7 @@ class PropertyModule {
       const visible = await candidate.isVisible().catch(() => false);
       if (!visible) continue;
       const clicked = await candidate
-        .click({ force: true, timeout: 800 })
+        .click({ force: true, timeout: TIMEOUTS.BASE * 1.6 })
         .then(() => true)
         .catch(() => false);
       if (clicked) return true;
@@ -1955,7 +1954,7 @@ class PropertyModule {
     await this.scrollCreateDrawerToAssignSupervisor();
     await expect
       .poll(async () => this.isSelectSupervisorVisibleInCreateDrawer(), {
-        timeout: 8_000,
+        timeout: TIMEOUTS.BASE * 16,
       })
       .toBeTruthy();
   }
@@ -2000,7 +1999,7 @@ class PropertyModule {
           if (hasErrorText) return true;
           return this.isSelectSupervisorInvalidInCreateDrawer();
         },
-        { timeout: 8_000 },
+        { timeout: TIMEOUTS.BASE * 16 },
       )
       .toBeTruthy();
   }
@@ -2011,11 +2010,11 @@ class PropertyModule {
       .locator('#simple-popper')
       .last()
       .or(this.page.getByRole("tooltip").last());
-    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    await tooltip.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     const firstOption = tooltip.getByRole("heading", { level: 4 }).first();
     const selectedText = ((await firstOption.innerText().catch(() => "")) || "").trim();
     await firstOption.click({ force: true });
-    await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+    await tooltip.waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
     return selectedText;
   }
 
@@ -2052,10 +2051,8 @@ class PropertyModule {
     for (let attempt = 0; attempt < 5; attempt++) {
       await this.clickSelectSupervisorControlInCreateDrawer();
       await inputControl.press("ArrowDown").catch(() => {});
-      // debounce: no DOM signal to observe after ArrowDown — allow dropdown open animation
-      await this.page.waitForTimeout(300);
       const visible = await tooltip
-        .waitFor({ state: "visible", timeout: 2_500 })
+        .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 5 })
         .then(() => true)
         .catch(() => false);
       if (visible) return tooltip;
@@ -2080,21 +2077,20 @@ class PropertyModule {
 
     // Recovery path for intermittent UI state where the control does not reopen.
     await this.setAssignSupervisorCheckedInCreateDrawer(false).catch(() => {});
-    // debounce: UI needs a tick between checkbox state toggles before re-enabling
-    await this.page.waitForTimeout(300);
+    await expect(this.selectSupervisorInputInCreateDrawer()).not.toBeVisible({
+      timeout: TIMEOUTS.BASE * 6,
+    }).catch(() => {});
     await this.setAssignSupervisorCheckedInCreateDrawer(true).catch(() => {});
-    // debounce: UI needs a tick between checkbox state toggles before re-enabling
-    await this.page.waitForTimeout(300);
     await this.assertSelectSupervisorVisibleInCreateDrawer();
     await this.createPropertyHeading.click({ force: true }).catch(() => {});
-    await this.selectSupervisorTooltipInCreateDrawer().waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+    await this.selectSupervisorTooltipInCreateDrawer().waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
     return this.openSelectSupervisorDropdownInCreateDrawer();
   }
 
   async dismissSelectSupervisorDropdownInCreateDrawer() {
     await this.createPropertyHeading.click({ force: true }).catch(() => {});
     await this.selectSupervisorTooltipInCreateDrawer()
-      .waitFor({ state: "hidden", timeout: 5_000 })
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 10 })
       .catch(() => {});
   }
 
@@ -2127,7 +2123,7 @@ class PropertyModule {
       return { hasSearch: false, results: await this.getSupervisorOptionsFromOpenDropdown() };
     }
     await searchInput.fill(searchText);
-    await tooltip.getByRole("heading", { level: 4 }).first().waitFor({ state: "visible", timeout: 8_000 }).catch(() => {});
+    await tooltip.getByRole("heading", { level: 4 }).first().waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 }).catch(() => {});
     const results = await this.getSupervisorOptionsFromOpenDropdown();
     return { hasSearch: true, results };
   }
@@ -2144,9 +2140,9 @@ class PropertyModule {
         name: new RegExp(this.escapeRegex(supervisorName), "i"),
       })
       .first();
-    await option.waitFor({ state: "visible", timeout: 8_000 });
+    await option.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     await option.click({ force: true });
-    await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+    await tooltip.waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
   }
 
   async getSelectedSupervisorTextInCreateDrawer() {
@@ -2171,7 +2167,7 @@ class PropertyModule {
 
     // Last-resort fallback for environments where selected value is not rendered in h6.
     const selectedContainer = drawer.locator('label[for="supervisor"] + div').first();
-    await selectedContainer.waitFor({ state: "visible", timeout: 8_000 });
+    await selectedContainer.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     const text = ((await selectedContainer.innerText().catch(() => "")) || "").trim();
     return text.replace(/\s+/g, " ");
   }
@@ -2179,7 +2175,7 @@ class PropertyModule {
   async isAssignSupervisorDisabledInCreateDrawer() {
     await this.scrollCreateDrawerToAssignSupervisor();
     const checkbox = this.assignSupervisorCheckboxInCreateDrawer();
-    await checkbox.waitFor({ state: "visible", timeout: 8_000 });
+    await checkbox.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     return checkbox.isDisabled().catch(() => false);
   }
 
@@ -2236,9 +2232,9 @@ class PropertyModule {
         name: new RegExp(this.escapeRegex(target.name), "i"),
       })
       .first();
-    await option.waitFor({ state: "visible", timeout: 8_000 });
+    await option.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     await option.click({ force: true });
-    await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+    await tooltip.waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
     return target;
   }
 
@@ -2250,7 +2246,7 @@ class PropertyModule {
     // Wait for last chip to reflect selected state (border-width: 1.5px — live-verified 2026-04-25)
     await expect.poll(
       () => this.sharedButton.evaluate((el) => el.getAttribute("style") || "").catch(() => ""),
-      { timeout: 4_000 },
+      { timeout: TIMEOUTS.BASE * 8 },
     ).toMatch(/1\.5px/);
   }
 
@@ -2275,7 +2271,7 @@ class PropertyModule {
           page: this.page,
           addressInput: this.addressInput,
           addressText: candidate,
-          optionTimeoutMs: 10_000,
+          optionTimeoutMs: TIMEOUTS.BASE * 20,
           attempts: 2,
         });
         if (picked) return true;
@@ -2287,7 +2283,7 @@ class PropertyModule {
       page: this.page,
       addressInput: this.addressInput,
       addressText,
-      optionTimeoutMs: 10_000,
+      optionTimeoutMs: TIMEOUTS.BASE * 20,
       attempts: 2,
     });
   }
@@ -2297,8 +2293,7 @@ class PropertyModule {
     await this.addressInput.fill("").catch(() => {});
     await this.addressInput.press("ControlOrMeta+a").catch(() => {});
     await this.addressInput.press("Backspace").catch(() => {});
-    // debounce: no DOM signal after Backspace on address autocomplete field
-    await this.page.waitForTimeout(200);
+    await expect(this.addressInput).toHaveValue("", { timeout: TIMEOUTS.BASE * 4 });
   }
 
   async selectContactAffiliation() {
@@ -2306,33 +2301,33 @@ class PropertyModule {
     const contactLabel =
       env.envName === "prod" ? CONTACT_LABEL_PROD : CONTACT_LABEL_NONPROD;
 
-    await this.contactTrigger.waitFor({ state: "visible", timeout: 10_000 });
+    await this.contactTrigger.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await this.contactTrigger.click();
 
     const tooltip = this.page
       .locator('#simple-popper')
       .last()
       .or(this.page.getByRole("tooltip").last());
-    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    await tooltip.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
 
     const searchInput = tooltip.getByRole("textbox", {
       name: "Search by name",
     });
     // Wait for the search input to be interactive before filling
-    await expect(searchInput).toBeVisible({ timeout: 5_000 });
+    await expect(searchInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     await searchInput.fill(contactSearchText);
 
     // Scope strictly to the tooltip — a page-wide .or() fallback resolves to
     // stale DOM elements *behind* the drawer backdrop and force-clicking them
     // hits the backdrop, which closes the entire drawer.
     const contactOption = tooltip.getByText(contactLabel, { exact: false }).first();
-    await expect(contactOption).toBeVisible({ timeout: 10_000 });
+    await expect(contactOption).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     await contactOption.click();
-    await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+    await tooltip.waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
   }
 
   async submitCreateProperty() {
-    await this.submitCreateBtn.waitFor({ state: "visible", timeout: 10_000 });
+    await this.submitCreateBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await this.submitCreateBtn.scrollIntoViewIfNeeded();
     this.lastCreatePropertyToastSeen = false;
     this.lastCreatePropertySucceeded = false;
@@ -2343,20 +2338,17 @@ class PropertyModule {
     await this.submitCreateBtn.click({ force: true });
     await Promise.race([
       this.createPropertyToast
-        .waitFor({ state: "visible", timeout: 12_000 })
+        .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 24 })
         .then(() => { this.lastCreatePropertyToastSeen = true; })
         .catch(() => {}),
       this.duplicateAddressToast
-        .waitFor({ state: "visible", timeout: 12_000 })
+        .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 24 })
         .then(() => { duplicateToastSeen = true; })
         .catch(() => {}),
-      // If either toast resolves this settles the race; otherwise we wait up to
-      // the shared 12 s cap via the Promise.race timeout below.
-      new Promise((resolve) => setTimeout(resolve, 12_000)),
     ]);
 
     let drawerClosed = await this.createPropertyHeading
-      .waitFor({ state: "hidden", timeout: 8_000 })
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 16 })
       .then(() => true)
       .catch(() => false);
 
@@ -2370,7 +2362,7 @@ class PropertyModule {
       if (this.lastCreatePropertyToastSeen || propertyVisibleBehindDrawer) {
         await this.cancelCreateBtn.click({ force: true }).catch(() => {});
         drawerClosed = await this.createPropertyHeading
-          .waitFor({ state: "hidden", timeout: 8_000 })
+          .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 16 })
           .then(() => true)
           .catch(() => false);
       }
@@ -2400,7 +2392,7 @@ class PropertyModule {
     const submitResult = await this.submitCreateProperty();
     if (submitResult.drawerClosed) {
       await this.page
-        .waitForLoadState("networkidle", { timeout: 15_000 })
+        .waitForLoadState("networkidle", { timeout: TIMEOUTS.BASE * 30 })
         .catch(() => {});
       this.logAddress("candidate_create_success", { candidate: addressText });
       return true;
@@ -2450,7 +2442,7 @@ class PropertyModule {
 
     // Guard: if the drawer closed during form filling, fail fast here instead of
     // timing out 15 s later waiting for the address textbox.
-    await expect(this.createPropertyHeading).toBeVisible({ timeout: 5_000 });
+    await expect(this.createPropertyHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
 
     const attemptLimit = Number(maxAddressAttempts || DEFAULT_MAX_ADDRESS_ATTEMPTS);
     const candidateAddresses =
@@ -2476,7 +2468,7 @@ class PropertyModule {
   async assertPropertyCreated() {
     // Primary: real UI toast assertion (fails loudly if success toast never appeared)
     if (!this.lastCreatePropertyToastSeen) {
-      await expect(this.createPropertyToast).toBeVisible({ timeout: 10_000 });
+      await expect(this.createPropertyToast).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     }
     // Secondary gate: internal flags set by submitCreateProperty()
     expect(this.lastCreatePropertySucceeded || this.lastCreatePropertyToastSeen).toBeTruthy();
@@ -2486,15 +2478,15 @@ class PropertyModule {
     const cancelInDrawer = this.createPropertyDrawerRoot().getByRole("button", {
       name: "Cancel",
     });
-    await cancelInDrawer.waitFor({ state: "visible", timeout: 12_000 });
+    await cancelInDrawer.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 24 });
     await cancelInDrawer.scrollIntoViewIfNeeded();
     await cancelInDrawer.click();
-    await expect(this.createPropertyHeading).not.toBeVisible({ timeout: 10_000 });
+    await expect(this.createPropertyHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertCreatePropertyDrawerClosed() {
     await expect(this.createPropertyHeading).not.toBeVisible({
-      timeout: 8_000,
+      timeout: TIMEOUTS.BASE * 16,
     });
   }
 
@@ -2503,14 +2495,14 @@ class PropertyModule {
   async openPropertyDetail(propertyName) {
     await this.propertySearchInput.waitFor({
       state: "visible",
-      timeout: 10_000,
+      timeout: TIMEOUTS.BASE * 20,
     });
     // Register the response listener before fill so the debounced search call is caught
     await Promise.all([
       this.page
         .waitForResponse(
           (r) => r.url().includes("/locations") && r.status() === 200,
-          { timeout: 15_000 },
+          { timeout: TIMEOUTS.BASE * 30 },
         )
         .catch(() => {}),
       this.propertySearchInput.fill(propertyName),
@@ -2520,7 +2512,7 @@ class PropertyModule {
     // matches both "PAT 1777898582375" and "PAT 1777899307052"). Locate the exact
     // row to avoid clicking the wrong property.
     const allRows = this.page.locator("table tbody tr");
-    await allRows.first().waitFor({ state: "visible", timeout: 10_000 });
+    await allRows.first().waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     // Look for a row that contains a cell with the exact property name text
     const exactRow = allRows.filter({
       has: this.page.locator("td").getByText(propertyName, { exact: true }),
@@ -2528,58 +2520,58 @@ class PropertyModule {
     // Fall back to first row if exact match not found (e.g. name truncated in the UI)
     const hasExact = await exactRow.first().isVisible().catch(() => false);
     const propertyRow = hasExact ? exactRow.first() : allRows.first();
-    await propertyRow.waitFor({ state: "visible", timeout: 10_000 });
+    await propertyRow.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     const propertyNameCell = propertyRow.locator("td").nth(1);
     await expect(propertyNameCell).toContainText(propertyName, {
-      timeout: 10_000,
+      timeout: TIMEOUTS.BASE * 20,
     });
     // Wait for MUI row animation to complete before clicking (prevents "not visible" on
     // freshly-rendered rows). Also scope click to the text element — the cell can contain
     // an img icon that sits at the td's geometric center and swallows the click without
     // triggering navigation when force:true lands on it instead of the text div.
-    await expect(propertyNameCell).toBeVisible({ timeout: 8_000 });
+    await expect(propertyNameCell).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     const clickTarget = propertyNameCell
       .getByText(propertyName, { exact: false })
       .first();
     // Wait for the text element to be fully visible before clicking — search results
     // can render skeleton rows where the DOM node exists but isn't painted yet.
-    await expect(clickTarget).toBeVisible({ timeout: 10_000 });
+    await expect(clickTarget).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     await Promise.all([
       this.page.waitForURL(/\/app\/sales\/locations\/location\//, {
-        timeout: 25_000,
+        timeout: TIMEOUTS.BASE * 50,
       }),
       clickTarget.click({ force: true }),
     ]);
     await this.page
-      .waitForLoadState("networkidle", { timeout: 20_000 })
+      .waitForLoadState("networkidle", { timeout: TIMEOUTS.BASE * 40 })
       .catch(() => {});
     await this.page
-      .waitForLoadState("domcontentloaded", { timeout: 10_000 })
+      .waitForLoadState("domcontentloaded", { timeout: TIMEOUTS.BASE * 20 })
       .catch(() => {});
   }
 
   async assertPropertyPresentInSearchResults(propertyName) {
     const propertyRow = this.page.locator("table tbody tr").first();
-    await propertyRow.waitFor({ state: "visible", timeout: 15_000 });
+    await propertyRow.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 30 });
     await expect(this.propertySearchInput).toHaveValue(propertyName, {
-      timeout: 10_000,
+      timeout: TIMEOUTS.BASE * 20,
     });
     // At least one result must appear (not "0 of 0"). Don't require exactly
     // "1–1 of 1" — longer timestamp names are unique, but older short names
     // (PAT XXXX) may still match more than one row.
     await expect(this.paginationInfo).toContainText(/\d+–\d+ of [1-9]\d*/, {
-      timeout: 10_000,
+      timeout: TIMEOUTS.BASE * 20,
     });
     await expect(propertyRow.locator("td").nth(1)).toContainText(propertyName, {
-      timeout: 10_000,
+      timeout: TIMEOUTS.BASE * 20,
     });
   }
 
   async assertPropertyDetailOpened(propertyName) {
     await expect(this.page).toHaveURL(/\/app\/sales\/locations\/location\//, {
-      timeout: 25_000,
+      timeout: TIMEOUTS.BASE * 50,
     });
-    await expect(this.editButton).toBeVisible({ timeout: 25_000 });
+    await expect(this.editButton).toBeVisible({ timeout: TIMEOUTS.BASE * 50 });
     const needle = propertyName.trim();
     const re = new RegExp(this.escapeRegex(needle), "i");
     const titleCandidate = this.page
@@ -2588,40 +2580,39 @@ class PropertyModule {
       .first()
       .or(this.page.getByRole("heading", { name: re }).first())
       .or(this.page.getByText(re).first());
-    await expect(titleCandidate).toBeVisible({ timeout: 25_000 });
+    await expect(titleCandidate).toBeVisible({ timeout: TIMEOUTS.BASE * 50 });
   }
 
   async assertPropertyDetailSectionsVisible() {
-    await expect(this.propertyDetailsBtn).toBeVisible({ timeout: 10_000 });
-    await expect(this.companiesSection).toBeVisible({ timeout: 10_000 });
-    await expect(this.dealsSection).toBeVisible({ timeout: 10_000 });
-    await expect(this.contactsSection).toBeVisible({ timeout: 10_000 });
+    await expect(this.propertyDetailsBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.companiesSection).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.dealsSection).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.contactsSection).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     // Live-verified: "Franchise Associated" is the exact button name
-    await expect(this.franchiseSection).toBeVisible({ timeout: 10_000 });
-    await expect(this.attachmentsSection).toBeVisible({ timeout: 10_000 });
+    await expect(this.franchiseSection).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.attachmentsSection).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertPropertyStageBarVisible() {
-    await expect(this.stagesHeading).toBeVisible({ timeout: 10_000 });
-    await expect(this.approvedStageBtn).toBeVisible({ timeout: 10_000 });
+    await expect(this.stagesHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.approvedStageBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async openAssignmentModalFromDetail() {
     const assignedToLabel = this.page.getByText(/^Assigned to$/i).first();
-    await assignedToLabel.waitFor({ state: "visible", timeout: 12_000 });
+    await assignedToLabel.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 24 });
     const triggerBtn = assignedToLabel.locator("xpath=following::button[1]");
-    await triggerBtn.waitFor({ state: "visible", timeout: 8_000 });
+    await triggerBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     const modalHeading = this.page
       .getByRole("heading", { name: /Property Assignment/i })
       .first();
     for (let attempt = 1; attempt <= 3; attempt++) {
       await triggerBtn.click({ force: true });
       const opened = await modalHeading
-        .waitFor({ state: "visible", timeout: 5_000 })
+        .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 10 })
         .then(() => true)
         .catch(() => false);
       if (opened) return;
-      await this.page.waitForTimeout(300 * attempt);
     }
     throw new Error(
       'Property Assignment modal did not open from "Assigned to" control.',
@@ -2635,7 +2626,7 @@ class PropertyModule {
     const selectedAssignee = modal
       .getByText(new RegExp(this.escapeRegex(assigneeText), "i"))
       .first();
-    await expect(selectedAssignee).toBeVisible({ timeout: 10_000 });
+    await expect(selectedAssignee).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async closeAssignmentModal() {
@@ -2654,7 +2645,7 @@ class PropertyModule {
       await closeLinkNearHeading.click({ force: true }).catch(() => {});
     }
     await this.page.keyboard.press("Escape").catch(() => {});
-    await heading.waitFor({ state: "hidden", timeout: 8_000 }).catch(() => {});
+    await heading.waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 16 }).catch(() => {});
   }
 
   // ── Property Assignment (live-verified 2026-04-13) ─────────────────────
@@ -2680,18 +2671,18 @@ class PropertyModule {
     { enforceFlow = false } = {},
   ) {
     await this.page
-      .waitForLoadState("networkidle", { timeout: 15_000 })
+      .waitForLoadState("networkidle", { timeout: TIMEOUTS.BASE * 30 })
       .catch(() => {});
 
     // ── Step 1: find and click the "Assigned to" trigger button ────────────
     // The label "Assigned to" is stable; the trigger button immediately follows
     // it in the DOM order ("following::button[1]").
     const assignedToLabel = this.page.getByText(/^Assigned to$/i).first();
-    await assignedToLabel.waitFor({ state: "visible", timeout: 12_000 });
+    await assignedToLabel.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 24 });
 
     const triggerBtn = assignedToLabel.locator("xpath=following::button[1]");
     const triggerVisible = await triggerBtn
-      .waitFor({ state: "visible", timeout: 8_000 })
+      .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 })
       .then(() => true)
       .catch(() => false);
 
@@ -2720,7 +2711,7 @@ class PropertyModule {
     const modalHeading = this.page
       .getByRole("heading", { name: /Property Assignment/i })
       .first();
-    await modalHeading.waitFor({ state: "visible", timeout: 15_000 });
+    await modalHeading.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 30 });
 
     const assignmentDialog = modalHeading.locator(
       'xpath=ancestor::*[@role="dialog"][1]',
@@ -2738,12 +2729,12 @@ class PropertyModule {
     const selectAssigneeHeading = dialogScope.getByRole("heading", {
       name: /Select Assignee:/i,
     });
-    await selectAssigneeHeading.waitFor({ state: "visible", timeout: 8_000 });
+    await selectAssigneeHeading.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
 
     const assigneeRowTrigger = selectAssigneeHeading.locator(
       "xpath=following-sibling::div[1]",
     );
-    await expect(assigneeRowTrigger).toBeVisible({ timeout: 5_000 });
+    await expect(assigneeRowTrigger).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
 
     const assigneeNameHeading = currentValue
       ? dialogScope.getByRole("heading", { level: 6, name: currentValue })
@@ -2778,11 +2769,10 @@ class PropertyModule {
 
     for (let attempt = 0; attempt < 5; attempt++) {
       await tryOpenAssigneeList(attempt);
-      await this.page.waitForTimeout(450 + attempt * 150);
 
       const topPopper = popperRoot.last();
       const popperVisible = await topPopper
-        .waitFor({ state: "visible", timeout: 4_000 })
+        .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 8 })
         .then(() => true)
         .catch(() => false);
       if (popperVisible) {
@@ -2833,7 +2823,7 @@ class PropertyModule {
       const nameRe = new RegExp(this.escapeRegex(optionText), "i");
       const tryClick = async (locator) => {
         const ok = await locator
-          .waitFor({ state: "visible", timeout: 3_000 })
+          .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 6 })
           .then(() => true)
           .catch(() => false);
         if (ok) {
@@ -2866,7 +2856,7 @@ class PropertyModule {
       await searchInput.click({ force: true });
       await searchInput.fill("");
       await searchInput.fill(variant);
-      await assigneeOptionsRoot.locator("li, [role='option']").first().waitFor({ state: "visible", timeout: 8_000 }).catch(() => {});
+      await assigneeOptionsRoot.locator("li, [role='option']").first().waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 }).catch(() => {});
       picked = await tryPickAssignee();
       if (picked) break;
     }
@@ -2901,7 +2891,10 @@ class PropertyModule {
             .catch(() => false);
           return selectedHeadingVisible;
         },
-        { timeout: 12_000, intervals: [300, 500, 800] },
+        {
+          timeout: TIMEOUTS.BASE * 24,
+          intervals: [TIMEOUTS.BASE, TIMEOUTS.BASE * 1.5, TIMEOUTS.BASE * 2],
+        },
       )
       .toBeTruthy()
       .then(() => true)
@@ -2918,14 +2911,14 @@ class PropertyModule {
       (await assignmentDialog.count()) > 0
         ? assignmentDialog.getByRole("button", { name: /^Assign$/i }).first()
         : this.page.getByRole("button", { name: /^Assign$/i }).first();
-    await assignBtn.waitFor({ state: "visible", timeout: 10_000 });
+    await assignBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     // Wait for the button to become enabled (it's disabled until a user is selected)
-    await expect(assignBtn).not.toBeDisabled({ timeout: 15_000 });
+    await expect(assignBtn).not.toBeDisabled({ timeout: TIMEOUTS.BASE * 30 });
     await assignBtn.click();
 
     // Wait for the modal to close
     await modalHeading
-      .waitFor({ state: "hidden", timeout: 10_000 })
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 20 })
       .catch(() => {});
   }
 
@@ -2935,55 +2928,53 @@ class PropertyModule {
     const assignedToLabel = this.page.getByText(/^Assigned to$/i).first();
     const triggerBtn = assignedToLabel.locator("xpath=following::button[1]");
     await expect(triggerBtn.getByText(assigneeText, { exact: false }))
-      .toBeVisible({ timeout: 12_000 })
+      .toBeVisible({ timeout: TIMEOUTS.BASE * 24 })
       .catch(async () => {
         // Fallback: just confirm the text appears anywhere on the page
         await expect(
           this.page.getByText(assigneeText, { exact: false }).first(),
-        ).toBeVisible({ timeout: 5_000 });
+        ).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
   }
 
   async assertDetailTabsVisible() {
     // Live-verified: 6 tabs, Convert Questions is default selected (not Activities)
-    await expect(this.convertQuestionsTab).toBeVisible({ timeout: 10_000 });
-    await expect(this.activitiesTab).toBeVisible({ timeout: 10_000 });
-    await expect(this.notesTab).toBeVisible({ timeout: 10_000 });
-    await expect(this.tasksTab).toBeVisible({ timeout: 10_000 });
-    await expect(this.emailsTab).toBeVisible({ timeout: 10_000 });
-    await expect(this.meetingsTab).toBeVisible({ timeout: 10_000 });
+    await expect(this.convertQuestionsTab).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.activitiesTab).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.notesTab).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.tasksTab).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.emailsTab).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.meetingsTab).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   // ── Activities Tab ───────────────────────────────────────────────────────
 
   async gotoActivitiesTab() {
-    await this.activitiesTab.waitFor({ state: "visible", timeout: 10_000 });
+    await this.activitiesTab.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await this.activitiesTab.click();
-    await expect(this.activitiesTab).toHaveAttribute("aria-selected", "true", { timeout: 5_000 });
+    await expect(this.activitiesTab).toHaveAttribute("aria-selected", "true", { timeout: TIMEOUTS.BASE * 10 });
   }
 
   async assertActivitiesTabActive() {
     await expect(this.activitiesTab).toHaveAttribute("aria-selected", "true", {
-      timeout: 5_000,
+      timeout: TIMEOUTS.BASE * 10,
     });
   }
 
   // ── Edit Property ────────────────────────────────────────────────────────
 
   async openEditPropertyForm() {
-    await this.editButton.waitFor({ state: "visible", timeout: 10_000 });
+    await this.editButton.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
 
     for (let attempt = 1; attempt <= 3; attempt++) {
       await this.editButton.scrollIntoViewIfNeeded().catch(() => {});
       await this.editButton.click({ force: true });
 
       const opened = await this.editPropertyHeading
-        .waitFor({ state: "visible", timeout: 6_000 })
+        .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 12 })
         .then(() => true)
         .catch(() => false);
       if (opened) return;
-
-      await this.page.waitForTimeout(400 * attempt);
     }
 
     throw new Error(
@@ -2992,10 +2983,10 @@ class PropertyModule {
   }
 
   async assertEditPropertyFormOpen() {
-    await expect(this.editPropertyHeading).toBeVisible({ timeout: 10_000 });
-    await expect(this.editPropertyNameInput).toBeVisible({ timeout: 5_000 });
+    await expect(this.editPropertyHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.editPropertyNameInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     // Live-verified: "Save" button (NOT "Update Property")
-    await expect(this.saveEditBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.saveEditBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   async selectAssigneeInEditForm(searchText, optionText = searchText) {
@@ -3009,24 +3000,24 @@ class PropertyModule {
       })
       .catch(() => {});
 
-    await this.assigneeTrigger.waitFor({ state: "visible", timeout: 10_000 });
+    await this.assigneeTrigger.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await this.assigneeTrigger.click({ force: true });
 
     const tooltip = this.page
       .locator('#simple-popper')
       .last()
       .or(this.page.getByRole("tooltip").last());
-    await tooltip.waitFor({ state: "visible", timeout: 10_000 });
+    await tooltip.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
 
     const searchInput = tooltip.getByRole("textbox", { name: "Search" });
-    await searchInput.waitFor({ state: "visible", timeout: 5_000 });
+    await searchInput.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 10 });
     await searchInput.fill(searchText);
     await this.page
-      .waitForLoadState("networkidle", { timeout: 10_000 })
+      .waitForLoadState("networkidle", { timeout: TIMEOUTS.BASE * 20 })
       .catch(() => {});
 
-    await this.clickVisibleDropdownOption(tooltip, optionText, 10_000);
-    await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+    await this.clickVisibleDropdownOption(tooltip, optionText, TIMEOUTS.BASE * 20);
+    await tooltip.waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
   }
 
   async assertAssigneeValueVisibleInEditForm(assigneeText) {
@@ -3036,18 +3027,18 @@ class PropertyModule {
       .first();
     await expect(
       editDrawer.getByText(assigneeText, { exact: false }).first(),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertSaveEditButtonDisabled() {
     // Live-verified: "Save" is disabled until user makes a change
-    await expect(this.saveEditBtn).toBeDisabled({ timeout: 5_000 });
+    await expect(this.saveEditBtn).toBeDisabled({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   async fillEditPropertyName(newName) {
     await this.editPropertyNameInput.waitFor({
       state: "visible",
-      timeout: 8_000,
+      timeout: TIMEOUTS.BASE * 16,
     });
     // clickCount:3 selects all text — .triple_click() does not exist in Playwright API
     await this.editPropertyNameInput.click({ clickCount: 3 });
@@ -3055,12 +3046,12 @@ class PropertyModule {
   }
 
   async submitEditProperty() {
-    await this.saveEditBtn.waitFor({ state: "visible", timeout: 10_000 });
+    await this.saveEditBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     this.lastEditPropertyToastSeen = false;
 
     await Promise.allSettled([
       this.editPropertyToast
-        .waitFor({ state: "visible", timeout: 15_000 })
+        .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 30 })
         .then(() => {
           this.lastEditPropertyToastSeen = true;
         }),
@@ -3068,47 +3059,47 @@ class PropertyModule {
     ]);
 
     const drawerClosed = await this.editPropertyHeading
-      .waitFor({ state: "hidden", timeout: 15_000 })
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 30 })
       .then(() => true)
       .catch(() => false);
     if (!drawerClosed)
       throw new Error("Edit Property drawer did not close after save.");
     await this.page
-      .waitForLoadState("networkidle", { timeout: 10_000 })
+      .waitForLoadState("networkidle", { timeout: TIMEOUTS.BASE * 20 })
       .catch(() => {});
   }
 
   async cancelEditPropertyForm() {
     await this.cancelEditBtn.click();
     await this.editPropertyHeading
-      .waitFor({ state: "hidden", timeout: 10_000 })
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 20 })
       .catch(() => {});
   }
 
   async assertEditPropertyFormClosed() {
-    await expect(this.editPropertyHeading).not.toBeVisible({ timeout: 8_000 });
+    await expect(this.editPropertyHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   // ── Notes Tab ────────────────────────────────────────────────────────────
 
   async gotoNotesTab() {
-    await this.notesTab.waitFor({ state: "visible", timeout: 10_000 });
+    await this.notesTab.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await this.notesTab.click();
-    await expect(this.notesTab).toHaveAttribute("aria-selected", "true", { timeout: 5_000 });
+    await expect(this.notesTab).toHaveAttribute("aria-selected", "true", { timeout: TIMEOUTS.BASE * 10 });
   }
 
   async assertNotesTabVisible() {
-    await expect(this.notesTab).toBeVisible({ timeout: 10_000 });
+    await expect(this.notesTab).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertCreateNewNoteButtonVisible() {
-    await expect(this.createNewNoteBtn).toBeVisible({ timeout: 10_000 });
+    await expect(this.createNewNoteBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async openCreateNoteDrawer() {
-    await this.createNewNoteBtn.waitFor({ state: "visible", timeout: 10_000 });
+    await this.createNewNoteBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await this.createNewNoteBtn.click();
-    await this.addNotesHeading.waitFor({ state: "visible", timeout: 10_000 });
+    await this.addNotesHeading.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertCreateNoteDrawerOpen() {
@@ -3120,35 +3111,35 @@ class PropertyModule {
       .locator('input[name="title"], #title')
       .first();
 
-    await expect(this.addNotesHeading).toBeVisible({ timeout: 10_000 });
-    await expect(subjectInput).toBeVisible({ timeout: 5_000 });
-    await expect(this.noteDescEditor).toBeVisible({ timeout: 5_000 });
-    await expect(this.noteCharCounter).toBeVisible({ timeout: 5_000 });
-    await expect(this.noteSaveBtn).toBeVisible({ timeout: 5_000 });
-    await expect(this.noteCancelBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.addNotesHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(subjectInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.noteDescEditor).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.noteCharCounter).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.noteSaveBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.noteCancelBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   async cancelCreateNoteDrawer() {
     await this.noteCancelBtn.click();
     await this.addNotesHeading
-      .waitFor({ state: "hidden", timeout: 8_000 })
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 16 })
       .catch(() => {});
   }
 
   async assertCreateNoteDrawerClosed() {
-    await expect(this.addNotesHeading).not.toBeVisible({ timeout: 8_000 });
+    await expect(this.addNotesHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   // ── Tasks Tab ─────────────────────────────────────────────────────────────
 
   async gotoTasksTab() {
-    await this.tasksTab.waitFor({ state: "visible", timeout: 10_000 });
+    await this.tasksTab.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await this.tasksTab.click();
-    await this.newTaskBtn.waitFor({ state: "visible", timeout: 10_000 });
+    await this.newTaskBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertTasksTabVisible() {
-    await expect(this.tasksTab).toBeVisible({ timeout: 10_000 });
+    await expect(this.tasksTab).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertTasksTableColumns() {
@@ -3163,43 +3154,43 @@ class PropertyModule {
     for (const col of expectedCols) {
       await expect(
         this.page.getByRole("columnheader", { name: col }),
-      ).toBeVisible({ timeout: 10_000 });
+      ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     }
   }
 
   async assertNewTaskButtonVisible() {
-    await expect(this.newTaskBtn).toBeVisible({ timeout: 10_000 });
+    await expect(this.newTaskBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertTasksEmptyState() {
-    await expect(this.taskEmptyState).toBeVisible({ timeout: 10_000 });
+    await expect(this.taskEmptyState).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async openCreateTaskDrawer() {
-    await this.newTaskBtn.waitFor({ state: "visible", timeout: 10_000 });
+    await this.newTaskBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await this.newTaskBtn.click();
-    await this.createTaskHeading.waitFor({ state: "visible", timeout: 10_000 });
+    await this.createTaskHeading.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertCreateTaskDrawerOpen() {
-    await expect(this.createTaskHeading).toBeVisible({ timeout: 10_000 });
-    await expect(this.taskTitleInput).toBeVisible({ timeout: 5_000 });
-    await expect(this.taskDescEditor).toBeVisible({ timeout: 5_000 });
-    await expect(this.taskTypeTrigger).toBeVisible({ timeout: 5_000 });
-    await expect(this.taskPriorityTrigger).toBeVisible({ timeout: 5_000 });
-    await expect(this.taskSaveBtn).toBeVisible({ timeout: 5_000 });
-    await expect(this.taskCancelBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.createTaskHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.taskTitleInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.taskDescEditor).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.taskTypeTrigger).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.taskPriorityTrigger).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.taskSaveBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.taskCancelBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   async cancelCreateTaskDrawer() {
     await this.taskCancelBtn.click();
     await this.createTaskHeading
-      .waitFor({ state: "hidden", timeout: 8_000 })
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 16 })
       .catch(() => {});
   }
 
   async assertCreateTaskDrawerClosed() {
-    await expect(this.createTaskHeading).not.toBeVisible({ timeout: 8_000 });
+    await expect(this.createTaskHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   // ── Duplicate Address validation ──────────────────────────────────────────
@@ -3219,9 +3210,9 @@ class PropertyModule {
    *     fail this check once one of them is saved.
    */
   async assertDuplicateAddressError() {
-    await expect(this.duplicateAddressToast).toBeVisible({ timeout: 10_000 });
+    await expect(this.duplicateAddressToast).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     // Drawer must remain open — the user should be able to correct the address
-    await expect(this.createPropertyHeading).toBeVisible({ timeout: 5_000 });
+    await expect(this.createPropertyHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -3232,23 +3223,23 @@ class PropertyModule {
    * the app rejects it gracefully.
    */
   async submitAndExpectDuplicateAddressError() {
-    await this.submitCreateBtn.waitFor({ state: "visible", timeout: 10_000 });
+    await this.submitCreateBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await this.submitCreateBtn.scrollIntoViewIfNeeded();
     await this.submitCreateBtn.click({ force: true });
     await this.assertDuplicateAddressError();
   }
 
   async submitAndExpectBlockedDuplicateAddress() {
-    await this.submitCreateBtn.waitFor({ state: "visible", timeout: 10_000 });
+    await this.submitCreateBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await this.submitCreateBtn.scrollIntoViewIfNeeded();
     await this.submitCreateBtn.click({ force: true });
 
     const duplicateToastSeen = await this.duplicateAddressToast
-      .waitFor({ state: "visible", timeout: 5_000 })
+      .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 10 })
       .then(() => true)
       .catch(() => false);
 
-    await expect(this.createPropertyHeading).toBeVisible({ timeout: 10_000 });
+    await expect(this.createPropertyHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     return duplicateToastSeen;
   }
 
@@ -3327,7 +3318,7 @@ class PropertyModule {
   async assertContactDetailsSectionVisible() {
     await this.scrollDrawerToContactDetails();
     await expect(this.contactDetailsSectionHeading()).toBeVisible({
-      timeout: 10_000,
+      timeout: TIMEOUTS.BASE * 20,
     });
     const expectedRoles = [
       "Decision Maker",
@@ -3340,7 +3331,7 @@ class PropertyModule {
     for (const role of expectedRoles) {
       await expect(
         drawer.getByText(role, { exact: true }).first(),
-      ).toBeVisible({ timeout: 8_000 });
+      ).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     }
   }
 
@@ -3351,17 +3342,17 @@ class PropertyModule {
   async openContactRoleDropdown(roleIndex) {
     await this.scrollDrawerToContactDetails();
     const trigger = this.contactRoleTriggerAt(roleIndex);
-    await trigger.waitFor({ state: "visible", timeout: 8_000 });
+    await trigger.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     const tooltip = this.contactRoleTooltip();
     for (let attempt = 0; attempt < 2; attempt++) {
       await trigger.click({ force: true });
       const visible = await tooltip
-        .waitFor({ state: "visible", timeout: 4_000 })
+        .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 8 })
         .then(() => true)
         .catch(() => false);
       if (visible) return tooltip;
     }
-    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    await tooltip.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     return tooltip;
   }
 
@@ -3374,10 +3365,10 @@ class PropertyModule {
     const searchInput = tooltip
       .getByRole("textbox", { name: /Search by name/i })
       .first();
-    await expect(searchInput).toBeVisible({ timeout: 8_000 });
+    await expect(searchInput).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     // Contacts render as paragraphs "Name (email@domain.com)"
     const firstResult = tooltip.locator("p").first();
-    await expect(firstResult).toBeVisible({ timeout: 10_000 });
+    await expect(firstResult).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   /**
@@ -3390,9 +3381,9 @@ class PropertyModule {
       .getByRole("textbox", { name: /Search by name/i })
       .first()
       .or(tooltip.getByRole("textbox").first());
-    await searchInput.waitFor({ state: "visible", timeout: 5_000 });
+    await searchInput.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 10 });
     await searchInput.fill(searchText);
-    await tooltip.locator("p").first().waitFor({ state: "visible", timeout: 8_000 }).catch(() => {});
+    await tooltip.locator("p").first().waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 }).catch(() => {});
     return tooltip;
   }
 
@@ -3405,9 +3396,9 @@ class PropertyModule {
     const result = tooltip
       .getByText(contactText, { exact: false })
       .first();
-    await result.waitFor({ state: "visible", timeout: 8_000 });
+    await result.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     await result.click({ force: true });
-    await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+    await tooltip.waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
   }
 
   /**
@@ -3416,7 +3407,7 @@ class PropertyModule {
   async dismissContactRoleTooltip() {
     await this.createPropertyHeading.click({ force: true });
     await this.contactRoleTooltip()
-      .waitFor({ state: "hidden", timeout: 5_000 })
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 10 })
       .catch(() => {});
   }
 
@@ -3446,7 +3437,7 @@ class PropertyModule {
     const selectedHeading = drawer
       .getByRole("heading", { name: /Selected Contacts/i, level: 6 })
       .first();
-    await expect(selectedHeading).toBeVisible({ timeout: 8_000 });
+    await expect(selectedHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   // ── Address Autocomplete (TC-PROP-048 / 049 / 050) ───────────────────────
@@ -3504,9 +3495,9 @@ class PropertyModule {
    */
   async openAddressAutocomplete() {
     const combobox = this.addressCombobox();
-    await combobox.waitFor({ state: "visible", timeout: 8_000 });
+    await combobox.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     await combobox.click();
-    await expect(this.addressInput).toBeVisible({ timeout: 5_000 });
+    await expect(this.addressInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -3515,11 +3506,11 @@ class PropertyModule {
    * @param {string} addressText  Partial address to type (e.g. "123 Main St")
    */
   async typeAddressAndWaitForSuggestions(addressText) {
-    await this.addressInput.waitFor({ state: "visible", timeout: 8_000 });
+    await this.addressInput.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     await this.addressInput.fill(addressText);
     // Wait for at least one suggestion option
     await expect(this.addressSuggestionOptions().first()).toBeVisible({
-      timeout: 10_000,
+      timeout: TIMEOUTS.BASE * 20,
     });
   }
 
@@ -3530,12 +3521,12 @@ class PropertyModule {
    */
   async selectFirstAddressSuggestion() {
     const firstOption = this.addressSuggestionOptions().first();
-    await firstOption.waitFor({ state: "visible", timeout: 8_000 });
+    await firstOption.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     const selectedText = ((await firstOption.textContent().catch(() => "")) || "").trim();
     await firstOption.click();
     // Listbox collapses after selection
     await expect(this.addressSuggestionOptions().first()).toBeHidden({
-      timeout: 8_000,
+      timeout: TIMEOUTS.BASE * 16,
     }).catch(() => {});
     return selectedText;
   }
@@ -3546,7 +3537,7 @@ class PropertyModule {
    */
   async assertAddressComboboxExpanded() {
     await expect(this.addressCombobox()).toHaveAttribute("aria-expanded", "true", {
-      timeout: 8_000,
+      timeout: TIMEOUTS.BASE * 16,
     });
   }
 
@@ -3555,7 +3546,7 @@ class PropertyModule {
    */
   async assertAddressComboboxCollapsed() {
     await expect(this.addressCombobox()).not.toHaveAttribute("aria-expanded", "true", {
-      timeout: 8_000,
+      timeout: TIMEOUTS.BASE * 16,
     });
   }
 
@@ -3579,8 +3570,6 @@ class PropertyModule {
           if (panel) panel.scrollTop = panel.scrollHeight;
         });
       });
-    // debounce: no DOM signal after programmatic scroll — allow layout to settle
-    await this.page.waitForTimeout(300);
   }
 
   // ── Referred By section (TC-PROP-054 / 055 / 056 / 057) ─────────────────
@@ -3600,14 +3589,14 @@ class PropertyModule {
    * Assert the "Referred By" section heading is visible in the drawer.
    */
   async assertReferredBySectionVisible() {
-    await expect(this.referredByHeading()).toBeVisible({ timeout: 8_000 });
+    await expect(this.referredByHeading()).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   /**
    * Assert the "Referred By" section heading is NOT visible in the drawer.
    */
   async assertReferredBySectionHidden() {
-    await expect(this.referredByHeading()).not.toBeVisible({ timeout: 8_000 });
+    await expect(this.referredByHeading()).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   /**
@@ -3652,7 +3641,7 @@ class PropertyModule {
   async openReferredByPropertyDropdown() {
     const trigger = this.referredByPropertyTrigger();
     await trigger.scrollIntoViewIfNeeded().catch(() => {});
-    await trigger.waitFor({ state: "visible", timeout: 8_000 });
+    await trigger.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     const tooltip = this.referredByTooltip();
     for (let attempt = 0; attempt < 2; attempt++) {
       // Dispatch click on the h6's immediate parent (bypasses overlay interception)
@@ -3671,12 +3660,12 @@ class PropertyModule {
         }
       });
       const visible = await tooltip
-        .waitFor({ state: "visible", timeout: 4_000 })
+        .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 8 })
         .then(() => true)
         .catch(() => false);
       if (visible) return tooltip;
     }
-    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    await tooltip.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     return tooltip;
   }
 
@@ -3690,7 +3679,7 @@ class PropertyModule {
   async openReferredByContactDropdown() {
     const trigger = this.referredByContactTrigger();
     await trigger.scrollIntoViewIfNeeded().catch(() => {});
-    await trigger.waitFor({ state: "visible", timeout: 8_000 });
+    await trigger.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     const tooltip = this.referredByTooltip();
     for (let attempt = 0; attempt < 2; attempt++) {
       // Dispatch click on the h6's immediate parent (bypasses overlay interception)
@@ -3709,12 +3698,12 @@ class PropertyModule {
         }
       });
       const visible = await tooltip
-        .waitFor({ state: "visible", timeout: 4_000 })
+        .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 8 })
         .then(() => true)
         .catch(() => false);
       if (visible) return tooltip;
     }
-    await tooltip.waitFor({ state: "visible", timeout: 8_000 });
+    await tooltip.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     return tooltip;
   }
 
@@ -3724,9 +3713,9 @@ class PropertyModule {
    */
   async assertReferredByTooltipHasSearchAndResults(tooltip) {
     const searchInput = tooltip.getByRole("textbox", { name: /Search/i }).first();
-    await expect(searchInput).toBeVisible({ timeout: 8_000 });
+    await expect(searchInput).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     const firstResult = tooltip.locator("p").first();
-    await expect(firstResult).toBeVisible({ timeout: 10_000 });
+    await expect(firstResult).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   /**
@@ -3736,9 +3725,9 @@ class PropertyModule {
    */
   async searchInReferredByTooltip(searchText, tooltip) {
     const searchInput = tooltip.getByRole("textbox", { name: /Search/i }).first();
-    await searchInput.waitFor({ state: "visible", timeout: 5_000 });
+    await searchInput.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 10 });
     await searchInput.fill(searchText);
-    await tooltip.locator("p").first().waitFor({ state: "visible", timeout: 8_000 }).catch(() => {});
+    await tooltip.locator("p").first().waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 }).catch(() => {});
     return tooltip;
   }
 
@@ -3749,10 +3738,10 @@ class PropertyModule {
    */
   async selectFirstResultInReferredByTooltip(tooltip) {
     const firstResult = tooltip.locator("p").first();
-    await firstResult.waitFor({ state: "visible", timeout: 8_000 });
+    await firstResult.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     const text = ((await firstResult.textContent().catch(() => "")) || "").trim();
     await firstResult.click({ force: true });
-    await tooltip.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+    await tooltip.waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
     return text;
   }
 
@@ -3771,7 +3760,7 @@ class PropertyModule {
         const allH6Texts = await drawer.locator("h6").allTextContents().catch(() => []);
         return !allH6Texts.some((t) => /Select Property \/ Property Name/i.test(t));
       },
-      { timeout: 8_000, message: "Referred By Property trigger should not show placeholder after selection" },
+      { timeout: TIMEOUTS.BASE * 16, message: "Referred By Property trigger should not show placeholder after selection" },
     ).toBeTruthy();
   }
 
@@ -3788,7 +3777,7 @@ class PropertyModule {
         ).trim();
         return !/^Contact$/i.test(text);
       },
-      { timeout: 8_000 },
+      { timeout: TIMEOUTS.BASE * 16 },
     ).toBeTruthy();
   }
 
@@ -3800,7 +3789,7 @@ class PropertyModule {
    * Live-verified: the drawer stays open and shows "Address is required." text.
    */
   async submitEmptyCreateFormAndExpectValidation() {
-    await this.submitCreateBtn.waitFor({ state: "visible", timeout: 10_000 });
+    await this.submitCreateBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await this.submitCreateBtn.scrollIntoViewIfNeeded();
     await this.submitCreateBtn.click({ force: true });
     // Wait for at least one "required" error inside the drawer
@@ -3808,7 +3797,7 @@ class PropertyModule {
       this.createPropertyDrawerRoot()
         .getByText(/is required/i)
         .first(),
-    ).toBeVisible({ timeout: 8_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   // ── Layout / overflow assertions (TC-PROP-059) ────────────────────────────
@@ -3821,7 +3810,7 @@ class PropertyModule {
    */
   async assertDrawerHasNoHorizontalOverflow() {
     const drawer = this.createPropertyDrawerRoot();
-    await drawer.waitFor({ state: "visible", timeout: 10_000 });
+    await drawer.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     const overflow = await drawer.evaluate((el) => {
       return el.scrollWidth > el.clientWidth;
     });
@@ -3840,7 +3829,7 @@ class PropertyModule {
     const sequence = [];
 
     // Click the Property Name input to anchor focus inside the drawer
-    await this.propertyNameInput.waitFor({ state: "visible", timeout: 8_000 });
+    await this.propertyNameInput.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     await this.propertyNameInput.click();
 
     // Capture starting element
@@ -3876,13 +3865,13 @@ class PropertyModule {
    */
   async assertBackdropBlocksBackground() {
     const backdrop = this.page.locator(".MuiBackdrop-root.MuiModal-backdrop").first();
-    await expect(backdrop).toBeVisible({ timeout: 8_000 });
+    await expect(backdrop).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
 
     // Attempt to click the background table — the backdrop should intercept this.
     // We use { force: false } (default) so Playwright respects element coverage.
     const backgroundTable = this.page.locator("table").first();
     const clickIntercepted = await backgroundTable
-      .click({ timeout: 4_000 })
+      .click({ timeout: TIMEOUTS.BASE * 8 })
       .then(() => false)
       .catch(() => true);
 
@@ -3907,20 +3896,20 @@ class PropertyModule {
     // Card 1: Properties total
     await expect(
       this.page.getByRole("heading", { name: "Properties", level: 6 }).first(),
-    ).toBeVisible({ timeout: 15_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
     await expect(
       this.page.getByRole("heading", { level: 1 }).first(),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
 
     // Card 2: Properties by Stage
     await expect(
       this.page.getByRole("heading", { name: "Properties by Stage", level: 6 }),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
 
     // Card 3: Qualified Properties
     await expect(
       this.page.getByRole("heading", { name: "Qualified Properties", level: 6 }),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   /**
@@ -3929,7 +3918,7 @@ class PropertyModule {
    */
   async getDashboardPropertyTotal() {
     const heading = this.page.getByRole("heading", { level: 1 }).first();
-    await expect(heading).toBeVisible({ timeout: 10_000 });
+    await expect(heading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     return heading.textContent();
   }
 
@@ -3940,7 +3929,7 @@ class PropertyModule {
   async assertStageChartLegendVisible() {
     // The chart legend items are generic elements whose text matches "StageName • N,NNN"
     const legend = this.page.locator("text=/Approved •/");
-    await expect(legend.first()).toBeVisible({ timeout: 10_000 });
+    await expect(legend.first()).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   /**
@@ -3956,10 +3945,10 @@ class PropertyModule {
       .locator("..") // parent card
       .locator("img")
       .first();
-    await expect(graphImg).toBeVisible({ timeout: 10_000 });
+    await expect(graphImg).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     // Also assert at least one month-label element (axis tick) is rendered
     const axisTick = this.page.locator("text=/\\w+' \\d{2}/").first();
-    await expect(axisTick).toBeVisible({ timeout: 10_000 });
+    await expect(axisTick).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   // ── List toolbar — filter tooltips (TC-PROP-068) ──────────────────────────
@@ -3974,7 +3963,7 @@ class PropertyModule {
       .getByRole("heading", { name: "All Affiliation", level: 6 })
       .click();
     const tooltip = this.page.getByRole("tooltip");
-    await expect(tooltip).toBeVisible({ timeout: 8_000 });
+    await expect(tooltip).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     return tooltip;
   }
 
@@ -3986,7 +3975,7 @@ class PropertyModule {
       .getByRole("heading", { name: "All Properties", level: 6 })
       .click();
     const tooltip = this.page.getByRole("tooltip");
-    await expect(tooltip).toBeVisible({ timeout: 8_000 });
+    await expect(tooltip).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     return tooltip;
   }
 
@@ -3999,7 +3988,7 @@ class PropertyModule {
     // Wait for table to re-render — at least one data row must be visible
     await expect(
       this.page.locator("table tbody tr").first(),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   /**
@@ -4018,7 +4007,7 @@ class PropertyModule {
       .locator('input[type="checkbox"]');
     await firstCheckboxCell.check();
     const selectionCount = this.page.getByText(/\d+ propert(?:y|ies) selected/);
-    await expect(selectionCount).toBeVisible({ timeout: 8_000 });
+    await expect(selectionCount).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     return selectionCount;
   }
 
@@ -4044,13 +4033,13 @@ class PropertyModule {
    */
   async openBulkAssignmentOverlay() {
     const bulkBtn = this.page.getByRole("button", { name: "Bulk Assignment" });
-    await expect(bulkBtn).toBeEnabled({ timeout: 5_000 });
+    await expect(bulkBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
     await bulkBtn.click();
     // Wait for the overlay content — confirmed: Cancel button appears
     const cancelBtn = this.page
       .getByRole("button", { name: "Cancel" })
       .last();
-    await expect(cancelBtn).toBeVisible({ timeout: 8_000 });
+    await expect(cancelBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     return cancelBtn;
   }
 
@@ -4060,7 +4049,7 @@ class PropertyModule {
   async clickReviewLeads() {
     const btn = this.page.getByRole("button", { name: /Review Leads/i });
     await Promise.all([
-      this.page.waitForURL(/\/app\/sales\/locations\/reviews/, { timeout: 15_000 }),
+      this.page.waitForURL(/\/app\/sales\/locations\/reviews/, { timeout: TIMEOUTS.BASE * 30 }),
       btn.click(),
     ]);
   }
@@ -4075,7 +4064,7 @@ class PropertyModule {
     await this.page.getByRole("button", { name: "More Filters" }).click();
     await expect(
       this.page.getByRole("heading", { name: "All Filters", level: 3 }),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   /**
@@ -4098,34 +4087,34 @@ class PropertyModule {
     ]) {
       await expect(
         panel.getByRole("heading", { name, level: 6 }),
-      ).toBeVisible({ timeout: 8_000 });
+      ).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     }
 
     // Input controls
     await expect(
       panel.getByRole("combobox", { name: /Add Zip Code/i }),
-    ).toBeVisible({ timeout: 5_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     await expect(
       panel.getByRole("textbox", { name: "Add ID" }),
-    ).toBeVisible({ timeout: 5_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     await expect(
       panel.getByRole("textbox", { name: "Lot Number" }),
-    ).toBeVisible({ timeout: 5_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     // Two date range textboxes share the same placeholder
     await expect(
       panel.getByRole("textbox", { name: "MM/DD/YYYY - MM/DD/YYYY" }).first(),
-    ).toBeVisible({ timeout: 5_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
 
     // No. of Units button, Clear All, Apply Filters
     await expect(
       panel.getByRole("button", { name: "No. of Units" }),
-    ).toBeVisible({ timeout: 5_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     await expect(
       panel.getByRole("button", { name: "Clear All" }),
-    ).toBeVisible({ timeout: 5_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     await expect(
       panel.getByRole("button", { name: "Apply Filters" }),
-    ).toBeVisible({ timeout: 5_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -4137,11 +4126,11 @@ class PropertyModule {
     const trigger = this.page.getByRole("heading", { name: triggerName, level: 6 });
     await trigger.click();
     const tooltip = this.page.getByRole("tooltip");
-    await expect(tooltip).toBeVisible({ timeout: 8_000 });
+    await expect(tooltip).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     // Close the tooltip by clicking the trigger again (toggle).
     // Do NOT use Escape — it closes the entire More Filters panel, not just the tooltip.
     await trigger.click();
-    await expect(tooltip).toBeHidden({ timeout: 5_000 }).catch(() => {});
+    await expect(tooltip).toBeHidden({ timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
   }
 
   /**
@@ -4162,7 +4151,7 @@ class PropertyModule {
   async fillPropertyIdFilter(id) {
     const input = this.page.getByRole("textbox", { name: "Add ID" });
     await input.fill(id);
-    await expect(input).toHaveValue(id, { timeout: 5_000 });
+    await expect(input).toHaveValue(id, { timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -4172,7 +4161,7 @@ class PropertyModule {
   async fillLotNumberFilter(lot) {
     const input = this.page.getByRole("textbox", { name: "Lot Number" });
     await input.fill(lot);
-    await expect(input).toHaveValue(lot, { timeout: 5_000 });
+    await expect(input).toHaveValue(lot, { timeout: TIMEOUTS.BASE * 10 });
     await input.clear();
   }
 
@@ -4184,7 +4173,7 @@ class PropertyModule {
   async fillDateRangeFilter(index, value) {
     const inputs = this.page.getByRole("textbox", { name: "MM/DD/YYYY - MM/DD/YYYY" });
     const input = inputs.nth(index);
-    await expect(input).toBeVisible({ timeout: 5_000 });
+    await expect(input).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     // MUI masked date inputs do not accept `.fill()` — use pressSequentially to
     // type characters into the masked field so the mask formatter processes them.
     await input.click();
@@ -4194,9 +4183,9 @@ class PropertyModule {
     const filled = await input.inputValue().catch(() => "");
     // If inputValue is still empty (field may be read-only in UAT), assert visible only
     if (filled.trim().length === 0) {
-      await expect(input).toBeVisible({ timeout: 5_000 });
+      await expect(input).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     } else {
-      await expect(input).not.toHaveValue("", { timeout: 5_000 });
+      await expect(input).not.toHaveValue("", { timeout: TIMEOUTS.BASE * 10 });
     }
   }
 
@@ -4208,11 +4197,11 @@ class PropertyModule {
     const trigger = this.page.getByRole("heading", { name: "Select Stages", level: 6 });
     await trigger.click();
     const tooltip = this.page.getByRole("tooltip");
-    await expect(tooltip).toBeVisible({ timeout: 8_000 });
+    await expect(tooltip).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     // Pick the first paragraph option (e.g. "Approved")
     await tooltip.locator("p").first().click();
     // Close tooltip by clicking the trigger again — NOT Escape (would close the panel)
-    await expect(tooltip).toBeHidden({ timeout: 5_000 }).catch(() => {});
+    await expect(tooltip).toBeHidden({ timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
   }
 
   /**
@@ -4220,12 +4209,12 @@ class PropertyModule {
    */
   async applyMoreFilters() {
     const applyBtn = this.page.getByRole("button", { name: "Apply Filters" });
-    await expect(applyBtn).toBeEnabled({ timeout: 5_000 });
+    await expect(applyBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
     await applyBtn.click();
     // Panel closes — wait for the "All Filters" heading to disappear
     await expect(
       this.page.getByRole("heading", { name: "All Filters", level: 3 }),
-    ).toBeHidden({ timeout: 10_000 });
+    ).toBeHidden({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   /**
@@ -4235,12 +4224,12 @@ class PropertyModule {
   async clearAllFilters() {
     await this.openMoreFiltersPanel();
     const clearAllBtn = this.page.getByRole("button", { name: "Clear All" });
-    await expect(clearAllBtn).toBeEnabled({ timeout: 5_000 });
+    await expect(clearAllBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
     await clearAllBtn.click();
     await expect(
       this.page.getByRole("button", { name: "Apply Filters" }),
-    ).toBeDisabled({ timeout: 5_000 });
-    await expect(clearAllBtn).toBeDisabled({ timeout: 5_000 });
+    ).toBeDisabled({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(clearAllBtn).toBeDisabled({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   // ── Activities tab — TC-PROP-070 through TC-PROP-103 ──────────────────────
@@ -4261,7 +4250,7 @@ class PropertyModule {
     const tab = this.page.getByRole("tab", { name: "Activities" });
     await tab.click();
     // MUI renders only ONE tabpanel at a time — check tab is active instead of nth(N)
-    await expect(tab).toHaveAttribute("aria-selected", "true", { timeout: 10_000 });
+    await expect(tab).toHaveAttribute("aria-selected", "true", { timeout: TIMEOUTS.BASE * 20 });
   }
 
   /**
@@ -4313,9 +4302,9 @@ class PropertyModule {
    */
   async expandFirstActivityCard() {
     const seeMore = this.activitySeeMoreToggle();
-    await expect(seeMore).toBeVisible({ timeout: 8_000 });
+    await expect(seeMore).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await seeMore.click();
-    await expect(this.activitySeeLessToggle()).toBeVisible({ timeout: 5_000 });
+    await expect(this.activitySeeLessToggle()).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -4323,9 +4312,9 @@ class PropertyModule {
    */
   async collapseFirstActivityCard() {
     const seeLess = this.activitySeeLessToggle();
-    await expect(seeLess).toBeVisible({ timeout: 8_000 });
+    await expect(seeLess).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await seeLess.click();
-    await expect(this.activitySeeMoreToggle()).toBeVisible({ timeout: 5_000 });
+    await expect(this.activitySeeMoreToggle()).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -4334,7 +4323,7 @@ class PropertyModule {
   async openNotesTab() {
     const tab = this.page.getByRole("tab", { name: "Notes" });
     await tab.click();
-    await expect(tab).toHaveAttribute("aria-selected", "true", { timeout: 8_000 });
+    await expect(tab).toHaveAttribute("aria-selected", "true", { timeout: TIMEOUTS.BASE * 16 });
   }
 
   /**
@@ -4343,7 +4332,7 @@ class PropertyModule {
   async openTasksTab() {
     const tab = this.page.getByRole("tab", { name: "Tasks" });
     await tab.click();
-    await expect(tab).toHaveAttribute("aria-selected", "true", { timeout: 8_000 });
+    await expect(tab).toHaveAttribute("aria-selected", "true", { timeout: TIMEOUTS.BASE * 16 });
   }
 
   /**
@@ -4352,7 +4341,7 @@ class PropertyModule {
   async openEmailsTab() {
     const tab = this.page.getByRole("tab", { name: "Emails" });
     await tab.click();
-    await expect(tab).toHaveAttribute("aria-selected", "true", { timeout: 8_000 });
+    await expect(tab).toHaveAttribute("aria-selected", "true", { timeout: TIMEOUTS.BASE * 16 });
   }
 
   /**
@@ -4372,7 +4361,7 @@ class PropertyModule {
       .click();
     await expect(
       this.page.getByRole("heading", { name: "New Message", level: 3 }),
-    ).toBeVisible({ timeout: 8_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     // Fill the To field if no recipients are pre-populated
     const toInput = this.page.getByRole("textbox", { name: "To", exact: true });
     if (to) {
@@ -4388,7 +4377,7 @@ class PropertyModule {
     await this.page.getByRole("button", { name: "Send Email" }).click();
     await expect(
       this.page.getByText("Email has been sent successfully!"),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   /**
@@ -4404,7 +4393,7 @@ class PropertyModule {
       .filter({ hasText: /^(Received|All|Sent)$/ });
     await currentFilter.click();
     const tooltip = this.page.getByRole("tooltip");
-    await expect(tooltip).toBeVisible({ timeout: 5_000 });
+    await expect(tooltip).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     await tooltip.getByText(option, { exact: true }).click();
   }
 
@@ -4423,7 +4412,7 @@ class PropertyModule {
   async openMeetingsTab() {
     const tab = this.page.getByRole("tab", { name: "Meetings" });
     await tab.click();
-    await expect(tab).toHaveAttribute("aria-selected", "true", { timeout: 8_000 });
+    await expect(tab).toHaveAttribute("aria-selected", "true", { timeout: TIMEOUTS.BASE * 16 });
   }
 
   /**
@@ -4434,7 +4423,7 @@ class PropertyModule {
     // returns 0 if tab content hasn't rendered yet (per standards §4 "Gate .count()").
     // If no cards appear within timeout we return 0 so the caller's assertion fires.
     const appeared = await expect(this.activityCardTitles().first())
-      .toBeVisible({ timeout: 10_000 })
+      .toBeVisible({ timeout: TIMEOUTS.BASE * 20 })
       .then(() => true)
       .catch(() => false);
     if (!appeared) return 0;
@@ -4477,22 +4466,22 @@ class PropertyModule {
     await this.page.getByRole("button", { name: "New Task" }).click();
     // Fill title
     const titleInput = this.page.getByRole("textbox", { name: /Task Title|title/i }).first();
-    await expect(titleInput).toBeVisible({ timeout: 8_000 });
+    await expect(titleInput).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await titleInput.fill(title);
     // Fill type — custom heading-trigger dropdown (not a combobox)
     const typeTrigger = this.page.getByRole("heading", { name: /Select Type/i });
-    await expect(typeTrigger).toBeVisible({ timeout: 8_000 });
+    await expect(typeTrigger).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await typeTrigger.click();
     // Options render as <p> elements inside a tooltip, not role="option"
     await this.page.getByRole("tooltip").getByText(type, { exact: true }).click();
     // Fill priority — same custom dropdown pattern
     const priTrigger = this.page.getByRole("heading", { name: /Select Priority/i });
-    await expect(priTrigger).toBeVisible({ timeout: 8_000 });
+    await expect(priTrigger).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await priTrigger.click();
     await this.page.getByRole("tooltip").getByText(priority, { exact: true }).click();
     // Fill description — RDW (Draft.js) ignores fill(); must click then type via keyboard
     const descEditor = this.page.getByRole("textbox", { name: "rdw-editor" }).first();
-    await expect(descEditor).toBeVisible({ timeout: 8_000 });
+    await expect(descEditor).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await descEditor.click();
     await this.page.keyboard.type(description || title);
     // Save
@@ -4500,17 +4489,17 @@ class PropertyModule {
     await Promise.all([
       this.page.waitForResponse(
         (r) => r.url().includes("/task") && r.status() < 300,
-        { timeout: 15_000 },
+        { timeout: TIMEOUTS.BASE * 30 },
       ).catch(() => {}),
       saveBtn.click(),
     ]);
     // Use search to verify the task was created — handles pagination (title may be on page 2+)
     // The task search box has no accessible name — select by role only
     const taskSearch = this.page.getByRole("searchbox").first();
-    await expect(taskSearch).toBeVisible({ timeout: 10_000 });
+    await expect(taskSearch).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     await taskSearch.fill(title.substring(0, 30));
     await expect(this.page.getByRole("cell", { name: new RegExp(title.substring(0, 30)) }).first())
-      .toBeVisible({ timeout: 10_000 });
+      .toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     await taskSearch.clear();
   }
 
@@ -4523,21 +4512,21 @@ class PropertyModule {
     await this.openNotesTab();
     // Click "Create New Note" button (matches /New Note/i)
     const newNoteBtn = this.page.getByRole("button", { name: /New Note/i });
-    await expect(newNoteBtn).toBeVisible({ timeout: 8_000 });
+    await expect(newNoteBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await newNoteBtn.click();
     // Wait for the drawer heading — the container uses aria-labelledby (not aria-label)
     // so [aria-label="Add Notes"] does not match; the heading is the reliable anchor.
     const addNotesHeading = this.page.getByRole("heading", { name: "Add Notes", level: 4 });
-    await expect(addNotesHeading).toBeVisible({ timeout: 8_000 });
+    await expect(addNotesHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     // Scope to the drawer via filter so subsequent queries don't leak outside it
     const addNotesPanel = this.page.locator("div").filter({ has: addNotesHeading }).last();
     // Subject field — first textbox inside the drawer (body editor is named "rdw-editor")
     const subjectInput = addNotesPanel.getByRole("textbox").first();
-    await expect(subjectInput).toBeVisible({ timeout: 8_000 });
+    await expect(subjectInput).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await subjectInput.fill(subject);
     // Body field — RDW (Draft.js) ignores fill(); must click then type via keyboard
     const bodyEditor = addNotesPanel.getByRole("textbox", { name: "rdw-editor" });
-    await expect(bodyEditor).toBeVisible({ timeout: 8_000 });
+    await expect(bodyEditor).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await bodyEditor.click();
     await this.page.keyboard.type(body || subject);
     // Save
@@ -4545,11 +4534,11 @@ class PropertyModule {
     await Promise.all([
       this.page.waitForResponse(
         (r) => r.url().includes("/note") && r.status() < 300,
-        { timeout: 15_000 },
+        { timeout: TIMEOUTS.BASE * 30 },
       ).catch(() => {}),
       saveBtn.click(),
     ]);
-    await expect(this.page.locator("text=" + subject).first()).toBeVisible({ timeout: 10_000 });
+    await expect(this.page.locator("text=" + subject).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   // ── TC-PROP-107: Bulk Assignment overlay ─────────────────────────────────
@@ -4562,15 +4551,15 @@ class PropertyModule {
   async searchAndSelectBulkAssignee(assigneeName) {
     // Click the "Select Assignee" trigger heading (exact match — the non-colon version is the dropdown trigger)
     const trigger = this.page.getByRole("heading", { name: "Select Assignee", exact: true });
-    await expect(trigger).toBeVisible({ timeout: 8_000 });
+    await expect(trigger).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await trigger.click();
     // The search input appears inside a popper — identified by placeholder="Search"
     const searchInput = this.page.locator('input[placeholder="Search"]');
-    await expect(searchInput).toBeVisible({ timeout: 8_000 });
+    await expect(searchInput).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await searchInput.fill(assigneeName);
     // Results appear as h4 elements inside the popper
     const option = this.page.locator("h4").filter({ hasText: assigneeName }).first();
-    await expect(option).toBeVisible({ timeout: 8_000 });
+    await expect(option).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await option.click();
   }
 
@@ -4583,12 +4572,12 @@ class PropertyModule {
       .getByRole("button", { name: /^Assign$/i })
       .or(this.page.locator('button:has-text("Assign")').last())
       .first();
-    await expect(assignBtn).toBeVisible({ timeout: 8_000 });
+    await expect(assignBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await Promise.all([
       this.page
         .waitForResponse(
           (r) => r.url().includes("/assign") && r.status() < 300,
-          { timeout: 15_000 },
+          { timeout: TIMEOUTS.BASE * 30 },
         )
         .catch(() => {}),
       assignBtn.click(),
@@ -4618,7 +4607,7 @@ class PropertyModule {
     const panel = this.page.getByRole("tabpanel", { name: /Activities/i });
     const cards = panel.locator("p, span, h6").filter({ hasText: /\bby\b/ });
     // Wait for at least one card before counting (count() does not retry)
-    await cards.first().waitFor({ state: "visible", timeout: 10_000 }).catch(() => {});
+    await cards.first().waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
     return cards.count();
   }
 
@@ -4637,28 +4626,28 @@ class PropertyModule {
    * Asserts all 5 mandatory field error messages are visible.
    */
   async assertAllTaskMandatoryErrors() {
-    await expect(this.page.locator("text=Task For is required.")).toBeVisible({ timeout: 8_000 });
-    await expect(this.page.locator("text=Task Title is required.")).toBeVisible({ timeout: 8_000 });
-    await expect(this.page.locator("text=Task Description is required.")).toBeVisible({ timeout: 8_000 });
-    await expect(this.page.locator("text=Task Type is required.")).toBeVisible({ timeout: 8_000 });
-    await expect(this.page.locator("text=Task Priority is required.")).toBeVisible({ timeout: 8_000 });
+    await expect(this.page.locator("text=Task For is required.")).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
+    await expect(this.page.locator("text=Task Title is required.")).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
+    await expect(this.page.locator("text=Task Description is required.")).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
+    await expect(this.page.locator("text=Task Type is required.")).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
+    await expect(this.page.locator("text=Task Priority is required.")).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   /**
    * Asserts that only the Task Description error is shown (others cleared).
    */
   async assertOnlyDescriptionRequired() {
-    await expect(this.page.locator("text=Task Description is required.")).toBeVisible({ timeout: 8_000 });
-    await expect(this.page.locator("text=Task Title is required.")).toBeHidden({ timeout: 5_000 });
-    await expect(this.page.locator("text=Task Type is required.")).toBeHidden({ timeout: 5_000 });
-    await expect(this.page.locator("text=Task Priority is required.")).toBeHidden({ timeout: 5_000 });
+    await expect(this.page.locator("text=Task Description is required.")).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
+    await expect(this.page.locator("text=Task Title is required.")).toBeHidden({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.page.locator("text=Task Type is required.")).toBeHidden({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.page.locator("text=Task Priority is required.")).toBeHidden({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
    * Asserts the Due Date required error is visible.
    */
   async assertDueDateRequired() {
-    await expect(this.page.locator("text=Due Date is required.")).toBeVisible({ timeout: 8_000 });
+    await expect(this.page.locator("text=Due Date is required.")).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   /**
@@ -4673,7 +4662,7 @@ class PropertyModule {
       .locator("p")
       .filter({ hasText: typeName })
       .first();
-    await expect(option).toBeVisible({ timeout: 8_000 });
+    await expect(option).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await option.click();
   }
 
@@ -4688,7 +4677,7 @@ class PropertyModule {
       .locator("p")
       .filter({ hasText: priorityName })
       .first();
-    await expect(option).toBeVisible({ timeout: 8_000 });
+    await expect(option).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await option.click();
   }
 
@@ -4714,7 +4703,7 @@ class PropertyModule {
    */
   async openTaskFilterDropdown(headingName) {
     const trigger = this.page.getByRole("heading", { name: headingName, level: 6 }).first();
-    await expect(trigger).toBeVisible({ timeout: 8_000 });
+    await expect(trigger).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await trigger.click();
   }
 
@@ -4729,7 +4718,7 @@ class PropertyModule {
       .locator("p")
       .filter({ hasText: optionText })
       .first();
-    await expect(option).toBeVisible({ timeout: 8_000 });
+    await expect(option).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await option.click();
   }
 
@@ -4738,7 +4727,7 @@ class PropertyModule {
    * @param {string} dateRange - e.g. "04/01/2026 - 04/30/2026"
    */
   async fillTaskDateRangeFilter(dateRange) {
-    await expect(this.taskDateRangeInput).toBeVisible({ timeout: 8_000 });
+    await expect(this.taskDateRangeInput).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await this.taskDateRangeInput.fill(dateRange);
     await this.taskDateRangeInput.press("Enter");
   }
@@ -4749,7 +4738,7 @@ class PropertyModule {
    * Returns the current pagination info text (e.g. "1–10 of 2594").
    */
   async getTaskPaginationText() {
-    await expect(this.paginationInfo).toBeVisible({ timeout: 8_000 });
+    await expect(this.paginationInfo).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     return this.paginationInfo.textContent();
   }
 
@@ -4758,7 +4747,7 @@ class PropertyModule {
    */
   async clickTaskDueDateSort() {
     const sortBtn = this.page.getByRole("button", { name: "Due Date" });
-    await expect(sortBtn).toBeVisible({ timeout: 8_000 });
+    await expect(sortBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await sortBtn.click();
   }
 
@@ -4775,7 +4764,7 @@ class PropertyModule {
       .nth(rowIndex)
       .locator("td")
       .nth(5);
-    await expect(cell).toBeVisible({ timeout: 8_000 });
+    await expect(cell).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     // Extract only the date portion — cell may contain an image suffix ("Due Date Passed")
     const raw = (await cell.textContent()).trim();
     // Date format is MM/DD/YYYY — extract first 10 chars or match the pattern
@@ -4791,12 +4780,12 @@ class PropertyModule {
    * @param {string|number} value - e.g. "25"
    */
   async changeTaskRowsPerPage(value) {
-    await expect(this.rowsPerPageCombo).toBeVisible({ timeout: 8_000 });
+    await expect(this.rowsPerPageCombo).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     // Open the MUI listbox by clicking the combobox div
     await this.rowsPerPageCombo.click();
     // Wait for the listbox to appear and click the matching option
     const listbox = this.page.getByRole("listbox");
-    await expect(listbox).toBeVisible({ timeout: 5_000 });
+    await expect(listbox).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     await listbox.getByRole("option", { name: String(value), exact: true }).click();
   }
 }

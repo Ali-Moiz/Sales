@@ -1,3 +1,4 @@
+const { TIMEOUTS } = require('../utils/playwright-timeouts');
 const { expect } = require("@playwright/test");
 const { env } = require("../utils/env");
 const {
@@ -44,25 +45,25 @@ class LoginModule {
     await enableSliderImageBlocking(this.page);
     await this.page.goto(this.baseUrl, {
       waitUntil: "networkidle",
-      timeout: 60_000,
+      timeout: TIMEOUTS.BASE * 120,
     });
     const cta = this.page.getByRole("button", { name: "Login" });
-    await cta.waitFor({ state: "visible", timeout: 20_000 });
+    await cta.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 40 });
     await cta.click();
-    await this.emailInput.waitFor({ state: "visible", timeout: 30_000 });
+    await this.emailInput.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 60 });
     // Wait for auth0 scripts (auth0.min.js) to fully initialise before interacting
     await this.page
-      .waitForLoadState("networkidle", { timeout: 30_000 })
+      .waitForLoadState("networkidle", { timeout: TIMEOUTS.BASE * 60 })
       .catch(() => {});
   }
 
   async waitForDashboard() {
-    await this.page.waitForURL(/\/app\/sales\/dashboard/, { timeout: 60_000 });
+    await this.page.waitForURL(/\/app\/sales\/dashboard/, { timeout: TIMEOUTS.BASE * 120 });
     // Wait for the page content to render (Sales Insights heading = dashboard fully loaded)
     await this.page
       .getByText("Sales Insights", { exact: true })
       .first()
-      .waitFor({ state: "visible", timeout: 30_000 });
+      .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 60 });
     await disableSliderImageBlocking(this.page);
   }
 
@@ -104,16 +105,16 @@ class LoginModule {
 
     for (const candidate of candidates) {
       const visible = await candidate
-        .isVisible({ timeout: 3_000 })
+        .isVisible({ timeout: TIMEOUTS.BASE * 6 })
         .catch(() => false);
       if (!visible) continue;
       const clicked = await candidate
-        .click({ force: true, timeout: 5_000 })
+        .click({ force: true, timeout: TIMEOUTS.BASE * 10 })
         .then(() => true)
         .catch(() => false);
       if (!clicked) continue;
       const logoutVisible = await this.logoutButton
-        .isVisible({ timeout: 2_000 })
+        .isVisible({ timeout: TIMEOUTS.BASE * 4 })
         .catch(() => false);
       if (logoutVisible) return;
     }
@@ -129,11 +130,11 @@ class LoginModule {
 
     for (const candidate of dismissCandidates) {
       const visible = await candidate
-        .isVisible({ timeout: 1_500 })
+        .isVisible({ timeout: TIMEOUTS.BASE * 3 })
         .catch(() => false);
       if (!visible) continue;
       const clicked = await candidate
-        .click({ force: true, timeout: 3_000 })
+        .click({ force: true, timeout: TIMEOUTS.BASE * 6 })
         .then(() => true)
         .catch(() => false);
       if (clicked) break;
@@ -142,7 +143,7 @@ class LoginModule {
 
   async logout() {
     await this.openUserMenu();
-    await this.logoutButton.waitFor({ state: "visible", timeout: 10_000 });
+    await this.logoutButton.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await this.logoutButton.click();
   }
 
@@ -150,9 +151,9 @@ class LoginModule {
   async openUserMenuV2() {
     const banner = this.page.getByRole("banner");
     const userHeading = banner.getByRole("heading", { level: 6 }).first();
-    await userHeading.waitFor({ state: "visible", timeout: 10_000 });
+    await userHeading.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await userHeading.click();
-    await this.logoutButton.waitFor({ state: "visible", timeout: 5_000 });
+    await this.logoutButton.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 10 });
   }
 
   async logoutV2() {
@@ -161,15 +162,18 @@ class LoginModule {
   }
 
   async togglePasswordVisibility() {
+    const currentType = await this.passwordInput.getAttribute("type");
+    const expectedType = currentType === "password" ? "text" : "password";
     await this.passwordEye.click();
-    // Small wait for the JS-driven type toggle to apply to the DOM
-    await this.page.waitForTimeout(300);
+    await expect(this.passwordInput).toHaveAttribute("type", expectedType, {
+      timeout: TIMEOUTS.BASE * 4,
+    });
   }
 
   // ── Assertions / Getters ─────────────────────────────────────────────────
   async getError() {
     // Auth0 calls the API and then populates the error via JS — allow up to 25 s
-    await this.errorBanner.waitFor({ state: "visible", timeout: 25_000 });
+    await this.errorBanner.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 50 });
     return (await this.errorBanner.textContent()).trim();
   }
 
@@ -178,8 +182,8 @@ class LoginModule {
   }
 
   async assertLoggedOut() {
-    await expect(this.welcomeHeading).toBeVisible({ timeout: 15_000 });
-    await expect(this.landingLoginButton).toBeVisible({ timeout: 15_000 });
+    await expect(this.welcomeHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+    await expect(this.landingLoginButton).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
   }
 }
 

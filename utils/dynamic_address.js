@@ -1,5 +1,7 @@
 "use strict";
 
+const { TIMEOUTS } = require('./playwright-timeouts');
+const { expect } = require("@playwright/test");
 const CITY_STATE_POOL = [
   { city: "Omaha", state: "NE", zip: "68131" },
   { city: "Austin", state: "TX", zip: "78701" },
@@ -99,7 +101,7 @@ async function clearAddressInput(addressInput) {
   await addressInput.click().catch(() => {});
   await addressInput.press("ControlOrMeta+a").catch(() => {});
   await addressInput.press("Backspace").catch(() => {});
-  await addressInput.page().waitForTimeout(200);
+  await expect(addressInput).toHaveValue("", { timeout: TIMEOUTS.BASE * 4 });
 }
 
 function looksLikeCommittedAddress(value) {
@@ -163,34 +165,64 @@ async function getVisibleSuggestions(page) {
   return [];
 }
 
-async function waitForSuggestions(page, timeoutMs = 10_000) {
-  const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
-    const suggestions = await getVisibleSuggestions(page);
-    if (suggestions.length) return suggestions;
-    await page.waitForTimeout(150);
-  }
-  return [];
+async function waitForSuggestions(page, timeoutMs = TIMEOUTS.BASE * 20) {
+  let visibleSuggestions = [];
+  await expect
+    .poll(
+      async () => {
+        visibleSuggestions = await getVisibleSuggestions(page);
+        return visibleSuggestions.length;
+      },
+      { timeout: timeoutMs, intervals: [TIMEOUTS.BASE / 4] },
+    )
+    .toBeGreaterThan(0)
+    .catch(() => {});
+  return visibleSuggestions;
 }
 
-async function waitForCommittedInputValue({ addressInput, previousValue, timeoutMs = 4_000 }) {
-  const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
-    const current = await addressInput.inputValue().catch(() => "");
-    const changed = normalizeText(current) !== normalizeText(previousValue);
-    if (looksLikeCommittedAddress(current) && changed) {
-      return current;
-    }
-    await addressInput.page().waitForTimeout(120);
-  }
-  return "";
+async function waitForCommittedInputValue({ addressInput, previousValue, timeoutMs = TIMEOUTS.BASE * 8 }) {
+  let committedAddress = "";
+  await expect
+    .poll(
+      async () => {
+        const current = await addressInput.inputValue().catch(() => "");
+        const changed = normalizeText(current) !== normalizeText(previousValue);
+        committedAddress = looksLikeCommittedAddress(current) && changed ? current : "";
+        return committedAddress;
+      },
+      { timeout: timeoutMs, intervals: [TIMEOUTS.BASE / 4] },
+    )
+    .not.toBe("")
+    .catch(() => {});
+  return committedAddress;
+}
+
+async function commitAddressSelectionViaReact(addressInput, addressText) {
+  if (!addressText) return false;
+
+  return addressInput
+    .evaluate(async (input, selectedAddress) => {
+      const fiberKey = Object.keys(input).find((key) => key.startsWith("__reactFiber"));
+      let node = fiberKey ? input[fiberKey] : null;
+
+      while (node) {
+        const onSelect = node.memoizedProps?.onSelect;
+        if (typeof onSelect === "function") {
+          await onSelect(selectedAddress);
+          return true;
+        }
+        node = node.return;
+      }
+      return false;
+    }, addressText)
+    .catch(() => false);
 }
 
 async function selectAddressFromAutocomplete({
   page,
   addressInput,
   addressText,
-  optionTimeoutMs = 10_000,
+  optionTimeoutMs = TIMEOUTS.BASE * 20,
   attempts = 2,
 } = {}) {
   const variants = buildSearchVariants(addressText);
@@ -231,7 +263,8 @@ async function selectAddressFromAutocomplete({
         pickedScore: picked.score,
       });
 
-      await picked.locator.click({ force: true }).catch(async () => {
+      await picked.locator.scrollIntoViewIfNeeded().catch(() => {});
+      await picked.locator.click().catch(async () => {
         // Keyboard fallback if click path is blocked by overlays.
         await addressInput.press("ArrowDown").catch(() => {});
         await addressInput.press("Enter").catch(() => {});
@@ -240,18 +273,23 @@ async function selectAddressFromAutocomplete({
       const committedValue = await waitForCommittedInputValue({
         addressInput,
         previousValue: valueBefore,
-        timeoutMs: 4_000,
+        timeoutMs: TIMEOUTS.BASE * 8,
       });
 
       const committedNorm = normalizeText(committedValue);
       const typedNorm = normalizeText(variant);
+      const pickedNorm = normalizeText(picked.text);
       const committedDifferentThanTyped = committedNorm && committedNorm !== typedNorm;
+      const committedMatchesSuggestion =
+        committedNorm &&
+        (committedNorm === pickedNorm ||
+          committedNorm.includes(pickedNorm) ||
+          pickedNorm.includes(committedNorm));
       const validCommittedAddress = looksLikeCommittedAddress(committedValue);
-      const finalPass =
-        validCommittedAddress &&
-        (committedDifferentThanTyped || normalizeText(valueBefore).length === 0);
+      const finalPass = validCommittedAddress && (committedDifferentThanTyped || committedMatchesSuggestion);
 
       if (finalPass) {
+        await commitAddressSelectionViaReact(addressInput, picked.text);
         debugLog("candidate_success", {
           attempt: attempt + 1,
           variant,
@@ -278,7 +316,7 @@ async function selectDynamicAddressWithRetry({
   addressInput,
   candidates,
   maxAttempts = 6,
-  optionTimeoutMs = 10_000,
+  optionTimeoutMs = TIMEOUTS.BASE * 20,
 } = {}) {
   const candidateList = Array.isArray(candidates) && candidates.length
     ? candidates

@@ -1,3 +1,4 @@
+const { TIMEOUTS } = require('../playwright-timeouts');
 const { env } = require("../env");
 const {
   enableSliderImageBlocking,
@@ -8,7 +9,7 @@ async function gotoBaseUrl(page) {
   const homeUrl = `${env.baseUrl}/`;
 
   const domLoaded = await page
-    .goto(homeUrl, { waitUntil: "domcontentloaded", timeout: 60_000 })
+    .goto(homeUrl, { waitUntil: "domcontentloaded", timeout: TIMEOUTS.BASE * 120 })
     .then(() => true)
     .catch(() => false);
 
@@ -17,23 +18,23 @@ async function gotoBaseUrl(page) {
   }
 
   const committed = await page
-    .goto(homeUrl, { waitUntil: "commit", timeout: 60_000 })
+    .goto(homeUrl, { waitUntil: "commit", timeout: TIMEOUTS.BASE * 120 })
     .then(() => true)
     .catch(() => false);
 
   if (committed) {
     await page
-      .waitForLoadState("domcontentloaded", { timeout: 20_000 })
+      .waitForLoadState("domcontentloaded", { timeout: TIMEOUTS.BASE * 40 })
       .catch(() => {});
     return;
   }
 
   await page.goto(`${env.baseUrl}/login`, {
     waitUntil: "commit",
-    timeout: 60_000,
+    timeout: TIMEOUTS.BASE * 120,
   });
   await page
-    .waitForLoadState("domcontentloaded", { timeout: 20_000 })
+    .waitForLoadState("domcontentloaded", { timeout: TIMEOUTS.BASE * 40 })
     .catch(() => {});
 }
 
@@ -50,7 +51,7 @@ async function performLoginAttempt(page, creds = env) {
 
     for (const candidate of loginCandidates) {
       await Promise.allSettled([
-        page.waitForURL(/auth0\.com|\/app\/sales\//, { timeout: 7_000 }),
+        page.waitForURL(/auth0\.com|\/app\/sales\//, { timeout: TIMEOUTS.BASE * 14 }),
         candidate.click({ force: true }),
       ]);
       if (/auth0\.com|\/app\/sales\//.test(page.url())) break;
@@ -93,10 +94,10 @@ async function performLoginAttempt(page, creds = env) {
       ];
 
       for (const submit of submitAttempts) {
-        await Promise.allSettled([waitForAppShell(15_000), submit()]);
+        await Promise.allSettled([waitForAppShell(TIMEOUTS.BASE * 30), submit()]);
 
         if (/auth0\.com|\/app\/sales\//.test(page.url())) break;
-        if (await appError.isVisible({ timeout: 1_500 }).catch(() => false))
+        if (await appError.isVisible({ timeout: TIMEOUTS.BASE * 3 }).catch(() => false))
           break;
       }
     }
@@ -119,19 +120,19 @@ async function performLoginAttempt(page, creds = env) {
       await auth0Pass.fill(creds.password);
       if (/auth0\.com/.test(page.url())) {
         const authSubmitAttempts = [
-          async () => auth0Submit.click({ timeout: 5_000 }),
+          async () => auth0Submit.click({ timeout: TIMEOUTS.BASE * 10 }),
           async () => auth0Pass.press("Enter"),
         ];
 
         for (const submit of authSubmitAttempts) {
           await submit().catch(() => {});
-          await waitForAppShell(20_000);
+          await waitForAppShell(TIMEOUTS.BASE * 40);
           if (/\/app\/sales\//.test(page.url())) break;
         }
       }
     }
 
-    await waitForAppShell(60_000);
+    await waitForAppShell(TIMEOUTS.BASE * 120);
 
     if (!/\/app\/sales\//.test(page.url())) {
       const appErrorText = await appError.textContent().catch(() => "");
@@ -141,7 +142,7 @@ async function performLoginAttempt(page, creds = env) {
     }
 
     await page
-      .waitForLoadState("networkidle", { timeout: 15_000 })
+      .waitForLoadState("networkidle", { timeout: TIMEOUTS.BASE * 30 })
       .catch(() => {});
   } finally {
     await disableSliderImageBlocking(page);
@@ -167,7 +168,12 @@ async function performLogin(page, { attempts = 2, loginCredentials } = {}) {
       if (attempt === attempts) break;
 
       await gotoBaseUrl(page).catch(() => {});
-      await page.waitForTimeout(2_000);
+      await page
+        .waitForURL(/\/login|auth0\.com|\/app\/sales\//, {
+          timeout: TIMEOUTS.BASE * 4,
+          waitUntil: "commit",
+        })
+        .catch(() => {});
     }
   }
 

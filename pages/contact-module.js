@@ -2,6 +2,7 @@
 // Page Object for the Contacts module (Contact Name)
 // Covers: list view, create, edit, view detail, search
 
+const { TIMEOUTS } = require('../utils/playwright-timeouts');
 const { expect } = require('@playwright/test');
 
 class ContactNamePage {
@@ -62,33 +63,33 @@ class ContactNamePage {
 
   /** Navigate to /app/sales/contacts */
   async navigateToModule() {
-    const clicked = await this.contactsNavLink.click({ timeout: 10_000 }).then(() => true).catch(() => false);
+    const clicked = await this.contactsNavLink.click({ timeout: TIMEOUTS.BASE * 20 }).then(() => true).catch(() => false);
     if (!clicked) {
       await this.navigateDirectly();
       return;
     }
 
-    await this.page.waitForURL(/\/app\/sales\/contacts$/, { timeout: 15_000 }).catch(async () => {
+    await this.page.waitForURL(/\/app\/sales\/contacts$/, { timeout: TIMEOUTS.BASE * 30 }).catch(async () => {
       await this.navigateDirectly();
     });
-    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
   }
 
   async navigateDirectly() {
     await this.page.goto('/app/sales/contacts', { waitUntil: 'domcontentloaded' });
-    await this.page.waitForURL(/\/app\/sales\/contacts$/, { timeout: 15_000 });
-    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+    await this.page.waitForURL(/\/app\/sales\/contacts$/, { timeout: TIMEOUTS.BASE * 30 });
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
   }
 
   async closeOpenDrawerIfPresent() {
     if (await this.createDrawerHeading.isVisible().catch(() => false)) {
       await this.cancelBtn.click().catch(() => {});
-      await expect(this.createDrawerHeading).not.toBeVisible({ timeout: 8_000 });
+      await expect(this.createDrawerHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     }
 
     if (await this.editDrawerHeading.isVisible().catch(() => false)) {
       await this.cancelBtn.click().catch(() => {});
-      await expect(this.editDrawerHeading).not.toBeVisible({ timeout: 8_000 });
+      await expect(this.editDrawerHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     }
   }
 
@@ -97,15 +98,15 @@ class ContactNamePage {
   /** Search by name or email in the list search box */
   async searchContact(term) {
     await this.searchBox.fill(term);
-    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
-    await this.page.waitForTimeout(1_000);
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
+    await expect(this.searchBox).toHaveValue(term, { timeout: TIMEOUTS.BASE * 4 });
   }
 
   /** Clear search box */
   async clearSearch() {
     await this.searchBox.clear();
-    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
-    await this.page.waitForTimeout(1_000);
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 20 }).catch(() => {});
+    await expect(this.searchBox).toHaveValue('', { timeout: TIMEOUTS.BASE * 4 });
   }
 
   /** Return all visible contact name cells from the table */
@@ -153,12 +154,12 @@ class ContactNamePage {
   async submitCreateForm() {
     await this.createSubmitBtn.click();
     // Wait for drawer to close / list to refresh
-    await expect(this.createDrawerHeading).not.toBeVisible({ timeout: 8000 });
+    await expect(this.createDrawerHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   async cancelCreateForm() {
     await this.cancelBtn.click();
-    await expect(this.createDrawerHeading).not.toBeVisible({ timeout: 5000 });
+    await expect(this.createDrawerHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -190,12 +191,12 @@ class ContactNamePage {
 
   async submitEditForm() {
     await this.saveContactBtn.click();
-    await expect(this.editDrawerHeading).not.toBeVisible({ timeout: 8000 });
+    await expect(this.editDrawerHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   async cancelEditForm() {
     await this.cancelBtn.click();
-    await expect(this.editDrawerHeading).not.toBeVisible({ timeout: 5000 });
+    await expect(this.editDrawerHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /** Full edit flow helper */
@@ -227,12 +228,12 @@ class ContactNamePage {
 
   async sortByContactName() {
     await this.sortByContactNameBtn.click();
-    await this.page.waitForTimeout(400);
+    await expect(this.contactsTable).toBeVisible({ timeout: TIMEOUTS.BASE * 8 });
   }
 
   async sortByCreatedDate() {
     await this.sortByCreatedDateBtn.click();
-    await this.page.waitForTimeout(400);
+    await expect(this.contactsTable).toBeVisible({ timeout: TIMEOUTS.BASE * 8 });
   }
 
   // ── Assertions ─────────────────────────────────────────────

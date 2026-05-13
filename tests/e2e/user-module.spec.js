@@ -22,7 +22,6 @@ test.describe('User Module', () => {
   let existingUserSearchTerm;
 
   test.beforeAll(async ({ browser }) => {
-    test.setTimeout(180_000);
     context    = await browser.newContext();
     page       = await context.newPage();
     userModule = new UserModule(page);
@@ -32,8 +31,9 @@ test.describe('User Module', () => {
   test.beforeEach(async () => {
     await userModule.gotoUsersFromMenu();
     await userModule.assertUsersPageOpened();
-    existingUserName = await userModule.getFirstListedUserName();
-    existingUserSearchTerm = existingUserName.split(/\s+/)[0];
+    const profileBackedUser = await userModule.getProfileBackedUserName();
+    existingUserName = profileBackedUser.name;
+    existingUserSearchTerm = profileBackedUser.searchTerm;
   });
 
   test.afterAll(async () => {
@@ -51,7 +51,6 @@ test.describe('User Module', () => {
    * Priority: P0 — Critical
    */
   test('TC-USER-001 | Users module opens successfully', async () => {
-    test.setTimeout(180_000);
     await userModule.assertUsersPageOpened();
   });
 
@@ -65,7 +64,6 @@ test.describe('User Module', () => {
    * Priority: P1 — High
    */
   test('TC-USER-002 | Users table displays all expected column headers', async () => {
-    test.setTimeout(180_000);
     await userModule.assertUsersTableHasColumns();
   });
 
@@ -79,7 +77,6 @@ test.describe('User Module', () => {
    * Priority: P1 — High
    */
   test('TC-USER-003 | Users table contains data rows', async () => {
-    test.setTimeout(180_000);
     await userModule.assertUsersTableHasRows();
   });
 
@@ -93,7 +90,6 @@ test.describe('User Module', () => {
    * Priority: P1 — High
    */
   test('TC-USER-004 | Pagination is visible with correct format', async () => {
-    test.setTimeout(180_000);
     await userModule.assertPaginationVisible();
   });
 
@@ -107,7 +103,6 @@ test.describe('User Module', () => {
    * Priority: P0 — Critical
    */
   test('TC-USER-005 | Users action bar shows search, role filter, and export', async () => {
-    test.setTimeout(180_000);
     await userModule.openInviteUserDrawer();
     await userModule.assertInviteUserDrawerOpen();
   });
@@ -122,7 +117,6 @@ test.describe('User Module', () => {
    * Priority: P1 — High
    */
   test('TC-USER-006 | Export button remains disabled without selection', async () => {
-    test.setTimeout(180_000);
     await userModule.assertInviteUserDrawerOpen();
     await userModule.cancelInviteUserDrawer();
     await userModule.assertInviteUserDrawerClosed();
@@ -138,7 +132,6 @@ test.describe('User Module', () => {
    * Priority: P2 — Medium
    */
   test('TC-USER-007 | Role filter dropdown shows options', async () => {
-    test.setTimeout(180_000);
     await userModule.assertRoleFilterVisible();
     await userModule.openRoleFilterAndVerifyOptions();
   });
@@ -155,7 +148,6 @@ test.describe('User Module', () => {
    * Priority: P0 — Critical
    */
   test('TC-USER-008 | User can search for an existing user by name', async () => {
-    test.setTimeout(180_000);
     await userModule.searchUser(existingUserSearchTerm);
     await userModule.assertSearchResultContains(existingUserName);
     await userModule.clearUserSearch();
@@ -171,7 +163,6 @@ test.describe('User Module', () => {
    * Priority: P1 — High
    */
   test('TC-USER-009 | Searching with non-existent name returns no results', async () => {
-    test.setTimeout(180_000);
     await userModule.searchUser('zzz_no_match_user_xyz_99999');
     await userModule.assertSearchShowsNoResults();
     await userModule.clearUserSearch();
@@ -190,7 +181,6 @@ test.describe('User Module', () => {
    * Priority: P0 — Critical
    */
   test('TC-USER-010 | User can open a user detail by clicking a row', async () => {
-    test.setTimeout(180_000);
     await userModule.openUserDetail(existingUserName, existingUserSearchTerm);
     await userModule.assertUserDetailOpened(existingUserName);
   });
@@ -205,7 +195,6 @@ test.describe('User Module', () => {
    * Priority: P1 — High
    */
   test('TC-USER-011 | User detail page shows pre-filled profile data', async () => {
-    test.setTimeout(180_000);
     await userModule.openUserDetail(existingUserName, existingUserSearchTerm);
     await userModule.assertUserDetailOpened(existingUserName);
     await userModule.assertUserDetailProfileDataVisible();

@@ -11,6 +11,7 @@
 //   - Checkbox toggle (mark complete / revert to To-do)
 //   - Filters, search, sort, pagination
 
+const { TIMEOUTS } = require('../utils/playwright-timeouts');
 const { expect } = require('@playwright/test');
 const { env } = require('../utils/env');
 
@@ -151,7 +152,7 @@ class TasksModule {
     await expect(this.page).toHaveURL(/\/app\/sales\/tasks/);
     await expect(this.newTaskButton).toBeVisible();
     // Wait for JS event handlers to hydrate
-    await this.page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
   }
 
   async navigateToTasksViaSidebar() {
@@ -219,7 +220,7 @@ class TasksModule {
 
   async saveAndExpectSuccess() {
     await this.saveButton.click();
-    await expect(this.successToast).toBeVisible({ timeout: 8_000 });
+    await expect(this.successToast).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   // ── Filters ─────────────────────────────────────────────────────────
@@ -284,7 +285,7 @@ class TasksModule {
   async openTaskDetailByTitle(taskTitle) {
     // Click the task title cell to open the detail slide-in panel
     await this.page.getByRole('cell', { name: taskTitle }).first().click();
-    await expect(this.detailPanel).toBeVisible({ timeout: 5_000 });
+    await expect(this.detailPanel).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   async closeDetailPanel() {
@@ -318,7 +319,7 @@ class TasksModule {
 
   async confirmDelete() {
     await this.confirmDeleteBtn.click();
-    await expect(this.successToast).toBeVisible({ timeout: 8_000 });
+    await expect(this.successToast).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   async cancelDelete() {
@@ -333,15 +334,15 @@ class TasksModule {
 
   async openFirstDeal() {
     // Wait for the table to fully render (network idle = JS event handlers attached)
-    await this.page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
     const firstDealCell = this.page.locator('table tbody tr:first-child td:nth-child(2)');
-    await expect(firstDealCell).toBeVisible({ timeout: 10_000 });
+    await expect(firstDealCell).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     await firstDealCell.scrollIntoViewIfNeeded();
     // Click the already-located cell directly (avoids truncated text mismatch with getByRole name)
     await firstDealCell.click();
-    await this.page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+    await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
     // SPA navigation -- use polling-based URL assertion
-    await expect(this.page).toHaveURL(/\/app\/sales\/deals\/deal\/\d+/, { timeout: 15_000 });
+    await expect(this.page).toHaveURL(/\/app\/sales\/deals\/deal\/\d+/, { timeout: TIMEOUTS.BASE * 30 });
   }
 
   async clickTasksTab() {

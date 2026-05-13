@@ -11,6 +11,7 @@
 //   5. Notes Management
 //   6. Task Management
 
+const { TIMEOUTS } = require('../../utils/playwright-timeouts');
 const { test, expect } = require("@playwright/test");
 const { performLogin } = require("../../utils/auth/login-action");
 const { PropertyModule } = require("../../pages/property-module");
@@ -182,13 +183,12 @@ test.describe("Property Module", () => {
 
   // ── Single login ──
   test.beforeAll(async ({ browser }) => {
-    test.setTimeout(180_000);
     targetCompanyName = readCreatedCompanyName() || DEFAULT_COMPANY_NAME;
     context = await browser.newContext();
     page = await context.newPage();
     propertyModule = new PropertyModule(page);
     notesModule = new NotesTaskPage(page);
-    await withTimeout(performLogin(page), 120_000, "performLogin(beforeAll)");
+    await withTimeout(performLogin(page), TIMEOUTS.BASE * 240, "performLogin(beforeAll)");
   });
 
   // ── Single cleanup ──
@@ -203,7 +203,6 @@ test.describe("Property Module", () => {
   // ═══════════════════════════════════════════════════════════════════════════════
   test.describe.serial("Create Property Workflow", () => {
     test("TC-PROP-001 | Verify that user is able to create to create new property.", async () => {
-      test.setTimeout(120_000);
       createdPropertyName = propertyModule.generateUniquePropertyName();
 
       await gotoPropertiesListPage();
@@ -236,7 +235,7 @@ test.describe("Property Module", () => {
         .locator("label, h5, h6, p, span")
         .filter({ hasText: /\*/ })
         .first();
-      await expect(mandatoryMarker).toBeVisible({ timeout: 5_000 });
+      await expect(mandatoryMarker).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
 
       await propertyModule.cancelCreatePropertyDrawer();
       await propertyModule.assertCreatePropertyDrawerClosed();
@@ -275,7 +274,7 @@ test.describe("Property Module", () => {
       await propertyModule.submitCreateDrawerExpectingValidation();
       const drawer = propertyModule.createPropertyDrawerRoot();
       await expect(drawer.getByText(/Address is required/i)).toBeVisible({
-        timeout: 8_000,
+        timeout: TIMEOUTS.BASE * 16,
       });
 
       await propertyModule.cancelCreatePropertyDrawer();
@@ -297,7 +296,7 @@ test.describe("Property Module", () => {
         .locator('#simple-popper')
         .first()
         .or(page.getByRole("tooltip").first());
-      await tooltip.waitFor({ state: "visible", timeout: 10_000 });
+      await tooltip.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
 
       const searchInput = tooltip.getByRole("textbox", { name: "Search" });
       await searchInput.fill(targetCompanyName);
@@ -305,7 +304,7 @@ test.describe("Property Module", () => {
       const matchingResult = tooltip
         .getByText(targetCompanyName, { exact: false })
         .first();
-      await expect(matchingResult).toBeVisible({ timeout: 10_000 });
+      await expect(matchingResult).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
 
       await propertyModule.dismissCreatePropertyViaBackdrop();
       await propertyModule.assertCreatePropertyDrawerClosed();
@@ -324,7 +323,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-010 | Verify that changing the selected company updates dependent fields (if any) accordingly.",
       async () => {
-        test.setTimeout(90_000);
         console.log("[TC-PROP-010] Start: changing company updates affiliation chips");
 
         await openCreatePropertyDrawerFromList();
@@ -498,7 +496,7 @@ test.describe("Property Module", () => {
       console.log("[TC-PROP-015] Create New Company flow closed via Cancel");
       await ensureCreatePropertyDrawerOpenForMProp04A();
 
-      await expect(propertyModule.propertyNameInput).toHaveValue(statePreserveName, { timeout: 5_000 });
+      await expect(propertyModule.propertyNameInput).toHaveValue(statePreserveName, { timeout: TIMEOUTS.BASE * 10 });
       await propertyModule.assertPropertySourceTriggerValue("ALN");
       console.log("[TC-PROP-015] State preserved after Cancel sub-flow");
 
@@ -510,7 +508,7 @@ test.describe("Property Module", () => {
       console.log("[TC-PROP-015] Create New Company flow closed via X");
       await ensureCreatePropertyDrawerOpenForMProp04A();
 
-      await expect(propertyModule.propertyNameInput).toHaveValue(statePreserveName, { timeout: 5_000 });
+      await expect(propertyModule.propertyNameInput).toHaveValue(statePreserveName, { timeout: TIMEOUTS.BASE * 10 });
       console.log("[TC-PROP-015] State preserved after X sub-flow close");
 
       await propertyModule.dismissCreatePropertyViaBackdrop();
@@ -693,7 +691,7 @@ test.describe("Property Module", () => {
         await propertyModule.searchInAssociatedFranchiseDropdown(targetFranchise);
       await expect(
         franchiseTooltip.getByText(targetFranchise, { exact: false }).first(),
-      ).toBeVisible({ timeout: 8_000 });
+      ).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
 
       console.log(
         "[TC-PROP-021] Step 4: Select franchise and verify trigger value",
@@ -731,8 +729,6 @@ test.describe("Property Module", () => {
     });
 
     test("TC-PROP-022 | Verify that Associated Franchise dropdown supports search and returns matching results.", async () => {
-      test.setTimeout(120_000);
-
       const matchQuery = "216 - Omaha, NE";
       const noMatchQuery = "zzzz-no-match-123";
       const rapidQueryA = "216";
@@ -748,7 +744,7 @@ test.describe("Property Module", () => {
         "[TC-PROP-022] Step 2: Verify Search input is visible and initial list is populated",
       );
       const searchInput = tooltip.getByRole("textbox", { name: "Search" });
-      await expect(searchInput).toBeVisible({ timeout: 8_000 });
+      await expect(searchInput).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       const initialOptions =
         await propertyModule.getAssociatedFranchiseOptionsFromOpenDropdown();
       expect(initialOptions.length).toBeGreaterThan(0);
@@ -760,12 +756,12 @@ test.describe("Property Module", () => {
         await propertyModule.searchInAssociatedFranchiseDropdown(matchQuery);
       await expect(
         tooltip.getByText(matchQuery, { exact: false }).first(),
-      ).toBeVisible({ timeout: 8_000 });
+      ).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
 
       console.log(
         "[TC-PROP-022] Step 4: Select matching result and verify field value updates",
       );
-      await propertyModule.clickVisibleDropdownOption(tooltip, matchQuery, 8_000);
+      await propertyModule.clickVisibleDropdownOption(tooltip, matchQuery, TIMEOUTS.BASE * 16);
       await propertyModule.assertAssociatedFranchiseTriggerValue(matchQuery);
 
       console.log(
@@ -851,7 +847,7 @@ test.describe("Property Module", () => {
       await propertyModule.clickVisibleDropdownOption(
         tooltip,
         firstFranchise,
-        8_000,
+        TIMEOUTS.BASE * 16,
       );
       await propertyModule.assertAssociatedFranchiseTriggerValue(firstFranchise);
 
@@ -864,7 +860,7 @@ test.describe("Property Module", () => {
       await propertyModule.clickVisibleDropdownOption(
         tooltip,
         secondFranchise,
-        8_000,
+        TIMEOUTS.BASE * 16,
       );
       await propertyModule.assertAssociatedFranchiseTriggerValue(secondFranchise);
 
@@ -906,7 +902,7 @@ test.describe("Property Module", () => {
         );
         await propertyModule.openAssociatedFranchiseDropdown();
         tooltip = await propertyModule.searchInAssociatedFranchiseDropdown(value);
-        await propertyModule.clickVisibleDropdownOption(tooltip, value, 8_000);
+        await propertyModule.clickVisibleDropdownOption(tooltip, value, TIMEOUTS.BASE * 16);
         await propertyModule.assertAssociatedFranchiseTriggerValue(value);
       }
 
@@ -1070,7 +1066,6 @@ test.describe("Property Module", () => {
     });
 
     test("TC-PROP-027 | Verify that Select Assignee dropdown opens and lists assignees/users correctly. Verify that Select Assignee dropdown supports search and returns matching assignees. Verify that selecting an assignee populates the field correctly.", async () => {
-      test.setTimeout(120_000);
       const exactQuery = "Brandon Nyffeler";
       const noMatchQuery = "zzzz-no-user-123";
       const partialQuery = "Bran";
@@ -1087,7 +1082,7 @@ test.describe("Property Module", () => {
         "[TC-PROP-027] Step 2: Verify Search input is visible and assignee list is populated",
       );
       const searchInput = tooltip.getByRole("textbox", { name: "Search" });
-      await expect(searchInput).toBeVisible({ timeout: 8_000 });
+      await expect(searchInput).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
       const initialAssignees =
         await propertyModule.getAssigneeOptionsFromOpenDropdown();
       expect(
@@ -1103,7 +1098,7 @@ test.describe("Property Module", () => {
         tooltip
           .getByRole("heading", { level: 4, name: new RegExp(exactQuery, "i") })
           .first(),
-      ).toBeVisible({ timeout: 8_000 });
+      ).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
 
       console.log(
         "[TC-PROP-027] Step 4: Select matching assignee from filtered results",
@@ -1307,7 +1302,7 @@ test.describe("Property Module", () => {
       console.log(
         `[TC-PROP-031] HO assignee selected: ${hoAssignee.name} (${hoAssignee.role})`,
       );
-      await expect(checkbox).toBeDisabled({ timeout: 8_000 });
+      await expect(checkbox).toBeDisabled({ timeout: TIMEOUTS.BASE * 16 });
       const checkedBeforeBlockedToggle =
         await propertyModule.isAssignSupervisorCheckedInCreateDrawer();
 
@@ -1517,7 +1512,7 @@ test.describe("Property Module", () => {
       );
       await propertyModule.submitCreateDrawerExpectingValidation();
       await expect(propertyModule.createPropertyHeading).toBeVisible({
-        timeout: 8_000,
+        timeout: TIMEOUTS.BASE * 16,
       });
       expect(
         await propertyModule.hasSelectSupervisorMandatoryMarkerInCreateDrawer(),
@@ -1538,7 +1533,7 @@ test.describe("Property Module", () => {
       }
       await propertyModule.submitCreateDrawerExpectingValidation();
       await expect(propertyModule.createPropertyHeading).toBeVisible({
-        timeout: 8_000,
+        timeout: TIMEOUTS.BASE * 16,
       });
       expect(
         await propertyModule.hasSelectSupervisorMandatoryMarkerInCreateDrawer(),
@@ -1595,8 +1590,6 @@ test.describe("Property Module", () => {
     });
 
     test("TC-PROP-034 | Verify that Select Supervisor dropdown opens and lists supervisors/users correctly.", async () => {
-      test.setTimeout(120_000);
-
       console.log(
         "[TC-PROP-034] Step 1: Open Create Property and ensure Select Supervisor preconditions are satisfied",
       );
@@ -1754,8 +1747,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-035 | Verify that unchecking 'Assign Supervisor' hides the Supervisor field and clears its selected value (if any).",
       async () => {
-        test.setTimeout(120_000);
-
         await test.step(
           "TC-PROP-035 setup: open drawer and enable Assign Supervisor checkbox",
           async () => {
@@ -1790,10 +1781,10 @@ test.describe("Property Module", () => {
               .getByRole("textbox", { name: /Search by name/i })
               .first()
               .or(tooltip.getByRole("textbox").first());
-            await expect(searchInput).toBeVisible({ timeout: 8_000 });
+            await expect(searchInput).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
 
             const userHeadings = tooltip.getByRole("heading", { level: 4 });
-            await expect(userHeadings.first()).toBeVisible({ timeout: 10_000 });
+            await expect(userHeadings.first()).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
             const count = await userHeadings.count();
             expect(count).toBeGreaterThan(0);
           },
@@ -1853,8 +1844,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-036 | Verify that Contact Details section is visible with correct contact roles (Decision Maker, End User, Billing, etc.). Verify that each Contact role dropdown opens and lists contacts correctly. Verify that each Contact role dropdown supports search and returns matching contacts. Verify that user can select contacts for multiple roles and selections are displayed correctly. Verify that selecting the same contact in multiple roles is allowed only if permitted by business rules (handled correctly).",
       async () => {
-        test.setTimeout(120_000);
-
         const DECISION_MAKER = 0;
         const END_USER = 1;
         const BILLING = 2;
@@ -1895,7 +1884,7 @@ test.describe("Property Module", () => {
             const matchingResult = tooltip
               .getByText("Ali", { exact: false })
               .first();
-            await expect(matchingResult).toBeVisible({ timeout: 8_000 });
+            await expect(matchingResult).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
           },
         );
 
@@ -1911,7 +1900,7 @@ test.describe("Property Module", () => {
             const contactParas = activeTooltip
               .locator("p")
               .filter({ hasText: /@/ });
-            await contactParas.first().waitFor({ state: "visible", timeout: 8_000 });
+            await contactParas.first().waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
             decisionMakerText = (
               (await contactParas.first().innerText().catch(() => "")) || ""
             ).trim();
@@ -1928,7 +1917,7 @@ test.describe("Property Module", () => {
             await propertyModule.searchContactInOpenTooltip("", tooltip);
 
             const allResults = tooltip.locator("p").filter({ hasText: /@/ });
-            await allResults.first().waitFor({ state: "visible", timeout: 8_000 });
+            await allResults.first().waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
             await allResults.first().click();
 
             const drawer = propertyModule.createPropertyDrawerRoot();
@@ -1936,7 +1925,7 @@ test.describe("Property Module", () => {
               name: /Selected Contacts/i,
               level: 6,
             });
-            await expect(selectedHeadings).toHaveCount(2, { timeout: 8_000 });
+            await expect(selectedHeadings).toHaveCount(2, { timeout: TIMEOUTS.BASE * 16 });
           },
         );
 
@@ -1951,13 +1940,13 @@ test.describe("Property Module", () => {
               .locator("p")
               .filter({ hasText: /@/ })
               .first();
-            await matchResult.waitFor({ state: "visible", timeout: 8_000 });
+            await matchResult.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
             await matchResult.click();
 
             await propertyModule.assertContactRoleHasSelection(DECISION_MAKER);
 
             await expect(propertyModule.createPropertyHeading).toBeVisible({
-              timeout: 5_000,
+              timeout: TIMEOUTS.BASE * 10,
             });
           },
         );
@@ -1970,8 +1959,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-041 | Verify that Address field is visible, marked mandatory, and accepts typing to search addresses. Verify that address search shows suggestions and user can select an address. Verify that selected address is populated in the Address field correctly. Verify that the map renders correctly on the Create Property modal. Verify that the map updates/centers to the selected address location.",
       async () => {
-        test.setTimeout(90_000);
-
         await openCreatePropertyDrawerFromList();
 
         await test.step(
@@ -1979,7 +1966,7 @@ test.describe("Property Module", () => {
           async () => {
             await propertyModule.openAddressAutocomplete();
             await expect(propertyModule.addressInput).toBeVisible({
-              timeout: 8_000,
+              timeout: TIMEOUTS.BASE * 16,
             });
           },
         );
@@ -1990,7 +1977,7 @@ test.describe("Property Module", () => {
             await propertyModule.typeAddressAndWaitForSuggestions("123 Main St");
             await propertyModule.assertAddressComboboxExpanded();
             const firstOption = propertyModule.addressSuggestionOptions().first();
-            await expect(firstOption).toBeVisible({ timeout: 10_000 });
+            await expect(firstOption).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
           },
         );
 
@@ -2000,12 +1987,12 @@ test.describe("Property Module", () => {
             const selectedText = await propertyModule.selectFirstAddressSuggestion();
             expect(selectedText.length).toBeGreaterThan(0);
             await expect(propertyModule.addressInput).not.toHaveValue("", {
-              timeout: 5_000,
+              timeout: TIMEOUTS.BASE * 10,
             });
             // Map region renders only after geocoding; verify if present
             // but do not fail the test — Google Maps API may not always load.
             await expect(propertyModule.addressMapRegion()).toBeVisible({
-              timeout: 8_000,
+              timeout: TIMEOUTS.BASE * 16,
             }).catch(() => {
               // Map region not found — Google Maps may not have loaded in CI.
             });
@@ -2020,8 +2007,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-046 | Verify that scrolling within the modal allows access to all sections without layout breaking.",
       async () => {
-        test.setTimeout(60_000);
-
         await openCreatePropertyDrawerFromList();
 
         await test.step(
@@ -2030,11 +2015,11 @@ test.describe("Property Module", () => {
             await propertyModule.scrollCreateDrawerToBottom();
 
             await expect(propertyModule.assignSupervisorCheckbox).toBeVisible({
-              timeout: 8_000,
+              timeout: TIMEOUTS.BASE * 16,
             });
 
             await expect(propertyModule.submitCreateBtn).toBeVisible({
-              timeout: 8_000,
+              timeout: TIMEOUTS.BASE * 16,
             });
           },
         );
@@ -2047,8 +2032,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-047 | Verify that long dropdown values (company/property/address) truncate or wrap without UI break.",
       async () => {
-        test.setTimeout(90_000);
-
         await openCreatePropertyDrawerFromList();
 
         await test.step(
@@ -2065,7 +2048,7 @@ test.describe("Property Module", () => {
             const tooltip = await propertyModule.openAssociatedFranchiseDropdown();
             await propertyModule.searchInAssociatedFranchiseDropdown("9001");
             const searchInput = tooltip.getByRole("textbox", { name: "Search" });
-            await expect(searchInput).toBeVisible({ timeout: 5_000 });
+            await expect(searchInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
             await propertyModule.dismissAssociatedFranchiseDropdownWithoutSelection();
             await propertyModule.assertDrawerHasNoHorizontalOverflow();
           },
@@ -2075,7 +2058,7 @@ test.describe("Property Module", () => {
           "TC-PROP-047 step 3: drawer panel has no horizontal scrollbar",
           async () => {
             await propertyModule.assertDrawerHasNoHorizontalOverflow();
-            await expect(propertyModule.createPropertyHeading).toBeVisible({ timeout: 5_000 });
+            await expect(propertyModule.createPropertyHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
           },
         );
 
@@ -2087,8 +2070,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-048 | Verify that keyboard navigation (Tab/Shift+Tab) moves focus through fields in a logical order.",
       async () => {
-        test.setTimeout(90_000);
-
         await openCreatePropertyDrawerFromList();
 
         await test.step(
@@ -2107,7 +2088,7 @@ test.describe("Property Module", () => {
           "TC-PROP-048 step 2: Shift+Tab moves focus backward — drawer heading still visible (focus trapped in drawer)",
           async () => {
             await page.keyboard.press("Shift+Tab");
-            await expect(propertyModule.createPropertyHeading).toBeVisible({ timeout: 5_000 });
+            await expect(propertyModule.createPropertyHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
           },
         );
 
@@ -2119,8 +2100,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-049 | Verify that pressing ESC closes an open dropdown list (if supported) without closing the entire modal.",
       async () => {
-        test.setTimeout(90_000);
-
         await openCreatePropertyDrawerFromList();
 
         await test.step(
@@ -2129,13 +2108,13 @@ test.describe("Property Module", () => {
             await propertyModule.typeAddressAndWaitForSuggestions("456 Oak");
             await propertyModule.assertAddressComboboxExpanded();
             const firstOption = propertyModule.addressSuggestionOptions().first();
-            await expect(firstOption).toBeVisible({ timeout: 10_000 });
+            await expect(firstOption).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
 
             await propertyModule.addressInput.press("Escape");
 
             // Live-verified 2026-04-24: pressing Escape closes the entire drawer in UAT.
             await expect(propertyModule.createPropertyHeading).toBeHidden({
-              timeout: 8_000,
+              timeout: TIMEOUTS.BASE * 16,
             });
           },
         );
@@ -2145,8 +2124,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-050 | Keyboard navigation through autocomplete suggestions works and Enter selects the highlighted option",
       async () => {
-        test.setTimeout(90_000);
-
         await openCreatePropertyDrawerFromList();
 
         await test.step(
@@ -2154,9 +2131,9 @@ test.describe("Property Module", () => {
           async () => {
             await propertyModule.typeAddressAndWaitForSuggestions("123 Main");
             const options = propertyModule.addressSuggestionOptions();
-            await expect(options.first()).toBeVisible({ timeout: 10_000 });
+            await expect(options.first()).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
             await propertyModule.addressInput.press("ArrowDown");
-            await expect(options.first()).toBeVisible({ timeout: 5_000 });
+            await expect(options.first()).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
           },
         );
 
@@ -2165,7 +2142,7 @@ test.describe("Property Module", () => {
           async () => {
             await propertyModule.addressInput.press("Enter");
             await expect(propertyModule.addressInput).not.toHaveValue("", {
-              timeout: 8_000,
+              timeout: TIMEOUTS.BASE * 16,
             });
             await propertyModule.assertAddressComboboxCollapsed();
           },
@@ -2179,8 +2156,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-052 | Verify that the system shows a success toast/message after property creation.",
       async () => {
-        test.setTimeout(180_000);
-
         const propertyName = `PAT ${Date.now()}`;
         const companyName = readCreatedCompanyName() || DEFAULT_COMPANY_NAME;
 
@@ -2204,8 +2179,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-053 | Verify that the Referred By section is visible when the user selects Property Source as 'Referral'. Verify that the Referred By Property dropdown becomes visible/active when Property Source is 'Referral'.",
       async () => {
-        test.setTimeout(90_000);
-
         await openCreatePropertyDrawerFromList();
 
         await test.step(
@@ -2223,10 +2196,10 @@ test.describe("Property Module", () => {
 
             await propertyModule.assertReferredBySectionVisible();
             await expect(propertyModule.referredByPropertyTrigger()).toBeVisible({
-              timeout: 8_000,
+              timeout: TIMEOUTS.BASE * 16,
             });
             await expect(propertyModule.referredByContactTrigger()).toBeVisible({
-              timeout: 8_000,
+              timeout: TIMEOUTS.BASE * 16,
             });
           },
         );
@@ -2239,8 +2212,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-054 | Verify that the Referred By section is hidden when Property Source is not 'Referral'.",
       async () => {
-        test.setTimeout(90_000);
-
         await openCreatePropertyDrawerFromList();
 
         await test.step(
@@ -2267,7 +2238,7 @@ test.describe("Property Module", () => {
 
         await propertyModule.cancelCreatePropertyDrawer();
         await expect(propertyModule.createPropertyHeading).toBeHidden({
-          timeout: 8_000,
+          timeout: TIMEOUTS.BASE * 16,
         });
       },
     );
@@ -2275,8 +2246,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-056 | Verify that the Referred By Property dropdown lists only existing properties (no free-text/non-existing values). Verify that selecting a Referred By Property populates the field correctly.",
       async () => {
-        test.setTimeout(90_000);
-
         await openCreatePropertyDrawerFromList();
         await propertyModule.openPropertySourceDropdown();
         await propertyModule.selectPropertySourceByText("Referral");
@@ -2299,7 +2268,7 @@ test.describe("Property Module", () => {
               .locator("p")
               .filter({ hasText: /Apple/i })
               .first();
-            await expect(matchingResult).toBeVisible({ timeout: 8_000 });
+            await expect(matchingResult).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
           },
         );
 
@@ -2320,8 +2289,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-058 | Verify that the Referred By Contact dropdown becomes visible/active after selecting a Referred By Property (if dependent). Verify that the Referred By Contact dropdown shows only contacts associated with the selected Referred By Property.",
       async () => {
-        test.setTimeout(90_000);
-
         await openCreatePropertyDrawerFromList();
         await propertyModule.openPropertySourceDropdown();
         await propertyModule.selectPropertySourceByText("Referral");
@@ -2332,7 +2299,7 @@ test.describe("Property Module", () => {
           async () => {
             const tooltip = await propertyModule.openReferredByContactDropdown();
             const searchInput = tooltip.getByRole("textbox", { name: /Search/i }).first();
-            await expect(searchInput).toBeVisible({ timeout: 8_000 });
+            await expect(searchInput).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
           },
         );
 
@@ -2343,7 +2310,7 @@ test.describe("Property Module", () => {
             await propertyModule.searchInReferredByTooltip("Ali", tooltip);
 
             const searchInput = tooltip.getByRole("textbox", { name: /Search/i }).first();
-            await expect(searchInput).toBeVisible({ timeout: 5_000 });
+            await expect(searchInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
           },
         );
 
@@ -2355,8 +2322,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-060 | Verify that changing the Referred By Property refreshes the Referred By Contact list accordingly.",
       async () => {
-        test.setTimeout(90_000);
-
         await openCreatePropertyDrawerFromList();
         await propertyModule.openPropertySourceDropdown();
         await propertyModule.selectPropertySourceByText("Referral");
@@ -2383,7 +2348,7 @@ test.describe("Property Module", () => {
 
             expect(contactText).toMatch(/^Contact$/i);
 
-            await expect(propertyModule.createPropertyHeading).toBeVisible({ timeout: 5_000 });
+            await expect(propertyModule.createPropertyHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
           },
         );
 
@@ -2395,8 +2360,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-061 | Verify that clearing the Referred By Property clears the Referred By Contact selection (if any).",
       async () => {
-        test.setTimeout(90_000);
-
         await openCreatePropertyDrawerFromList();
         await propertyModule.openPropertySourceDropdown();
         await propertyModule.selectPropertySourceByText("Referral");
@@ -2428,7 +2391,7 @@ test.describe("Property Module", () => {
             await propertyModule.selectPropertySourceByText("Referral");
             await propertyModule.assertReferredBySectionVisible();
 
-            await expect(propertyModule.createPropertyHeading).toBeVisible({ timeout: 5_000 });
+            await expect(propertyModule.createPropertyHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
           },
         );
 
@@ -2440,8 +2403,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-062 | Verify that required-field validation messages are cleared once the user enters valid values.",
       async () => {
-        test.setTimeout(90_000);
-
         await openCreatePropertyDrawerFromList();
 
         await test.step(
@@ -2450,8 +2411,8 @@ test.describe("Property Module", () => {
             await propertyModule.submitEmptyCreateFormAndExpectValidation();
 
             const drawer = propertyModule.createPropertyDrawerRoot();
-            await expect(drawer.getByText(/is required/i).first()).toBeVisible({ timeout: 5_000 });
-            await expect(propertyModule.createPropertyHeading).toBeVisible({ timeout: 5_000 });
+            await expect(drawer.getByText(/is required/i).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+            await expect(propertyModule.createPropertyHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
           },
         );
 
@@ -2461,10 +2422,10 @@ test.describe("Property Module", () => {
             await propertyModule.fillPropertyName("TC-062-Validation-Test");
 
             await expect(propertyModule.propertyNameInput).toHaveValue("TC-062-Validation-Test");
-            await expect(propertyModule.createPropertyHeading).toBeVisible({ timeout: 5_000 });
+            await expect(propertyModule.createPropertyHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
 
             const drawer = propertyModule.createPropertyDrawerRoot();
-            await expect(drawer.getByText(/Address is required/i)).toBeVisible({ timeout: 5_000 });
+            await expect(drawer.getByText(/Address is required/i)).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
           },
         );
 
@@ -2474,9 +2435,9 @@ test.describe("Property Module", () => {
             const drawer = propertyModule.createPropertyDrawerRoot();
             const addressFilled = await propertyModule.fillAddress("700 S 20th St, Omaha NE");
             if (addressFilled) {
-              await expect(drawer.getByText(/Address is required/i)).toBeHidden({ timeout: 8_000 });
+              await expect(drawer.getByText(/Address is required/i)).toBeHidden({ timeout: TIMEOUTS.BASE * 16 });
             }
-            await expect(propertyModule.createPropertyHeading).toBeVisible({ timeout: 5_000 });
+            await expect(propertyModule.createPropertyHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
           },
         );
 
@@ -2488,8 +2449,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-063 | Verify that previously entered values remain intact when user opens/closes dropdowns repeatedly.",
       async () => {
-        test.setTimeout(90_000);
-
         await openCreatePropertyDrawerFromList();
 
         await test.step(
@@ -2534,8 +2493,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-064 | Verify that the modal backdrop prevents interaction with the background page while modal is open.",
       async () => {
-        test.setTimeout(60_000);
-
         await openCreatePropertyDrawerFromList();
 
         await test.step(
@@ -2543,7 +2500,7 @@ test.describe("Property Module", () => {
           async () => {
             await propertyModule.assertBackdropBlocksBackground();
 
-            await expect(propertyModule.createPropertyHeading).toBeVisible({ timeout: 5_000 });
+            await expect(propertyModule.createPropertyHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
           },
         );
 
@@ -2555,8 +2512,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-065 | Verify that the modal retains user input when a validation error occurs on submission.",
       async () => {
-        test.setTimeout(60_000);
-
         await openCreatePropertyDrawerFromList();
 
         const retainedName = `TC-065-RETAIN-${Date.now()}`;
@@ -2568,12 +2523,12 @@ test.describe("Property Module", () => {
             await propertyModule.submitEmptyCreateFormAndExpectValidation();
 
             await expect(propertyModule.createPropertyHeading).toBeVisible({
-              timeout: 5_000,
+              timeout: TIMEOUTS.BASE * 10,
             });
 
             const drawer = propertyModule.createPropertyDrawerRoot();
             const errorMessages = drawer.getByText(/is required/i);
-            await expect(errorMessages.first()).toBeVisible({ timeout: 5_000 });
+            await expect(errorMessages.first()).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
           },
         );
 
@@ -2582,7 +2537,7 @@ test.describe("Property Module", () => {
           async () => {
             await expect(propertyModule.propertyNameInput).toHaveValue(
               retainedName,
-              { timeout: 5_000 },
+              { timeout: TIMEOUTS.BASE * 10 },
             );
           },
         );
@@ -2595,8 +2550,6 @@ test.describe("Property Module", () => {
     test.skip(
       "TC-PROP-066 | Verify that the modal handles slow loading of dropdown data by showing a loader/state (if applicable).",
       async () => {
-        test.setTimeout(60_000);
-
         await openCreatePropertyDrawerFromList();
 
         await test.step(
@@ -2604,10 +2557,10 @@ test.describe("Property Module", () => {
           async () => {
             await propertyModule.openPropertySourceDropdown();
             const tooltip = propertyModule.propertySourceTooltip();
-            await expect(tooltip).toBeVisible({ timeout: 5_000 });
+            await expect(tooltip).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
 
             const spinner = tooltip.locator('[role="progressbar"], .MuiCircularProgress-root').first();
-            await expect(spinner).toBeVisible({ timeout: 3_000 });
+            await expect(spinner).toBeVisible({ timeout: TIMEOUTS.BASE * 6 });
           },
         );
 
@@ -2617,8 +2570,6 @@ test.describe("Property Module", () => {
     );
 
     test("TC-PROP-067 | Verify that duplicate address is rejected with geocoordinate error.", async () => {
-      test.setTimeout(120_000);
-
       await openCreatePropertyDrawerFromList();
 
       const dupTestPropertyName = propertyModule.generateUniquePropertyName();
@@ -2646,15 +2597,13 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-068 | Verify that Create Property button opens Create Property modal",
       async () => {
-        test.setTimeout(60_000);
-
         await openCreatePropertyDrawerFromList();
 
         await test.step(
           "TC-PROP-068: press Escape with no dropdown open, drawer closes",
           async () => {
             await expect(propertyModule.createPropertyHeading).toBeVisible({
-              timeout: 5_000,
+              timeout: TIMEOUTS.BASE * 10,
             });
 
             await page.keyboard.press("Escape");
@@ -2668,15 +2617,13 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-068-B | Clicking the backdrop outside the drawer closes it",
       async () => {
-        test.setTimeout(60_000);
-
         await openCreatePropertyDrawerFromList();
 
         await test.step(
           "TC-PROP-068-B: click backdrop, drawer closes",
           async () => {
             await expect(propertyModule.createPropertyHeading).toBeVisible({
-              timeout: 5_000,
+              timeout: TIMEOUTS.BASE * 10,
             });
 
             await propertyModule.dismissCreatePropertyViaBackdrop();
@@ -2694,8 +2641,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-069 | Verify that Properties dashboard loads successfully with correct total counts. Verify that Properties by Stage chart displays correct stage-wise distribution. Verify that Qualified Properties graph renders correctly.",
       async () => {
-        test.setTimeout(60_000);
-
         await test.step(
           "TC-PROP-069 step 1: navigate to /app/sales/locations and wait for page",
           async () => {
@@ -2709,7 +2654,7 @@ test.describe("Property Module", () => {
               });
             }
             await expect(page).toHaveURL(/\/app\/sales\/locations/, {
-              timeout: 20_000,
+              timeout: TIMEOUTS.BASE * 40,
             });
           },
         );
@@ -2719,11 +2664,11 @@ test.describe("Property Module", () => {
           async () => {
             await expect(
               page.getByRole("heading", { name: "Properties", level: 6 }).first(),
-            ).toBeVisible({ timeout: 15_000 });
+            ).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
             const totalHeading = page
               .getByRole("heading", { level: 1 })
               .first();
-            await expect(totalHeading).toBeVisible({ timeout: 10_000 });
+            await expect(totalHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
             const totalText = await totalHeading.textContent();
             expect(totalText).toMatch(/\d/);
           },
@@ -2734,10 +2679,10 @@ test.describe("Property Module", () => {
           async () => {
             await expect(
               page.getByRole("heading", { name: "Properties by Stage", level: 6 }),
-            ).toBeVisible({ timeout: 10_000 });
+            ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
             await expect(
               page.locator("text=/Approved •/").first(),
-            ).toBeVisible({ timeout: 10_000 });
+            ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
           },
         );
 
@@ -2746,10 +2691,10 @@ test.describe("Property Module", () => {
           async () => {
             await expect(
               page.getByRole("heading", { name: "Qualified Properties", level: 6 }),
-            ).toBeVisible({ timeout: 10_000 });
+            ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
             await expect(
               page.locator("text=/\\w+' \\d{2}/").first(),
-            ).toBeVisible({ timeout: 10_000 });
+            ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
           },
         );
       },
@@ -2758,8 +2703,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-072 | Property list loads with All Affiliation default, search works, stage filter and assignment dropdown function, sorting works, affiliation tags visible, checkbox selection enables Bulk Assignment, Review Leads opens modal, table columns show correct values",
       async () => {
-        test.setTimeout(120_000);
-
         await test.step(
           "Verify that property list loads with default All Affiliation filter applied",
           async () => {
@@ -2767,17 +2710,17 @@ test.describe("Property Module", () => {
               waitUntil: "domcontentloaded",
             });
             await expect(page).toHaveURL(/\/app\/sales\/locations/, {
-              timeout: 20_000,
+              timeout: TIMEOUTS.BASE * 40,
             });
             await expect(
               page.getByRole("heading", { name: "All Affiliation", level: 6 }),
-            ).toBeVisible({ timeout: 10_000 });
+            ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
             await expect(
               page.locator("table tbody tr").first(),
-            ).toBeVisible({ timeout: 15_000 });
+            ).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
             await expect(
               page.getByText(/\d+–\d+ of \d+/),
-            ).toBeVisible({ timeout: 10_000 });
+            ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
           },
         );
 
@@ -2793,14 +2736,14 @@ test.describe("Property Module", () => {
               page
                 .waitForResponse(
                   (r) => r.url().includes("/locations") && r.status() === 200,
-                  { timeout: 10_000 },
+                  { timeout: TIMEOUTS.BASE * 20 },
                 )
                 .catch(() => {}),
               searchInput.fill(propSearchTerm),
             ]);
             await expect(
               page.locator("table tbody tr").first(),
-            ).toBeVisible({ timeout: 15_000 });
+            ).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
             await searchInput.clear();
           },
         );
@@ -2812,13 +2755,13 @@ test.describe("Property Module", () => {
               .getByRole("heading", { name: "All Affiliation", level: 6 })
               .click();
             const tooltip = page.getByRole("tooltip");
-            await expect(tooltip).toBeVisible({ timeout: 8_000 });
+            await expect(tooltip).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
             await expect(tooltip.getByText(/Approved/, { exact: false })).toBeVisible();
             await expect(tooltip.getByText(/Rejected/, { exact: false })).toBeVisible();
             await tooltip.getByText(/Approved/, { exact: false }).first().click();
             await expect(
               page.locator("table tbody tr").first(),
-            ).toBeVisible({ timeout: 15_000 });
+            ).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
             await page.goto(`${baseUrl}app/sales/locations`, {
               waitUntil: "domcontentloaded",
             });
@@ -2832,7 +2775,7 @@ test.describe("Property Module", () => {
               .getByRole("heading", { name: "All Properties", level: 6 })
               .click();
             const tooltip = page.getByRole("tooltip");
-            await expect(tooltip).toBeVisible({ timeout: 8_000 });
+            await expect(tooltip).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
             await expect(tooltip.getByText("All Properties", { exact: true })).toBeVisible();
             await expect(tooltip.getByText("Assigned", { exact: true })).toBeVisible();
             await expect(tooltip.getByText("Unassigned", { exact: true })).toBeVisible();
@@ -2848,12 +2791,12 @@ test.describe("Property Module", () => {
             });
             await expect(
               page.locator("table tbody tr").first(),
-            ).toBeVisible({ timeout: 15_000 });
+            ).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
 
             const [sortResponse] = await Promise.all([
               page.waitForResponse(
                 (r) => r.url().includes("/locations") && r.status() === 200,
-                { timeout: 15_000 },
+                { timeout: TIMEOUTS.BASE * 30 },
               ),
               page.getByRole("button", { name: "Property Name" }).click(),
             ]);
@@ -2862,7 +2805,7 @@ test.describe("Property Module", () => {
 
             await expect(
               page.locator("table tbody tr").first(),
-            ).toBeVisible({ timeout: 15_000 });
+            ).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
           },
         );
 
@@ -2874,16 +2817,16 @@ test.describe("Property Module", () => {
             });
             await expect(
               page.locator("table tbody tr").first(),
-            ).toBeVisible({ timeout: 15_000 });
+            ).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
 
             await expect(
               page.getByRole("columnheader", { name: "Property Affiliation" }),
-            ).toBeVisible({ timeout: 8_000 });
+            ).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
 
             const anyAffTag = page.locator(
               "table tbody td",
             ).filter({ hasText: /Managed|Shared|Owned|Tenant|Headquarters|Regional Office/ }).first();
-            await expect(anyAffTag).toBeVisible({ timeout: 10_000 });
+            await expect(anyAffTag).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
           },
         );
 
@@ -2895,7 +2838,7 @@ test.describe("Property Module", () => {
             });
             await expect(
               page.locator("table tbody tr").first(),
-            ).toBeVisible({ timeout: 15_000 });
+            ).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
 
             const firstRowCheckbox = page
               .locator("table tbody tr")
@@ -2905,10 +2848,10 @@ test.describe("Property Module", () => {
 
             await expect(
               page.getByText(/1 property selected/i),
-            ).toBeVisible({ timeout: 8_000 });
+            ).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
             await expect(
               page.getByRole("button", { name: "Bulk Assignment" }),
-            ).toBeEnabled({ timeout: 5_000 });
+            ).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
           },
         );
 
@@ -2922,7 +2865,7 @@ test.describe("Property Module", () => {
             await secondRowCheckbox.check();
             await expect(
               page.getByText(/2 properties selected/i),
-            ).toBeVisible({ timeout: 8_000 });
+            ).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
           },
         );
 
@@ -2932,7 +2875,7 @@ test.describe("Property Module", () => {
             await page.getByRole("button", { name: "Bulk Assignment" }).click();
             await expect(
               page.getByText(/Select people to assign/, { exact: false }),
-            ).toBeVisible({ timeout: 8_000 });
+            ).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
             await page.keyboard.press("Escape");
           },
         );
@@ -2946,10 +2889,10 @@ test.describe("Property Module", () => {
             const reviewLeadsBtn = page.getByRole("button", {
               name: /Review Leads/i,
             });
-            await expect(reviewLeadsBtn).toBeVisible({ timeout: 10_000 });
+            await expect(reviewLeadsBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
             await Promise.all([
               page.waitForURL(/\/app\/sales\/locations\/reviews/, {
-                timeout: 15_000,
+                timeout: TIMEOUTS.BASE * 30,
               }),
               reviewLeadsBtn.click(),
             ]);
@@ -2970,33 +2913,33 @@ test.describe("Property Module", () => {
             });
             await expect(
               page.locator("table tbody tr").first(),
-            ).toBeVisible({ timeout: 15_000 });
+            ).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
 
             const firstRow = page.locator("table tbody tr").first();
 
             const stageCell = firstRow.locator("td").nth(10);
-            await expect(stageCell).toBeVisible({ timeout: 10_000 });
-            await expect(stageCell).not.toHaveText(/^\s*$/, { timeout: 10_000 });
+            await expect(stageCell).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+            await expect(stageCell).not.toHaveText(/^\s*$/, { timeout: TIMEOUTS.BASE * 20 });
 
             await expect(
               page.getByRole("columnheader", { name: /Assigned To/i }),
-            ).toBeVisible({ timeout: 8_000 });
+            ).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
             const assignedToCell = firstRow.locator("td").nth(11);
-            await expect(assignedToCell).toBeVisible({ timeout: 10_000 });
+            await expect(assignedToCell).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
 
             await expect(
               page.getByRole("columnheader", { name: /Franchise/i }),
-            ).toBeVisible({ timeout: 8_000 });
+            ).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
 
             const createdCell = firstRow.locator("td").nth(14);
             await expect(createdCell).toContainText(/\d{2}\/\d{2}\/\d{4}/, {
-              timeout: 10_000,
+              timeout: TIMEOUTS.BASE * 20,
             });
 
             const modifiedCell = firstRow.locator("td").nth(15);
             // Last Modified Date may be "N/A" for properties never edited — allow both
             await expect(modifiedCell).toContainText(/\d{2}\/\d{2}\/\d{4}|N\/A/, {
-              timeout: 10_000,
+              timeout: TIMEOUTS.BASE * 20,
             });
           },
         );
@@ -3019,7 +2962,7 @@ test.describe("Property Module", () => {
           await propertyModule.assertPropertiesPageOpened();
 
           const selectionCount = await propertyModule.selectFirstTableRow();
-          await expect(selectionCount).toBeVisible({ timeout: 8_000 });
+          await expect(selectionCount).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
           await expect(selectionCount).toHaveText(/1 propert/i);
 
           await propertyModule.selectSecondTableRow();
@@ -3028,7 +2971,7 @@ test.describe("Property Module", () => {
 
         await test.step("Open Bulk Assignment overlay", async () => {
           const cancelBtn = await propertyModule.openBulkAssignmentOverlay();
-          await expect(cancelBtn).toBeVisible({ timeout: 8_000 });
+          await expect(cancelBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
         });
 
         await test.step("Select assignee and confirm assignment", async () => {
@@ -3041,10 +2984,10 @@ test.describe("Property Module", () => {
             .first();
           const cancelBtnLocator = page.getByRole("button", { name: "Cancel" });
           await Promise.race([
-            expect(successToast).toBeVisible({ timeout: 12_000 }),
-            expect(cancelBtnLocator).toBeHidden({ timeout: 12_000 }),
+            expect(successToast).toBeVisible({ timeout: TIMEOUTS.BASE * 24 }),
+            expect(cancelBtnLocator).toBeHidden({ timeout: TIMEOUTS.BASE * 24 }),
           ]).catch(async () => {
-            await expect(cancelBtnLocator).toBeHidden({ timeout: 5_000 });
+            await expect(cancelBtnLocator).toBeHidden({ timeout: TIMEOUTS.BASE * 10 });
           });
         });
       },
@@ -3053,8 +2996,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-088 | Verify that More Filters panel opens successfully with all filter controls; each filter control is interactive; Clear All resets filters; Apply Filters updates listing",
       async () => {
-        test.setTimeout(120_000);
-
         let totalBeforeFilter = 0;
 
         await test.step(
@@ -3065,9 +3006,9 @@ test.describe("Property Module", () => {
             });
             await expect(
               page.locator("table tbody tr").first(),
-            ).toBeVisible({ timeout: 15_000 });
+            ).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
             const paginationEl = page.getByText(/\d+–\d+ of \d+/);
-            await paginationEl.waitFor({ state: "visible", timeout: 10_000 });
+            await paginationEl.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
             const paginationText = (await paginationEl.textContent()) ?? "";
             const match = paginationText.match(/of ([\d,]+)/);
             if (match) {
@@ -3076,7 +3017,7 @@ test.describe("Property Module", () => {
             await propertyModule.openMoreFiltersPanel();
             await expect(
               page.getByRole("heading", { name: "All Filters", level: 3 }),
-            ).toBeVisible({ timeout: 10_000 });
+            ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
           },
         );
 
@@ -3100,7 +3041,7 @@ test.describe("Property Module", () => {
             await propertyModule.selectFirstStageInFilter();
             await expect(
               page.getByRole("button", { name: "Apply Filters" }),
-            ).toBeEnabled({ timeout: 8_000 });
+            ).toBeEnabled({ timeout: TIMEOUTS.BASE * 16 });
           },
         );
 
@@ -3124,7 +3065,7 @@ test.describe("Property Module", () => {
             await propertyModule.fillZipCodeFilter(ZIP_FILTER_VALUE);
             await expect(
               page.getByRole("combobox", { name: /Add Zip Code/i }),
-            ).toBeVisible({ timeout: 5_000 });
+            ).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
           },
         );
 
@@ -3160,7 +3101,7 @@ test.describe("Property Module", () => {
           "Verify that No. of Units filter works correctly",
           async () => {
             const noOfUnitsBtn = page.getByRole("button", { name: "No. of Units" });
-            await expect(noOfUnitsBtn).toBeVisible({ timeout: 5_000 });
+            await expect(noOfUnitsBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
             await expect(noOfUnitsBtn).toBeEnabled();
           },
         );
@@ -3192,9 +3133,9 @@ test.describe("Property Module", () => {
             await propertyModule.applyMoreFilters();
             await expect(
               page.getByRole("heading", { name: "All Filters", level: 3 }),
-            ).toBeHidden({ timeout: 10_000 });
+            ).toBeHidden({ timeout: TIMEOUTS.BASE * 20 });
             const paginationAfter = page.getByText(/\d+–\d+ of \d+/);
-            await expect(paginationAfter).toBeVisible({ timeout: 15_000 });
+            await expect(paginationAfter).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
             const afterText = (await paginationAfter.textContent()) ?? "";
             const afterMatch = afterText.match(/of ([\d,]+)/);
             if (afterMatch && totalBeforeFilter > 0) {
@@ -3217,10 +3158,10 @@ test.describe("Property Module", () => {
             await propertyModule.clearAllFilters();
             await expect(
               page.getByRole("button", { name: "Apply Filters" }),
-            ).toBeDisabled({ timeout: 8_000 });
+            ).toBeDisabled({ timeout: TIMEOUTS.BASE * 16 });
             await expect(
               page.getByRole("button", { name: "Clear All" }),
-            ).toBeDisabled({ timeout: 8_000 });
+            ).toBeDisabled({ timeout: TIMEOUTS.BASE * 16 });
           },
         );
       },
@@ -3275,7 +3216,6 @@ test.describe("Property Module", () => {
     });
 
     test("TC-PROP-109 | Verify that HO/SM is able to assign property to the manager or sales person.", async () => {
-      test.setTimeout(200_000);
       console.log("[TC-PROP-109] Start: HO assignment flow");
 
       const hoEmail = (env.email || "").trim();
@@ -3305,7 +3245,7 @@ test.describe("Property Module", () => {
           performLogin(page, {
             loginCredentials: { email: hoEmail, password: hoPassword },
           }),
-          120_000,
+          TIMEOUTS.BASE * 240,
           "TC-PROP-109 HO performLogin",
         );
         console.log("[TC-PROP-109] HO login complete");
@@ -3313,13 +3253,13 @@ test.describe("Property Module", () => {
 
       const propertyName = await withTimeout(
         ensureCreatedPropertyExists(),
-        70_000,
+        TIMEOUTS.BASE * 140,
         "TC-PROP-109 ensureCreatedPropertyExists",
       );
       console.log(`[TC-PROP-109] Using property: ${propertyName}`);
       await withTimeout(
         openPropertyDetailFromList(propertyName),
-        35_000,
+        TIMEOUTS.BASE * 70,
         "TC-PROP-109 openPropertyDetailFromList",
       );
       console.log("[TC-PROP-109] Property detail page opened");
@@ -3333,7 +3273,7 @@ test.describe("Property Module", () => {
           smAssignmentOptionText,
           { enforceFlow: true },
         ),
-        55_000,
+        TIMEOUTS.BASE * 110,
         "TC-PROP-109 assignPropertyToUserFromDetail",
       );
       console.log(
@@ -3341,7 +3281,7 @@ test.describe("Property Module", () => {
       );
       await withTimeout(
         propertyModule.assertAssignedToValueVisible(smAssignmentOptionText),
-        20_000,
+        TIMEOUTS.BASE * 40,
         "TC-PROP-109 assertAssignedToValueVisible",
       );
       console.log("[TC-PROP-109] Assigned to value verified on detail page");
@@ -3353,11 +3293,10 @@ test.describe("Property Module", () => {
     });
 
     test("TC-PROP-110 | Verify that HO/SM/SP is able to link franchise.", async () => {
-      test.setTimeout(180_000);
       console.log("[TC-PROP-110] Start: HO franchise control visibility check");
       const propertyName = await withTimeout(
         ensureCreatedPropertyExists(),
-        90_000,
+        TIMEOUTS.BASE * 180,
         "TC-PROP-110 ensureCreatedPropertyExists",
       );
       console.log(`[TC-PROP-110] Using property: ${propertyName}`);
@@ -3391,7 +3330,7 @@ test.describe("Property Module", () => {
       await propertyModule.assertPropertyDetailOpened(createdPropertyName);
       await propertyModule.openEditPropertyForm();
       await propertyModule.assertEditPropertyFormOpen();
-      await expect(propertyModule.editPropertyNameInput).not.toHaveValue("", { timeout: 5_000 });
+      await expect(propertyModule.editPropertyNameInput).not.toHaveValue("", { timeout: TIMEOUTS.BASE * 10 });
       const prefillValue = await propertyModule.editPropertyNameInput.inputValue();
       expect(prefillValue.trim().length, "Edit form Property Name must be pre-filled").toBeGreaterThan(0);
       await propertyModule.assertSaveEditButtonDisabled();
@@ -3417,7 +3356,7 @@ test.describe("Property Module", () => {
 
         await test.step("Verify activity log date heading is visible", async () => {
           await expect(propertyModule.activityDateHeading()).toBeVisible({
-            timeout: 10_000,
+            timeout: TIMEOUTS.BASE * 20,
           });
         });
 
@@ -3431,8 +3370,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-116 | Verify that email log title uses sender username",
       async () => {
-        test.setTimeout(60_000);
-
         await test.step("Navigate to property detail and open Activities tab", async () => {
           await resolveActivityPropertyPath();
           await page.goto(`${baseUrl}${activityPropertyPath}`, {
@@ -3443,7 +3380,7 @@ test.describe("Property Module", () => {
 
         await test.step("Verify at least one activity card is visible and title contains 'by'", async () => {
           await expect(propertyModule.activityCardTitles().first()).toBeVisible({
-            timeout: 10_000,
+            timeout: TIMEOUTS.BASE * 20,
           });
           const titleText = await propertyModule.getFirstActivityCardTitle();
           expect(titleText).toMatch(/\bby\b/i);
@@ -3457,7 +3394,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-117 | Verify that email subject matches email creation form",
       async () => {
-        test.setTimeout(60_000);
         test.fail(
           true,
           "TODO: Activities tab currently only shows property-created entry. " +
@@ -3479,7 +3415,7 @@ test.describe("Property Module", () => {
         await propertyModule.openActivitiesTab();
         await expect(
           page.locator(`text=${emailSubject}`).first(),
-        ).toBeVisible({ timeout: 10_000 });
+        ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
       },
     );
 
@@ -3525,8 +3461,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-121 | Verify that email long body truncation threshold",
       async () => {
-        test.setTimeout(120_000);
-
         const longBody =
           "This is a long email body intended to test the truncation threshold in the Emails tab. " +
           "The purpose of this email is to verify that when an email body exceeds a certain length " +
@@ -3556,7 +3490,7 @@ test.describe("Property Module", () => {
         await test.step("Switch to All emails and verify list preview is truncated", async () => {
           await propertyModule.switchEmailDirectionFilter("All");
           const firstItem = propertyModule.emailListPreviewText();
-          await expect(firstItem).toBeVisible({ timeout: 10_000 });
+          await expect(firstItem).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
           const previewText = await firstItem.innerText();
           expect(
             previewText.length < longBody.length,
@@ -3574,7 +3508,7 @@ test.describe("Property Module", () => {
           await emailRow.click();
           await expect(
             page.getByRole("heading", { name: /Truncation Threshold Test/i, level: 6 }),
-          ).toBeVisible({ timeout: 10_000 });
+          ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
         });
       },
     );
@@ -3582,8 +3516,6 @@ test.describe("Property Module", () => {
     test.skip(
       "TC-PROP-122 | Verify that email See more expands without losing formatting",
       async () => {
-        test.setTimeout(60_000);
-
         await test.step("Navigate to property and open Activities tab", async () => {
           await resolveActivityPropertyPath();
           await page.goto(`${baseUrl}${activityPropertyPath}`, {
@@ -3606,8 +3538,6 @@ test.describe("Property Module", () => {
     test.skip(
       "TC-PROP-123 | Verify that email See less returns to original scroll position",
       async () => {
-        test.setTimeout(60_000);
-
         await test.step("Navigate to property and open Activities tab", async () => {
           await resolveActivityPropertyPath();
           await page.goto(`${baseUrl}${activityPropertyPath}`, {
@@ -3630,8 +3560,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-124 | Verify that email timestamp displays and is correct",
       async () => {
-        test.setTimeout(60_000);
-
         await test.step("Navigate to property and open Activities tab", async () => {
           await resolveActivityPropertyPath();
           await page.goto(`${baseUrl}${activityPropertyPath}`, {
@@ -3642,7 +3570,7 @@ test.describe("Property Module", () => {
 
         await test.step("Verify timestamp format on first activity card", async () => {
           await expect(propertyModule.activityCardTimestamps().first()).toBeVisible({
-            timeout: 10_000,
+            timeout: TIMEOUTS.BASE * 20,
           });
           const ts = await propertyModule.getFirstActivityCardTimestamp();
           expect(ts).toMatch(TIMESTAMP_REGEX);
@@ -3653,8 +3581,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-125 | Verify that email log ordering relative to other logs",
       async () => {
-        test.setTimeout(60_000);
-
         await test.step("Navigate to property and open Activities tab", async () => {
           await resolveActivityPropertyPath();
           await page.goto(`${baseUrl}${activityPropertyPath}`, {
@@ -3682,7 +3608,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-126 | Verify that note log title uses creator username",
       async () => {
-        test.setTimeout(90_000);
         const noteSubject = `PAT-${Date.now()}`;
 
         await test.step("Navigate to property and create a note", async () => {
@@ -3704,7 +3629,7 @@ test.describe("Property Module", () => {
             .locator("p")
             .filter({ hasText: new RegExp(noteSubject) })
             .first();
-          await expect(noteCard).toBeVisible({ timeout: 15_000 });
+          await expect(noteCard).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
           const noteCardTitle = await noteCard.innerText();
           expect(noteCardTitle).toMatch(new RegExp(`${noteSubject}.*by\\s+\\S+`, "i"));
         });
@@ -3727,7 +3652,6 @@ test.describe("Property Module", () => {
     test.skip(
       "TC-PROP-128 | Verify that note long text truncation + See more/less",
       async () => {
-        test.setTimeout(90_000);
         const longBody =
           "This is a very long note body that exceeds the truncation threshold. ".repeat(10);
         const noteSubject = `PAT-${Date.now()}`;
@@ -3742,7 +3666,7 @@ test.describe("Property Module", () => {
 
         await test.step("Open Activities tab and verify See more is visible on the note card", async () => {
           await propertyModule.openActivitiesTab();
-          await expect(propertyModule.activitySeeMoreToggle()).toBeVisible({ timeout: 15_000 });
+          await expect(propertyModule.activitySeeMoreToggle()).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
         });
 
         await test.step("Click See more — body expands, toggle reads See less", async () => {
@@ -3912,7 +3836,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-142 | Verify that task log title uses creator username",
       async () => {
-        test.setTimeout(90_000);
         const taskTitle = `PAT-${Date.now()}`;
 
         await test.step("Navigate to property and create a task", async () => {
@@ -3931,7 +3854,7 @@ test.describe("Property Module", () => {
             .locator("p")
             .filter({ hasText: new RegExp(taskTitle) })
             .first();
-          await expect(taskCard).toBeVisible({ timeout: 15_000 });
+          await expect(taskCard).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
           const taskCardTitle = await taskCard.innerText();
           expect(taskCardTitle).toMatch(new RegExp(`${taskTitle}.*by\\s+\\S+`, "i"));
         });
@@ -3941,7 +3864,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-143 | Verify that task fields render: title/type/priority/description/status",
       async () => {
-        test.setTimeout(90_000);
         const taskTitle = `PAT-${Date.now()}`;
         const taskDesc = "Test description for activity log";
 
@@ -3962,10 +3884,10 @@ test.describe("Property Module", () => {
           await propertyModule.openActivitiesTab();
           // Use named tabpanel per SKILL.md §2
           const panel = page.getByRole("tabpanel", { name: /Activities/i });
-          await expect(panel.locator(`text=${taskTitle}`)).toBeVisible({ timeout: 15_000 });
+          await expect(panel.locator(`text=${taskTitle}`)).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
           await expect(
             panel.locator("p").filter({ hasText: new RegExp(taskTitle) }).first(),
-          ).toBeVisible({ timeout: 10_000 });
+          ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
         });
       },
     );
@@ -3999,7 +3921,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-146 | Verify that task long description truncation + toggle",
       async () => {
-        test.setTimeout(90_000);
         const longDesc = "This is a very long task description. ".repeat(15);
         const taskTitle = `PAT-${Date.now()}`;
 
@@ -4013,7 +3934,7 @@ test.describe("Property Module", () => {
 
         await test.step("Open Activities tab and verify See less toggle is visible (cards start expanded)", async () => {
           await propertyModule.openActivitiesTab();
-          await expect(propertyModule.activitySeeLessToggle()).toBeVisible({ timeout: 15_000 });
+          await expect(propertyModule.activitySeeLessToggle()).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
         });
 
         await test.step("Click See less — body collapses to truncated view, toggle reads See more", async () => {
@@ -4045,7 +3966,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-148 | Verify that real-time update without manual refresh",
       async () => {
-        test.setTimeout(90_000);
         const rtNoteSubject = `PAT-${Date.now()}`;
 
         await test.step("Open Activities tab and count current entries", async () => {
@@ -4068,7 +3988,7 @@ test.describe("Property Module", () => {
               .locator("p")
               .filter({ hasText: new RegExp(rtNoteSubject) })
               .first(),
-          ).toBeVisible({ timeout: 20_000 });
+          ).toBeVisible({ timeout: TIMEOUTS.BASE * 40 });
         });
       },
     );
@@ -4076,8 +3996,6 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-149 | Verify that permissions: unauthorized user cannot see logs",
       async ({ browser }) => {
-        test.setTimeout(120_000);
-
         let smContext;
         let smPage;
 
@@ -4098,7 +4016,7 @@ test.describe("Property Module", () => {
             waitUntil: "domcontentloaded",
           });
           const activitiesTab = smPage.getByRole("tab", { name: "Activities" });
-          const tabVisible = await activitiesTab.isVisible({ timeout: 5_000 }).catch(() => false);
+          const tabVisible = await activitiesTab.isVisible({ timeout: TIMEOUTS.BASE * 10 }).catch(() => false);
 
           if (!tabVisible) {
             return;
@@ -4123,8 +4041,6 @@ test.describe("Property Module", () => {
     );
 
     test("TC-PROP-150 | Verify that Activities tab loads and shows at least one dated entry.", async () => {
-      test.setTimeout(60_000);
-
       await resolveActivityPropertyPath();
       await page.goto(`${baseUrl}${activityPropertyPath}`, {
         waitUntil: "domcontentloaded",
@@ -4133,11 +4049,11 @@ test.describe("Property Module", () => {
 
       // Wait for Activities tab to be active
       const activitiesTab = page.getByRole("tab", { name: "Activities" });
-      await expect(activitiesTab).toHaveAttribute("aria-selected", "true", { timeout: 10_000 });
+      await expect(activitiesTab).toHaveAttribute("aria-selected", "true", { timeout: TIMEOUTS.BASE * 20 });
 
       // At least one date-header paragraph visible
       const dateHeader = page.getByText(/\w+,\s+\d{4}/).first();
-      await dateHeader.waitFor({ state: "visible", timeout: 15_000 });
+      await dateHeader.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 30 });
     });
   });
 
@@ -4157,15 +4073,13 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-152 | Verify that Subject field is mandatory while creating a note. Verify that Description field is mandatory while creating a note. Verify that system shows validation error when Subject is empty. Verify that system shows validation error when Description is empty.",
       async () => {
-        test.setTimeout(60_000);
-
         await test.step("Navigate to property detail and open Notes tab", async () => {
           await openEntityDetail();
           await notesModule.clickNotesTab();
           await expect(notesModule.notesTab).toHaveAttribute(
             "aria-selected",
             "true",
-            { timeout: 5_000 },
+            { timeout: TIMEOUTS.BASE * 10 },
           );
         });
 
@@ -4183,16 +4097,16 @@ test.describe("Property Module", () => {
           await expect(notesModule.addNoteDrawerHeading).toBeVisible();
           await expect(
             page.locator("p.MuiFormHelperText-root.Mui-error").filter({ hasText: "Title is required." }),
-          ).toBeVisible({ timeout: 5_000 });
+          ).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
           await expect(
             page.locator("p").filter({ hasText: "Description is required." }),
-          ).toBeVisible({ timeout: 5_000 });
+          ).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         });
 
         await test.step("Cancel and reopen; fill Description only; verify only Title error shows", async () => {
           await notesModule.cancelNote();
           await expect(notesModule.addNoteDrawerHeading).toBeHidden({
-            timeout: 5_000,
+            timeout: TIMEOUTS.BASE * 10,
           });
 
           await notesModule.openCreateNoteDrawer();
@@ -4202,10 +4116,10 @@ test.describe("Property Module", () => {
 
           await expect(
             page.locator("p.MuiFormHelperText-root.Mui-error").filter({ hasText: "Title is required." }),
-          ).toBeVisible({ timeout: 5_000 });
+          ).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
           await expect(
             page.locator("p").filter({ hasText: "Description is required." }),
-          ).toBeHidden({ timeout: 3_000 });
+          ).toBeHidden({ timeout: TIMEOUTS.BASE * 6 });
 
           await notesModule.cancelNote();
         });
@@ -4215,9 +4129,9 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-160 | Verify that delete confirmation modal appears before deleting note. Verify that empty state is shown again after deleting last note.",
       async () => {
-        test.setTimeout(90_000);
-
         const noteSubject = `PAT ${Date.now()}`;
+        let propertyStartedEmpty = false;
+        let initialNoteCount = 0;
 
         await test.step("Navigate to property detail and open Notes tab", async () => {
           await openEntityDetail();
@@ -4225,28 +4139,15 @@ test.describe("Property Module", () => {
           await expect(notesModule.notesTab).toHaveAttribute(
             "aria-selected",
             "true",
-            { timeout: 5_000 },
+            { timeout: TIMEOUTS.BASE * 10 },
           );
         });
 
-        await test.step("Delete any pre-existing notes until the empty state is visible", async () => {
-          const startsEmpty = await notesModule.isNotesEmptyStateVisible();
-          let existingCount = startsEmpty ? 0 : await notesModule.getNoteCount().catch(() => 0);
-          let safetyLimit = 20;
-          while (existingCount > 0 && safetyLimit-- > 0) {
-            const countBefore = existingCount;
-            await notesModule.clickDeleteNote();
-            await notesModule.confirmDeleteNote();
-            await expect(
-              notesModule.notesTabPanel.getByRole("button", { name: /delete/i }),
-            ).toHaveCount(countBefore - 1 > 0 ? countBefore - 1 : 0, {
-              timeout: 8_000,
-            }).catch(() => {});
-            existingCount = await notesModule.getNoteCount().catch(() => 0);
-          }
-          await expect(notesModule.noteEmptyHeading).toBeVisible({
-            timeout: 8_000,
-          });
+        await test.step("Record existing note state", async () => {
+          propertyStartedEmpty = await notesModule.isNotesEmptyStateVisible();
+          initialNoteCount = propertyStartedEmpty
+            ? 0
+            : await notesModule.getNoteCount().catch(() => 0);
         });
 
         await test.step("Create a new note", async () => {
@@ -4256,7 +4157,7 @@ test.describe("Property Module", () => {
           });
           await expect(
             notesModule.notesTabPanel.locator("p").filter({ hasText: `Note: ${noteSubject}` }),
-          ).toBeVisible({ timeout: 10_000 });
+          ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
         });
 
         await test.step("Delete the note and verify empty state reappears", async () => {
@@ -4265,7 +4166,7 @@ test.describe("Property Module", () => {
           for (let attempt = 1; attempt <= 3; attempt++) {
             await notesModule.clickDeleteNote(noteSubject);
             await expect(notesModule.deleteNoteDialog).toBeVisible({
-              timeout: 5_000,
+              timeout: TIMEOUTS.BASE * 10,
             });
             await expect(
               page.getByText("Are you sure you want to delete this note?"),
@@ -4276,30 +4177,47 @@ test.describe("Property Module", () => {
             // Dismiss any "Network Error" toast that may block the UI
             const networkError = page.locator('[role="alert"]').filter({ hasText: /Network Error/i }).first();
             const hadNetworkError = await networkError
-              .isVisible({ timeout: 2_000 })
+              .isVisible({ timeout: TIMEOUTS.BASE * 4 })
               .catch(() => false);
             if (hadNetworkError) {
               await networkError.getByRole("button", { name: "close" }).click().catch(() => {});
             }
 
             const isEmpty = await notesModule.noteEmptyHeading
-              .waitFor({ state: "visible", timeout: 8_000 })
+              .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 })
               .then(() => true)
               .catch(() => false);
             if (isEmpty) break;
+            const deleted = await notesModule
+              .getNoteBySubject(noteSubject)
+              .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 16 })
+              .then(() => true)
+              .catch(() => false);
+            if (deleted) break;
             // Note still visible — refresh the tab and retry
             if (attempt < 3) {
               await notesModule.clickNotesTab();
-              await page.waitForTimeout(500);
             }
           }
 
-          await expect(notesModule.noteEmptyHeading).toBeVisible({
-            timeout: 10_000,
-          });
-          await expect(notesModule.noteEmptySubtext).toBeVisible({
-            timeout: 5_000,
-          });
+          if (propertyStartedEmpty || initialNoteCount === 0) {
+            await expect(notesModule.noteEmptyHeading).toBeVisible({
+              timeout: TIMEOUTS.BASE * 20,
+            });
+            await expect(notesModule.noteEmptySubtext).toBeVisible({
+              timeout: TIMEOUTS.BASE * 10,
+            });
+          } else {
+            await expect(notesModule.getNoteBySubject(noteSubject)).toHaveCount(0, {
+              timeout: TIMEOUTS.BASE * 20,
+            });
+            await expect
+              .poll(() => notesModule.getNoteCount(), {
+                timeout: TIMEOUTS.BASE * 20,
+                intervals: [TIMEOUTS.BASE, TIMEOUTS.BASE * 2],
+              })
+              .toBe(initialNoteCount);
+          }
         });
       },
     );
@@ -4309,8 +4227,8 @@ test.describe("Property Module", () => {
       // Verify we landed on a property detail page (the cached propertyPath may
       // point to a different property than readCreatedPropertyName() returns, so
       // read the actual name from the page heading instead of shared state).
-      await expect(page).toHaveURL(/\/app\/sales\/locations\/location\//, { timeout: 25_000 });
-      await expect(propertyModule.editButton).toBeVisible({ timeout: 25_000 });
+      await expect(page).toHaveURL(/\/app\/sales\/locations\/location\//, { timeout: TIMEOUTS.BASE * 50 });
+      await expect(propertyModule.editButton).toBeVisible({ timeout: TIMEOUTS.BASE * 50 });
       await propertyModule.assertNotesTabVisible();
       await propertyModule.gotoNotesTab();
       await propertyModule.assertCreateNewNoteButtonVisible();
@@ -4333,7 +4251,7 @@ test.describe("Property Module", () => {
           await page.goto(`${baseUrl}app/sales/tasks`, {
             waitUntil: "domcontentloaded",
           });
-          await expect(propertyModule.newTaskBtn).toBeVisible({ timeout: 10_000 });
+          await expect(propertyModule.newTaskBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
         });
 
         await test.step("Open Create Task drawer and submit empty — all errors appear", async () => {
@@ -4366,31 +4284,31 @@ test.describe("Property Module", () => {
           await page.goto(`${baseUrl}app/sales/tasks`, {
             waitUntil: "domcontentloaded",
           });
-          await expect(propertyModule.newTaskBtn).toBeVisible({ timeout: 10_000 });
+          await expect(propertyModule.newTaskBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
         });
 
         await test.step("Filter by Status: To-do -> Completed", async () => {
           await propertyModule.openTaskFilterDropdown("To-do");
           await propertyModule.selectTaskFilterOption("Completed");
-          await expect(propertyModule.paginationInfo).toBeVisible({ timeout: 8_000 });
+          await expect(propertyModule.paginationInfo).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
         });
 
         await test.step("Filter by Type: All Types -> To-do", async () => {
           await propertyModule.openTaskFilterDropdown("All Types");
           await propertyModule.selectTaskFilterOption("To-do");
-          await expect(propertyModule.paginationInfo).toBeVisible({ timeout: 8_000 });
+          await expect(propertyModule.paginationInfo).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
         });
 
         await test.step("Filter by Priority: High", async () => {
           await propertyModule.openTaskFilterDropdown("Priority");
           await propertyModule.selectTaskFilterOption("High");
-          await expect(propertyModule.paginationInfo).toBeVisible({ timeout: 8_000 });
+          await expect(propertyModule.paginationInfo).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
         });
 
         await test.step("Filter by Date Range: current month", async () => {
           const dateRange = taskCurrentMonthDateRange();
           await propertyModule.fillTaskDateRangeFilter(dateRange);
-          await expect(propertyModule.paginationInfo).toBeVisible({ timeout: 8_000 });
+          await expect(propertyModule.paginationInfo).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
         });
       },
     );
@@ -4400,10 +4318,10 @@ test.describe("Property Module", () => {
         await page.goto(`${baseUrl}app/sales/tasks`, {
           waitUntil: "domcontentloaded",
         });
-        await expect(propertyModule.newTaskBtn).toBeVisible({ timeout: 10_000 });
+        await expect(propertyModule.newTaskBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
 
         await test.step("Verify initial pagination state", async () => {
-          await expect(page.locator("table tbody tr").first()).toBeVisible({ timeout: 15_000 });
+          await expect(page.locator("table tbody tr").first()).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
           const paginationText = await propertyModule.getTaskPaginationText();
           expect(paginationText).toMatch(/\d+–\d+ of \d+/);
           const match = paginationText.match(/of (\d+)/);
@@ -4411,40 +4329,40 @@ test.describe("Property Module", () => {
           if (total <= 10) {
             test.skip(true, `Only ${total} tasks in environment — pagination test requires >10`);
           }
-          await expect(propertyModule.prevPageBtn).toBeDisabled({ timeout: 5_000 });
-          await expect(propertyModule.nextPageBtn).toBeEnabled({ timeout: 5_000 });
+          await expect(propertyModule.prevPageBtn).toBeDisabled({ timeout: TIMEOUTS.BASE * 10 });
+          await expect(propertyModule.nextPageBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
         });
 
         await test.step("Go to next page and verify pagination updates", async () => {
           await Promise.all([
             page.waitForResponse(
               (r) => r.url().includes("/task") && r.status() < 300,
-              { timeout: 12_000 },
+              { timeout: TIMEOUTS.BASE * 24 },
             ).catch(() => {}),
             propertyModule.nextPageBtn.click(),
           ]);
-          await expect(page.locator("table tbody tr").first()).toBeVisible({ timeout: 10_000 });
+          await expect(page.locator("table tbody tr").first()).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
           const page2Text = await propertyModule.getTaskPaginationText();
           expect(page2Text).toMatch(/^11–/);
-          await expect(propertyModule.prevPageBtn).toBeEnabled({ timeout: 5_000 });
+          await expect(propertyModule.prevPageBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
         });
 
         await test.step("Go back to first page — prev disables again", async () => {
           await Promise.all([
             page.waitForResponse(
               (r) => r.url().includes("/task") && r.status() < 300,
-              { timeout: 12_000 },
+              { timeout: TIMEOUTS.BASE * 24 },
             ).catch(() => {}),
             propertyModule.prevPageBtn.click(),
           ]);
-          await expect(propertyModule.prevPageBtn).toBeDisabled({ timeout: 5_000 });
+          await expect(propertyModule.prevPageBtn).toBeDisabled({ timeout: TIMEOUTS.BASE * 10 });
           const page1Text = await propertyModule.getTaskPaginationText();
           expect(page1Text).toMatch(/^1–/);
         });
 
         await test.step("Change rows per page to 20 and verify row count increases", async () => {
           await propertyModule.changeTaskRowsPerPage("20");
-          await expect(page.locator("table tbody tr").first()).toBeVisible({ timeout: 10_000 });
+          await expect(page.locator("table tbody tr").first()).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
           const rowsText = await propertyModule.getTaskPaginationText();
           expect(rowsText).toMatch(/^1–20 of/);
         });
@@ -4457,18 +4375,18 @@ test.describe("Property Module", () => {
         await page.goto(`${baseUrl}app/sales/tasks`, {
           waitUntil: "domcontentloaded",
         });
-        await expect(propertyModule.newTaskBtn).toBeVisible({ timeout: 10_000 });
+        await expect(propertyModule.newTaskBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
 
         await test.step("Click Due Date sort — ascending order", async () => {
-          await expect(page.locator("table tbody tr").first()).toBeVisible({ timeout: 15_000 });
+          await expect(page.locator("table tbody tr").first()).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
           await Promise.all([
             page.waitForResponse(
               (r) => r.url().includes("/task") && r.status() < 300,
-              { timeout: 12_000 },
+              { timeout: TIMEOUTS.BASE * 24 },
             ).catch(() => {}),
             propertyModule.clickTaskDueDateSort(),
           ]);
-          await expect(page.locator("table tbody tr").first()).toBeVisible({ timeout: 10_000 });
+          await expect(page.locator("table tbody tr").first()).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
           const date1Asc = await propertyModule.getTaskDueDateFromRow(0);
           const date2Asc = await propertyModule.getTaskDueDateFromRow(1);
           const parseDate = (s) => {
@@ -4490,11 +4408,11 @@ test.describe("Property Module", () => {
           await Promise.all([
             page.waitForResponse(
               (r) => r.url().includes("/task") && r.status() < 300,
-              { timeout: 12_000 },
+              { timeout: TIMEOUTS.BASE * 24 },
             ).catch(() => {}),
             propertyModule.clickTaskDueDateSort(),
           ]);
-          await expect(page.locator("table tbody tr").first()).toBeVisible({ timeout: 10_000 });
+          await expect(page.locator("table tbody tr").first()).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
           const date1Desc = await propertyModule.getTaskDueDateFromRow(0);
           const date2Desc = await propertyModule.getTaskDueDateFromRow(1);
           const parseDate = (s) => {
@@ -4521,8 +4439,8 @@ test.describe("Property Module", () => {
       // Verify we landed on a property detail page without coupling to a
       // specific property name (the cached propertyPath may differ from
       // readCreatedPropertyName() after earlier tests create new properties).
-      await expect(page).toHaveURL(/\/app\/sales\/locations\/location\//, { timeout: 25_000 });
-      await expect(propertyModule.editButton).toBeVisible({ timeout: 25_000 });
+      await expect(page).toHaveURL(/\/app\/sales\/locations\/location\//, { timeout: TIMEOUTS.BASE * 50 });
+      await expect(propertyModule.editButton).toBeVisible({ timeout: TIMEOUTS.BASE * 50 });
       await propertyModule.assertTasksTabVisible();
       await propertyModule.gotoTasksTab();
       await propertyModule.assertTasksTableColumns();
@@ -4532,7 +4450,7 @@ test.describe("Property Module", () => {
       const hasTaskRows = await page
         .locator("table tbody tr")
         .first()
-        .isVisible({ timeout: 3_000 })
+        .isVisible({ timeout: TIMEOUTS.BASE * 6 })
         .catch(() => false);
       if (!hasTaskRows) {
         await propertyModule.assertTasksEmptyState();
