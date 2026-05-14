@@ -1238,7 +1238,12 @@ class DealModule {
         .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 6 })
         .catch(() => {});
     }
-    await triggerHeading.click();
+    // The onclick handler is on the grandparent container of the h6, not the heading itself.
+    await triggerHeading.evaluate((el) => {
+      const grandparent = el.parentElement?.parentElement;
+      if (grandparent) grandparent.click();
+      else el.click();
+    });
     await popper.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 10 });
     await popper.getByText(optionText, { exact: true }).click();
     // Wait for popper to close after selection

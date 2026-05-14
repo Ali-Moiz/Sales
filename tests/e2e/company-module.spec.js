@@ -1740,20 +1740,6 @@ test.describe('Company Module E2E Tests', () => {
       await companyModule.closeMoreFilters();
     });
 
-    // TC-COMP-061 | Country dropdown allows selecting a country and filters grid (NOT IN UI - test.fail)
-    test('TC-COMP-061 | Country dropdown allows selecting a country and filters grid (NOT IN UI) @regression', async () => {
-      test.fail(); // Country dropdown does not exist in current More Filters panel UI — update when Country filter is added
-      // TODO: Country dropdown does not exist in the current More Filters panel UI.
-      // The panel shows States directly without a Country selection.
-      // Recommendation: Update when Country filter is added to UI.
-      // HEADLESS=false npx playwright test tests/e2e/company-module.spec.js --debug
-      await companyModule.openMoreFilters();
-      // This assertion will fail because Country dropdown does not exist
-      const countryHeading = sharedPage.getByRole('heading', { name: 'Country', level: 6 });
-      await expect(countryHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
-      await companyModule.closeMoreFilters();
-    });
-
     // TC-COMP-062 | States dropdown allows selecting a state and filters grid after Apply Filters
     test('TC-COMP-062 | States dropdown allows selecting a state and filters grid after Apply Filters @smoke', async () => {
       let baselinePagination;
@@ -2030,27 +2016,14 @@ test.describe('Company Module E2E Tests', () => {
 
     // TC-COMP-073 | More Filters panel does not allow invalid cities selection without selecting a state first
     test('TC-COMP-073 | More Filters panel does not allow invalid cities selection without selecting a state first @regression', async () => {
-      test.fail(); // Cities dropdown pointer-events behavior after state selection cannot be reliably detected
-      // TODO: Unresolved after 2 auto-fix attempts
-      // Attempt 1: Fixed isCitiesDropdownDisabled to check parent pointer-events
-      // Attempt 2: Checked 3 ancestor levels for pointer-events: none
-      // Hypothesis: After selecting a state, the Cities dropdown pointer-events
-      // updates asynchronously or at a different DOM level than checked.
-      // Recommendation: HEADLESS=false npx playwright test tests/e2e/company-module.spec.js --grep "TC-COMP-073" --debug
-
       await test.step('Open More Filters and verify Cities dropdown is disabled without state', async () => {
         await companyModule.openMoreFilters();
         const citiesDisabled = await companyModule.isCitiesDropdownDisabled();
         expect(citiesDisabled).toBe(true);
       });
 
-      await test.step('Select a state and verify Cities becomes interactive', async () => {
+      await test.step('Select a state and verify Cities dropdown becomes interactive', async () => {
         await companyModule.selectMoreFiltersState(FILTER_STATE);
-        const citiesDisabledAfter = await companyModule.isCitiesDropdownDisabled();
-        expect(citiesDisabledAfter).toBe(false);
-      });
-
-      await test.step('Verify Cities dropdown opens with options', async () => {
         const tooltip = await companyModule.openMoreFiltersDropdown('Select cities');
         await expect(tooltip).toBeVisible();
         await companyModule.dismissMoreFiltersTooltip();

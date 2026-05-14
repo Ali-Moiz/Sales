@@ -15,6 +15,18 @@ const {
 
 const DEFAULT_MAX_ADDRESS_ATTEMPTS = 8;
 
+/**
+ * Convert a time string like "10:00 AM" into the key sequence for the MUI
+ * MultiSectionDigitalClock masked input.  fill() does not work on this widget;
+ * pressing characters one-by-one via pressSequentially() does.
+ * Examples: "10:00 AM" → "1000a", "2:30 PM" → "0230p", "11:00 AM" → "1100a"
+ */
+function timeToMaskKeys(timeStr) {
+  const m = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!m) return timeStr;
+  return m[1].padStart(2, "0") + m[2] + m[3][0].toLowerCase();
+}
+
 class PropertyModule {
   constructor(page) {
     this.page = page;
@@ -187,6 +199,18 @@ class PropertyModule {
     this.emailsTab = page.getByRole("tab", { name: "Emails" });
     this.meetingsTab = page.getByRole("tab", { name: "Meetings" });
 
+    // ── Create New Meeting form (live-verified 2026-05-14 via MCP browser on property 13179) ──
+    // The form uses #title (shared with Notes — unique when only one form is open at a time).
+    // Time inputs have generated IDs (:r12:/:r14:) — use getByPlaceholder('select time').
+    // Guests are pre-populated from the property's contacts; no manual guest entry needed.
+    // Save triggers an "Are you sure?" dialog (guests receive email) — confirm with "Yes".
+    this.newMeetingBtn = page.getByRole("button", { name: "New Meeting" });
+    this.createNewMeetingHeading = page.getByRole("heading", { name: "Create New Meeting", level: 3 });
+    this.meetingDateInput = page.getByRole("textbox", { name: "MM/DD/YYYY" });
+    this.meetingStartTimeInput = page.getByPlaceholder("select time").first();
+    this.meetingEndTimeInput = page.getByPlaceholder("select time").nth(1);
+    this.meetingConfirmYesBtn = page.getByRole("button", { name: "Yes" });
+
     // ── Edit Property drawer ──────────────────────────────────────────────────
     // Live-verified: heading level=3, submit is "Save" (NOT "Update Property")
     this.editPropertyHeading = page.getByRole("heading", {
@@ -247,6 +271,13 @@ class PropertyModule {
     this.noteDescRequiredError = page
       .locator("p")
       .filter({ hasText: "Description is required." });
+
+    // ── Edit Notes drawer (live-verified 2026-05-14 via MCP browser on property 13179) ──
+    // The MUI modal container has role="presentation" — no aria-label on the wrapper div.
+    // The accessibility snapshot shows "Edit Notes" as the computed name (from the heading),
+    // not a real aria-label attribute. id="title" is unique when the edit drawer is open.
+    this.editNotesHeading = page.getByRole("heading", { name: "Edit Notes", level: 4 });
+    this.editNotesSubjectInput = page.locator("#title");
 
     // ── Tasks section ─────────────────────────────────────────────────────────
     // Live-verified locators from Tasks tab
@@ -4457,6 +4488,196 @@ class PropertyModule {
   }
 
   /**
+   * Creates a meeting via the New Meeting form on the Meetings tab.
+   * Live-verified 2026-05-14:
+   *   - Time inputs use MUI MultiSectionDigitalClock mask — fill() is ignored;
+   *     pressSequentially("1000a") types "10:00 AM" character-by-character.
+   *   - Meeting Provider is required; options: "Google Meet", "Zoom Meeting", "Microsoft Teams".
+   *   - Save triggers "Are you sure?" confirmation dialog — confirmed with "Yes".
+   *   - Meeting Link must be a valid URL (e.g. https://meet.google.com/xxx-yyy-zzz).
+   * @param {object} opts
+   * @param {string} opts.title - Meeting title (required)
+   * @param {string} opts.date - Date in MM/DD/YYYY format (required)
+   * @param {string} [opts.startTime='10:00 AM'] - Start time
+   * @param {string} [opts.endTime='11:00 AM'] - End time
+   * @param {string} [opts.provider='Google Meet'] - Meeting provider (required by form)
+   * @param {string} [opts.link] - Optional meeting URL (must be a valid HTTPS URL)
+   * @param {string} [opts.description] - Optional meeting description text
+   */
+  async createMeeting({
+    title,
+    date,
+    startTime = "10:00 AM",
+    endTime = "11:00 AM",
+    provider = "Google Meet",
+    link = "https://meet.google.com/abc-defg-hij",
+    description,
+  } = {}) {
+    await this.openMeetingsTab();
+    await this.newMeetingBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
+    await this.newMeetingBtn.click();
+    await this.createNewMeetingHeading.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
+    // Title — id="title" is unique when meeting form is open
+    await this.page.locator("#title").fill(title);
+    // Date
+    await this.meetingDateInput.fill(date);
+    await this.page.keyboard.press("Tab");
+    // Start time — MUI masked input; fill() doesn't work; pressSequentially types each char
+    await this.meetingStartTimeInput.click();
+    await this.meetingStartTimeInput.pressSequentially(timeToMaskKeys(startTime));
+    // End time
+    await this.meetingEndTimeInput.click();
+    await this.meetingEndTimeInput.pressSequentially(timeToMaskKeys(endTime));
+    // Provider (required) — custom popper dropdown, identified by "Select Provider" h6
+    await this.page
+      .locator('[aria-describedby="simple-popper"]')
+      .filter({ hasText: /Select Provider/ })
+      .click();
+    await this.page
+      .locator("p")
+      .filter({ hasText: new RegExp(`^${provider}$`) })
+      .last()
+      .click();
+    // Optional: Meeting Link (must be a valid HTTPS URL)
+    if (link) {
+      await this.page.locator('input[name="meetingLink"]').fill(link);
+    }
+    // Optional: Description (DraftJS editor)
+    if (description) {
+      const descEditor = this.page.getByRole("textbox", { name: "rdw-editor" });
+      await descEditor.click();
+      await this.page.keyboard.type(description);
+    }
+    // Save — triggers "Are you sure?" confirmation dialog
+    await this.page.getByRole("button", { name: "Save" }).click();
+    await this.meetingConfirmYesBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 10 });
+    await Promise.all([
+      this.page
+        .waitForResponse(
+          (r) => r.url().includes("/meeting") && r.status() < 300,
+          { timeout: TIMEOUTS.BASE * 30 },
+        )
+        .catch(() => {}),
+      this.meetingConfirmYesBtn.click(),
+    ]);
+    await this.createNewMeetingHeading
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 30 })
+      .catch(() => {});
+  }
+
+  /**
+   * Clicks the calendar entry for the given meeting title to open the detail popup.
+   * The popup is a React Portal (floating generic outside main DOM tree).
+   * Live-verified 2026-05-14 on property 13179.
+   * NOTE: openMeetingsTab() must be called before this method.
+   * @param {string} title - Exact meeting title to click
+   */
+  async openMeetingPopup(title) {
+    // Meetings in the calendar may overlap — use JS click to bypass Playwright intercept checks.
+    // Live-verified: calendar entries are <p> elements inside .fc-timegrid-event-harness divs.
+    const calendarEntry = this.page.locator("p").filter({ hasText: title }).first();
+    await calendarEntry.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
+    await calendarEntry.evaluate((el) => el.click());
+    // Wait for popup: the title paragraph appears a second time outside the calendar grid.
+    // Calendar entries are inside .fc-event / .fc-timegrid-event-harness containers.
+    await this.page.waitForFunction(
+      (t) => {
+        const allPs = [...document.querySelectorAll("p")];
+        const popupTitle = allPs.find(
+          (p) =>
+            p.textContent.trim() === t &&
+            !p.closest(".fc-event, .fc-timegrid-event-harness"),
+        );
+        return !!popupTitle;
+      },
+      title,
+      { timeout: TIMEOUTS.BASE * 16 },
+    );
+  }
+
+  /**
+   * Opens the meeting edit form via the popup kebab (⋮) → Edit flow.
+   * openMeetingPopup() must be called first.
+   * Live-verified 2026-05-14: kebab is the first icon inside the popup header container.
+   * Edit opens an "Update this Meeting" (h3) drawer with the same fields as Create.
+   */
+  async openMeetingEditForm(title) {
+    // Navigate from the popup title to find the kebab (⋮) and click it.
+    // Live-verified 2026-05-14: popup is a MuiPopover-root Portal.
+    // The popup root (jss391) has 2 children:
+    //   1. Header (jss392): contains SVGs (kebab + close X), NO <p> children
+    //   2. Content (jss401): contains paragraphs, buttons, etc.
+    await this.page.evaluate((t) => {
+      const allPs = [...document.querySelectorAll("p")];
+      const popupTitle = allPs.find(
+        (p) =>
+          p.textContent.trim() === t &&
+          !p.closest(".fc-event, .fc-timegrid-event-harness"),
+      );
+      if (!popupTitle) return;
+      // Walk up to find the popup root: a container whose first child has SVGs but no <p>
+      let el = popupTitle.parentElement;
+      while (el && el.tagName !== "BODY") {
+        const children = [...el.children];
+        if (children.length === 2) {
+          const [header, content] = children;
+          const headerSvgs = header.querySelectorAll("svg");
+          const headerPs = header.querySelectorAll("p");
+          const contentPs = content.querySelectorAll("p");
+          if (headerSvgs.length >= 1 && headerPs.length === 0 && contentPs.length > 0) {
+            // First SVG in header = kebab ⋮
+            headerSvgs[0].dispatchEvent(
+              new MouseEvent("click", { bubbles: true, cancelable: true }),
+            );
+            return;
+          }
+        }
+        el = el.parentElement;
+      }
+    }, title);
+    const editItem = this.page.getByRole("menuitem", { name: "Edit" });
+    await editItem.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 10 });
+    await editItem.click();
+    await this.page
+      .getByRole("heading", { name: "Update this Meeting", level: 3 })
+      .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
+  }
+
+  /**
+   * Updates the title field in the "Update this Meeting" form.
+   * openMeetingEditForm() must be called first.
+   * @param {string} newTitle
+   */
+  async updateMeetingTitle(newTitle) {
+    const titleInput = this.page.locator("#title");
+    await titleInput.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 10 });
+    await titleInput.click({ clickCount: 3 });
+    await titleInput.fill(newTitle);
+  }
+
+  /**
+   * Saves the meeting edit and confirms the "Are you sure?" dialog.
+   * Waits for the "Update this Meeting" heading to disappear.
+   */
+  async saveMeetingEdit() {
+    await this.page.getByRole("button", { name: "Save" }).click();
+    await this.meetingConfirmYesBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 10 });
+    await Promise.all([
+      this.page
+        .waitForResponse(
+          (r) => r.url().includes("/meeting") && r.status() < 300,
+          { timeout: TIMEOUTS.BASE * 30 },
+        )
+        .catch(() => {}),
+      this.meetingConfirmYesBtn.click(),
+    ]);
+    await this.page
+      .getByRole("heading", { name: "Update this Meeting", level: 3 })
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 30 })
+      .catch(() => {});
+  }
+
+  /**
    * Returns the count of visible activity log cards (title paragraphs with "by").
    */
   async getActivityCardCount() {
@@ -4545,6 +4766,46 @@ class PropertyModule {
   }
 
   /**
+   * Edit an existing task title via the three-dots → Edit menu on the Tasks tab.
+   * Live-verified 2026-05-14: three-dots is button.MuiIconButton-root in the row;
+   * edit form heading is "Update This Task" (h3); title input is input[name="taskTitle"].
+   * @param {object} opts
+   * @param {string} opts.currentTitle - Current task title (used to find the row)
+   * @param {string} opts.newTitle - New task title to set
+   */
+  async editTask({ currentTitle, newTitle } = {}) {
+    await this.openTasksTab();
+    const taskSearch = this.page.getByRole("searchbox").first();
+    await expect(taskSearch).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await taskSearch.fill(currentTitle.substring(0, 30));
+    const row = this.page.locator("tr").filter({ hasText: currentTitle });
+    await expect(row).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await row.locator("button.MuiIconButton-root").click();
+    await this.page.getByRole("menuitem", { name: "Edit" }).click();
+    const updateHeading = this.page.getByRole("heading", {
+      name: "Update This Task",
+      level: 3,
+    });
+    await updateHeading.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
+    const titleInput = this.page.locator('input[name="taskTitle"]');
+    await titleInput.clear();
+    await titleInput.fill(newTitle);
+    await Promise.all([
+      this.page
+        .waitForResponse(
+          (r) => r.url().includes("/task") && r.status() < 300,
+          { timeout: TIMEOUTS.BASE * 30 },
+        )
+        .catch(() => {}),
+      this.page.getByRole("button", { name: "Save" }).click(),
+    ]);
+    await updateHeading
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 30 })
+      .catch(() => {});
+    await taskSearch.clear();
+  }
+
+  /**
    * Creates a new note on the property via the Notes tab.
    * @param {string} subject - Note subject / title
    * @param {string} [body] - Note body text — optional
@@ -4580,6 +4841,75 @@ class PropertyModule {
       saveBtn.click(),
     ]);
     await expect(this.page.locator("text=" + subject).first()).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+  }
+
+  /**
+   * Returns the Edit button locator for the note card whose title contains noteSubject.
+   * Scoped to the Notes tabpanel (name matches /Notes/i) to avoid the page-header
+   * toggle button that also has the label "Edit".
+   * Live-verified 2026-05-14: note card Edit button has aria-label="Edit" (MuiButton-onlyText).
+   */
+  noteCardEditButton(noteSubject) {
+    return this.page
+      .getByRole("tabpanel", { name: /Notes/i })
+      .locator("div")
+      .filter({ has: this.page.locator("p").filter({ hasText: noteSubject }) })
+      .getByLabel("Edit")
+      .first();
+  }
+
+  /**
+   * Clicks the Edit button on the note card matching noteSubject and waits for
+   * the "Edit Notes" drawer to open.
+   */
+  async openNoteEditDrawer(noteSubject) {
+    const editBtn = this.noteCardEditButton(noteSubject);
+    await editBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
+    await editBtn.click();
+    await this.editNotesHeading.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
+  }
+
+  /**
+   * Assert the Edit Notes drawer is fully rendered.
+   */
+  async assertEditNoteDrawerOpen() {
+    await expect(this.editNotesHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
+    await expect(this.editNotesSubjectInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.noteDescEditor).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.noteSaveBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.noteCancelBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+  }
+
+  /**
+   * Replaces the subject field value in the Edit Notes drawer.
+   * Uses triple-click → fill to reliably clear the existing value.
+   */
+  async updateNoteSubject(newSubject) {
+    await this.editNotesSubjectInput.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
+    await this.editNotesSubjectInput.click({ clickCount: 3 });
+    await this.editNotesSubjectInput.fill(newSubject);
+  }
+
+  /**
+   * Saves the note edit and waits for the drawer to close.
+   */
+  async saveNoteEdit() {
+    const saveBtn = this.page
+      .locator('[role="presentation"]')
+      .getByRole("button", { name: "Save" });
+    await saveBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
+    await Promise.all([
+      this.page
+        .waitForResponse(
+          (r) => r.url().includes("/note") && r.status() < 300,
+          { timeout: TIMEOUTS.BASE * 30 },
+        )
+        .catch(() => {}),
+      saveBtn.click(),
+    ]);
+    await this.editNotesHeading
+      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 30 })
+      .catch(() => {});
   }
 
   // ── TC-PROP-107: Bulk Assignment overlay ─────────────────────────────────

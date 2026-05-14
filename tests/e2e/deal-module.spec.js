@@ -519,13 +519,6 @@ test.describe('Deal Module', () => {
     });
 
     test('TC-DEAL-015 | Verify that multiple filters work together', async () => {
-      test.fail();
-      // TODO: Unresolved after 2 auto-fix attempts
-      // Attempt 1: Changed #simple-popper selector and added popper close/open sequencing
-      // Attempt 2: Added scrollIntoViewIfNeeded, Escape to close existing popper before opening new
-      // Hypothesis: MUI filter drawer dropdowns in headless mode may use a different popper instance
-      //   or React synthetic event handlers are not triggered by Playwright clicks on h6 headings.
-      // Recommendation: HEADLESS=false npx playwright test tests/e2e/deal-module.spec.js --debug --grep "TC-DEAL-015"
       let initialTotal;
 
       await test.step('Record pagination and open More Filters', async () => {
