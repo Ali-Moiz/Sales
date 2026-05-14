@@ -149,6 +149,10 @@ async function performLoginAttempt(page, creds = env) {
   }
 }
 
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {{ attempts?: number, loginCredentials?: { email: string, password: string } }} [options]
+ */
 async function performLogin(page, { attempts = 2, loginCredentials } = {}) {
   const creds = loginCredentials || env;
   if (!creds?.email || !creds?.password) {

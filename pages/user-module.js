@@ -4,6 +4,7 @@
 
 const { TIMEOUTS } = require('../utils/playwright-timeouts');
 const { expect } = require('@playwright/test');
+const envData = require('../utils/env-data');
 
 class UserModule {
   constructor(page) {
@@ -188,7 +189,7 @@ class UserModule {
   }
 
   async getProfileBackedUserName() {
-    const preferredSearches = ['MoizSM', 'Moiz User', 'Moiz'];
+    const preferredSearches = envData.preferredUserSearches;
 
     for (const searchTerm of preferredSearches) {
       await this.searchUser(searchTerm);

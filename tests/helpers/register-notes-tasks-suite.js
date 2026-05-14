@@ -70,7 +70,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
 
     test(`NT-${moduleName}-N004: Create note – success and note appears in list`, async () => {
       // Verify that note count updates after adding a note
-      const subject = `Auto Note ${moduleName} ${ts()}`;
+      const subject = `PAT Auto Note ${moduleName} ${ts()}`;
 
       await ntPage.clickNotesTab();
       await ntPage.createNote({
@@ -100,7 +100,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
       await ntPage.clickNotesTab();
       await ntPage.openCreateNoteDrawer();
       await ntPage.fillNoteForm({
-        subject: `CANCEL ME ${moduleName}`,
+        subject: `PAT CANCEL ME ${moduleName}`,
         description: 'This note should never be saved.',
       });
       await ntPage.cancelNote();
@@ -120,7 +120,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
     });
 
     test(`NT-${moduleName}-N008: Edit note – drawer opens pre-populated`, async () => {
-      const subject = `Edit Note ${moduleName} ${ts()}`;
+      const subject = `PAT Edit Note ${moduleName} ${ts()}`;
 
       await ntPage.clickNotesTab();
       await ntPage.createNote({ subject, description: 'Original description.' });
@@ -132,7 +132,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
 
     test(`NT-${moduleName}-N009: Edit note – update subject and save`, async () => {
       // Verify that edited note shows updated content in listing
-      const subject = `Edit Note ${moduleName} ${ts()}`;
+      const subject = `PAT Edit Note ${moduleName} ${ts()}`;
       const updatedSubject = `${subject} UPDATED`;
 
       await ntPage.clickNotesTab();
@@ -145,12 +145,12 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
     });
 
     test(`NT-${moduleName}-N010: Edit note – Cancel keeps original note unchanged`, async () => {
-      const subject = `Keep Note ${moduleName} ${ts()}`;
+      const subject = `PAT Keep Note ${moduleName} ${ts()}`;
 
       await ntPage.clickNotesTab();
       await ntPage.createNote({ subject, description: 'Should remain unchanged.' });
       await ntPage.clickEditNote(subject);
-      await ntPage.fillEditNoteForm({ subject: 'SHOULD NOT SAVE THIS' });
+      await ntPage.fillEditNoteForm({ subject: 'PAT SHOULD NOT SAVE THIS' });
       await ntPage.cancelNote();
 
       await expect(ntPage.editNoteDrawerHeading).toBeHidden();
@@ -159,7 +159,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
 
     test(`NT-${moduleName}-N011: Delete note – confirmation dialog shown`, async () => {
       // Verify that delete confirmation modal appears before deleting note
-      const subject = `Delete Note ${moduleName} ${ts()}`;
+      const subject = `PAT Delete Note ${moduleName} ${ts()}`;
 
       await ntPage.clickNotesTab();
       await ntPage.createNote({ subject, description: 'About to be deleted.' });
@@ -171,7 +171,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
 
     test(`NT-${moduleName}-N012: Delete note – Cancel keeps the note`, async () => {
       // Verify that note is not deleted when cancel is clicked on confirmation modal
-      const subject = `Stay Note ${moduleName} ${ts()}`;
+      const subject = `PAT Stay Note ${moduleName} ${ts()}`;
 
       await ntPage.clickNotesTab();
       await ntPage.createNote({ subject, description: 'Should not be deleted.' });
@@ -182,7 +182,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
     });
 
     test(`NT-${moduleName}-N013: Delete note – Confirm removes note from list`, async () => {
-      const subject = `Deletable Note ${moduleName} ${ts()}`;
+      const subject = `PAT Deletable Note ${moduleName} ${ts()}`;
 
       await ntPage.clickNotesTab();
       await ntPage.createNote({ subject, description: 'Will be deleted in N013.' });
@@ -280,7 +280,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
       await ntPage.clickTasksTab();
       await ntPage.openCreateTaskDrawer();
       await ntPage.fillTaskForm({
-        title: `CANCEL TASK ${moduleName}`,
+        title: `PAT CANCEL TASK ${moduleName}`,
         description: 'This task should not be saved.',
         type: 'Call',
         priority: 'Low',
@@ -365,7 +365,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
     });
 
     test(`NT-${moduleName}-T014: Edit task – Cancel keeps original task unchanged`, async () => {
-      const title = `Keep ${ts()} Task ${moduleName}`;
+      const title = `PAT Keep ${ts()} Task ${moduleName}`;
 
       await ntPage.clickTasksTab();
       await ntPage.createTask({
@@ -376,7 +376,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
       });
       await ntPage.openTaskDetail(title);
       await ntPage.clickEditTaskFromMenu();
-      await ntPage.taskTitleInput.fill('SHOULD NOT SAVE');
+      await ntPage.taskTitleInput.fill('PAT SHOULD NOT SAVE');
       await ntPage.cancelTask();
 
       await expect(ntPage.editTaskDrawerHeading).toBeHidden();
@@ -407,7 +407,7 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
 
     test(`NT-${moduleName}-T016: Unmark completed task reverts to To-do`, async () => {
       // Verify that unchecking completed checkbox marks task as To-Do
-      const title = `Complete ${ts()} Toggle ${moduleName}`;
+      const title = `PAT Complete ${ts()} Toggle ${moduleName}`;
 
       await ntPage.clickTasksTab();
       await ntPage.createTask({
@@ -501,8 +501,8 @@ function registerNotesTasksSuite({ test, moduleName, getPage, openEntityDetail }
     });
 
     test(`NT-${moduleName}-X002: Create a Note and a Task in same session – both persist`, async () => {
-      const noteSubject = `Cross Note ${moduleName} ${ts()}`;
-      const taskTitle = `Cross Task ${moduleName} ${ts()}`;
+      const noteSubject = `PAT Cross Note ${moduleName} ${ts()}`;
+      const taskTitle = `PAT Cross Task ${moduleName} ${ts()}`;
 
       await ntPage.clickNotesTab();
       await ntPage.createNote({

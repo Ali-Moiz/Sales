@@ -43,6 +43,8 @@ Every selector must be verified via Playwright MCP DOM inspection or user codege
 
 **MUI Switch toggles (hidden input vs. visible wrapper):** Never click `input[name="..."]` with `force: true` on MUI Switch components -- the hidden `<input>` does not reliably update its `checked` property because `force: true` bypasses React's synthetic event system. Symptom: `expect(locator).toBeChecked()` fails with "unchecked" even though the switch visually toggled on. Root cause: MUI Switch renders a hidden `<input type="checkbox">` (role=checkbox) inside a visible `<span>` wrapper with `cursor:pointer`; clicking the `<input>` directly (even without `force`) dispatches a native DOM event that React ignores — only clicking the parent `<span>` triggers the React synthetic event and updates state. Fix: store the hidden input as `switchLocator` (for `isChecked()` / `toBeChecked()` assertions) but **click its parent**: `await switchLocator.locator('..').click()`. In the `toggleMuiSwitchOn()` POM helper, the click line must be `await switchLocator.locator('..').click()`, not `await switchLocator.click()`. Use `toggleMuiSwitchOn()` for idempotent toggling — it reads `isChecked()` on the input, then fires the click on the parent span.
 
+**MUI Dialog/Modal headings are `<div role="heading">`, not native `<h6>` — never use XPath `//h6` to locate them:** MUI `Typography variant="h6"` renders as a native `<h6>` element in most contexts, but inside a `Dialog` or `Paper` container MUI may render it as `<div role="heading" aria-level="6">`. XPath `//h6[contains(text(),"...")]` matches only native tags and silently finds nothing when the actual element is a `<div>`. Playwright's `getByRole('heading', { name: '...' })` works correctly in both cases because it uses ARIA role matching. Symptom: XPath locator returns `startDateVisible=false` even though `getByRole('heading', { name: 'Contract Duration' })` resolves successfully and `hasDurationSection=true`. Root cause: heading IS found via ARIA, but the XPath anchor that walks to sibling inputs only matched `<h6>` elements. Rule: (1) Always use `getByRole('heading', { name: '...' })` to detect/assert heading presence — never `//h6`. (2) When you need to locate an input sibling of a heading, use `page.evaluate()` with `document.querySelectorAll('h1,h2,h3,h4,h5,h6,[role="heading"]')` to find the heading tag-agnostically, then walk to the sibling input and stamp a `data-pw-*` attribute for Playwright to resolve via CSS selector. Example: see `confirmPublishContract()` in `pages/contract-module.js` — stamping `data-pw-publish-start-date="true"` on the Start Date input via `evaluate()`, then locating it with `page.locator('[data-pw-publish-start-date="true"]')`. MCP-verified 2026-05-13.
+
 **`page.evaluate()` clicks bypass React — never use for UI interactions:** Using `page.evaluate(() => el.click())` dispatches a native DOM click that React's synthetic event system does not register. Symptom: the React component that should render after a click (e.g., "Service 2" form) never appears — the DOM click fires but React state never updates. Root cause: React attaches synthetic event listeners at the root, not on individual DOM nodes; a raw `el.click()` in `evaluate()` triggers native DOM bubbling but not the React synthetic event path. Rule: always use Playwright's `locator.click()` for any interaction that must update React state. Never use `page.evaluate()` to click buttons or links. **Locating the target:** when the clickable element has no unique accessible name (e.g., an icon-only MuiButton), scope from a nearby labelled element using `locator('..')` to reach the direct parent, then `.locator('button').first()`. Example: `this.addAnotherServiceHeading.locator('..').locator('button').first()` — live-verified 2026-05-07 to resolve to exactly the one "+" button in the "Add another service" card. Avoid `div.filter({ has: heading }).locator('button')` when the heading has many ancestor divs — it resolves to unrelated buttons higher in the DOM tree.
 
 **Google Maps region varies by module — verify before asserting:** The `region[aria-label="Map"]` element does NOT behave identically across all drawers. Symptom: `expect(getByRole('region', { name: 'Map' })).toBeVisible()` times out after clicking the address combobox. Root cause: in the Create Property drawer the map only renders after an address is geocoded (selected from suggestions), not on combobox focus — unlike the Create Company drawer where the map is always present. Rule: always verify via MCP snapshot or codegen whether the map region exists at the specific interaction step being tested; never assume one module's map timing applies to another. For the Property drawer, assert map visibility only after `selectFirstAddressSuggestion()`, and use `.catch(() => {})` because Google Maps API availability is not guaranteed in CI.
@@ -104,6 +106,8 @@ await Promise.all([page.waitForURL(/\/deals\/\d+/), createBtn.click()]);
 
 **Animation-aware:** for MUI drawers/modals, wait for settled state (`toBeVisible()` + `toHaveAttribute('aria-hidden', 'false')` if needed).
 
+**Confirmation modals may contain required fields — fill before submitting:** Not all confirmation modals are simple "OK/Cancel" dialogs. Some (e.g., "Publish contract!") include required date fields that block form submission silently — clicking the submit button does nothing and the modal stays open. Symptom: `publishConfirmModalHeading.waitFor({ state:'hidden' })` times out; the badge/status that should appear after success never renders; the modal snapshot shows validation messages ("Start Date is required."). Root cause: the POM method clicked the confirm button without first checking for and filling required fields inside the modal. Rule: (1) Before clicking a confirmation button, check whether the modal contains required fields by waiting for a section heading (e.g., `getByRole('heading', { name: 'Contract Duration' })`). (2) If found, fill all required fields before clicking Submit. (3) Use `page.evaluate()` to locate inputs by DOM structure when accessible names are dynamic or unstable (see §2 rule on MUI Dialog headings). See `confirmPublishContract()` in `pages/contract-module.js` for the complete pattern — MCP-verified 2026-05-13.
+
 **Table data readiness:** Before reading cell text from a data grid, wait for pagination to show a non-zero total (e.g., `waitForTableData()`). Symptom: `getFirstRowCellText()` returns empty string. Root cause: table DOM skeleton renders before the API response arrives, so rows are "attached" but contain no text. Rule: always call `await module.waitForTableData()` before `getFirstRowCellText()` or similar cell-reading methods.
 
 **Drawer survival after blocked submit:** Never assume a form drawer survives a submit click just because `expect(heading).toBeVisible()` passes immediately after the click — the drawer may still be visible while the server processes the request and then closes. Symptom: `TimeoutError: page.waitForURL` in the step after "re-fill and resubmit", because the drawer closed mid-flow (server accepted the invalid data silently, or rejected server-side and dismissed the drawer). Root cause: `expect(heading).toBeVisible()` confirms the drawer was visible at that instant but does not confirm submission was blocked. Rule: after clicking submit with potentially-invalid data, first use `page.waitForURL(/target/, { timeout: 6_000 }).then(() => true).catch(() => false)` to detect whether the app navigated to the success URL; if it did, the app has no client-side validation — handle that branch separately. Only then use `waitFor({ state: 'visible' })` (not `.isVisible()` snapshot) to check whether the drawer remained open. Example: `const navigated = await page.waitForURL(/\/contract\/\d+/, { timeout: 6_000 }).then(() => true).catch(() => false); if (navigated) { /* silently accepted */ return; } const drawerOpen = await drawer.waitFor({ state: 'visible', timeout: 4_000 }).then(() => true).catch(() => false);`
@@ -129,19 +133,47 @@ await Promise.all([page.waitForURL(/\/deals\/\d+/), createBtn.click()]);
 
 ## 6. Test Data Rules
 
-`process.env.*` is for **secrets, CI toggles, cross-suite handoff** only. Everything else → named constants at file top.
+`process.env.*` is for **secrets, CI toggles, cross-suite handoff** only. Everything else → named constants at file top or `utils/env-data.js`.
 
-| Belongs in `process.env`                      | Belongs in constants                   |
-| --------------------------------------------- | -------------------------------------- |
-| Passwords, API tokens                         | User names, franchise labels           |
-| `CI`, `HEADLESS`                              | Search strings, assignee labels        |
-| Cross-suite state (via `shared-run-state.js`) | Numeric limits (`MAX_SEARCH_ATTEMPTS`) |
+| Belongs in `process.env` / `.env` file        | Belongs in `utils/env-data.js`         | Belongs in file-top constants          |
+| --------------------------------------------- | -------------------------------------- | -------------------------------------- |
+| Passwords, API tokens                         | User display names, assignee labels    | Env-agnostic values (regex, ZIP codes) |
+| `BASE_URL`, `CI`, `HEADLESS`                  | Franchise names, contact search terms  | Numeric limits (`MAX_SEARCH_ATTEMPTS`) |
+| Cross-suite state (via `shared-run-state.js`) | Any string that differs per environment| Timestamps, flags                      |
+
+**Environment-specific test data → `utils/env-data.js`:** Any string value that would differ between UAT, staging, and prod (e.g., a user's display name, a franchise label, a contact search term) must be defined in `utils/env-data.js` — never hardcoded inline or declared as a `SOMETHING_PROD` / `SOMETHING_NONPROD` constant pair.
+
+```javascript
+// utils/env-data.js — single source of truth for env-specific test data
+const { envName } = require("./auth/load-env");
+
+const data = {
+  uat:     { franchise: "216 - Omaha, NE", assignee: "Moiz SM UAT", ... },
+  staging: { franchise: "Tkxel Test Franchise", assignee: "...",    ... },
+  prod:    { franchise: "Tkxel Test Franchise", assignee: "Moiz ProdHO", ... },
+};
+
+module.exports = data[envName] ?? data.uat;
+```
+
+```javascript
+// Usage in page objects or spec files
+const envData = require("../utils/env-data");
+const assigneeLabel = envData.assignee;   // ✅ no ternary, no branching
+```
+
+**Never do this:**
+```javascript
+const ASSIGNEE_PROD    = "Moiz ProdHO";   // ❌ hardcoded env pair
+const ASSIGNEE_NONPROD = "Moiz SM UAT";
+const assigneeLabel = env.envName === "prod" ? ASSIGNEE_PROD : ASSIGNEE_NONPROD; // ❌
+```
 
 **Cross-suite handoff:** use `readCreated*()` / `writeCreated*()` from `utils/shared-run-state.js` — never `process.env` writes or hardcoded paths/IDs.
 
 **Dates:** compute at runtime from `new Date()` — never hardcode calendar dates.
 
-**Constants naming:** `DOMAIN_FIELD_ENV` pattern (e.g., `FRANCHISE_PROD`). No magic numbers.
+**Constants naming:** `SCREAMING_SNAKE_CASE` for file-top constants. No `_PROD` / `_NONPROD` suffix pairs — those belong in `env-data.js`. No magic numbers.
 
 **Avoid spaces in dynamic form input data:** Some MUI controlled inputs (e.g., the contract Line Item `#title` field) drop everything typed after a space when filled via `pressSequentially`. Symptom: post-save assertion times out because the saved value is truncated (e.g., test typed `PAT 1778144327694`, card rendered `PAT`). Root cause: pressSequentially issues real key events; the form's React handler treats the space as a commit/blur trigger and rejects subsequent keystrokes. Rule: for dynamic test data fed into pressSequentially-driven inputs, use no-space identifiers — `LineItem${Date.now()}` or `PAT-${Date.now()}`, not `PAT ${Date.now()}`. Helpers that wrap `pressSequentially` on text inputs must verify `inputValue()` matches the expected text **before** clicking Save and throw a descriptive error if not — fail fast beats a vague "card not visible" timeout.
 
@@ -289,7 +321,14 @@ test.describe("Verify deleting a service updates totals", () => {});
 
 ## 10. Environment Safety
 
-All URLs/secrets from `.env` via `utils/env.js`. Never hardcode `BASE_URL`, credentials, or API keys.
+- **Secrets and config** (`BASE_URL`, credentials, API keys) → `.env.*` files via `utils/env.js`. Never hardcode.
+- **Environment-specific test data** (display names, franchise labels, search terms, anything that differs per env) → `utils/env-data.js`. Never hardcode inline or use `_PROD`/`_NONPROD` constant pairs.
+- **Never access `process.env.*` directly in test specs or page objects.** All environment variables must be routed through `utils/env.js` (for secrets/config) or `utils/env-data.js` (for test data). Direct `process.env.VARIABLE` access in specs/pages is forbidden — if a variable is needed and not yet exposed, add it to `utils/env.js` first.
+  - ✅ `env.baseUrl` — via `utils/env.js`
+  - ✅ `envData.franchise` — via `utils/env-data.js`
+  - ❌ `process.env.BASE_URL` — direct access in a spec/page
+  - ❌ `process.env.SM_USERNAME` — direct access in a spec/page
+- **Every `process.env.*` key used in code must exist in `.env.uat`.** The only exceptions are standard runtime flags that are never in `.env` files by convention: `CI`, `HEADLESS`, `ENV_NAME`, `NODE_OPTIONS`, `PW_RUNNER_DEBUG`, `EDGE_BASE_URL` (staging-only). All other keys not present in `.env.uat` are dead code and must be removed.
 
 ---
 
@@ -353,7 +392,7 @@ test("TC-X-002 | ...", async () => {
 | **NO `networkidle`**                      | Use `domcontentloaded` + explicit waits                                    |
 | **NO DOUBLE-WAITS**                       | `expect()` auto-waits; remove redundant `waitFor()`                        |
 | **NO TIMEOUT BUMPS**                      | Investigate root cause                                                     |
-| **NO HARDCODED ENV**                      | URLs/credentials from `.env` only                                          |
+| **NO HARDCODED ENV**                      | URLs/credentials from `.env` via `utils/env.js`; env-specific test data from `utils/env-data.js` |
 | **NO SHARED STATE**                       | Tests pass in any order                                                    |
 | **NO INVENTED TC CODES**                  | From docs only                                                             |
 | **NO FABRICATED SELECTORS**               | Verify via MCP or codegen paste                                            |
@@ -579,6 +618,53 @@ if (isPublished && !hasAddendum && !hasParentNoAddendum) {
   parentNoAddendumUrl = page.url(); // may capture an "Addendum - …" child deal
   hasParentNoAddendum = true;
 }
+```
+
+---
+
+## 25. Contract "Published and signed" State — Signature Button No Longer Rendered
+
+- **Symptom:** `locator.waitFor: Timeout` on `getByRole('button', { name: 'Signature' })` in `openSignatureDropdown()` / `openRequestSignaturesModal()`. Page snapshot shows `generic "Published and signed"` element with no Signature button in the DOM.
+- **Root cause:** When all signees have signed, the contract transitions to "Published and signed" state. The Signature button is replaced by a "Published and signed" badge — `openSignatureDropdown()` waits for a button that no longer exists.
+- **Rule:**
+  1. Add a `contractFullySignedBadge` locator (`page.getByText('Published and signed', { exact: true })`) to the POM alongside `contractPublishedBadge`.
+  2. `openSignatureDropdown()` must check for this badge first (via short-timeout `waitFor`) and throw `'ALREADY_FULLY_SIGNED: ...'` if detected — avoids a 10s timeout.
+  3. Any test that calls `openRequestSignaturesModal()` (or `performInAppSign()`) must add a `contractAlreadySigned` flag in the describe scope. Set it true when `contractFullySignedBadge` is detected, and return early with direct assertions (`expect(contractFullySignedBadge).toBeVisible()` + `assertDealStageActive('Closed Won')`).
+  4. Any `publishContractBtn.or(contractPublishedBadge)` locator chain used to detect "deal is ready for publish tests" must also include `.or(contractFullySignedBadge)` so fully-signed deals are not skipped by the deal-finder `beforeAll`.
+  5. Sequential assertions like `expect(signeeStatuses[0]).toBe('Signed')` that depend on a prior test (e.g., TC-106) having run must be guarded: only assert `'Signed'` if `signeeStatuses.includes('Signed')` is already true — otherwise assert only that the status is a known valid value. This handles standalone `--grep` runs where the prior test hasn't run.
+
+```javascript
+// POM (pages/contract-module.js)
+this.contractFullySignedBadge = page.getByText('Published and signed', { exact: true });
+
+async openSignatureDropdown() {
+  const alreadyFullySigned = await this.contractFullySignedBadge
+    .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 2 })
+    .then(() => true).catch(() => false);
+  if (alreadyFullySigned) {
+    throw new Error('ALREADY_FULLY_SIGNED: Contract is in "Published and signed" state — Signature button is not present.');
+  }
+  await this.signatureBtnOnCard.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
+  // ...
+}
+
+// Spec (tests/e2e/contract-module.spec.js)
+let contractAlreadySigned = false;
+
+test("TC-NNN | ...", async () => {
+  if (!contractAlreadySigned) {
+    const fullySignedNow = await contractModule.contractFullySignedBadge
+      .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 4 })
+      .then(() => true).catch(() => false);
+    if (fullySignedNow) contractAlreadySigned = true;
+  }
+  if (contractAlreadySigned) {
+    await expect(contractModule.contractFullySignedBadge).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await contractModule.assertDealStageActive('Closed Won');
+    return;
+  }
+  // ... normal test flow ...
+});
 ```
 
 ---

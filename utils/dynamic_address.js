@@ -2,6 +2,7 @@
 
 const { TIMEOUTS } = require('./playwright-timeouts');
 const { expect } = require("@playwright/test");
+const MIN_RELEVANT_SUGGESTION_SCORE = 100;
 const CITY_STATE_POOL = [
   { city: "Omaha", state: "NE", zip: "68131" },
   { city: "Austin", state: "TX", zip: "78701" },
@@ -86,9 +87,17 @@ function buildSearchVariants(addressText) {
   return [...new Set([full, firstSegment, beforeZip, beforeState, firstTwoWords, streetStem].filter(Boolean))];
 }
 
+async function clearAddressInputValue(addressInput) {
+  await addressInput.clear().catch(async () => {
+    await addressInput.fill("");
+  });
+  await addressInput.fill("");
+}
+
 async function clearAddressInput(addressInput) {
-  await addressInput.click().catch(() => {});
-  await addressInput.fill("").catch(() => {});
+  await addressInput.scrollIntoViewIfNeeded().catch(() => {});
+  await expect(addressInput).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+  await expect(addressInput).toBeEditable({ timeout: TIMEOUTS.BASE * 10 });
   // Dismiss any open autocomplete dropdown so the widget resets its internal
   // cached query; without this the Maps widget replays the previous suggestion
   // mid-type(), appending residual keystrokes to the committed value.
@@ -97,10 +106,25 @@ async function clearAddressInput(addressInput) {
   // .pac-container dropdown is not open to absorb the event first.
   // Instead, blur + refocus the input, which dismisses the pac-container
   // without triggering MUI's Escape-to-close behavior.
-  await addressInput.press("Tab").catch(() => {});
-  await addressInput.click().catch(() => {});
-  await addressInput.press("ControlOrMeta+a").catch(() => {});
-  await addressInput.press("Backspace").catch(() => {});
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    await addressInput.click();
+    await clearAddressInputValue(addressInput);
+    await addressInput.press("Tab").catch(() => {});
+    await addressInput.click();
+    await clearAddressInputValue(addressInput);
+
+    const cleared = await expect(addressInput)
+      .toHaveValue("", { timeout: TIMEOUTS.BASE * 4 })
+      .then(() => true)
+      .catch(() => false);
+    if (cleared) return;
+
+    debugLog("clear_retry", {
+      attempt,
+      value: await addressInput.inputValue().catch(() => ""),
+    });
+  }
+
   await expect(addressInput).toHaveValue("", { timeout: TIMEOUTS.BASE * 4 });
 }
 
@@ -165,19 +189,50 @@ async function getVisibleSuggestions(page) {
   return [];
 }
 
-async function waitForSuggestions(page, timeoutMs = TIMEOUTS.BASE * 20) {
+function suggestionSignature(entries) {
+  return entries.map((entry) => normalizeText(entry.text)).join("|");
+}
+
+async function waitForSuggestions(
+  page,
+  timeoutMs = TIMEOUTS.BASE * 20,
+  { previousSignature = "", typedVariant = "", addressText = "" } = {},
+) {
   let visibleSuggestions = [];
+  let acceptedSuggestions = [];
   await expect
     .poll(
       async () => {
         visibleSuggestions = await getVisibleSuggestions(page);
-        return visibleSuggestions.length;
+        if (!visibleSuggestions.length) return 0;
+        if (!typedVariant) {
+          acceptedSuggestions = visibleSuggestions;
+          return acceptedSuggestions.length;
+        }
+
+        const currentSignature = suggestionSignature(visibleSuggestions);
+        const refreshed = currentSignature !== previousSignature;
+        const bestScore = Math.max(
+          ...visibleSuggestions.map((entry) =>
+            scoreSuggestion({
+              suggestion: entry.text,
+              typedVariant,
+              addressText,
+            }),
+          ),
+        );
+        if (refreshed || bestScore >= MIN_RELEVANT_SUGGESTION_SCORE) {
+          acceptedSuggestions = visibleSuggestions;
+          return acceptedSuggestions.length;
+        }
+
+        return 0;
       },
       { timeout: timeoutMs, intervals: [TIMEOUTS.BASE / 4] },
     )
     .toBeGreaterThan(0)
     .catch(() => {});
-  return visibleSuggestions;
+  return acceptedSuggestions;
 }
 
 async function waitForCommittedInputValue({ addressInput, previousValue, timeoutMs = TIMEOUTS.BASE * 8 }) {
@@ -233,12 +288,16 @@ async function selectAddressFromAutocomplete({
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     for (const variant of variants) {
       const valueBefore = await addressInput.inputValue().catch(() => "");
+      const previousSuggestionSignature = suggestionSignature(await getVisibleSuggestions(page));
       await clearAddressInput(addressInput);
-      await addressInput.type(variant, { delay: 25 }).catch(async () => {
-        await addressInput.fill(variant);
-      });
+      await addressInput.fill(variant);
+      await expect(addressInput).toHaveValue(variant, { timeout: TIMEOUTS.BASE * 4 });
 
-      const suggestions = await waitForSuggestions(page, optionTimeoutMs);
+      const suggestions = await waitForSuggestions(page, optionTimeoutMs, {
+        previousSignature: previousSuggestionSignature,
+        typedVariant: variant,
+        addressText,
+      });
       if (!suggestions.length) {
         debugLog("retry_no_suggestions", { attempt: attempt + 1, variant });
         continue;
@@ -277,16 +336,14 @@ async function selectAddressFromAutocomplete({
       });
 
       const committedNorm = normalizeText(committedValue);
-      const typedNorm = normalizeText(variant);
       const pickedNorm = normalizeText(picked.text);
-      const committedDifferentThanTyped = committedNorm && committedNorm !== typedNorm;
       const committedMatchesSuggestion =
         committedNorm &&
         (committedNorm === pickedNorm ||
           committedNorm.includes(pickedNorm) ||
           pickedNorm.includes(committedNorm));
       const validCommittedAddress = looksLikeCommittedAddress(committedValue);
-      const finalPass = validCommittedAddress && (committedDifferentThanTyped || committedMatchesSuggestion);
+      const finalPass = validCommittedAddress && committedMatchesSuggestion;
 
       if (finalPass) {
         await commitAddressSelectionViaReact(addressInput, picked.text);
@@ -352,6 +409,7 @@ async function selectDynamicAddressWithRetry({
 
 module.exports = {
   buildSearchVariants,
+  clearAddressInput,
   generateUniqueUsAddressCandidates,
   selectAddressFromAutocomplete,
   selectDynamicAddressWithRetry,

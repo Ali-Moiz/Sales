@@ -476,6 +476,7 @@ class CompanyModule {
     await this.createCompanyButton.first().click();
     await this.createCompanyHeading.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
     await this.companyNameInput.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
+    await expect(this.createIndustryTrigger).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
   }
 
   async assertCreateCompanyModalOpen() {
@@ -1941,6 +1942,10 @@ class CompanyModule {
    */
   async openCreateIndustryDropdown() {
     const popper = this.page.locator('#simple-popper').first();
+    const waitForPopperVisible = async (timeout) => expect(popper)
+      .toBeVisible({ timeout })
+      .then(() => true)
+      .catch(() => false);
 
     // If popper is already open, nothing to do
     if (await popper.isVisible().catch(() => false)) return true;
@@ -1978,7 +1983,7 @@ class CompanyModule {
     }).catch(() => false);
 
     if (fiberClicked) {
-      const popperVisible = await popper.isVisible({ timeout: TIMEOUTS.BASE * 6 }).catch(() => false);
+      const popperVisible = await waitForPopperVisible(TIMEOUTS.BASE * 6);
       if (popperVisible) return true;
     }
 
@@ -1992,12 +1997,22 @@ class CompanyModule {
     for (const candidate of candidates) {
       const visible = await candidate.isVisible().catch(() => false);
       if (!visible) continue;
-      await candidate.click({ force: true }).catch(() => {});
-      const popperVisible = await popper.isVisible({ timeout: TIMEOUTS.BASE * 4 }).catch(() => false);
+      await candidate.click({ timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
+      const popperVisible = await waitForPopperVisible(TIMEOUTS.BASE * 4);
       if (popperVisible) return true;
     }
 
     return false;
+  }
+
+  /**
+   * Closes any open Create Company MUI dropdown popper.
+   */
+  async closeCreateDropdownPopper() {
+    const popper = this.page.locator('#simple-popper').first();
+    await this.companyNameInput.click();
+    await expect(popper).toBeHidden({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.createCompanyHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**

@@ -457,7 +457,7 @@ test.describe('Tasks Module E2E Tests', () => {
 
       await test.step('Modify title and click Cancel', async () => {
         await tasksModule.taskTitleInput.clear();
-        await tasksModule.fillTaskTitle('Should Not Be Saved');
+        await tasksModule.fillTaskTitle('PAT Should Not Be Saved');
         await tasksModule.cancelButton.click();
       });
 

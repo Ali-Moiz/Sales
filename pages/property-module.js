@@ -1,26 +1,18 @@
 // pages/property-module.js
 // Page Object Model — Properties Module, Signal CRM
 // ALL locators live-verified via MCP browser on 2026-03-20
-// Test-data constants for prod vs non-prod are declared at the top of this file.
 
 const { TIMEOUTS } = require('../utils/playwright-timeouts');
 const { expect } = require("@playwright/test");
-const { env } = require("../utils/env");
+
+const envData = require("../utils/env-data");
 const {
+  clearAddressInput,
   generateUniqueUsAddressCandidates,
   selectAddressFromAutocomplete,
   selectDynamicAddressWithRetry,
 } = require("../utils/dynamic_address");
 
-// ── Test data constants — prod vs non-prod (replaces env-name branching) ──
-const FRANCHISE_PROD = "Tkxel Test Franchise";
-const FRANCHISE_NONPROD = "216 - Omaha, NE";
-const ASSIGNEE_PROD = "Moiz ProdHO";
-const ASSIGNEE_NONPROD = "Moiz SM UAT";
-const CONTACT_SEARCH_PROD = "Ahsan Awan";
-const CONTACT_SEARCH_NONPROD = "moiz";
-const CONTACT_LABEL_PROD = "Ahsan Awan";
-const CONTACT_LABEL_NONPROD = "Ali TkSmoke (moiz.qureshi+c1@";
 const DEFAULT_MAX_ADDRESS_ATTEMPTS = 8;
 
 class PropertyModule {
@@ -1374,8 +1366,7 @@ class PropertyModule {
   }
 
   async selectAssociatedFranchise() {
-    const franchiseLabel =
-      env.envName === "prod" ? FRANCHISE_PROD : FRANCHISE_NONPROD;
+    const franchiseLabel = envData.franchise;
 
     const inEditForm = await this.editPropertyHeading
       .isVisible()
@@ -1457,8 +1448,7 @@ class PropertyModule {
    * Picks the first card dynamically.
    */
   async selectAssignee() {
-    const assigneeLabel =
-      env.envName === "prod" ? ASSIGNEE_PROD : ASSIGNEE_NONPROD;
+    const assigneeLabel = envData.assignee;
 
     await this.assigneeTrigger.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     await this.assigneeTrigger.click();
@@ -2289,17 +2279,12 @@ class PropertyModule {
   }
 
   async clearAddressField() {
-    await this.addressInput.click().catch(() => {});
-    await this.addressInput.fill("").catch(() => {});
-    await this.addressInput.press("ControlOrMeta+a").catch(() => {});
-    await this.addressInput.press("Backspace").catch(() => {});
-    await expect(this.addressInput).toHaveValue("", { timeout: TIMEOUTS.BASE * 4 });
+    await clearAddressInput(this.addressInput);
   }
 
   async selectContactAffiliation() {
-    const contactSearchText = env.envName === "prod" ? CONTACT_SEARCH_PROD : CONTACT_SEARCH_NONPROD;
-    const contactLabel =
-      env.envName === "prod" ? CONTACT_LABEL_PROD : CONTACT_LABEL_NONPROD;
+    const contactSearchText = envData.contactSearch;
+    const contactLabel = envData.contactLabel;
 
     await this.contactTrigger.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
     await this.contactTrigger.click();
@@ -3938,7 +3923,7 @@ class PropertyModule {
    */
   async assertQualifiedPropertiesGraphVisible() {
     // The graph is an img element containing generic children with month labels
-    
+
     // Fallback: simply assert the img inside the Qualified Properties card is present
     const graphImg = this.page
       .getByRole("heading", { name: "Qualified Properties", level: 6 })
@@ -4315,6 +4300,62 @@ class PropertyModule {
     await expect(seeLess).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await seeLess.click();
     await expect(this.activitySeeMoreToggle()).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+  }
+
+  /**
+   * Returns the activity card content container for a specific created record.
+   * Live failure snapshots show the title paragraph two levels below the card content container.
+   */
+  activityCardContentByTitle(title) {
+    return this.page
+      .getByRole("tabpanel", { name: /Activities/i })
+      .locator("p")
+      .filter({ hasText: title })
+      .first()
+      .locator("..")
+      .locator("..");
+  }
+
+  /**
+   * Returns the See more/See less toggle scoped to a specific activity card.
+   */
+  activityCardToggleByTitle(title, label = /^See (more|less)$/i) {
+    return this.activityCardContentByTitle(title)
+      .locator("p")
+      .filter({ hasText: label })
+      .first();
+  }
+
+  async expectActivityCardToggle(title, label = /^See (more|less)$/i) {
+    const toggle = this.activityCardToggleByTitle(title, label);
+    await expect(toggle).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+    return toggle;
+  }
+
+  async collapseActivityCardByTitle(title) {
+    const toggle = await this.expectActivityCardToggle(title);
+    const toggleText = (await toggle.innerText()).trim();
+
+    if (/^See less$/i.test(toggleText)) {
+      await toggle.click();
+    }
+
+    await expect(this.activityCardToggleByTitle(title, /^See more$/i)).toBeVisible({
+      timeout: TIMEOUTS.BASE * 10,
+    });
+  }
+
+  async expandActivityCardByTitle(title) {
+    const toggle = await this.expectActivityCardToggle(title);
+    const toggleText = (await toggle.innerText()).trim();
+
+    if (/^See more$/i.test(toggleText)) {
+      await toggle.click();
+    }
+
+    await expect(this.activityCardToggleByTitle(title, /^See less$/i)).toBeVisible({
+      timeout: TIMEOUTS.BASE * 10,
+    });
   }
 
   /**

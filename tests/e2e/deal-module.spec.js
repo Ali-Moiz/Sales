@@ -1,4 +1,4 @@
-/* eslint-disable playwright/no-skipped-test */
+
 // tests/deal-module.spec.js
 //
 // Smoke Test Suite — Deals Module — Signal CRM
@@ -356,7 +356,7 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-007 | Verify that Cancel Create Deal closes drawer without creating a record', async () => {
-      const cancelledDealName = `CANCELLED DEAL ${String(Date.now()).slice(-4)}`;
+      const cancelledDealName = `PAT CANCELLED DEAL ${String(Date.now()).slice(-4)}`;
       await dealModule.openCreateDealModal();
       await dealModule.fillDealName(cancelledDealName);
       await dealModule.cancelCreateDeal();
@@ -747,7 +747,7 @@ test.describe('Deal Module', () => {
     test('TC-DEAL-025 | Verify that stage update persists after refresh', async () => {
       // Create a throwaway deal so we don't advance the shared deal's stage
       await ensureValidDealDependencies();
-      const throwawayDealName = `STG ${String(Date.now()).slice(-4)}`;
+      const throwawayDealName = `PAT STG ${String(Date.now()).slice(-4)}`;
       await dealModule.createDeal({
         dealName: throwawayDealName,
         companySearchText: resolvedTargetCompanyName.substring(0, 4),
@@ -919,7 +919,7 @@ test.describe('Deal Module', () => {
      * Priority: P1 — High
      */
     test('TC-DEAL-034 | Verify that Cancel Edit Deal closes drawer without saving changes', async () => {
-      const cancelledName = `SHOULD NOT SAVE ${String(Date.now()).slice(-4)}`;
+      const cancelledName = `PAT SHOULD NOT SAVE ${String(Date.now()).slice(-4)}`;
 
       await ensureCreatedDealExists();
       await dealModule.openDealDetail(createdDealName);
@@ -1115,7 +1115,7 @@ test.describe('Deal Module', () => {
     test('TC-DEAL-039 | Verify that note HTML formatting: bullets/links', async () => {
       await openCreatedDealDetail();
 
-      const subject = `HTML Note ${ts()}`;
+      const subject = `PAT HTML Note ${ts()}`;
       const bulletText = 'Bullet item one';
 
       await test.step('Create a note with formatted content', async () => {
@@ -1159,7 +1159,7 @@ test.describe('Deal Module', () => {
     test('TC-DEAL-040 | Verify that note long text truncation + See more/less', async () => {
       await openCreatedDealDetail();
 
-      const subject = `Long Note ${ts()}`;
+      const subject = `PAT Long Note ${ts()}`;
       // Generate text long enough to trigger truncation (> 200 chars)
       const longDescription = 'This is a long note description that should trigger the See more toggle. '.repeat(5);
 
@@ -1184,7 +1184,7 @@ test.describe('Deal Module', () => {
     test('TC-DEAL-041 | Verify that note update reflects new content + user + timestamp', async () => {
       await openCreatedDealDetail();
 
-      const subject = `Update Log Note ${ts()}`;
+      const subject = `PAT Update Log Note ${ts()}`;
       const updatedSubject = `${subject} UPDATED`;
 
       await test.step('Create and edit a note', async () => {
@@ -1255,33 +1255,6 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-044 | Verify that task missing type shows N/A
-     *
-     * Priority: P3 — Low
-     */
-    test('TC-DEAL-044 | Verify that task missing type shows N/A', async () => {
-      test.skip();
-      // TODO: Unresolved — requires creating a task without a type and verifying
-      // the Activities tab shows "N/A" for the type field. The current task creation
-      // flow (NT-Deal-T007) always selects a type. Creating a task without a type
-      // requires skipping the mandatory field, which the UI validation prevents.
-      // Recommendation: Verify via API or use a pre-existing task without type.
-    });
-
-    /**
-     * TC-DEAL-045 | Verify that task missing priority shows N/A
-     *
-     * Priority: P3 — Low
-     */
-    test('TC-DEAL-045 | Verify that task missing priority shows N/A', async () => {
-      test.skip();
-      // TODO: Unresolved — requires creating a task without a priority and verifying
-      // the Activities tab shows "N/A" for the priority field. Same constraint as
-      // TC-DEAL-044: UI validation prevents creating tasks without priority.
-      // Recommendation: Verify via API or use a pre-existing task without priority.
-    });
-
-    /**
      * TC-DEAL-046 | Verify that task long description truncation + toggle
      *
      * Preconditions: Deal has a task with a long description
@@ -1294,7 +1267,7 @@ test.describe('Deal Module', () => {
     test('TC-DEAL-046 | Verify that task long description truncation + toggle', async () => {
       await openCreatedDealDetail();
 
-      const title = `Long ${ts()} Task`;
+      const title = `PAT Long ${ts()} Task`;
       // Generate text long enough to trigger truncation (> 200 chars)
       const longDescription = 'This is a long task description that should trigger the See more toggle. '.repeat(5);
 
@@ -1319,7 +1292,7 @@ test.describe('Deal Module', () => {
     test('TC-DEAL-047 | Verify that task update reflects new content + updater + timestamp', async () => {
       await openCreatedDealDetail();
 
-      const title = `Update ${ts()} Log Task`;
+      const title = `PAT Update ${ts()} Log Task`;
       const updatedTitle = `${title} UPDATED`;
 
       await test.step('Create and edit a task', async () => {
@@ -1445,7 +1418,7 @@ test.describe('Deal Module', () => {
 
       const subjectInput = await ntPage.getVisibleNoteSubjectInput();
       await subjectInput.click();
-      await subjectInput.fill(`Desc Validation ${ts()}`);
+      await subjectInput.fill(`PAT Desc Validation ${ts()}`);
       // Leave description empty — do not interact with the editor
       await ntPage.noteSaveBtn.click();
 
@@ -1473,7 +1446,7 @@ test.describe('Deal Module', () => {
     test('TC-DEAL-054 | Verify that note count updates after adding a note', async () => {
       await openCreatedDealDetail();
 
-      const subject = `Auto Note Deal ${ts()}`;
+      const subject = `PAT Auto Note Deal ${ts()}`;
 
       await ntPage.clickNotesTab();
       await ntPage.createNote({
@@ -1501,7 +1474,7 @@ test.describe('Deal Module', () => {
     test('TC-DEAL-055 | Verify that edited note shows updated content in listing', async () => {
       await openCreatedDealDetail();
 
-      const subject = `Edit Note Deal ${ts()}`;
+      const subject = `PAT Edit Note Deal ${ts()}`;
       const updatedSubject = `${subject} UPDATED`;
 
       await ntPage.clickNotesTab();
@@ -1526,7 +1499,7 @@ test.describe('Deal Module', () => {
     test('TC-DEAL-056 | Verify that delete confirmation modal appears before deleting note', async () => {
       await openCreatedDealDetail();
 
-      const subject = `Delete Note Deal ${ts()}`;
+      const subject = `PAT Delete Note Deal ${ts()}`;
 
       await ntPage.clickNotesTab();
       await ntPage.createNote({ subject, description: 'About to be deleted.' });
@@ -1550,7 +1523,7 @@ test.describe('Deal Module', () => {
     test('TC-DEAL-057 | Verify that note is not deleted when cancel is clicked on confirmation modal', async () => {
       await openCreatedDealDetail();
 
-      const subject = `Stay Note Deal ${ts()}`;
+      const subject = `PAT Stay Note Deal ${ts()}`;
 
       await ntPage.clickNotesTab();
       await ntPage.createNote({ subject, description: 'Should not be deleted.' });
@@ -1574,7 +1547,7 @@ test.describe('Deal Module', () => {
     test('TC-DEAL-058 | Verify that empty state is shown again after deleting last note', async () => {
       await openCreatedDealDetail();
 
-      const subject = `Deletable Note Deal ${ts()}`;
+      const subject = `PAT Deletable Note Deal ${ts()}`;
 
       await ntPage.clickNotesTab();
       await ntPage.createNote({ subject, description: 'Will be deleted in TC-DEAL-058.' });
@@ -1689,7 +1662,7 @@ test.describe('Deal Module', () => {
 
       await ntPage.clickTasksTab();
       await ntPage.openCreateTaskDrawer();
-      await ntPage.taskTitleInput.fill(`Desc Validation Task ${ts()}`);
+      await ntPage.taskTitleInput.fill(`PAT Desc Validation Task ${ts()}`);
       await ntPage.selectTaskType('To-do');
       await ntPage.selectTaskPriority('High');
       // Leave description empty
@@ -1816,7 +1789,7 @@ test.describe('Deal Module', () => {
     test('TC-DEAL-067 | Verify that user can filter tasks by Type', async () => {
       await openCreatedDealDetail();
 
-      const title = `Type ${ts()} Filter Task`;
+      const title = `PAT Type ${ts()} Filter Task`;
 
       await test.step('Create a task with type "Email"', async () => {
         await ntPage.clickTasksTab();
@@ -1856,7 +1829,7 @@ test.describe('Deal Module', () => {
     test('TC-DEAL-068 | Verify that user can filter tasks by Priority', async () => {
       await openCreatedDealDetail();
 
-      const title = `Priority ${ts()} Filter Task`;
+      const title = `PAT Priority ${ts()} Filter Task`;
 
       await test.step('Create a task with priority "High"', async () => {
         await ntPage.clickTasksTab();
@@ -1978,7 +1951,7 @@ test.describe('Deal Module', () => {
     test('TC-DEAL-071 | Verify that user can search tasks using Search by Title', async () => {
       await openCreatedDealDetail();
 
-      const title = `Searchable ${ts()} Task Deal`;
+      const title = `PAT Searchable ${ts()} Task Deal`;
 
       await ntPage.clickTasksTab();
       await ntPage.createTask({
@@ -2007,7 +1980,7 @@ test.describe('Deal Module', () => {
     test('TC-DEAL-072 | Verify that user can edit an existing task', async () => {
       await openCreatedDealDetail();
 
-      const title = `Update ${ts()} Task Deal`;
+      const title = `PAT Update ${ts()} Task Deal`;
       const updatedTitle = `${title} UPDATED`;
 
       await ntPage.clickTasksTab();
@@ -2039,7 +2012,7 @@ test.describe('Deal Module', () => {
     test('TC-DEAL-073 | Verify that edited task details are updated in listing', async () => {
       await openCreatedDealDetail();
 
-      const title = `Verify ${ts()} Edit Task Deal`;
+      const title = `PAT Verify ${ts()} Edit Task Deal`;
       const updatedTitle = `${title} VERIFIED`;
 
       await ntPage.clickTasksTab();
@@ -2072,7 +2045,7 @@ test.describe('Deal Module', () => {
     test('TC-DEAL-074 | Verify that user can delete a task after confirmation', async () => {
       await openCreatedDealDetail();
 
-      const title = `Deletable ${ts()} Task Deal`;
+      const title = `PAT Deletable ${ts()} Task Deal`;
 
       await ntPage.clickTasksTab();
       await ntPage.createTask({
@@ -2105,7 +2078,7 @@ test.describe('Deal Module', () => {
     test('TC-DEAL-075 | Verify that task is not deleted when delete action is cancelled', async () => {
       await openCreatedDealDetail();
 
-      const title = `Stay ${ts()} Task Deal`;
+      const title = `PAT Stay ${ts()} Task Deal`;
 
       await ntPage.clickTasksTab();
       await ntPage.createTask({
@@ -2138,7 +2111,7 @@ test.describe('Deal Module', () => {
     test('TC-DEAL-076 | Verify that completed task is shown under Completed status filter', async () => {
       await openCreatedDealDetail();
 
-      const title = `Complete ${ts()} Task Deal`;
+      const title = `PAT Complete ${ts()} Task Deal`;
 
       await ntPage.clickTasksTab();
       await ntPage.createTask({
@@ -2172,7 +2145,7 @@ test.describe('Deal Module', () => {
     test('TC-DEAL-077 | Verify that unchecking completed checkbox marks task as To-Do again', async () => {
       await openCreatedDealDetail();
 
-      const title = `Complete ${ts()} Toggle Deal`;
+      const title = `PAT Complete ${ts()} Toggle Deal`;
 
       await ntPage.clickTasksTab();
       await ntPage.createTask({
@@ -2211,7 +2184,7 @@ test.describe('Deal Module', () => {
           // No tasks exist — create a few to verify table rendering
           for (let i = 0; i < 3; i++) {
             await ntPage.createTask({
-              title: `Pagination Task ${i + 1} ${ts()}`,
+              title: `PAT Pagination Task ${i + 1} ${ts()}`,
               description: `Task ${i + 1} for pagination test.`,
               type: 'To-do',
               priority: 'Medium',
@@ -2247,7 +2220,7 @@ test.describe('Deal Module', () => {
           // Need at least 2 tasks to verify sort
           for (let i = rowCount; i < 2; i++) {
             await ntPage.createTask({
-              title: `Sort Task ${i + 1} ${ts()}`,
+              title: `PAT Sort Task ${i + 1} ${ts()}`,
               description: `Task for sort verification.`,
               type: 'To-do',
               priority: 'Low',
@@ -2402,26 +2375,6 @@ test.describe('Deal Module', () => {
       } finally {
         if (smContext) await smContext.close();
       }
-    });
-
-    /**
-     * TC-DEAL-036 | Verify that UI remains responsive under load
-     *
-     * Priority: P3 — Low (not suitable for Playwright — keep permanently skipped)
-     */
-    test('TC-DEAL-036 | Verify that UI remains responsive under load', async () => {
-      test.skip();
-      // TODO: Performance testing — use Lighthouse CI or k6 instead.
-    });
-
-    /**
-     * TC-DEAL-049 | Verify that performance: large number of logs
-     *
-     * Priority: P3 — Low (not suitable for Playwright — keep permanently skipped)
-     */
-    test('TC-DEAL-049 | Verify that performance: large number of logs', async () => {
-      test.skip();
-      // TODO: Performance testing — use Lighthouse CI or k6 instead.
     });
 
   });

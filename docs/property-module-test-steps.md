@@ -140,7 +140,7 @@ Expected result:
 ### TC-PROP-007 | User can create a new property linked to existing company
 
 Execution steps:
-- The script generates a unique property name in the format `S-P ####`.
+- The script generates a unique property name in the format `PAT ####`.
 - It opens the `Create Property` drawer.
 - It selects the resolved company from the searchable dropdown.
 - It fills the property name.
@@ -236,7 +236,7 @@ Expected result:
 ### TC-PROP-013 | User can edit property name and verify on detail page
 
 Execution steps:
-- The script generates a new edited property name in the format `S-P ####`.
+- The script generates a new edited property name in the format `PAT ####`.
 - It opens the `Edit Property` drawer.
 - It clears the current property name.
 - It enters the new property name.
@@ -940,7 +940,7 @@ Step 2 — Search and select a contact:
 **Steps:**
 1. Navigate to `/app/sales/locations`.
 2. Click `Create Property` to open the drawer.
-3. Type a distinctive value (e.g. `TC-058-RETAIN-<timestamp>`) into the Property Name field.
+3. Type a distinctive value (e.g. `PAT-TC-058-RETAIN-<timestamp>`) into the Property Name field.
 4. Without filling Address or other required fields, click the `Create Property` submit button.
 5. Observe the drawer state and any validation feedback.
 6. Verify the Property Name field still contains the value entered in step 3.
@@ -1113,18 +1113,18 @@ Step 2 — Change the Referred By Property and verify Contact list refreshes:
 1. Navigate to `/app/sales/locations`.
 2. Click `Create Property` to open the drawer.
 3. Wait for the "Create Property" heading (level=3) to be visible.
-4. Fill the `Property / Property Name` textbox with `Persist-Test-Value`.
+4. Fill the `Property / Property Name` textbox with `PAT-Persist-Test-Value`.
 5. Open the Property Source dropdown and select `ALN`.
-6. Verify the Property Name input still shows `Persist-Test-Value` after the dropdown closed.
+6. Verify the Property Name input still shows `PAT-Persist-Test-Value` after the dropdown closed.
 7. Open the Property Source dropdown a second time and close it with `Escape` (without selecting anything).
-8. Verify the Property Name input still shows `Persist-Test-Value`.
+8. Verify the Property Name input still shows `PAT-Persist-Test-Value`.
 9. Verify the Property Source trigger still shows `ALN` (the previously selected value is unchanged).
 10. Open the Associated Franchise dropdown and close it with `Escape` (without selecting anything).
-11. Verify the Property Name input still shows `Persist-Test-Value`.
+11. Verify the Property Name input still shows `PAT-Persist-Test-Value`.
 12. Verify the Property Source trigger still shows `ALN`.
 
 **Expected results:**
-- After each dropdown open/close cycle, the Property Name text field retains `Persist-Test-Value`.
+- After each dropdown open/close cycle, the Property Name text field retains `PAT-Persist-Test-Value`.
 - The Property Source selection (`ALN`) is retained after opening and closing the franchise dropdown.
 - No previously entered or selected value is wiped by opening or closing a different dropdown.
 
@@ -1719,7 +1719,7 @@ These test cases cover the Activities tab of a property detail page. The Activit
 
 **Steps:**
 1. Navigate to `/app/sales/locations/location/13179`.
-2. Click the `Notes` tab, create a note with subject "AutoNote-{timestamp}" if no note exists.
+2. Click the `Notes` tab, create a note with subject "PAT-AutoNote-{timestamp}" if no note exists.
 3. Click the `Activities` tab.
 4. Find a log card whose title contains "Note" and "by".
 5. Read the username portion of the card title.
@@ -1781,7 +1781,7 @@ These test cases cover the Activities tab of a property detail page. The Activit
 **Steps:**
 1. Navigate to `/app/sales/locations/location/13179`.
 2. Click the `Notes` tab.
-3. Open the edit form for an existing note; update the subject to "Updated-{timestamp}".
+3. Open the edit form for an existing note; update the subject to "PAT-Updated-{timestamp}".
 4. Save the note.
 5. Click the `Activities` tab.
 6. Find the note log card (it should now reflect the updated content).
@@ -1974,7 +1974,7 @@ These test cases cover the Activities tab of a property detail page. The Activit
 **Steps:**
 1. Navigate to `/app/sales/locations/location/13179`.
 2. Click the `Meetings` tab.
-3. Open an existing meeting's edit form; update the title to "Updated Meeting {timestamp}".
+3. Open an existing meeting's edit form; update the title to "PAT Updated Meeting {timestamp}".
 4. Save the changes.
 5. Click the `Activities` tab.
 6. Find the meeting log card (it should reflect the update).
@@ -2059,7 +2059,7 @@ These test cases cover the Activities tab of a property detail page. The Activit
 
 **Steps:**
 1. Navigate to `/app/sales/locations/location/13179`.
-2. Click the `Tasks` tab — verify a task exists (or create one: title "AutoTask-{timestamp}", type "To-do", priority "Medium").
+2. Click the `Tasks` tab — verify a task exists (or create one: title "PAT-AutoTask-{timestamp}", type "To-do", priority "Medium").
 3. Click the `Activities` tab.
 4. Find a log card whose title contains "Task" and "by".
 5. Read the username portion.
@@ -2079,7 +2079,7 @@ These test cases cover the Activities tab of a property detail page. The Activit
 
 **Steps:**
 1. Navigate to `/app/sales/locations/location/13179`.
-2. Create a task with: title "Full-Task-{timestamp}", type "To-do", priority "High", description "Test description for activity log".
+2. Create a task with: title "PAT-Full-Task-{timestamp}", type "To-do", priority "High", description "Test description for activity log".
 3. Click the `Activities` tab.
 4. Find the newly created task log card and expand it.
 5. Verify each field is visible.
@@ -2167,7 +2167,7 @@ These test cases cover the Activities tab of a property detail page. The Activit
 **Steps:**
 1. Navigate to `/app/sales/locations/location/13179`.
 2. Click the `Tasks` tab.
-3. Open edit form for an existing task; update the title to "Updated-Task-{timestamp}".
+3. Open edit form for an existing task; update the title to "PAT-Updated-Task-{timestamp}".
 4. Save the task.
 5. Click the `Activities` tab.
 6. Find the task log card (reflects the update).
@@ -2190,7 +2190,7 @@ These test cases cover the Activities tab of a property detail page. The Activit
 1. Navigate to `/app/sales/locations/location/13179`.
 2. Click the `Activities` tab. Note the current number of visible log cards.
 3. Without refreshing the page, click the `Notes` tab.
-4. Create a new note with subject "RT-Test-{timestamp}".
+4. Create a new note with subject "PAT-RT-Test-{timestamp}".
 5. Save the note.
 6. Click the `Activities` tab again.
 7. Observe whether the new note log entry appears.

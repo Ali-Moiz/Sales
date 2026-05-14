@@ -133,8 +133,6 @@ test.describe('Company Module E2E Tests', () => {
         // A simple force-click on the container div does not trigger React synthetic events.
         const opened = await companyModule.openCreateIndustryDropdown();
         expect(opened).toBe(true);
-        const popper = sharedPage.locator('#simple-popper').first();
-        await expect(popper).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
       });
 
       await test.step('Verify all market vertical options are visible', async () => {
@@ -145,7 +143,7 @@ test.describe('Company Module E2E Tests', () => {
       });
 
       // Close popper then modal
-      await companyModule.companyNameInput.click({ force: true });
+      await companyModule.closeCreateDropdownPopper();
       await companyModule.cancelCreateCompanyModal();
     });
 
@@ -691,12 +689,9 @@ test.describe('Company Module E2E Tests', () => {
 
       await test.step('Open and close Market Vertical dropdown 5 times', async () => {
         for (let i = 0; i < 5; i++) {
-          await companyModule.openCreateIndustryDropdown();
-          const popper = sharedPage.locator('#simple-popper').first();
-          await expect(popper).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
-          // Close by clicking the company name input
-          await companyModule.companyNameInput.click({ force: true });
-          await expect(popper).toBeHidden({ timeout: TIMEOUTS.BASE * 6 }).catch(() => { });
+          const opened = await companyModule.openCreateIndustryDropdown();
+          expect(opened).toBe(true);
+          await companyModule.closeCreateDropdownPopper();
         }
       });
 
@@ -705,13 +700,13 @@ test.describe('Company Module E2E Tests', () => {
       });
 
       await test.step('Open dropdown final time and verify all options present', async () => {
-        await companyModule.openCreateIndustryDropdown();
+        const opened = await companyModule.openCreateIndustryDropdown();
+        expect(opened).toBe(true);
         const popper = sharedPage.locator('#simple-popper').first();
-        await expect(popper).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
         for (const option of MARKET_VERTICAL_OPTIONS) {
           await expect(popper.getByText(option, { exact: true }).first()).toBeVisible();
         }
-        await companyModule.companyNameInput.click({ force: true });
+        await companyModule.closeCreateDropdownPopper();
       });
 
       await companyModule.cancelCreateCompanyModal();
@@ -3535,7 +3530,7 @@ test.describe('Company Module E2E Tests', () => {
     test('TC-COMP-145 | Invalid due date handling @regression', async () => {
       await test.step('Open Create Task and enter past date', async () => {
         await companyModule.openCreateTaskDrawer();
-        await companyModule.taskTitleInput.fill('Past Date Test');
+        await companyModule.taskTitleInput.fill('PAT Past Date Test');
         const dueDateInput = sharedPage.locator('input[placeholder*="MM/DD/YYYY"]').first();
         const visible = await dueDateInput.isVisible({ timeout: TIMEOUTS.BASE * 6 }).catch(() => false);
         if (visible) {

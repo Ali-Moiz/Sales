@@ -192,7 +192,7 @@ test.describe('Contact Module', () => {
     await contactPage.openEditDrawer();
 
     await contactPage.fillEditForm({
-      jobTitle: 'Updated QA Title',
+      jobTitle: 'PAT Updated QA Title',
       phone: '1234567890',
       cellPhone: '1234567891'
     });
@@ -209,7 +209,7 @@ test.describe('Contact Module', () => {
     await contactPage.openContactByName(createdContactFullName);
     await contactPage.openEditDrawer();
 
-    await contactPage.firstNameField.fill('SHOULD_NOT_SAVE');
+    await contactPage.firstNameField.fill('PAT_SHOULD_NOT_SAVE');
     await contactPage.cancelEditForm();
 
     await expect(contactPage.editDrawerHeading).toBeHidden();
