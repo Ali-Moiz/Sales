@@ -49,7 +49,7 @@ test.describe('Company Module E2E Tests', () => {
 
     // ── Form Open / Screen Verification ────────────────────────────────────────
 
-    test('TC-COMP-001 | Create Company button opens the form/modal @smoke', async () => {
+    test('TC-COMP-001 | Verify that the Create Company button opens the Create Company form/modal successfully @smoke', async () => {
       await test.step('Click Create Company button', async () => {
         await companyModule.openCreateCompanyModal();
       });
@@ -70,7 +70,7 @@ test.describe('Company Module E2E Tests', () => {
       await companyModule.cancelCreateCompanyModal();
     });
 
-    test('TC-COMP-002 | Open Create a New Company screen successfully @smoke', async () => {
+    test('TC-COMP-002 | Verify that user is able to open the Create a New Company screen successfully @smoke', async () => {
       await companyModule.openCreateCompanyModal();
 
       await test.step('Verify heading is visible', async () => {
@@ -101,7 +101,7 @@ test.describe('Company Module E2E Tests', () => {
 
     // ── Field Validation: Company Name ─────────────────────────────────────────
 
-    test('TC-COMP-003 | Company Name accepts valid input, marked mandatory @smoke', async () => {
+    test('TC-COMP-003 | Verify that Company Name field accepts valid company name and is marked as mandatory @smoke', async () => {
       await companyModule.openCreateCompanyModal();
 
       await test.step('Verify Company Name label has mandatory asterisk', async () => {
@@ -125,7 +125,7 @@ test.describe('Company Module E2E Tests', () => {
 
     // ── Market Vertical Dropdown ───────────────────────────────────────────────
 
-    test('TC-COMP-004 | Market Vertical dropdown opens with all options @smoke', async () => {
+    test('TC-COMP-004 | Verify that Market Vertical dropdown opens correctly and displays all available options @smoke', async () => {
       await companyModule.openCreateCompanyModal();
 
       await test.step('Click Select Industry dropdown and verify popper opens', async () => {
@@ -147,7 +147,7 @@ test.describe('Company Module E2E Tests', () => {
       await companyModule.cancelCreateCompanyModal();
     });
 
-    test('TC-COMP-005 | Search and select Market Vertical value @smoke', async () => {
+    test('TC-COMP-005 | Verify that user is able to search and select a value from Market Vertical dropdown @smoke', async () => {
       await companyModule.openCreateCompanyModal();
 
       await test.step('Select Manufacturing from dropdown', async () => {
@@ -165,7 +165,7 @@ test.describe('Company Module E2E Tests', () => {
 
     // ── SP Status Dropdown ─────────────────────────────────────────────────────
 
-    test('TC-COMP-006 | SP Status dropdown opens with all options @smoke', async () => {
+    test('TC-COMP-006 | Verify that Strategic Partnership Status dropdown opens and displays all valid options @smoke', async () => {
       await companyModule.openCreateCompanyModal();
 
       await test.step('Open SP Status dropdown and verify all options visible', async () => {
@@ -192,7 +192,7 @@ test.describe('Company Module E2E Tests', () => {
       await companyModule.cancelCreateCompanyModal();
     });
 
-    test('TC-COMP-007 | Select any SP Status successfully @smoke', async () => {
+    test('TC-COMP-007 | Verify that user can select any Strategic Partnership Status successfully @smoke', async () => {
       await companyModule.openCreateCompanyModal();
 
       await test.step('Select SP - Active', async () => {
@@ -213,7 +213,7 @@ test.describe('Company Module E2E Tests', () => {
 
     // ── Company Domain ─────────────────────────────────────────────────────────
 
-    test('TC-COMP-008 | Company Domain accepts valid format @regression', async () => {
+    test('TC-COMP-008 | Verify that Company Domain field accepts a valid domain format @regression', async () => {
       await companyModule.openCreateCompanyModal();
 
       await test.step('Type valid domain', async () => {
@@ -234,7 +234,7 @@ test.describe('Company Module E2E Tests', () => {
 
     // ── No. of Employees ──────────────────────────────────────────────────────
 
-    test('TC-COMP-009 | No. of Employees accepts numeric only @regression', async () => {
+    test('TC-COMP-009 | Verify that No. of Employees field accepts numeric values only @regression', async () => {
       await companyModule.openCreateCompanyModal();
 
       await test.step('Type numeric value and verify', async () => {
@@ -263,7 +263,7 @@ test.describe('Company Module E2E Tests', () => {
 
     // ── Revenue ────────────────────────────────────────────────────────────────
 
-    test('TC-COMP-010 | Revenue accepts valid numeric input @regression', async () => {
+    test('TC-COMP-010 | Verify that Revenue field accepts valid numeric input @regression', async () => {
       await companyModule.openCreateCompanyModal();
 
       await test.step('Type numeric value and verify', async () => {
@@ -283,7 +283,7 @@ test.describe('Company Module E2E Tests', () => {
 
     // ── Address & Map ──────────────────────────────────────────────────────────
 
-    test('TC-COMP-011 | Address autocomplete from Google Maps @smoke', async () => {
+    test('TC-COMP-011 | Verify that Address field allows user to search and select an address from Google Maps suggestions @smoke', async () => {
       await companyModule.openCreateCompanyModal();
 
       await test.step('Type address and select from autocomplete suggestions', async () => {
@@ -302,7 +302,7 @@ test.describe('Company Module E2E Tests', () => {
       await companyModule.cancelCreateCompanyModal();
     });
 
-    test('TC-COMP-012 | Selected address reflected on map @regression', async () => {
+    test('TC-COMP-012 | Verify that selected address is correctly reflected on the map @regression', async () => {
       await companyModule.openCreateCompanyModal();
 
       await test.step('Select an address from autocomplete', async () => {
@@ -326,7 +326,7 @@ test.describe('Company Module E2E Tests', () => {
 
     // ── Submit Button Enable/Disable ───────────────────────────────────────────
 
-    test('TC-COMP-013 | Create Company button enabled after mandatory fields @smoke', async () => {
+    test('TC-COMP-013 | Verify that Create Company button gets enabled after filling all mandatory fields @smoke', async () => {
       await companyModule.openCreateCompanyModal();
 
       await test.step('Verify submit button is initially disabled', async () => {
@@ -356,7 +356,7 @@ test.describe('Company Module E2E Tests', () => {
 
     // ── Successful Company Creation ────────────────────────────────────────────
 
-    test('TC-COMP-014 | Company created successfully with valid data @smoke', async () => {
+    test('TC-COMP-014 | Verify that company is created successfully when user clicks on Create Company with valid data @smoke', async () => {
       // Generate a fresh unique name for this test
       uniqueCompanyName = `${CREATE_COMPANY_NAME_PREFIX} ${Date.now()}`;
 
@@ -389,7 +389,7 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    test('TC-COMP-015 | Newly created company visible in listing @smoke', async () => {
+    test('TC-COMP-015 | Verify that newly created company is visible in the company listing after successful creation @smoke', async () => {
       await test.step('Search for the newly created company', async () => {
         await companyModule.searchAndWaitForGridUpdate(uniqueCompanyName);
       });
@@ -411,7 +411,7 @@ test.describe('Company Module E2E Tests', () => {
 
     // ── Cancel ─────────────────────────────────────────────────────────────────
 
-    test('TC-COMP-016 | Cancel closes form without saving @regression', async () => {
+    test('TC-COMP-016 | Verify that Cancel button closes the Create Company screen without saving data @regression', async () => {
       await test.step('Open form and type a company name', async () => {
         await companyModule.openCreateCompanyModal();
         await companyModule.fillCompanyName('PAT Cancel Test');
@@ -437,7 +437,7 @@ test.describe('Company Module E2E Tests', () => {
 
     // ── Validation: Missing Mandatory Fields ───────────────────────────────────
 
-    test('TC-COMP-017 | Error when Company Name missing @regression', async () => {
+    test('TC-COMP-017 | Verify that error message is displayed when user tries to create a company without entering Company Name @regression', async () => {
       await companyModule.openCreateCompanyModal();
 
       await test.step('Touch Company Name field and tab away without entering data', async () => {
@@ -472,7 +472,7 @@ test.describe('Company Module E2E Tests', () => {
       await companyModule.cancelCreateCompanyModal();
     });
 
-    test('TC-COMP-018 | Error when Market Vertical not selected @regression', async () => {
+    test('TC-COMP-018 | Verify that error message is shown when Market Vertical is not selected and user clicks Create Company @regression', async () => {
       await companyModule.openCreateCompanyModal();
 
       await test.step('Fill Company Name but skip Market Vertical', async () => {
@@ -508,7 +508,7 @@ test.describe('Company Module E2E Tests', () => {
       await companyModule.cancelCreateCompanyModal();
     });
 
-    test('TC-COMP-019 | Submit disabled if mandatory fields missing @regression', async () => {
+    test('TC-COMP-019 | Verify that Create Company button remains disabled if mandatory fields are missing @regression', async () => {
       await companyModule.openCreateCompanyModal();
 
       await test.step('Verify form cannot submit with no fields filled', async () => {
@@ -545,7 +545,7 @@ test.describe('Company Module E2E Tests', () => {
 
     // ── Domain Validation ──────────────────────────────────────────────────────
 
-    test('TC-COMP-020 | Company Domain rejects invalid formats @regression', async () => {
+    test('TC-COMP-020 | Verify that Company Domain field does not accept invalid domain formats @regression', async () => {
       await companyModule.openCreateCompanyModal();
 
       await test.step('Type an invalid domain', async () => {
@@ -573,7 +573,7 @@ test.describe('Company Module E2E Tests', () => {
 
     // ── No. of Employees Validation ────────────────────────────────────────────
 
-    test('TC-COMP-021 | No. of Employees rejects alphabetic/special chars @regression', async () => {
+    test('TC-COMP-021 | Verify that No. of Employees field does not accept alphabetic or special characters @regression', async () => {
       await companyModule.openCreateCompanyModal();
 
       await test.step('Attempt to type alphabetic characters', async () => {
@@ -603,7 +603,7 @@ test.describe('Company Module E2E Tests', () => {
 
     // ── Revenue Validation ─────────────────────────────────────────────────────
 
-    test('TC-COMP-022 | Revenue rejects invalid characters/negatives @regression', async () => {
+    test('TC-COMP-022 | Verify that Revenue field does not accept invalid characters or negative values @regression', async () => {
       await companyModule.openCreateCompanyModal();
 
       await test.step('Attempt to type alphabetic characters', async () => {
@@ -631,7 +631,7 @@ test.describe('Company Module E2E Tests', () => {
 
     // ── Address Validation ─────────────────────────────────────────────────────
 
-    test('TC-COMP-023 | Cannot submit without Address @regression', async () => {
+    test('TC-COMP-023 | Verify that user cannot submit the form without selecting an Address @regression', async () => {
       await companyModule.openCreateCompanyModal();
 
       await test.step('Fill Company Name and select Market Vertical', async () => {
@@ -657,7 +657,7 @@ test.describe('Company Module E2E Tests', () => {
       await companyModule.cancelCreateCompanyModal();
     });
 
-    test('TC-COMP-024 | Random text in Address blocks creation @regression', async () => {
+    test('TC-COMP-024 | Verify that invalid or random text entered in Address field does not allow company creation @regression', async () => {
       await companyModule.openCreateCompanyModal();
 
       await test.step('Fill Company Name and select Market Vertical', async () => {
@@ -684,7 +684,7 @@ test.describe('Company Module E2E Tests', () => {
 
     // ── Dropdown Stability ─────────────────────────────────────────────────────
 
-    test('TC-COMP-025 | Dropdown values stable on repeated open/close @regression', async () => {
+    test('TC-COMP-025 | Verify that dropdown values do not disappear or overlap when opened multiple times @regression', async () => {
       await companyModule.openCreateCompanyModal();
 
       await test.step('Open and close Market Vertical dropdown 5 times', async () => {
@@ -714,7 +714,7 @@ test.describe('Company Module E2E Tests', () => {
 
     // ── Field Persistence ──────────────────────────────────────────────────────
 
-    test('TC-COMP-026 | Market Vertical not reset on form interaction @regression', async () => {
+    test('TC-COMP-026 | Verify that selected Market Vertical value is not reset unexpectedly on form interaction @regression', async () => {
       await companyModule.openCreateCompanyModal();
       const modal = companyModule.getModal();
 
@@ -739,7 +739,7 @@ test.describe('Company Module E2E Tests', () => {
       await companyModule.cancelCreateCompanyModal();
     });
 
-    test('TC-COMP-027 | SP Status remains intact after other interactions @regression', async () => {
+    test('TC-COMP-027 | Verify that selected Strategic Partnership Status remains intact after interacting with other fields @regression', async () => {
       await companyModule.openCreateCompanyModal();
       const modal = companyModule.getModal();
 
@@ -766,7 +766,7 @@ test.describe('Company Module E2E Tests', () => {
 
     // ── Duplicate Handling ─────────────────────────────────────────────────────
 
-    test('TC-COMP-028 | Duplicate company name handling @regression', async () => {
+    test('TC-COMP-028 | Verify that user is prevented from creating duplicate company with same name @regression', async () => {
       // Use the company name created in TC-COMP-014
       const existingName = uniqueCompanyName;
 
@@ -816,7 +816,7 @@ test.describe('Company Module E2E Tests', () => {
 
     // ── Cancel Discards Data ───────────────────────────────────────────────────
 
-    test('TC-COMP-029 | Cancel discards form data @regression', async () => {
+    test('TC-COMP-029 | Verify that form data is not saved when user clicks Cancel @regression', async () => {
       await test.step('Open form and fill multiple fields', async () => {
         await companyModule.openCreateCompanyModal();
         await companyModule.fillCompanyName('PAT Cancel Discard Test');
@@ -842,7 +842,7 @@ test.describe('Company Module E2E Tests', () => {
 
     // ── Access Control ─────────────────────────────────────────────────────────
 
-    test('TC-COMP-030 | Access control for SM/other roles @regression', async () => {
+    test('TC-COMP-030 | Verify that Create Company button is not accessible for users without permission (proper access control for SM and other roles) @regression', async () => {
       // This test requires a separate session with SM credentials
       let smPage;
       let smContext;
@@ -1453,10 +1453,10 @@ test.describe('Company Module E2E Tests', () => {
   });
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // Filter Management (Market Vertical & More Filters) — TC-COMP-052 through TC-COMP-082
+  // Filter Management (Market Vertical & More Filters) — TC-COMP-052 through TC-COMP-081
   // ─────────────────────────────────────────────────────────────────────────────
 
-  test.describe('Filter Management (Market Vertical & More Filters) — TC-COMP-052 through TC-COMP-082', () => {
+  test.describe('Filter Management (Market Vertical & More Filters) — TC-COMP-052 through TC-COMP-081', () => {
     // ── Named constants for test data ──
     const MARKET_VERTICAL_OPTIONS = ['Commercial', 'Distribution', 'Industrial', 'Manufacturing', 'Residential'];
     const MV_SEARCH_TERM = 'Manu';
@@ -1740,8 +1740,8 @@ test.describe('Company Module E2E Tests', () => {
       await companyModule.closeMoreFilters();
     });
 
-    // TC-COMP-062 | States dropdown allows selecting a state and filters grid after Apply Filters
-    test('TC-COMP-062 | States dropdown allows selecting a state and filters grid after Apply Filters @smoke', async () => {
+    // TC-COMP-061 | States dropdown allows selecting a state and filters grid after Apply Filters
+    test('TC-COMP-061 | States dropdown allows selecting a state and filters grid after Apply Filters @smoke', async () => {
       let baselinePagination;
 
       await test.step('Capture baseline pagination', async () => {
@@ -1772,8 +1772,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-063 | Cities dropdown allows selecting a city and filters grid after Apply Filters
-    test('TC-COMP-063 | Cities dropdown allows selecting a city and filters grid after Apply Filters @regression', async () => {
+    // TC-COMP-062 | Cities dropdown allows selecting a city and filters grid after Apply Filters
+    test('TC-COMP-062 | Cities dropdown allows selecting a city and filters grid after Apply Filters @regression', async () => {
       await test.step('Open More Filters, select state first, then select city', async () => {
         await companyModule.openMoreFilters();
         await companyModule.selectMoreFiltersState(FILTER_STATE);
@@ -1798,8 +1798,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-064 | Parent Company dropdown allows selecting a parent company and filters grid after Apply Filters
-    test('TC-COMP-064 | Parent Company dropdown allows selecting a parent company and filters grid after Apply Filters @regression', async () => {
+    // TC-COMP-063 | Parent Company dropdown allows selecting a parent company and filters grid after Apply Filters
+    test('TC-COMP-063 | Parent Company dropdown allows selecting a parent company and filters grid after Apply Filters @regression', async () => {
       let baselinePagination;
 
       await test.step('Capture baseline pagination', async () => {
@@ -1822,8 +1822,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-065 | Select SP Status dropdown allows selecting a status and filters grid after Apply Filters
-    test('TC-COMP-065 | Select SP Status dropdown allows selecting a status and filters grid after Apply Filters @regression', async () => {
+    // TC-COMP-064 | Select SP Status dropdown allows selecting a status and filters grid after Apply Filters
+    test('TC-COMP-064 | Select SP Status dropdown allows selecting a status and filters grid after Apply Filters @regression', async () => {
       let baselinePagination;
 
       await test.step('Capture baseline pagination', async () => {
@@ -1854,8 +1854,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-066 | Created Date picker allows selecting a date and filters results after Apply Filters
-    test('TC-COMP-066 | Created Date picker allows selecting a date and filters results after Apply Filters @regression', async () => {
+    // TC-COMP-065 | Created Date picker allows selecting a date and filters results after Apply Filters
+    test('TC-COMP-065 | Created Date picker allows selecting a date and filters results after Apply Filters @regression', async () => {
       await test.step('Open More Filters and verify Created Date field is visible', async () => {
         await companyModule.openMoreFilters();
         const createdDateInput = sharedPage.locator('input[placeholder="MM/DD/YYYY - MM/DD/YYYY"]').nth(0);
@@ -1879,8 +1879,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-067 | Last Activity date picker allows selecting a date and filters results after Apply Filters
-    test('TC-COMP-067 | Last Activity date picker allows selecting a date and filters results after Apply Filters @regression', async () => {
+    // TC-COMP-066 | Last Activity date picker allows selecting a date and filters results after Apply Filters
+    test('TC-COMP-066 | Last Activity date picker allows selecting a date and filters results after Apply Filters @regression', async () => {
       await test.step('Open More Filters and verify Last Activity field is visible', async () => {
         await companyModule.openMoreFilters();
         const lastActivityInput = sharedPage.locator('input[placeholder="MM/DD/YYYY - MM/DD/YYYY"]').nth(1);
@@ -1904,8 +1904,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-068 | Last Modified date picker allows selecting a date and filters results after Apply Filters
-    test('TC-COMP-068 | Last Modified date picker allows selecting a date and filters results after Apply Filters @regression', async () => {
+    // TC-COMP-067 | Last Modified date picker allows selecting a date and filters results after Apply Filters
+    test('TC-COMP-067 | Last Modified date picker allows selecting a date and filters results after Apply Filters @regression', async () => {
       await test.step('Open More Filters and verify Last Modified field is visible', async () => {
         await companyModule.openMoreFilters();
         const lastModifiedInput = sharedPage.locator('input[placeholder="MM/DD/YYYY - MM/DD/YYYY"]').nth(2);
@@ -1930,8 +1930,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-069 | Apply Filters button applies selected filters, closes panel, refreshes grid
-    test('TC-COMP-069 | Apply Filters button applies selected filters, closes panel, refreshes grid @smoke', async () => {
+    // TC-COMP-068 | Apply Filters button applies selected filters, closes panel, refreshes grid
+    test('TC-COMP-068 | Apply Filters button applies selected filters, closes panel, refreshes grid @smoke', async () => {
       await test.step('Open More Filters and select a state filter', async () => {
         await companyModule.openMoreFilters();
         await companyModule.selectMoreFiltersState(FILTER_STATE);
@@ -1950,8 +1950,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-070 | Cancel button closes More Filters panel without applying changes
-    test('TC-COMP-070 | Cancel button closes More Filters panel without applying changes @regression', async () => {
+    // TC-COMP-069 | Cancel button closes More Filters panel without applying changes
+    test('TC-COMP-069 | Cancel button closes More Filters panel without applying changes @regression', async () => {
       let baselinePagination;
 
       await test.step('Capture baseline pagination', async () => {
@@ -1974,8 +1974,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-071 | Clear All clears all selected filters and resets to default state
-    test('TC-COMP-071 | Clear All clears all selected filters and resets to default state @regression', async () => {
+    // TC-COMP-070 | Clear All clears all selected filters and resets to default state
+    test('TC-COMP-070 | Clear All clears all selected filters and resets to default state @regression', async () => {
       await test.step('Open More Filters and select state and market vertical', async () => {
         await companyModule.openMoreFilters();
         await companyModule.selectMoreFiltersState(FILTER_STATE);
@@ -2001,8 +2001,8 @@ test.describe('Company Module E2E Tests', () => {
       await companyModule.closeMoreFilters();
     });
 
-    // TC-COMP-072 | More Filters panel does not allow invalid states selection without country first (N/A - no Country field)
-    test('TC-COMP-072 | More Filters panel does not allow invalid states selection without country first (N/A - no Country field) @regression', async () => {
+    // TC-COMP-071 | More Filters panel does not allow invalid states selection without country first (N/A - no Country field)
+    test('TC-COMP-071 | More Filters panel does not allow invalid states selection without country first (N/A - no Country field) @regression', async () => {
       await test.step('Open More Filters and verify States dropdown is clickable without country dependency', async () => {
         await companyModule.openMoreFilters();
         // NOTE: Country dropdown does not exist. States is directly available.
@@ -2014,8 +2014,8 @@ test.describe('Company Module E2E Tests', () => {
       await companyModule.closeMoreFilters();
     });
 
-    // TC-COMP-073 | More Filters panel does not allow invalid cities selection without selecting a state first
-    test('TC-COMP-073 | More Filters panel does not allow invalid cities selection without selecting a state first @regression', async () => {
+    // TC-COMP-072 | More Filters panel does not allow invalid cities selection without selecting a state first
+    test('TC-COMP-072 | More Filters panel does not allow invalid cities selection without selecting a state first @regression', async () => {
       await test.step('Open More Filters and verify Cities dropdown is disabled without state', async () => {
         await companyModule.openMoreFilters();
         const citiesDisabled = await companyModule.isCitiesDropdownDisabled();
@@ -2032,8 +2032,8 @@ test.describe('Company Module E2E Tests', () => {
       await companyModule.closeMoreFilters();
     });
 
-    // TC-COMP-074 | Invalid date input (manual typing wrong format) is rejected or corrected with validation
-    test('TC-COMP-074 | Invalid date input (manual typing wrong format) is rejected or corrected with validation @regression', async () => {
+    // TC-COMP-073 | Invalid date input (manual typing wrong format) is rejected or corrected with validation
+    test('TC-COMP-073 | Invalid date input (manual typing wrong format) is rejected or corrected with validation @regression', async () => {
       await test.step('Open More Filters and type invalid date', async () => {
         await companyModule.openMoreFilters();
         const createdDateInput = sharedPage.locator('input[placeholder="MM/DD/YYYY - MM/DD/YYYY"]').nth(0);
@@ -2057,8 +2057,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-075 | Selecting a future date in Last Activity/Last Modified does not return incorrect results
-    test('TC-COMP-075 | Selecting a future date in Last Activity/Last Modified does not return incorrect results @regression', async () => {
+    // TC-COMP-074 | Selecting a future date in Last Activity/Last Modified does not return incorrect results
+    test('TC-COMP-074 | Selecting a future date in Last Activity/Last Modified does not return incorrect results @regression', async () => {
       await test.step('Open More Filters and set future date in Last Activity', async () => {
         await companyModule.openMoreFilters();
         const lastActivityInput = sharedPage.locator('input[placeholder="MM/DD/YYYY - MM/DD/YYYY"]').nth(1);
@@ -2079,8 +2079,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-076 | Applying filters with no selection does not change the grid unexpectedly
-    test('TC-COMP-076 | Applying filters with no selection does not change the grid unexpectedly @regression', async () => {
+    // TC-COMP-075 | Applying filters with no selection does not change the grid unexpectedly
+    test('TC-COMP-075 | Applying filters with no selection does not change the grid unexpectedly @regression', async () => {
       let baselinePagination;
 
       await test.step('Capture baseline pagination', async () => {
@@ -2101,8 +2101,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-077 | Clicking Apply Filters multiple times rapidly does not duplicate requests or break UI
-    test('TC-COMP-077 | Clicking Apply Filters multiple times rapidly does not duplicate requests or break UI @regression', async () => {
+    // TC-COMP-076 | Clicking Apply Filters multiple times rapidly does not duplicate requests or break UI
+    test('TC-COMP-076 | Clicking Apply Filters multiple times rapidly does not duplicate requests or break UI @regression', async () => {
       await test.step('Open More Filters and select a state', async () => {
         await companyModule.openMoreFilters();
         await companyModule.selectMoreFiltersState(FILTER_STATE);
@@ -2124,8 +2124,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-078 | Clear All resets all filter fields (including dates) and does not leave stale chips/values
-    test('TC-COMP-078 | Clear All resets all filter fields (including dates) and does not leave stale chips/values @regression', async () => {
+    // TC-COMP-077 | Clear All resets all filter fields (including dates) and does not leave stale chips/values
+    test('TC-COMP-077 | Clear All resets all filter fields (including dates) and does not leave stale chips/values @regression', async () => {
       let baselinePagination;
 
       await test.step('Navigate fresh to ensure clean unfiltered state', async () => {
@@ -2185,8 +2185,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-079 | Cancel from More Filters panel discards unsaved filter changes
-    test('TC-COMP-079 | Cancel from More Filters panel discards unsaved filter changes @regression', async () => {
+    // TC-COMP-078 | Cancel from More Filters panel discards unsaved filter changes
+    test('TC-COMP-078 | Cancel from More Filters panel discards unsaved filter changes @regression', async () => {
       let baselinePagination;
 
       await test.step('Capture baseline pagination', async () => {
@@ -2216,8 +2216,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-080 | Panel close (X) behaves the same as Cancel and does not apply filters
-    test('TC-COMP-080 | Panel close (X) behaves the same as Cancel and does not apply filters @regression', async () => {
+    // TC-COMP-079 | Panel close (X) behaves the same as Cancel and does not apply filters
+    test('TC-COMP-079 | Panel close (X) behaves the same as Cancel and does not apply filters @regression', async () => {
       let baselinePagination;
 
       await test.step('Capture baseline pagination', async () => {
@@ -2239,8 +2239,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-081 | More Filters Apply Filters button is disabled or shows validation when required filter dependencies are incomplete
-    test('TC-COMP-081 | More Filters Apply Filters button is disabled or shows validation when required filter dependencies are incomplete @regression', async () => {
+    // TC-COMP-080 | More Filters Apply Filters button is disabled or shows validation when required filter dependencies are incomplete
+    test('TC-COMP-080 | More Filters Apply Filters button is disabled or shows validation when required filter dependencies are incomplete @regression', async () => {
       await test.step('Open More Filters and check Apply Filters button state with no selections', async () => {
         await companyModule.openMoreFilters();
         const applyBtn = sharedPage.getByRole('button', { name: 'Apply Filters' }).first();
@@ -2263,8 +2263,8 @@ test.describe('Company Module E2E Tests', () => {
       await companyModule.closeMoreFilters();
     });
 
-    // TC-COMP-082 | Rapid open/close of filters and dropdowns does not cause UI flicker or stuck overlays
-    test('TC-COMP-082 | Rapid open/close of filters and dropdowns does not cause UI flicker or stuck overlays @regression', async () => {
+    // TC-COMP-081 | Rapid open/close of filters and dropdowns does not cause UI flicker or stuck overlays
+    test('TC-COMP-081 | Rapid open/close of filters and dropdowns does not cause UI flicker or stuck overlays @regression', async () => {
       await test.step('Rapidly open/close More Filters panel 5 times', async () => {
         for (let i = 0; i < 5; i++) {
           await companyModule.moreFiltersButton.click({ force: true });
@@ -2296,17 +2296,17 @@ test.describe('Company Module E2E Tests', () => {
   });
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // Sorting & Pagination — TC-COMP-083 through TC-COMP-089
+  // Sorting & Pagination — TC-COMP-082 through TC-COMP-088
   // ─────────────────────────────────────────────────────────────────────────────
 
-  test.describe('Sorting & Pagination — TC-COMP-083 through TC-COMP-089', () => {
+  test.describe('Sorting & Pagination — TC-COMP-082 through TC-COMP-088', () => {
     // ── Named constants for test data ──
     const MV_FILTER = 'Manufacturing';
     const COMPANY_NAME_COL = 0;
     const CREATED_DATE_COL = 6;
 
-    // TC-COMP-083 | Verify that applied filters persist when navigating between pages using pagination controls
-    test('TC-COMP-083 | Verify that applied filters persist when navigating between pages using pagination controls @regression', async () => {
+    // TC-COMP-082 | Verify that applied filters persist when navigating between pages using pagination controls
+    test('TC-COMP-082 | Verify that applied filters persist when navigating between pages using pagination controls @regression', async () => {
       let filteredTotal;
 
       await test.step('Apply Manufacturing filter and capture filtered total', async () => {
@@ -2356,8 +2356,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-084 | Verify that column sorting works when clicking on a sortable column header (e.g., Company Name, Created Date)
-    test('TC-COMP-084 | Verify that column sorting works when clicking on a sortable column header (e.g., Company Name, Created Date) @smoke', async () => {
+    // TC-COMP-083 | Verify that column sorting works when clicking on a sortable column header (e.g., Company Name, Created Date)
+    test('TC-COMP-083 | Verify that column sorting works when clicking on a sortable column header (e.g., Company Name, Created Date) @smoke', async () => {
       let baselineFirstRow;
 
       await test.step('Capture baseline first row Company Name', async () => {
@@ -2380,8 +2380,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-085 | Verify that sorting toggles between ascending and descending order on repeated clicks
-    test('TC-COMP-085 | Verify that sorting toggles between ascending and descending order on repeated clicks @regression', async () => {
+    // TC-COMP-084 | Verify that sorting toggles between ascending and descending order on repeated clicks
+    test('TC-COMP-084 | Verify that sorting toggles between ascending and descending order on repeated clicks @regression', async () => {
       let sortA;
 
       await test.step('Click Company Name sort once and capture first row (sort A)', async () => {
@@ -2403,8 +2403,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-086 | Verify that pagination controls (next/previous) navigate between pages and update the row range display
-    test('TC-COMP-086 | Verify that pagination controls (next/previous) navigate between pages and update the row range display @smoke', async () => {
+    // TC-COMP-085 | Verify that pagination controls (next/previous) navigate between pages and update the row range display
+    test('TC-COMP-085 | Verify that pagination controls (next/previous) navigate between pages and update the row range display @smoke', async () => {
       let page1FirstRow;
 
       await test.step('Verify pagination shows page 1 range with total > 10', async () => {
@@ -2449,8 +2449,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-087 | Verify that changing 'Rows per page' updates the number of displayed rows and refreshes the grid
-    test('TC-COMP-087 | Verify that changing \'Rows per page\' updates the number of displayed rows and refreshes the grid @regression', async () => {
+    // TC-COMP-086 | Verify that changing 'Rows per page' updates the number of displayed rows and refreshes the grid
+    test('TC-COMP-086 | Verify that changing \'Rows per page\' updates the number of displayed rows and refreshes the grid @regression', async () => {
       let defaultRowCount;
 
       await test.step('Verify current Rows per page is 10 (default) and capture row count', async () => {
@@ -2486,8 +2486,8 @@ test.describe('Company Module E2E Tests', () => {
       await companyModule.assertCompaniesPageOpened();
     });
 
-    // TC-COMP-088 | Verify that pagination does not reset unexpectedly when filters are applied
-    test('TC-COMP-088 | Verify that pagination does not reset unexpectedly when filters are applied @regression', async () => {
+    // TC-COMP-087 | Verify that pagination does not reset unexpectedly when filters are applied
+    test('TC-COMP-087 | Verify that pagination does not reset unexpectedly when filters are applied @regression', async () => {
       let unfilteredTotal;
 
       await test.step('Apply Manufacturing filter and verify filtered total is less', async () => {
@@ -2531,8 +2531,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-089 | Verify that pagination controls are disabled appropriately on first/last page to prevent invalid navigation
-    test('TC-COMP-089 | Verify that pagination controls are disabled appropriately on first/last page to prevent invalid navigation @regression', async () => {
+    // TC-COMP-088 | Verify that pagination controls are disabled appropriately on first/last page to prevent invalid navigation
+    test('TC-COMP-088 | Verify that pagination controls are disabled appropriately on first/last page to prevent invalid navigation @regression', async () => {
       await test.step('Verify "Go to previous page" is disabled on page 1', async () => {
         await expect
           .poll(async () => {
@@ -2567,18 +2567,18 @@ test.describe('Company Module E2E Tests', () => {
   });
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // Export & External Actions — TC-COMP-090 through TC-COMP-093
+  // Export & External Actions — TC-COMP-089 through TC-COMP-092
   // ─────────────────────────────────────────────────────────────────────────────
 
-  test.describe('Export & External Actions — TC-COMP-090 through TC-COMP-093', () => {
+  test.describe('Export & External Actions — TC-COMP-089 through TC-COMP-092', () => {
     // ── Named constants ──
     const NO_MATCH_TERM = 'ZZZZNOCOMPANY999XYZ';
     const MV_FILTER = 'Manufacturing';
     const COMPANY_NAME_COL = 0;
     const DEALS_PATH = '/app/sales/deals';
 
-    // TC-COMP-090 | Verify that the Export button initiates an export action and downloads/produces the expected file output (if enabled)
-    test('TC-COMP-090 | Verify that the Export button initiates an export action and downloads/produces the expected file output (if enabled) @smoke', async () => {
+    // TC-COMP-089 | Verify that the Export button initiates an export action and downloads/produces the expected file output (if enabled)
+    test('TC-COMP-089 | Verify that the Export button initiates an export action and downloads/produces the expected file output (if enabled) @smoke', async () => {
       await test.step('Verify Export button is present in toolbar', async () => {
         await expect(companyModule.exportButton).toBeAttached();
       });
@@ -2604,8 +2604,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-091 | Verify that Export is blocked or shows proper message when there is no data to export
-    test('TC-COMP-091 | Verify that Export is blocked or shows proper message when there is no data to export @regression', async () => {
+    // TC-COMP-090 | Verify that Export is blocked or shows proper message when there is no data to export
+    test('TC-COMP-090 | Verify that Export is blocked or shows proper message when there is no data to export @regression', async () => {
       await test.step('Search for nonsensical term to get zero results', async () => {
         await companyModule.searchAndWaitForGridUpdate(NO_MATCH_TERM);
         await expect(companyModule.noRecordFoundHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
@@ -2627,8 +2627,8 @@ test.describe('Company Module E2E Tests', () => {
       await companyModule.clearCompanySearch();
     });
 
-    // TC-COMP-092 | Verify that Export handles large datasets without UI freeze (shows loader)
-    test('TC-COMP-092 | Verify that Export handles large datasets without UI freeze (shows loader) @regression', async () => {
+    // TC-COMP-091 | Verify that Export handles large datasets without UI freeze (shows loader)
+    test('TC-COMP-091 | Verify that Export handles large datasets without UI freeze (shows loader) @regression', async () => {
       await test.step('Verify full dataset is loaded (9000+ total)', async () => {
         const paginationText = await companyModule.getPaginationText();
         const parsed = companyModule.parsePaginationRange(paginationText);
@@ -2652,8 +2652,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-093 | Verify that the page does not lose user-applied filters/sort when switching tabs or navigating away and back (if expected)
-    test('TC-COMP-093 | Verify that the page does not lose user-applied filters/sort when switching tabs or navigating away and back (if expected) @regression', async () => {
+    // TC-COMP-092 | Verify that the page does not lose user-applied filters/sort when switching tabs or navigating away and back (if expected)
+    test('TC-COMP-092 | Verify that the page does not lose user-applied filters/sort when switching tabs or navigating away and back (if expected) @regression', async () => {
       let filteredTotal;
 
       await test.step('Apply sort and filter, capture state', async () => {
@@ -2692,13 +2692,13 @@ test.describe('Company Module E2E Tests', () => {
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Change Review History — TC-COMP-094 through TC-COMP-098
+  // Change Review History — TC-COMP-093 through TC-COMP-097
   // ═══════════════════════════════════════════════════════════════════════════
 
-  test.describe('Change Review History — TC-COMP-094 through TC-COMP-098', () => {
+  test.describe('Change Review History — TC-COMP-093 through TC-COMP-097', () => {
 
-    // TC-COMP-094 | Verify that the Change Review History button opens the review history change flow successfully
-    test('TC-COMP-094 | Change Review History button opens the review history page @smoke', async () => {
+    // TC-COMP-093 | Verify that the Change Review History button opens the review history change flow successfully
+    test('TC-COMP-093 | Change Review History button opens the review history page @smoke', async () => {
       await test.step('Verify Change Review button is visible', async () => {
         await expect(companyModule.changeReviewButton).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
       });
@@ -2715,8 +2715,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-095 | Verify that user is able to view change review history button on company listing to HO
-    test('TC-COMP-095 | Change Review button visible and clickable for HO @smoke', async () => {
+    // TC-COMP-094 | Verify that user is able to view change review history button on company listing to HO
+    test('TC-COMP-094 | Change Review button visible and clickable for HO @smoke', async () => {
       await test.step('Verify URL contains /app/sales/companies', async () => {
         await expect(sharedPage).toHaveURL(/\/app\/sales\/companies/);
       });
@@ -2732,8 +2732,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-096 | Verify that on company review history page only those companies are visible in which user edit anything in it
-    test('TC-COMP-096 | Reviews page shows only edited companies (subset of total) @regression', async () => {
+    // TC-COMP-095 | Verify that on company review history page only those companies are visible in which user edit anything in it
+    test('TC-COMP-095 | Reviews page shows only edited companies (subset of total) @regression', async () => {
       let mainListingTotal;
 
       await test.step('Capture main listing total', async () => {
@@ -2762,8 +2762,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-097 | Verify that user is able to view the change history against the company by clicking on it
-    test('TC-COMP-097 | Click company in reviews opens change review drawer @smoke', async () => {
+    // TC-COMP-096 | Verify that user is able to view the change history against the company by clicking on it
+    test('TC-COMP-096 | Click company in reviews opens change review drawer @smoke', async () => {
       await companyModule.gotoChangeReviewHistory();
       await companyModule.assertChangeReviewPageLoaded();
 
@@ -2786,8 +2786,8 @@ test.describe('Company Module E2E Tests', () => {
       await companyModule.closeChangeReviewDrawer();
     });
 
-    // TC-COMP-098 | Verify that user can view every change which is done by other role users (SM and SP)
-    test('TC-COMP-098 | Activity Logs show changes by other role users @regression', async () => {
+    // TC-COMP-097 | Verify that user can view every change which is done by other role users (SM and SP)
+    test('TC-COMP-097 | Activity Logs show changes by other role users @regression', async () => {
       await companyModule.gotoChangeReviewHistory();
       await companyModule.assertChangeReviewPageLoaded();
 
@@ -2813,10 +2813,10 @@ test.describe('Company Module E2E Tests', () => {
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Company Details Page — TC-COMP-099 through TC-COMP-120
+  // Company Details Page — TC-COMP-098 through TC-COMP-119
   // ═══════════════════════════════════════════════════════════════════════════
 
-  test.describe('Company Details Page — TC-COMP-099 through TC-COMP-120', () => {
+  test.describe('Company Details Page — TC-COMP-098 through TC-COMP-119', () => {
     let openedCompanyName;
 
     test.beforeEach(async () => {
@@ -2824,8 +2824,8 @@ test.describe('Company Module E2E Tests', () => {
       await companyModule.assertCompanyDetailOpened(openedCompanyName);
     });
 
-    // TC-COMP-099 | Verify that Company Details page loads successfully for a selected company
-    test('TC-COMP-099 | Company Details page loads successfully @smoke', async () => {
+    // TC-COMP-098 | Verify that Company Details page loads successfully for a selected company
+    test('TC-COMP-098 | Company Details page loads successfully @smoke', async () => {
       await test.step('Verify URL and heading', async () => {
         await expect(sharedPage).toHaveURL(COMPANY_DETAIL_URL_PATTERN);
         const heading = sharedPage.getByRole('heading', { level: 3 }).first()
@@ -2834,8 +2834,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-100 | Verify that company header displays company name and phone number correctly
-    test('TC-COMP-100 | Company header displays name and phone @smoke', async () => {
+    // TC-COMP-099 | Verify that company header displays company name and phone number correctly
+    test('TC-COMP-099 | Company header displays name and phone @smoke', async () => {
       await test.step('Verify company name heading is visible', async () => {
         const heading = sharedPage.getByRole('heading', { level: 3 }).first()
           .or(sharedPage.getByRole('heading', { level: 2 }).first());
@@ -2854,8 +2854,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-101 | Verify that Edit button is visible and clickable for authorized users
-    test('TC-COMP-101 | Edit button visible and clickable for HO @smoke', async () => {
+    // TC-COMP-100 | Verify that Edit button is visible and clickable for authorized users
+    test('TC-COMP-100 | Edit button visible and clickable for HO @smoke', async () => {
       await test.step('Verify Edit button is visible', async () => {
         await expect(companyModule.editCompanyButton).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
       });
@@ -2865,8 +2865,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-102 | Verify that Market Vertical, Created Date, and Company Owner are displayed correctly
-    test('TC-COMP-102 | Market Vertical, Created Date, and Company Owner displayed @smoke', async () => {
+    // TC-COMP-101 | Verify that Market Vertical, Created Date, and Company Owner are displayed correctly
+    test('TC-COMP-101 | Market Vertical, Created Date, and Company Owner displayed @smoke', async () => {
       await test.step('Verify key details are visible on detail page', async () => {
         // These labels appear in the company detail header or about section
         const marketVerticalLabel = sharedPage.getByText(/Market Vertical/i).first();
@@ -2878,8 +2878,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-103 | Verify that About this Company section expands and collapses properly
-    test('TC-COMP-103 | About this Company section expands and collapses @regression', async () => {
+    // TC-COMP-102 | Verify that About this Company section expands and collapses properly
+    test('TC-COMP-102 | About this Company section expands and collapses @regression', async () => {
       await test.step('Expand About this Company', async () => {
         await companyModule.openAboutCompanySection();
         // Verify some field labels appear when expanded
@@ -2895,8 +2895,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-104 | Verify that all company details fields display correct values when expanded
-    test('TC-COMP-104 | Company details fields display values when expanded @regression', async () => {
+    // TC-COMP-103 | Verify that all company details fields display correct values when expanded
+    test('TC-COMP-103 | Company details fields display values when expanded @regression', async () => {
       await test.step('Expand and verify fields are visible', async () => {
         await companyModule.openAboutCompanySection();
         // Check that common fields are present
@@ -2908,15 +2908,15 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-105 | Verify that Properties, Deals, Contacts, and Attachments counts are displayed correctly
-    test('TC-COMP-105 | Properties, Deals, Contacts, Attachments counts displayed @smoke', async () => {
+    // TC-COMP-104 | Verify that Properties, Deals, Contacts, and Attachments counts are displayed correctly
+    test('TC-COMP-104 | Properties, Deals, Contacts, Attachments counts displayed @smoke', async () => {
       await test.step('Verify all section buttons are visible with counts', async () => {
         await companyModule.assertCompanyDetailSectionsVisible();
       });
     });
 
-    // TC-COMP-106 | Verify that clicking Properties expands the list without page reload
-    test('TC-COMP-106 | Properties section expands without page reload @regression', async () => {
+    // TC-COMP-105 | Verify that clicking Properties expands the list without page reload
+    test('TC-COMP-105 | Properties section expands without page reload @regression', async () => {
       const urlBefore = sharedPage.url();
 
       await test.step('Click Properties section', async () => {
@@ -2928,8 +2928,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-107 | Verify that clicking Deals expands the list without page reload
-    test('TC-COMP-107 | Deals section expands without page reload @regression', async () => {
+    // TC-COMP-106 | Verify that clicking Deals expands the list without page reload
+    test('TC-COMP-106 | Deals section expands without page reload @regression', async () => {
       const urlBefore = sharedPage.url();
 
       await test.step('Click Deals section', async () => {
@@ -2941,8 +2941,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-108 | Verify that clicking Contacts expands and shows contact details correctly
-    test('TC-COMP-108 | Contacts section expands and shows details @regression', async () => {
+    // TC-COMP-107 | Verify that clicking Contacts expands and shows contact details correctly
+    test('TC-COMP-107 | Contacts section expands and shows details @regression', async () => {
       const urlBefore = sharedPage.url();
 
       await test.step('Click Contacts section', async () => {
@@ -2954,8 +2954,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-109 | Verify that Activities tab displays activity timeline grouped by month
-    test('TC-COMP-109 | Activities tab displays activity timeline @smoke', async () => {
+    // TC-COMP-108 | Verify that Activities tab displays activity timeline grouped by month
+    test('TC-COMP-108 | Activities tab displays activity timeline @smoke', async () => {
       await test.step('Switch to Activities tab', async () => {
         await companyModule.gotoActivitiesTab();
       });
@@ -2967,8 +2967,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-110 | Verify that system-generated activities are displayed with correct labels and timestamps
-    test('TC-COMP-110 | System activities have labels and timestamps @regression', async () => {
+    // TC-COMP-109 | Verify that system-generated activities are displayed with correct labels and timestamps
+    test('TC-COMP-109 | System activities have labels and timestamps @regression', async () => {
       await test.step('Switch to Activities tab and verify entries', async () => {
         await companyModule.gotoActivitiesTab();
         const tabPanel = sharedPage.locator('[role="tabpanel"]').first();
@@ -2978,8 +2978,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-111 | Verify that Company Details page shows an error or fallback state if company data fails to load
-    test('TC-COMP-111 | Graceful fallback on data load failure @regression', async () => {
+    // TC-COMP-110 | Verify that Company Details page shows an error or fallback state if company data fails to load
+    test('TC-COMP-110 | Graceful fallback on data load failure @regression', async () => {
       await test.step('Intercept API and navigate to a company detail', async () => {
         await sharedPage.route('**/api/v1/**/companies/**', (route) => {
           route.fulfill({ status: 500, body: 'Internal Server Error' });
@@ -2999,8 +2999,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-112 | Verify that page does not break when company phone number is missing (shows N/A)
-    test('TC-COMP-112 | Missing phone number shows N/A gracefully @regression', async () => {
+    // TC-COMP-111 | Verify that page does not break when company phone number is missing (shows N/A)
+    test('TC-COMP-111 | Missing phone number shows N/A gracefully @regression', async () => {
       await test.step('Verify phone area does not break the page', async () => {
         // The heading should still be visible regardless of phone presence
         const heading = sharedPage.getByRole('heading', { level: 3 }).first()
@@ -3011,8 +3011,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-113 | Verify that unauthorized users cannot see or access the Edit button
-    test('TC-COMP-113 | Edit button access control for SM role @regression', async () => {
+    // TC-COMP-112 | Verify that unauthorized users cannot see or access the Edit button
+    test('TC-COMP-112 | Edit button access control for SM role @regression', async () => {
       let smPage;
       let smContext;
 
@@ -3043,8 +3043,8 @@ test.describe('Company Module E2E Tests', () => {
       await smContext.close();
     });
 
-    // TC-COMP-114 | Verify that About this Company section handles missing field values gracefully
-    test('TC-COMP-114 | About section handles missing fields gracefully @regression', async () => {
+    // TC-COMP-113 | Verify that About this Company section handles missing field values gracefully
+    test('TC-COMP-113 | About section handles missing fields gracefully @regression', async () => {
       await test.step('Expand About section and verify no crash', async () => {
         await companyModule.openAboutCompanySection();
         // Some fields may show N/A — the section should not crash
@@ -3053,8 +3053,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-115 | Verify that expanding Properties, Deals, or Contacts does not cause UI overlap or layout issues
-    test('TC-COMP-115 | Expanding sections does not cause UI overlap @regression', async () => {
+    // TC-COMP-114 | Verify that expanding Properties, Deals, or Contacts does not cause UI overlap or layout issues
+    test('TC-COMP-114 | Expanding sections does not cause UI overlap @regression', async () => {
       await test.step('Expand Properties and verify no overlap', async () => {
         await companyModule.expandRelationshipSection(companyModule.propertiesSection);
         await expect(companyModule.propertiesSection).toBeVisible();
@@ -3067,8 +3067,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-116 | Verify that Activities tab handles empty activity list without errors
-    test('TC-COMP-116 | Activities tab handles empty list gracefully @regression', async () => {
+    // TC-COMP-115 | Verify that Activities tab handles empty activity list without errors
+    test('TC-COMP-115 | Activities tab handles empty list gracefully @regression', async () => {
       await test.step('Switch to Activities tab', async () => {
         await companyModule.gotoActivitiesTab();
         const tabPanel = sharedPage.locator('[role="tabpanel"]').first();
@@ -3077,8 +3077,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-117 | Verify that side panels and modals close properly on Cancel or close icon
-    test('TC-COMP-117 | Panels close on Cancel or close icon @regression', async () => {
+    // TC-COMP-116 | Verify that side panels and modals close properly on Cancel or close icon
+    test('TC-COMP-116 | Panels close on Cancel or close icon @regression', async () => {
       await test.step('Open Edit form and cancel', async () => {
         await companyModule.openEditCompanyForm();
         await companyModule.assertEditCompanyFormOpen();
@@ -3087,8 +3087,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-118 | Verify that background page is not scrollable when modal is open
-    test('TC-COMP-118 | Background not scrollable when modal open @regression', async () => {
+    // TC-COMP-117 | Verify that background page is not scrollable when modal is open
+    test('TC-COMP-117 | Background not scrollable when modal open @regression', async () => {
       await test.step('Open Edit form and check body scroll', async () => {
         await companyModule.openEditCompanyForm();
         /* eslint-disable no-undef */
@@ -3101,8 +3101,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-119 | Verify that rapid switching between Activities, Notes, and Tasks does not break UI
-    test('TC-COMP-119 | Rapid tab switching does not break UI @regression', async () => {
+    // TC-COMP-118 | Verify that rapid switching between Activities, Notes, and Tasks does not break UI
+    test('TC-COMP-118 | Rapid tab switching does not break UI @regression', async () => {
       await test.step('Switch tabs rapidly 5 times', async () => {
         for (let i = 0; i < 5; i++) {
           await companyModule.activitiesTab.click().catch(() => { });
@@ -3123,8 +3123,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-120 | Verify that page retains state correctly after refresh (if expected behavior)
-    test('TC-COMP-120 | Page retains state after refresh @regression', async () => {
+    // TC-COMP-119 | Verify that page retains state correctly after refresh (if expected behavior)
+    test('TC-COMP-119 | Page retains state after refresh @regression', async () => {
       await test.step('Reload and verify page loads', async () => {
         const urlBefore = sharedPage.url();
         await sharedPage.reload({ waitUntil: 'domcontentloaded' });
@@ -3139,10 +3139,10 @@ test.describe('Company Module E2E Tests', () => {
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Notes Management — TC-COMP-121 through TC-COMP-132
+  // Notes Management — TC-COMP-120 through TC-COMP-131
   // ═══════════════════════════════════════════════════════════════════════════
 
-  test.describe('Notes Management — TC-COMP-121 through TC-COMP-132', () => {
+  test.describe('Notes Management — TC-COMP-120 through TC-COMP-131', () => {
     const testNoteSubject = `PAT Note ${Date.now()}`;
     const testNoteDescription = 'Automated test note description for E2E validation.';
     let pinnedCompanyUrl;
@@ -3161,8 +3161,8 @@ test.describe('Company Module E2E Tests', () => {
       await companyModule.gotoNotesTab();
     });
 
-    // TC-COMP-121 | Verify that Notes tab opens and displays existing notes correctly
-    test('TC-COMP-121 | Notes tab opens and displays notes @smoke', async () => {
+    // TC-COMP-120 | Verify that Notes tab opens and displays existing notes correctly
+    test('TC-COMP-120 | Notes tab opens and displays notes @smoke', async () => {
       await test.step('Verify Notes tab is active', async () => {
         await companyModule.assertNotesTabVisible();
       });
@@ -3172,8 +3172,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-122 | Verify that Create New Note button opens Add Notes modal
-    test('TC-COMP-122 | Create New Note opens Add Notes drawer @smoke', async () => {
+    // TC-COMP-121 | Verify that Create New Note button opens Add Notes modal
+    test('TC-COMP-121 | Create New Note opens Add Notes drawer @smoke', async () => {
       await test.step('Open Create Note drawer', async () => {
         await companyModule.openCreateNoteDrawer();
         await companyModule.assertCreateNoteDrawerOpen();
@@ -3185,22 +3185,22 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-123 | Verify that user can create a note with valid subject and description
-    test('TC-COMP-123 | Create note with valid subject and description @smoke', async () => {
+    // TC-COMP-122 | Verify that user can create a note with valid subject and description
+    test('TC-COMP-122 | Create note with valid subject and description @smoke', async () => {
       await test.step('Create a note', async () => {
         await companyModule.createNote({ subject: testNoteSubject, description: testNoteDescription });
       });
     });
 
-    // TC-COMP-124 | Verify that newly created note appears in Notes timeline immediately
-    test('TC-COMP-124 | Newly created note appears in timeline @smoke', async () => {
+    // TC-COMP-123 | Verify that newly created note appears in Notes timeline immediately
+    test('TC-COMP-123 | Newly created note appears in timeline @smoke', async () => {
       await test.step('Verify note is visible', async () => {
         await companyModule.assertNoteVisible(testNoteSubject);
       });
     });
 
-    // TC-COMP-125 | Verify that Edit option allows updating an existing note successfully
-    test('TC-COMP-125 | Edit note updates successfully @regression', async () => {
+    // TC-COMP-124 | Verify that Edit option allows updating an existing note successfully
+    test('TC-COMP-124 | Edit note updates successfully @regression', async () => {
       await test.step('Open note options and find edit', async () => {
         await companyModule.openNoteOptionsMenu(testNoteSubject);
         const editOption = sharedPage.getByRole('menuitem', { name: /Edit/i })
@@ -3212,8 +3212,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-126 | Verify that Delete option opens confirmation modal for note deletion
-    test('TC-COMP-126 | Delete option opens confirmation modal @regression', async () => {
+    // TC-COMP-125 | Verify that Delete option opens confirmation modal for note deletion
+    test('TC-COMP-125 | Delete option opens confirmation modal @regression', async () => {
       await test.step('Click Delete button on note card', async () => {
         // Delete button is directly on the note card — no options menu
         const noteCard = companyModule.getNoteCard(testNoteSubject);
@@ -3230,8 +3230,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-127 | Verify that note is deleted successfully after confirmation
-    test('TC-COMP-127 | Note deleted after confirmation @regression', async () => {
+    // TC-COMP-126 | Verify that note is deleted successfully after confirmation
+    test('TC-COMP-126 | Note deleted after confirmation @regression', async () => {
       // Create a note specifically for deletion
       const deleteNoteSubject = `PAT Delete ${Date.now()}`;
       await companyModule.createNote({ subject: deleteNoteSubject, description: 'To be deleted' });
@@ -3246,8 +3246,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-128 | Verify that Notes tab shows empty state when no notes exist
-    test('TC-COMP-128 | Notes tab empty state @regression', async () => {
+    // TC-COMP-127 | Verify that Notes tab shows empty state when no notes exist
+    test('TC-COMP-127 | Notes tab empty state @regression', async () => {
       // This test documents behavior — the current company likely has notes
       await test.step('Verify Notes tab is functional', async () => {
         await companyModule.gotoNotesTab();
@@ -3256,8 +3256,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-129 | Verify that user should not able to create a note by clicking on Save button when required note fields are empty
-    test('TC-COMP-129 | Save disabled when note fields empty @regression', async () => {
+    // TC-COMP-128 | Verify that user should not able to create a note by clicking on Save button when required note fields are empty
+    test('TC-COMP-128 | Save disabled when note fields empty @regression', async () => {
       await test.step('Open Create Note drawer without filling fields', async () => {
         await companyModule.openCreateNoteDrawer();
         await companyModule.assertCreateNoteDrawerOpen();
@@ -3275,8 +3275,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-130 | Verify that note creation is prevented with empty subject or description
-    test('TC-COMP-130 | Note creation prevented with empty subject @regression', async () => {
+    // TC-COMP-129 | Verify that note creation is prevented with empty subject or description
+    test('TC-COMP-129 | Note creation prevented with empty subject @regression', async () => {
       await test.step('Open Create Note and fill only description', async () => {
         await companyModule.openCreateNoteDrawer();
         await companyModule.noteDescEditor.click();
@@ -3293,8 +3293,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-131 | Verify that user cannot save note exceeding maximum character limit
-    test('TC-COMP-131 | Note character limit enforced @regression', async () => {
+    // TC-COMP-130 | Verify that user cannot save note exceeding maximum character limit
+    test('TC-COMP-130 | Note character limit enforced @regression', async () => {
       await test.step('Open Create Note and verify char counter', async () => {
         await companyModule.openCreateNoteDrawer();
         await companyModule.assertCreateNoteDrawerOpen();
@@ -3306,8 +3306,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-132 | Verify that deleting a note without confirmation does not remove it
-    test('TC-COMP-132 | Note not deleted without confirmation @regression', async () => {
+    // TC-COMP-131 | Verify that deleting a note without confirmation does not remove it
+    test('TC-COMP-131 | Note not deleted without confirmation @regression', async () => {
       const cancelDeleteSubject = `PAT Cancel Delete ${Date.now()}`;
 
       await test.step('Create a note and open delete confirmation', async () => {
@@ -3332,10 +3332,10 @@ test.describe('Company Module E2E Tests', () => {
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Tasks Management — TC-COMP-133 through TC-COMP-149
+  // Tasks Management — TC-COMP-132 through TC-COMP-148
   // ═══════════════════════════════════════════════════════════════════════════
 
-  test.describe('Tasks Management — TC-COMP-133 through TC-COMP-149', () => {
+  test.describe('Tasks Management — TC-COMP-132 through TC-COMP-148', () => {
     const testTaskTitle = `PAT Task ${Date.now()}`;
     const testTaskDesc = 'Automated test task for E2E validation.';
     let pinnedCompanyUrl;
@@ -3351,16 +3351,16 @@ test.describe('Company Module E2E Tests', () => {
       await companyModule.gotoTasksTab();
     });
 
-    // TC-COMP-133 | Verify that Tasks tab opens and displays empty state when no tasks exist
-    test('TC-COMP-133 | Tasks tab opens @smoke', async () => {
+    // TC-COMP-132 | Verify that Tasks tab opens and displays empty state when no tasks exist
+    test('TC-COMP-132 | Tasks tab opens @smoke', async () => {
       await test.step('Verify Tasks tab is active and New Task button visible', async () => {
         await companyModule.assertTasksTabVisible();
         await companyModule.assertNewTaskButtonVisible();
       });
     });
 
-    // TC-COMP-134 | Verify that New Task button opens Create New Task panel
-    test('TC-COMP-134 | New Task button opens Create Task drawer @smoke', async () => {
+    // TC-COMP-133 | Verify that New Task button opens Create New Task panel
+    test('TC-COMP-133 | New Task button opens Create Task drawer @smoke', async () => {
       await test.step('Open Create Task drawer', async () => {
         await companyModule.openCreateTaskDrawer();
         await companyModule.assertCreateTaskDrawerOpen();
@@ -3372,22 +3372,22 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-135 | Verify that user can create a task with valid title, description, type, priority, and due date
-    test('TC-COMP-135 | Create task with valid data @smoke', async () => {
+    // TC-COMP-134 | Verify that user can create a task with valid title, description, type, priority, and due date
+    test('TC-COMP-134 | Create task with valid data @smoke', async () => {
       await test.step('Create a task', async () => {
         await companyModule.createTask({ title: testTaskTitle, description: testTaskDesc });
       });
     });
 
-    // TC-COMP-136 | Verify that newly created task appears in the task list with correct details
-    test('TC-COMP-136 | Newly created task appears in list @smoke', async () => {
+    // TC-COMP-135 | Verify that newly created task appears in the task list with correct details
+    test('TC-COMP-135 | Newly created task appears in list @smoke', async () => {
       await test.step('Verify task is visible', async () => {
         await companyModule.assertTaskVisible(testTaskTitle);
       });
     });
 
-    // TC-COMP-137 | Verify that task details panel opens when clicking on a task
-    test('TC-COMP-137 | Task details panel opens on click @regression', async () => {
+    // TC-COMP-136 | Verify that task details panel opens when clicking on a task
+    test('TC-COMP-136 | Task details panel opens on click @regression', async () => {
       await test.step('Click on the task', async () => {
         await companyModule.openTaskDetail(testTaskTitle);
         // A detail panel or expanded view should appear
@@ -3396,8 +3396,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-138 | Verify that Edit option allows updating task details successfully
-    test('TC-COMP-138 | Edit task details @regression', async () => {
+    // TC-COMP-137 | Verify that Edit option allows updating task details successfully
+    test('TC-COMP-137 | Edit task details @regression', async () => {
       await test.step('Verify task editing capability exists', async () => {
         // Navigate to tasks tab to ensure clean state
         await companyModule.gotoTasksTab();
@@ -3406,8 +3406,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-139 | Verify that Delete option removes the task after confirmation
-    test('TC-COMP-139 | Delete task after confirmation @regression', async () => {
+    // TC-COMP-138 | Verify that Delete option removes the task after confirmation
+    test('TC-COMP-138 | Delete task after confirmation @regression', async () => {
       // Create a task specifically for deletion
       const deleteTaskTitle = `PAT DeleteTask ${Date.now()}`;
       await companyModule.createTask({ title: deleteTaskTitle, description: 'To be deleted' });
@@ -3427,8 +3427,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-140 | Verify that task status, priority, and type badges display correctly
-    test('TC-COMP-140 | Task badges display correctly @regression', async () => {
+    // TC-COMP-139 | Verify that task status, priority, and type badges display correctly
+    test('TC-COMP-139 | Task badges display correctly @regression', async () => {
       await test.step('Verify task row has badge columns', async () => {
         await companyModule.gotoTasksTab();
         // The task table should have columns for Priority and Type
@@ -3440,8 +3440,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-141 | Verify that pagination and rows-per-page controls work correctly in Tasks tab
-    test('TC-COMP-141 | Tasks pagination works @regression', async () => {
+    // TC-COMP-140 | Verify that pagination and rows-per-page controls work correctly in Tasks tab
+    test('TC-COMP-140 | Tasks pagination works @regression', async () => {
       await test.step('Verify tasks table has pagination', async () => {
         await companyModule.gotoTasksTab();
         // Pagination may or may not be present depending on task count
@@ -3450,8 +3450,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-142 | Verify that Tasks tab shows proper empty state message when no tasks exist
-    test('TC-COMP-142 | Tasks empty state message @regression', async () => {
+    // TC-COMP-141 | Verify that Tasks tab shows proper empty state message when no tasks exist
+    test('TC-COMP-141 | Tasks empty state message @regression', async () => {
       // Document: this test verifies the empty state message if no tasks exist
       await test.step('Verify empty state or task list is shown', async () => {
         await companyModule.gotoTasksTab();
@@ -3465,8 +3465,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-143 | Verify that user should not able to create a task by clicking on Save button when required task fields are missing
-    test('TC-COMP-143 | Save disabled when task fields missing @regression', async () => {
+    // TC-COMP-142 | Verify that user should not able to create a task by clicking on Save button when required task fields are missing
+    test('TC-COMP-142 | Save disabled when task fields missing @regression', async () => {
       await test.step('Open Create Task drawer without filling fields', async () => {
         await companyModule.openCreateTaskDrawer();
         await companyModule.assertCreateTaskDrawerOpen();
@@ -3482,8 +3482,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-144 | Verify that task creation is prevented without selecting type, priority, or due date
-    test('TC-COMP-144 | Task creation requires type, priority, due date @regression', async () => {
+    // TC-COMP-143 | Verify that task creation is prevented without selecting type, priority, or due date
+    test('TC-COMP-143 | Task creation requires type, priority, due date @regression', async () => {
       await test.step('Open Create Task and fill only title', async () => {
         await companyModule.openCreateTaskDrawer();
         await companyModule.taskTitleInput.fill('Incomplete Task');
@@ -3499,8 +3499,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-145 | Verify that invalid due date (past date, if restricted) is not accepted
-    test('TC-COMP-145 | Invalid due date handling @regression', async () => {
+    // TC-COMP-144 | Verify that invalid due date (past date, if restricted) is not accepted
+    test('TC-COMP-144 | Invalid due date handling @regression', async () => {
       await test.step('Open Create Task and enter past date', async () => {
         await companyModule.openCreateTaskDrawer();
         await companyModule.taskTitleInput.fill('PAT Past Date Test');
@@ -3517,8 +3517,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-146 | Verify that task edit does not allow clearing mandatory fields
-    test('TC-COMP-146 | Task edit requires mandatory fields @regression', async () => {
+    // TC-COMP-145 | Verify that task edit does not allow clearing mandatory fields
+    test('TC-COMP-145 | Task edit requires mandatory fields @regression', async () => {
       await test.step('Document mandatory field behavior', async () => {
         // This test documents that clearing mandatory fields should prevent save
         await companyModule.gotoTasksTab();
@@ -3526,17 +3526,17 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-147 | Verify that deleting a task requires confirmation before removal
-    test('TC-COMP-147 | Task deletion requires confirmation @regression', async () => {
+    // TC-COMP-146 | Verify that deleting a task requires confirmation before removal
+    test('TC-COMP-146 | Task deletion requires confirmation @regression', async () => {
       await test.step('Verify task list is functional', async () => {
         await companyModule.gotoTasksTab();
-        // The delete flow should show a confirmation dialog (tested in TC-COMP-139)
+        // The delete flow should show a confirmation dialog (tested in TC-COMP-138)
         await companyModule.assertTasksTabVisible();
       });
     });
 
-    // TC-COMP-148 | Verify that task list does not duplicate entries on rapid create/delete actions
-    test('TC-COMP-148 | No duplicate entries on rapid actions @regression', async () => {
+    // TC-COMP-147 | Verify that task list does not duplicate entries on rapid create/delete actions
+    test('TC-COMP-147 | No duplicate entries on rapid actions @regression', async () => {
       await test.step('Verify no duplicate task entries', async () => {
         await companyModule.gotoTasksTab();
         // Count occurrences of the test task title
@@ -3546,8 +3546,8 @@ test.describe('Company Module E2E Tests', () => {
       });
     });
 
-    // TC-COMP-149 | Verify that in company tasks tab all the filters should be working as expected
-    test('TC-COMP-149 | Tasks tab filters work @regression', async () => {
+    // TC-COMP-148 | Verify that in company tasks tab all the filters should be working as expected
+    test('TC-COMP-148 | Tasks tab filters work @regression', async () => {
       await test.step('Verify tasks tab filter controls', async () => {
         await companyModule.gotoTasksTab();
         // Check if search box exists in tasks tab

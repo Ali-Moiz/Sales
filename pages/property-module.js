@@ -4390,6 +4390,43 @@ class PropertyModule {
   }
 
   /**
+   * Returns the guest chip container inside an expanded meeting activity card
+   * identified by the meeting title.
+   * MCP-verified 2026-05-14: guest chips live inside .jss977 under the card
+   * content container.  Each chip is a MuiChip-filled / MuiChip-colorSuccess
+   * element; its label text is the guest email address.
+   */
+  meetingActivityGuestChips(title) {
+    return this.activityCardContentByTitle(title).locator(
+      ".MuiChip-root.MuiChip-filled.MuiChip-colorSuccess .MuiChip-label",
+    );
+  }
+
+  /**
+   * Returns the field-value span(s) for a specific labelled field inside an
+   * expanded meeting activity card.
+   *
+   * The expanded card renders a row for each field:
+   *   <span class="jss974">companies.meetingLink</span>
+   *   <span>commonText.nA</span>          ← when field is empty
+   *   <span>https://zoom.us/j/123</span>  ← when field has a value
+   *
+   * @param {string} title  - The meeting title to scope the lookup
+   * @param {string} fieldKey - i18n key label, e.g. "companies.meetingLink",
+   *                            "companies.meetingDescription", "companies.guests"
+   * @returns {Locator} the sibling value span/element next to the label
+   */
+  meetingActivityFieldValue(title, fieldKey) {
+    // Each field row is a div.jss970 or div.jss979 containing a label span (.jss974)
+    // and a sibling value span.  We locate the label span by exact text, then
+    // walk to its parent and grab the second span (the value).
+    const card = this.activityCardContentByTitle(title);
+    const labelSpan = card.locator("span").filter({ hasText: new RegExp(`^${fieldKey}$`) });
+    // The value span is a direct sibling of the label span inside the same row div
+    return labelSpan.locator("xpath=following-sibling::*[1]");
+  }
+
+  /**
    * Click the Notes tab and wait for its panel to be visible.
    */
   async openNotesTab() {

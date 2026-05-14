@@ -278,7 +278,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-005 | Verify that Company dropdown searches and shows matching results
+     * TC-DEAL-005 | Verify that Company dropdown searches and shows matching results in Create Deal drawer
      *
      * Preconditions: Create Deal drawer is open
      * Steps:
@@ -287,7 +287,7 @@ test.describe('Deal Module', () => {
      * Expected: Tooltip with search input; >=1 paragraph result visible
      * Priority: P0 — Critical
      */
-    test('TC-DEAL-005 | Verify that Company dropdown searches and shows matching results', async () => {
+    test('TC-DEAL-005 | Verify that Company dropdown searches and shows matching results in Create Deal drawer', async () => {
       await dealModule.openCreateDealModal();
       await dealModule.assertCreateDealDrawerOpen();
 
@@ -308,7 +308,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-006 | Verify that Property dropdown searches and shows matching results
+     * TC-DEAL-006 | Verify that Property dropdown searches and shows matching results after selecting a company
      *
      * Preconditions: Create Deal drawer is open
      * Steps:
@@ -318,7 +318,7 @@ test.describe('Deal Module', () => {
      * Expected: Tooltip with search input; >=1 paragraph result visible
      * Priority: P0 — Critical
      */
-    test('TC-DEAL-006 | Verify that Property dropdown searches and shows matching results', async () => {
+    test('TC-DEAL-006 | Verify that Property dropdown searches and shows matching results after selecting a company', async () => {
       await dealModule.openCreateDealModal();
       await dealModule.assertCreateDealDrawerOpen();
       // Select company first — property dropdown requires a company to be selected
@@ -673,7 +673,7 @@ test.describe('Deal Module', () => {
   });
 
   // ══════════════════════════════════════════════════════════════════════
-  //  Describe: Deal Details & Management (TC-DEAL-023 — TC-DEAL-034)
+  //  Describe: Deal Details & Management (TC-DEAL-023 — TC-DEAL-035)
   // ══════════════════════════════════════════════════════════════════════
 
   test.describe('Deal Details & Management', () => {
@@ -1044,16 +1044,74 @@ test.describe('Deal Module', () => {
       });
     });
 
+    /**
+     * TC-DEAL-035 | Verify that permissions restrict unauthorized actions
+     *
+     * Preconditions: Deal from TC-DEAL-003 exists; SM role credentials available
+     * Steps:
+     *   1. Create a second session with SM role credentials
+     *   2. Navigate to Deals page
+     *   3. Attempt to open the deal detail
+     * Expected:
+     *   - SM user either cannot see the deal (access restricted) OR
+     *     cannot perform management actions (Edit/Close buttons absent)
+     * Priority: P2 — Medium
+     */
+    test('TC-DEAL-035 | Verify that permissions restrict unauthorized actions', async ({ browser }) => {
+      const dealName = await ensureCreatedDealExists();
+
+      let smContext;
+      try {
+        smContext = await browser.newContext();
+        const smPage = await smContext.newPage();
+        const smDealModule = new DealModule(smPage);
+
+        await test.step('Login as SM role user', async () => {
+          await performLogin(smPage, {
+            loginCredentials: { email: env.email_sm, password: env.password_sm },
+          });
+        });
+
+        await test.step('Verify SM user cannot perform unauthorized deal actions', async () => {
+          await smDealModule.gotoDealsFromMenu();
+          await smDealModule.assertDealsPageOpened();
+
+          let dealAccessible = true;
+          try {
+            await smDealModule.openDealDetail(dealName);
+            await smDealModule.assertDealDetailOpened(dealName);
+          } catch {
+            // SM user cannot see this deal — permission restriction confirmed
+            dealAccessible = false;
+          }
+
+          if (dealAccessible) {
+            // If deal is accessible, verify management action buttons are absent
+            const editVisible = await smDealModule.editDealButton
+              .isVisible({ timeout: TIMEOUTS.BASE * 5 })
+              .catch(() => false);
+            const closeVisible = await smDealModule.closeBtn
+              .isVisible({ timeout: TIMEOUTS.BASE * 5 })
+              .catch(() => false);
+            // At least one management action must be restricted for SM role
+            expect(editVisible && closeVisible).toBe(false);
+          }
+        });
+      } finally {
+        if (smContext) await smContext.close();
+      }
+    });
+
   });
 
   // ══════════════════════════════════════════════════════════════════════
-  //  Describe: Activities & Logs (TC-DEAL-037 — TC-DEAL-050)
+  //  Describe: Activities & Logs (TC-DEAL-036 — TC-DEAL-046)
   // ══════════════════════════════════════════════════════════════════════
 
   test.describe('Activities & Logs', () => {
 
     /**
-     * TC-DEAL-037 | Verify that activities logs load for different record types
+     * TC-DEAL-036 | Verify that activities logs load for different record types
      *
      * Preconditions: Deal has at least one note and one task created (from prior tests)
      * Steps:
@@ -1065,7 +1123,7 @@ test.describe('Deal Module', () => {
      *   - At least one activity log entry with "by <username>" is visible
      * Priority: P1 — High
      */
-    test('TC-DEAL-037 | Verify that activities logs load for different record types', async () => {
+    test('TC-DEAL-036 | Verify that activities logs load for different record types', async () => {
       await ensureCreatedDealExists();
       await dealModule.openDealDetail(createdDealName);
       await dealModule.assertDealDetailOpened(createdDealName);
@@ -1081,7 +1139,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-038 | Verify that note log title uses creator username
+     * TC-DEAL-037 | Verify that note log title uses creator username
      *
      * Preconditions: Deal has at least one note activity log
      * Steps:
@@ -1091,7 +1149,7 @@ test.describe('Deal Module', () => {
      * Expected: At least one activity entry shows the creator username
      * Priority: P2 — Medium
      */
-    test('TC-DEAL-038 | Verify that note log title uses creator username', async () => {
+    test('TC-DEAL-037 | Verify that note log title uses creator username', async () => {
       await ensureCreatedDealExists();
       await dealModule.openDealDetail(createdDealName);
       await dealModule.assertDealDetailOpened(createdDealName);
@@ -1101,11 +1159,11 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-039 | Verify that note HTML formatting: bullets/links
+     * TC-DEAL-038 | Verify that note HTML formatting: bullets/links
      *
      * Priority: P3 — Low
      */
-    test('TC-DEAL-039 | Verify that note HTML formatting: bullets/links', async () => {
+    test('TC-DEAL-038 | Verify that note HTML formatting: bullets/links', async () => {
       await openCreatedDealDetail();
 
       const subject = `PAT HTML Note ${ts()}`;
@@ -1140,7 +1198,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-040 | Verify that note long text truncation + See more/less
+     * TC-DEAL-039 | Verify that note long text truncation + See more/less
      *
      * Preconditions: Deal has an activity with long description
      * Steps:
@@ -1149,7 +1207,7 @@ test.describe('Deal Module', () => {
      * Expected: At least one "See more/less" toggle is present
      * Priority: P2 — Medium
      */
-    test('TC-DEAL-040 | Verify that note long text truncation + See more/less', async () => {
+    test('TC-DEAL-039 | Verify that note long text truncation + See more/less', async () => {
       await openCreatedDealDetail();
 
       const subject = `PAT Long Note ${ts()}`;
@@ -1170,11 +1228,11 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-041 | Verify that note update reflects new content + user + timestamp
+     * TC-DEAL-040 | Verify that note update reflects new content + user + timestamp
      *
      * Priority: P2 — Medium
      */
-    test('TC-DEAL-041 | Verify that note update reflects new content + user + timestamp', async () => {
+    test('TC-DEAL-040 | Verify that note update reflects new content + user + timestamp', async () => {
       await openCreatedDealDetail();
 
       const subject = `PAT Update Log Note ${ts()}`;
@@ -1201,7 +1259,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-042 | Verify that task log title uses creator username
+     * TC-DEAL-041 | Verify that task log title uses creator username
      *
      * Preconditions: Deal has at least one task activity log
      * Steps:
@@ -1210,7 +1268,7 @@ test.describe('Deal Module', () => {
      * Expected: Task activity log shows creator username
      * Priority: P2 — Medium
      */
-    test('TC-DEAL-042 | Verify that task log title uses creator username', async () => {
+    test('TC-DEAL-041 | Verify that task log title uses creator username', async () => {
       await ensureCreatedDealExists();
       await dealModule.openDealDetail(createdDealName);
       await dealModule.assertDealDetailOpened(createdDealName);
@@ -1222,7 +1280,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-043 | Verify that task fields render: title/type/priority/description
+     * TC-DEAL-042 | Verify that task fields render: title/type/priority/description
      *
      * Preconditions: Deal has at least one task activity log
      * Steps:
@@ -1231,7 +1289,7 @@ test.describe('Deal Module', () => {
      * Expected: Task title and description are visible in activity log
      * Priority: P2 — Medium
      */
-    test('TC-DEAL-043 | Verify that task fields render: title/type/priority/description', async () => {
+    test('TC-DEAL-042 | Verify that task fields render: title/type/priority/description', async () => {
       await ensureCreatedDealExists();
       await dealModule.openDealDetail(createdDealName);
       await dealModule.assertDealDetailOpened(createdDealName);
@@ -1248,7 +1306,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-046 | Verify that task long description truncation + toggle
+     * TC-DEAL-043 | Verify that task long description truncation + toggle
      *
      * Preconditions: Deal has a task with a long description
      * Steps:
@@ -1257,7 +1315,7 @@ test.describe('Deal Module', () => {
      * Expected: Toggle exists for truncated task descriptions
      * Priority: P2 — Medium
      */
-    test('TC-DEAL-046 | Verify that task long description truncation + toggle', async () => {
+    test('TC-DEAL-043 | Verify that task long description truncation + toggle', async () => {
       await openCreatedDealDetail();
 
       const title = `PAT Long ${ts()} Task`;
@@ -1278,11 +1336,11 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-047 | Verify that task update reflects new content + updater + timestamp
+     * TC-DEAL-044 | Verify that task update reflects new content + updater + timestamp
      *
      * Priority: P2 — Medium
      */
-    test('TC-DEAL-047 | Verify that task update reflects new content + updater + timestamp', async () => {
+    test('TC-DEAL-044 | Verify that task update reflects new content + updater + timestamp', async () => {
       await openCreatedDealDetail();
 
       const title = `PAT Update ${ts()} Log Task`;
@@ -1314,7 +1372,7 @@ test.describe('Deal Module', () => {
 
 
     /**
-     * TC-DEAL-050 | Verify that Activities tab loads with at least one dated entry
+     * TC-DEAL-046 | Verify that Activities tab loads with at least one dated entry
      *
      * Preconditions: User is on deal detail page
      * Steps: Click Activities tab
@@ -1322,7 +1380,7 @@ test.describe('Deal Module', () => {
      *           At least one date-grouped section (e.g. "March, 2026") visible
      * Priority: P1 — High
      */
-    test('TC-DEAL-050 | Verify that Activities tab loads with at least one dated entry', async () => {
+    test('TC-DEAL-046 | Verify that Activities tab loads with at least one dated entry', async () => {
       await ensureCreatedDealExists();
       await dealModule.openDealDetail(createdDealName);
       await dealModule.assertDealDetailOpened(createdDealName);
@@ -1335,13 +1393,13 @@ test.describe('Deal Module', () => {
   });
 
   // ══════════════════════════════════════════════════════════════════════
-  //  Describe: Notes Management (TC-DEAL-051 — TC-DEAL-060)
+  //  Describe: Notes Management (TC-DEAL-047 — TC-DEAL-056)
   // ══════════════════════════════════════════════════════════════════════
 
   test.describe('Notes Management', () => {
 
     /**
-     * TC-DEAL-051 | Verify that Subject field is mandatory while creating a note
+     * TC-DEAL-047 | Verify that Subject field is mandatory while creating a note
      *
      * Preconditions: User is on deal detail page, Notes tab
      * Steps:
@@ -1352,7 +1410,7 @@ test.describe('Deal Module', () => {
      * Expected: Drawer stays open; Subject field remains empty
      * Priority: P0 — Critical
      */
-    test('TC-DEAL-051 | Verify that Subject field is mandatory while creating a note', async () => {
+    test('TC-DEAL-047 | Verify that Subject field is mandatory while creating a note', async () => {
       await openCreatedDealDetail();
 
       await ntPage.clickNotesTab();
@@ -1366,7 +1424,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-052 | Verify that system shows validation error when Subject is empty
+     * TC-DEAL-048 | Verify that system shows validation error when Subject is empty
      *
      * Preconditions: User is on deal detail page, Notes tab
      * Steps:
@@ -1377,7 +1435,7 @@ test.describe('Deal Module', () => {
      * Expected: Drawer stays open; Subject input still has empty value
      * Priority: P0 — Critical
      */
-    test('TC-DEAL-052 | Verify that system shows validation error when Subject is empty', async () => {
+    test('TC-DEAL-048 | Verify that system shows validation error when Subject is empty', async () => {
       await openCreatedDealDetail();
 
       await ntPage.clickNotesTab();
@@ -1392,7 +1450,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-053 | Verify that system shows validation error when Description is empty
+     * TC-DEAL-049 | Verify that system shows validation error when Description is empty
      *
      * Preconditions: User is on deal detail page, Notes tab
      * Steps:
@@ -1403,7 +1461,7 @@ test.describe('Deal Module', () => {
      * Expected: Drawer stays open (if description is mandatory) or note is created
      * Priority: P1 — High
      */
-    test('TC-DEAL-053 | Verify that system shows validation error when Description is empty', async () => {
+    test('TC-DEAL-049 | Verify that system shows validation error when Description is empty', async () => {
       await openCreatedDealDetail();
 
       await ntPage.clickNotesTab();
@@ -1426,7 +1484,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-054 | Verify that note count updates after adding a note
+     * TC-DEAL-050 | Verify that note count updates after adding a note
      *
      * Preconditions: User is on deal detail page, Notes tab
      * Steps:
@@ -1436,7 +1494,7 @@ test.describe('Deal Module', () => {
      * Expected: Created note is visible in the listing
      * Priority: P0 — Critical
      */
-    test('TC-DEAL-054 | Verify that note count updates after adding a note', async () => {
+    test('TC-DEAL-050 | Verify that note count updates after adding a note', async () => {
       await openCreatedDealDetail();
 
       const subject = `PAT Auto Note Deal ${ts()}`;
@@ -1452,7 +1510,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-055 | Verify that edited note shows updated content in listing
+     * TC-DEAL-051 | Verify that edited note shows updated content in listing
      *
      * Preconditions: User is on deal detail page, Notes tab
      * Steps:
@@ -1464,7 +1522,7 @@ test.describe('Deal Module', () => {
      * Expected: Updated note subject appears in the listing
      * Priority: P1 — High
      */
-    test('TC-DEAL-055 | Verify that edited note shows updated content in listing', async () => {
+    test('TC-DEAL-051 | Verify that edited note shows updated content in listing', async () => {
       await openCreatedDealDetail();
 
       const subject = `PAT Edit Note Deal ${ts()}`;
@@ -1480,7 +1538,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-056 | Verify that delete confirmation modal appears before deleting note
+     * TC-DEAL-052 | Verify that delete confirmation modal appears before deleting note
      *
      * Preconditions: User is on deal detail page, Notes tab with at least one note
      * Steps:
@@ -1489,7 +1547,7 @@ test.describe('Deal Module', () => {
      * Expected: "Delete Note!" confirmation dialog is visible
      * Priority: P1 — High
      */
-    test('TC-DEAL-056 | Verify that delete confirmation modal appears before deleting note', async () => {
+    test('TC-DEAL-052 | Verify that delete confirmation modal appears before deleting note', async () => {
       await openCreatedDealDetail();
 
       const subject = `PAT Delete Note Deal ${ts()}`;
@@ -1503,7 +1561,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-057 | Verify that note is not deleted when cancel is clicked on confirmation modal
+     * TC-DEAL-053 | Verify that note is not deleted when cancel is clicked on confirmation modal
      *
      * Preconditions: User is on deal detail page, Notes tab with at least one note
      * Steps:
@@ -1513,7 +1571,7 @@ test.describe('Deal Module', () => {
      * Expected: Note is still visible in the listing
      * Priority: P1 — High
      */
-    test('TC-DEAL-057 | Verify that note is not deleted when cancel is clicked on confirmation modal', async () => {
+    test('TC-DEAL-053 | Verify that note is not deleted when cancel is clicked on confirmation modal', async () => {
       await openCreatedDealDetail();
 
       const subject = `PAT Stay Note Deal ${ts()}`;
@@ -1527,7 +1585,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-058 | Verify that empty state is shown again after deleting last note
+     * TC-DEAL-054 | Verify that empty state is shown again after deleting last note
      *
      * Preconditions: User is on deal detail page, Notes tab with at least one note
      * Steps:
@@ -1537,13 +1595,13 @@ test.describe('Deal Module', () => {
      * Expected: Deleted note is no longer visible in the listing
      * Priority: P1 — High
      */
-    test('TC-DEAL-058 | Verify that empty state is shown again after deleting last note', async () => {
+    test('TC-DEAL-054 | Verify that empty state is shown again after deleting last note', async () => {
       await openCreatedDealDetail();
 
       const subject = `PAT Deletable Note Deal ${ts()}`;
 
       await ntPage.clickNotesTab();
-      await ntPage.createNote({ subject, description: 'Will be deleted in TC-DEAL-058.' });
+      await ntPage.createNote({ subject, description: 'Will be deleted in TC-DEAL-054.' });
       await ntPage.assertNoteVisible(subject);
       await ntPage.clickDeleteNote(subject);
       await ntPage.confirmDeleteNote();
@@ -1552,7 +1610,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-059 | Verify that user cannot save note when required fields are missing
+     * TC-DEAL-055 | Verify that user cannot save note when required fields are missing
      *
      * Preconditions: User is on deal detail page, Notes tab
      * Steps:
@@ -1563,7 +1621,7 @@ test.describe('Deal Module', () => {
      * Expected: Drawer stays open; Subject field still empty — save was prevented
      * Priority: P0 — Critical
      */
-    test('TC-DEAL-059 | Verify that user cannot save note when required fields are missing', async () => {
+    test('TC-DEAL-055 | Verify that user cannot save note when required fields are missing', async () => {
       await openCreatedDealDetail();
 
       await ntPage.clickNotesTab();
@@ -1578,7 +1636,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-060 | Verify that Notes tab is visible and Create New Note drawer opens with correct fields
+     * TC-DEAL-056 | Verify that Notes tab is visible and Create New Note drawer opens with correct fields
      *
      * Preconditions: User is on deal detail page
      * Steps:
@@ -1589,7 +1647,7 @@ test.describe('Deal Module', () => {
      *           Save and Cancel buttons all visible
      * Priority: P0 — Critical
      */
-    test('TC-DEAL-060 | Verify that Notes tab is visible and Create New Note drawer opens with correct fields', async () => {
+    test('TC-DEAL-056 | Verify that Notes tab is visible and Create New Note drawer opens with correct fields', async () => {
       await ensureCreatedDealExists();
       await dealModule.openDealDetail(createdDealName);
       await dealModule.assertDealDetailOpened(createdDealName);
@@ -1605,13 +1663,13 @@ test.describe('Deal Module', () => {
   });
 
   // ══════════════════════════════════════════════════════════════════════
-  //  Describe: Tasks Management (TC-DEAL-061 — TC-DEAL-081)
+  //  Describe: Tasks Management (TC-DEAL-057 — TC-DEAL-077)
   // ══════════════════════════════════════════════════════════════════════
 
   test.describe('Tasks Management', () => {
 
     /**
-     * TC-DEAL-061 | Verify that Task Title field is mandatory while creating a task
+     * TC-DEAL-057 | Verify that Task Title field is mandatory while creating a task
      *
      * Preconditions: User is on deal detail page, Tasks tab
      * Steps:
@@ -1622,7 +1680,7 @@ test.describe('Deal Module', () => {
      * Expected: Drawer stays open; title input remains empty
      * Priority: P0 — Critical
      */
-    test('TC-DEAL-061 | Verify that Task Title field is mandatory while creating a task', async () => {
+    test('TC-DEAL-057 | Verify that Task Title field is mandatory while creating a task', async () => {
       await openCreatedDealDetail();
 
       await ntPage.clickTasksTab();
@@ -1639,7 +1697,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-062 | Verify that Task Description field is mandatory while creating a task
+     * TC-DEAL-058 | Verify that Task Description field is mandatory while creating a task
      *
      * Preconditions: User is on deal detail page, Tasks tab
      * Steps:
@@ -1650,7 +1708,7 @@ test.describe('Deal Module', () => {
      * Expected: Drawer stays open (if description is mandatory) or task is created
      * Priority: P1 — High
      */
-    test('TC-DEAL-062 | Verify that Task Description field is mandatory while creating a task', async () => {
+    test('TC-DEAL-058 | Verify that Task Description field is mandatory while creating a task', async () => {
       await openCreatedDealDetail();
 
       await ntPage.clickTasksTab();
@@ -1672,7 +1730,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-063 | Verify that Type dropdown shows options: To-do, Email, Call, LinkedIn
+     * TC-DEAL-059 | Verify that Type dropdown shows options: To-do, Email, Call, LinkedIn
      *
      * Preconditions: User is on deal detail page, Tasks tab, Create Task drawer open
      * Steps:
@@ -1682,7 +1740,7 @@ test.describe('Deal Module', () => {
      * Expected: All four type options visible in tooltip
      * Priority: P1 — High
      */
-    test('TC-DEAL-063 | Verify that Type dropdown shows options: To-do, Email, Call, LinkedIn', async () => {
+    test('TC-DEAL-059 | Verify that Type dropdown shows options: To-do, Email, Call, LinkedIn', async () => {
       await openCreatedDealDetail();
 
       await ntPage.clickTasksTab();
@@ -1697,7 +1755,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-064 | Verify that Priority dropdown shows options: High, Medium, Low
+     * TC-DEAL-060 | Verify that Priority dropdown shows options: High, Medium, Low
      *
      * Preconditions: User is on deal detail page, Tasks tab, Create Task drawer open
      * Steps:
@@ -1707,7 +1765,7 @@ test.describe('Deal Module', () => {
      * Expected: All three priority options visible in tooltip
      * Priority: P1 — High
      */
-    test('TC-DEAL-064 | Verify that Priority dropdown shows options: High, Medium, Low', async () => {
+    test('TC-DEAL-060 | Verify that Priority dropdown shows options: High, Medium, Low', async () => {
       await openCreatedDealDetail();
 
       await ntPage.clickTasksTab();
@@ -1721,7 +1779,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-065 | Verify that Due Date field is mandatory while creating a task
+     * TC-DEAL-061 | Verify that Due Date field is mandatory while creating a task
      *
      * Preconditions: User is on deal detail page, Tasks tab
      * Steps:
@@ -1732,7 +1790,7 @@ test.describe('Deal Module', () => {
      * Expected: Drawer stays open — due date is a required field
      * Priority: P1 — High
      */
-    test('TC-DEAL-065 | Verify that Due Date field is mandatory while creating a task', async () => {
+    test('TC-DEAL-061 | Verify that Due Date field is mandatory while creating a task', async () => {
       await openCreatedDealDetail();
 
       await ntPage.clickTasksTab();
@@ -1748,7 +1806,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-066 | Verify that system shows validation error when required fields are missing
+     * TC-DEAL-062 | Verify that system shows validation error when required fields are missing
      *
      * Preconditions: User is on deal detail page, Tasks tab
      * Steps:
@@ -1759,7 +1817,7 @@ test.describe('Deal Module', () => {
      * Expected: Drawer stays open; title input remains empty
      * Priority: P0 — Critical
      */
-    test('TC-DEAL-066 | Verify that system shows validation error when required fields are missing', async () => {
+    test('TC-DEAL-062 | Verify that system shows validation error when required fields are missing', async () => {
       await openCreatedDealDetail();
 
       await ntPage.clickTasksTab();
@@ -1775,11 +1833,11 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-067 | Verify that user can filter tasks by Type
+     * TC-DEAL-063 | Verify that user can filter tasks by Type
      *
      * Priority: P2 — Medium
      */
-    test('TC-DEAL-067 | Verify that user can filter tasks by Type', async () => {
+    test('TC-DEAL-063 | Verify that user can filter tasks by Type', async () => {
       await openCreatedDealDetail();
 
       const title = `PAT Type ${ts()} Filter Task`;
@@ -1815,11 +1873,11 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-068 | Verify that user can filter tasks by Priority
+     * TC-DEAL-064 | Verify that user can filter tasks by Priority
      *
      * Priority: P2 — Medium
      */
-    test('TC-DEAL-068 | Verify that user can filter tasks by Priority', async () => {
+    test('TC-DEAL-064 | Verify that user can filter tasks by Priority', async () => {
       await openCreatedDealDetail();
 
       const title = `PAT Priority ${ts()} Filter Task`;
@@ -1854,11 +1912,11 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-069 | Verify that user can filter tasks by Status
+     * TC-DEAL-065 | Verify that user can filter tasks by Status
      *
      * Priority: P2 — Medium
      */
-    test('TC-DEAL-069 | Verify that user can filter tasks by Status', async () => {
+    test('TC-DEAL-065 | Verify that user can filter tasks by Status', async () => {
       await openCreatedDealDetail();
 
       await test.step('Open Tasks tab and verify status filter is visible', async () => {
@@ -1891,11 +1949,11 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-070 | Verify that user can filter tasks by Due Date range
+     * TC-DEAL-066 | Verify that user can filter tasks by Due Date range
      *
      * Priority: P2 — Medium
      */
-    test('TC-DEAL-070 | Verify that user can filter tasks by Due Date range', async () => {
+    test('TC-DEAL-066 | Verify that user can filter tasks by Due Date range', async () => {
       await openCreatedDealDetail();
 
       await test.step('Open Tasks tab and verify date range picker is visible', async () => {
@@ -1932,7 +1990,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-071 | Verify that user can search tasks using Search by Title
+     * TC-DEAL-067 | Verify that user can search tasks using Search by Title
      *
      * Preconditions: User is on deal detail page, Tasks tab
      * Steps:
@@ -1941,7 +1999,7 @@ test.describe('Deal Module', () => {
      * Expected: Task appears in search results
      * Priority: P1 — High
      */
-    test('TC-DEAL-071 | Verify that user can search tasks using Search by Title', async () => {
+    test('TC-DEAL-067 | Verify that user can search tasks using Search by Title', async () => {
       await openCreatedDealDetail();
 
       const title = `PAT Searchable ${ts()} Task Deal`;
@@ -1958,7 +2016,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-072 | Verify that user can edit an existing task
+     * TC-DEAL-068 | Verify that user can edit an existing task
      *
      * Preconditions: User is on deal detail page, Tasks tab with at least one task
      * Steps:
@@ -1970,7 +2028,7 @@ test.describe('Deal Module', () => {
      * Expected: Updated title is visible in the task listing
      * Priority: P1 — High
      */
-    test('TC-DEAL-072 | Verify that user can edit an existing task', async () => {
+    test('TC-DEAL-068 | Verify that user can edit an existing task', async () => {
       await openCreatedDealDetail();
 
       const title = `PAT Update ${ts()} Task Deal`;
@@ -1992,7 +2050,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-073 | Verify that edited task details are updated in listing
+     * TC-DEAL-069 | Verify that edited task details are updated in listing
      *
      * Preconditions: User is on deal detail page, Tasks tab with at least one task
      * Steps:
@@ -2002,7 +2060,7 @@ test.describe('Deal Module', () => {
      * Expected: Updated title is visible; original title is not
      * Priority: P1 — High
      */
-    test('TC-DEAL-073 | Verify that edited task details are updated in listing', async () => {
+    test('TC-DEAL-069 | Verify that edited task details are updated in listing', async () => {
       await openCreatedDealDetail();
 
       const title = `PAT Verify ${ts()} Edit Task Deal`;
@@ -2024,7 +2082,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-074 | Verify that user can delete a task after confirmation
+     * TC-DEAL-070 | Verify that user can delete a task after confirmation
      *
      * Preconditions: User is on deal detail page, Tasks tab with at least one task
      * Steps:
@@ -2035,7 +2093,7 @@ test.describe('Deal Module', () => {
      * Expected: Task is removed from the table
      * Priority: P1 — High
      */
-    test('TC-DEAL-074 | Verify that user can delete a task after confirmation', async () => {
+    test('TC-DEAL-070 | Verify that user can delete a task after confirmation', async () => {
       await openCreatedDealDetail();
 
       const title = `PAT Deletable ${ts()} Task Deal`;
@@ -2043,7 +2101,7 @@ test.describe('Deal Module', () => {
       await ntPage.clickTasksTab();
       await ntPage.createTask({
         title,
-        description: 'Will be permanently deleted in TC-DEAL-074.',
+        description: 'Will be permanently deleted in TC-DEAL-070.',
         type: 'Call',
         priority: 'Low',
       });
@@ -2058,7 +2116,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-075 | Verify that task is not deleted when delete action is cancelled
+     * TC-DEAL-071 | Verify that task is not deleted when delete action is cancelled
      *
      * Preconditions: User is on deal detail page, Tasks tab with at least one task
      * Steps:
@@ -2068,7 +2126,7 @@ test.describe('Deal Module', () => {
      * Expected: Task still exists in the table; dialog is hidden
      * Priority: P1 — High
      */
-    test('TC-DEAL-075 | Verify that task is not deleted when delete action is cancelled', async () => {
+    test('TC-DEAL-071 | Verify that task is not deleted when delete action is cancelled', async () => {
       await openCreatedDealDetail();
 
       const title = `PAT Stay ${ts()} Task Deal`;
@@ -2091,7 +2149,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-076 | Verify that completed task is shown under Completed status filter
+     * TC-DEAL-072 | Verify that completed task is shown under Completed status filter
      *
      * Preconditions: User is on deal detail page, Tasks tab
      * Steps:
@@ -2101,7 +2159,7 @@ test.describe('Deal Module', () => {
      * Expected: Checkbox becomes checked
      * Priority: P1 — High
      */
-    test('TC-DEAL-076 | Verify that completed task is shown under Completed status filter', async () => {
+    test('TC-DEAL-072 | Verify that completed task is shown under Completed status filter', async () => {
       await openCreatedDealDetail();
 
       const title = `PAT Complete ${ts()} Task Deal`;
@@ -2125,7 +2183,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-077 | Verify that unchecking completed checkbox marks task as To-Do again
+     * TC-DEAL-073 | Verify that unchecking completed checkbox marks task as To-Do again
      *
      * Preconditions: User is on deal detail page, Tasks tab
      * Steps:
@@ -2135,7 +2193,7 @@ test.describe('Deal Module', () => {
      * Expected: Checkbox reverts to unchecked
      * Priority: P1 — High
      */
-    test('TC-DEAL-077 | Verify that unchecking completed checkbox marks task as To-Do again', async () => {
+    test('TC-DEAL-073 | Verify that unchecking completed checkbox marks task as To-Do again', async () => {
       await openCreatedDealDetail();
 
       const title = `PAT Complete ${ts()} Toggle Deal`;
@@ -2160,11 +2218,11 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-078 | Verify that pagination works correctly in task listing
+     * TC-DEAL-074 | Verify that pagination works correctly in task listing
      *
      * Priority: P2 — Medium
      */
-    test('TC-DEAL-078 | Verify that pagination works correctly in task listing', async () => {
+    test('TC-DEAL-074 | Verify that pagination works correctly in task listing', async () => {
       await openCreatedDealDetail();
 
       await test.step('Open Tasks tab and check pagination', async () => {
@@ -2198,11 +2256,11 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-079 | Verify that tasks are sorted correctly by Due Date
+     * TC-DEAL-075 | Verify that tasks are sorted correctly by Due Date
      *
      * Priority: P2 — Medium
      */
-    test('TC-DEAL-079 | Verify that tasks are sorted correctly by Due Date', async () => {
+    test('TC-DEAL-075 | Verify that tasks are sorted correctly by Due Date', async () => {
       await openCreatedDealDetail();
 
       await test.step('Open Tasks tab and ensure tasks exist', async () => {
@@ -2255,7 +2313,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-080 | Verify that Tasks tab shows expected columns and New Task button
+     * TC-DEAL-076 | Verify that Tasks tab shows expected columns and New Task button
      *
      * Preconditions: User is on deal detail page
      * Steps: Click Tasks tab
@@ -2264,7 +2322,7 @@ test.describe('Deal Module', () => {
      *           "New Task" button visible
      * Priority: P0 — Critical
      */
-    test('TC-DEAL-080 | Verify that Tasks tab shows expected columns and New Task button', async () => {
+    test('TC-DEAL-076 | Verify that Tasks tab shows expected columns and New Task button', async () => {
       await ensureCreatedDealExists();
       await dealModule.openDealDetail(createdDealName);
       await dealModule.assertDealDetailOpened(createdDealName);
@@ -2275,7 +2333,7 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-081 | Verify that Create New Task drawer opens with all required fields
+     * TC-DEAL-077 | Verify that Create New Task drawer opens with all required fields
      *
      * Preconditions: User is on Tasks tab of deal detail
      * Steps: Click "New Task" button
@@ -2284,7 +2342,7 @@ test.describe('Deal Module', () => {
      *           Priority (Select Priority) heading, Save and Cancel visible
      * Priority: P0 — Critical
      */
-    test('TC-DEAL-081 | Verify that Create New Task drawer opens with all required fields', async () => {
+    test('TC-DEAL-077 | Verify that Create New Task drawer opens with all required fields', async () => {
       await ensureCreatedDealExists();
       await dealModule.openDealDetail(createdDealName);
       await dealModule.gotoTasksTab();
@@ -2302,7 +2360,7 @@ test.describe('Deal Module', () => {
 
   test.describe('Separate Session Required', () => {
     /**
-     * TC-DEAL-048 | Verify that permissions: unauthorized user cannot see logs
+     * TC-DEAL-045 | Verify that permissions: unauthorized user cannot see logs
      *
      * Preconditions: Requires a different user role (non-HO) session
      * Solution: Create a second browser context with SM/SP credentials,
@@ -2310,7 +2368,7 @@ test.describe('Deal Module', () => {
      *           activity logs are restricted or empty.
      * Priority: P2 — Medium
      */
-    test('TC-DEAL-048 | Verify that permissions: unauthorized user cannot see logs', async ({ browser }) => {
+    test('TC-DEAL-045 | Verify that permissions: unauthorized user cannot see logs', async ({ browser }) => {
       // Ensure a deal exists so we can navigate to its detail page
       const dealName = await ensureCreatedDealExists();
 

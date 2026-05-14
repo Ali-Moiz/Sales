@@ -67,104 +67,103 @@
 58. Verify that Market Vertical dropdown selection does not reset after interacting with other page elements via pagination.
 59. Verify that the More Filters panel opens from the Companies page and overlays the page correctly.
 60. Verify that the More Filters panel shows filters for Country, States, Cities, Parent Company, Market Verticals, Created Date, Last Activity, and Last Modified.
-61. Verify that the Country dropdown allows selecting a country and filters the grid accordingly after Apply Filters.
-62. Verify that the States dropdown allows selecting a state and filters the grid accordingly after Apply Filters.
-63. Verify that the Cities dropdown allows selecting a city and filters the grid accordingly after Apply Filters.
-64. Verify that the Parent Company dropdown allows selecting a parent company and filters the grid accordingly after Apply Filters.
-65. Verify that the Select SP Status dropdown allows selecting a status and filters the grid accordingly after Apply Filters.
-66. Verify that the Created Date picker allows selecting a date and filters results after Apply Filters.
-67. Verify that the Last Activity date picker allows selecting a date and filters results after Apply Filters.
-68. Verify that the Last Modified date picker allows selecting a date and filters results after Apply Filters.
-69. Verify that the Apply Filters button applies selected filters, closes the panel, and refreshes the grid results.
-70. Verify that the Cancel button closes the More Filters panel without applying changes to the grid.
-71. Verify that the Clear All option clears all selected filters in the panel and resets to default state.
-72. Verify that the More Filters panel does not allow invalid states selection without selecting a country first.
-73. Verify that the More Filters panel does not allow invalid cities selection without selecting a state first.
-74. Verify that invalid date input (manual typing wrong format) is rejected or corrected with validation.
-75. Verify that selecting a future date in Last Activity/Last Modified does not return incorrect results.
-76. Verify that applying filters with no selection does not change the grid unexpectedly.
-77. Verify that clicking Apply Filters multiple times rapidly does not duplicate requests or break UI.
-78. Verify that Clear All resets all filter fields (including dates) and does not leave stale chips/values behind.
-79. Verify that Cancel from the More Filters panel discards unsaved filter changes.
-80. Verify that the panel close (X) behaves the same as Cancel and does not apply filters.
-81. Verify that More Filters Apply Filters button is disabled or shows validation when required filter dependencies are incomplete.
-82. Verify that rapid open/close of filters and dropdowns does not cause UI flicker or stuck overlays.
+61. Verify that the States dropdown allows selecting a state and filters the grid accordingly after Apply Filters.
+62. Verify that the Cities dropdown allows selecting a city and filters the grid accordingly after Apply Filters.
+63. Verify that the Parent Company dropdown allows selecting a parent company and filters the grid accordingly after Apply Filters.
+64. Verify that the Select SP Status dropdown allows selecting a status and filters the grid accordingly after Apply Filters.
+65. Verify that the Created Date picker allows selecting a date and filters results after Apply Filters.
+66. Verify that the Last Activity date picker allows selecting a date and filters results after Apply Filters.
+67. Verify that the Last Modified date picker allows selecting a date and filters results after Apply Filters.
+68. Verify that the Apply Filters button applies selected filters, closes the panel, and refreshes the grid results.
+69. Verify that the Cancel button closes the More Filters panel without applying changes to the grid.
+70. Verify that the Clear All option clears all selected filters in the panel and resets to default state.
+71. Verify that the More Filters panel does not allow invalid states selection without selecting a country first.
+72. Verify that the More Filters panel does not allow invalid cities selection without selecting a state first.
+73. Verify that invalid date input (manual typing wrong format) is rejected or corrected with validation.
+74. Verify that selecting a future date in Last Activity/Last Modified does not return incorrect results.
+75. Verify that applying filters with no selection does not change the grid unexpectedly.
+76. Verify that clicking Apply Filters multiple times rapidly does not duplicate requests or break UI.
+77. Verify that Clear All resets all filter fields (including dates) and does not leave stale chips/values behind.
+78. Verify that Cancel from the More Filters panel discards unsaved filter changes.
+79. Verify that the panel close (X) behaves the same as Cancel and does not apply filters.
+80. Verify that More Filters Apply Filters button is disabled or shows validation when required filter dependencies are incomplete.
+81. Verify that rapid open/close of filters and dropdowns does not cause UI flicker or stuck overlays.
 
 ## Describe: Sorting & Pagination
-83. Verify that applied filters persist when navigating between pages using pagination controls.
-84. Verify that column sorting works when clicking on a sortable column header (e.g., Company Name, Created Date).
-85. Verify that sorting toggles between ascending and descending order on repeated clicks.
-86. Verify that pagination controls (next/previous) navigate between pages and update the row range display.
-87. Verify that changing 'Rows per page' updates the number of displayed rows and refreshes the grid.
-88. Verify that pagination does not reset unexpectedly when filters are applied.
-89. Verify that pagination controls are disabled appropriately on first/last page to prevent invalid navigation.
+82. Verify that applied filters persist when navigating between pages using pagination controls.
+83. Verify that column sorting works when clicking on a sortable column header (e.g., Company Name, Created Date).
+84. Verify that sorting toggles between ascending and descending order on repeated clicks.
+85. Verify that pagination controls (next/previous) navigate between pages and update the row range display.
+86. Verify that changing 'Rows per page' updates the number of displayed rows and refreshes the grid.
+87. Verify that pagination does not reset unexpectedly when filters are applied.
+88. Verify that pagination controls are disabled appropriately on first/last page to prevent invalid navigation.
 
 ## Describe: Export & External Actions
-90. Verify that the Export button initiates an export action and downloads/produces the expected file output (if enabled).
-91. Verify that Export is blocked or shows proper message when there is no data to export.
-92. Verify that Export handles large datasets without UI freeze (shows loader).
-93. Verify that the page does not lose user-applied filters/sort when switching tabs or navigating away and back (if expected).
+89. Verify that the Export button initiates an export action and downloads/produces the expected file output (if enabled).
+90. Verify that Export is blocked or shows proper message when there is no data to export.
+91. Verify that Export handles large datasets without UI freeze (shows loader).
+92. Verify that the page does not lose user-applied filters/sort when switching tabs or navigating away and back (if expected).
 
 ## Describe: Change Review History
-94. Verify that the Change Review History button opens the review history change flow successfully.
-95. Verify that user is able to view change review history button on company listing to HO
-96. Verify that on company review history page only those companies are visible in which user edit anything in it
-97. Verify that user is able to view the change history against the company by clicking on it
-98. Verify that user can view every change which is done by other role users (SM and SP)
+93. Verify that the Change Review History button opens the review history change flow successfully.
+94. Verify that user is able to view change review history button on company listing to HO
+95. Verify that on company review history page only those companies are visible in which user edit anything in it
+96. Verify that user is able to view the change history against the company by clicking on it
+97. Verify that user can view every change which is done by other role users (SM and SP)
 
 ## Describe: Company Details Page
-99. Verify that Company Details page loads successfully for a selected company.
-100. Verify that company header displays company name and phone number correctly.
-101. Verify that Edit button is visible and clickable for authorized users.
-102. Verify that Market Vertical, Created Date, and Company Owner are displayed correctly.
-103. Verify that About this Company section expands and collapses properly.
-104. Verify that all company details fields display correct values when expanded.
-105. Verify that Properties, Deals, Contacts, and Attachments counts are displayed correctly.
-106. Verify that clicking Properties expands the list without page reload.
-107. Verify that clicking Deals expands the list without page reload.
-108. Verify that clicking Contacts expands and shows contact details correctly.
-109. Verify that Activities tab displays activity timeline grouped by month.
-110. Verify that system-generated activities are displayed with correct labels and timestamps.
-111. Verify that Company Details page shows an error or fallback state if company data fails to load.
-112. Verify that page does not break when company phone number is missing (shows N/A).
-113. Verify that unauthorized users cannot see or access the Edit button.
-114. Verify that About this Company section handles missing field values gracefully.
-115. Verify that expanding Properties, Deals, or Contacts does not cause UI overlap or layout issues.
-116. Verify that Activities tab handles empty activity list without errors.
-117. Verify that side panels and modals close properly on Cancel or close icon.
-118. Verify that background page is not scrollable when modal is open.
-119. Verify that rapid switching between Activities, Notes, and Tasks does not break UI.
-120. Verify that page retains state correctly after refresh (if expected behavior).
+98. Verify that Company Details page loads successfully for a selected company.
+99. Verify that company header displays company name and phone number correctly.
+100. Verify that Edit button is visible and clickable for authorized users.
+101. Verify that Market Vertical, Created Date, and Company Owner are displayed correctly.
+102. Verify that About this Company section expands and collapses properly.
+103. Verify that all company details fields display correct values when expanded.
+104. Verify that Properties, Deals, Contacts, and Attachments counts are displayed correctly.
+105. Verify that clicking Properties expands the list without page reload.
+106. Verify that clicking Deals expands the list without page reload.
+107. Verify that clicking Contacts expands and shows contact details correctly.
+108. Verify that Activities tab displays activity timeline grouped by month.
+109. Verify that system-generated activities are displayed with correct labels and timestamps.
+110. Verify that Company Details page shows an error or fallback state if company data fails to load.
+111. Verify that page does not break when company phone number is missing (shows N/A).
+112. Verify that unauthorized users cannot see or access the Edit button.
+113. Verify that About this Company section handles missing field values gracefully.
+114. Verify that expanding Properties, Deals, or Contacts does not cause UI overlap or layout issues.
+115. Verify that Activities tab handles empty activity list without errors.
+116. Verify that side panels and modals close properly on Cancel or close icon.
+117. Verify that background page is not scrollable when modal is open.
+118. Verify that rapid switching between Activities, Notes, and Tasks does not break UI.
+119. Verify that page retains state correctly after refresh (if expected behavior).
 
 ## Describe: Notes Management
-121. Verify that Notes tab opens and displays existing notes correctly.
-122. Verify that Create New Note button opens Add Notes modal.
-123. Verify that user can create a note with valid subject and description.
-124. Verify that newly created note appears in Notes timeline immediately.
-125. Verify that Edit option allows updating an existing note successfully.
-126. Verify that Delete option opens confirmation modal for note deletion.
-127. Verify that note is deleted successfully after confirmation.
-128. Verify that Notes tab shows empty state when no notes exist.
-129. Verify that user should not able to create a note by clicking on Save button when required note fields are empty.
-130. Verify that note creation is prevented with empty subject or description.
-131. Verify that user cannot save note exceeding maximum character limit.
-132. Verify that deleting a note without confirmation does not remove it.
+120. Verify that Notes tab opens and displays existing notes correctly.
+121. Verify that Create New Note button opens Add Notes modal.
+122. Verify that user can create a note with valid subject and description.
+123. Verify that newly created note appears in Notes timeline immediately.
+124. Verify that Edit option allows updating an existing note successfully.
+125. Verify that Delete option opens confirmation modal for note deletion.
+126. Verify that note is deleted successfully after confirmation.
+127. Verify that Notes tab shows empty state when no notes exist.
+128. Verify that user should not able to create a note by clicking on Save button when required note fields are empty.
+129. Verify that note creation is prevented with empty subject or description.
+130. Verify that user cannot save note exceeding maximum character limit.
+131. Verify that deleting a note without confirmation does not remove it.
 
 ## Describe: Tasks Management
-133. Verify that Tasks tab opens and displays empty state when no tasks exist.
-134. Verify that New Task button opens Create New Task panel.
-135. Verify that user can create a task with valid title, description, type, priority, and due date.
-136. Verify that newly created task appears in the task list with correct details.
-137. Verify that task details panel opens when clicking on a task.
-138. Verify that Edit option allows updating task details successfully.
-139. Verify that Delete option removes the task after confirmation.
-140. Verify that task status, priority, and type badges display correctly.
-141. Verify that pagination and rows-per-page controls work correctly in Tasks tab.
-142. Verify that Tasks tab shows proper empty state message when no tasks exist.
-143. Verify that user should not able to create a task by clicking on Save button when required task fields are missing.
-144. Verify that task creation is prevented without selecting type, priority, or due date.
-145. Verify that invalid due date (past date, if restricted) is not accepted.
-146. Verify that task edit does not allow clearing mandatory fields.
-147. Verify that deleting a task requires confirmation before removal.
-148. Verify that task list does not duplicate entries on rapid create/delete actions.
-149. Verify that in company tasks tab all the filters should be working as expected
+132. Verify that Tasks tab opens and displays empty state when no tasks exist.
+133. Verify that New Task button opens Create New Task panel.
+134. Verify that user can create a task with valid title, description, type, priority, and due date.
+135. Verify that newly created task appears in the task list with correct details.
+136. Verify that task details panel opens when clicking on a task.
+137. Verify that Edit option allows updating task details successfully.
+138. Verify that Delete option removes the task after confirmation.
+139. Verify that task status, priority, and type badges display correctly.
+140. Verify that pagination and rows-per-page controls work correctly in Tasks tab.
+141. Verify that Tasks tab shows proper empty state message when no tasks exist.
+142. Verify that user should not able to create a task by clicking on Save button when required task fields are missing.
+143. Verify that task creation is prevented without selecting type, priority, or due date.
+144. Verify that invalid due date (past date, if restricted) is not accepted.
+145. Verify that task edit does not allow clearing mandatory fields.
+146. Verify that deleting a task requires confirmation before removal.
+147. Verify that task list does not duplicate entries on rapid create/delete actions.
+148. Verify that in company tasks tab all the filters should be working as expected

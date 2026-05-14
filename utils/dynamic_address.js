@@ -291,7 +291,10 @@ async function selectAddressFromAutocomplete({
       const previousSuggestionSignature = suggestionSignature(await getVisibleSuggestions(page));
       await clearAddressInput(addressInput);
       await addressInput.fill(variant);
-      await expect(addressInput).toHaveValue(variant, { timeout: TIMEOUTS.BASE * 4 });
+      // Guard: confirm fill() was not a no-op.  The Google autocomplete widget
+      // may immediately overwrite the typed text with a suggestion, so we cannot
+      // assert the exact variant text — only that the input is now non-empty.
+      await expect(addressInput).not.toHaveValue("", { timeout: TIMEOUTS.BASE * 4 });
 
       const suggestions = await waitForSuggestions(page, optionTimeoutMs, {
         previousSignature: previousSuggestionSignature,

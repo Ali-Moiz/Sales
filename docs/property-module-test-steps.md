@@ -2602,3 +2602,96 @@ Step 5 — Sort by Due Date descending:
 - The first row's Due Date is chronologically ≥ the second row's Due Date (descending order).
 
 ---
+
+## Meeting activity log cards in Activities tab — TC-PROP-133 through TC-PROP-136
+
+> **Context:** When a meeting is created on a property, an activity card appears in the Activities tab.
+> The card has a toggle ("See less" / "See more").  The **"See more" state** (reached by clicking "See less") is the **expanded** state that shows all field rows: link, date, time, description, and guests.
+> MCP-verified 2026-05-14: i18n keys are displayed as-is in the UI (e.g. `companies.meetingLink`, `commonText.nA`).
+
+### TC-PROP-133 | Verify that meeting link is displayed in the activity card
+
+**Preconditions:**
+- User is logged in as HO.
+- A property with at least one contact exists.
+
+**Steps:**
+1. Navigate to any property detail page.
+2. Go to the Meetings tab and create a new meeting with a valid HTTPS link (e.g. `https://zoom.us/j/…`).
+3. Reload the page and open the Activities tab.
+4. Locate the meeting activity card by its title.
+5. Click "See less" to expand the card to its full-detail state (toggle changes to "See more").
+6. Verify the label span with text `companies.meetingLink` is visible.
+7. Verify the sibling value span contains the URL string (not `commonText.nA`).
+
+**Expected results:**
+- Label `companies.meetingLink` is visible in the expanded card.
+- The value span contains the meeting link URL.
+
+---
+
+### TC-PROP-134 | Verify that meeting description is displayed in the activity card
+
+**Preconditions:**
+- User is logged in as HO.
+- A property detail page is accessible.
+
+**Steps:**
+1. Navigate to any property detail page.
+2. Go to the Meetings tab and create a new meeting with a description filled in the DraftJS editor.
+3. Reload the page and open the Activities tab.
+4. Locate the meeting activity card by its title.
+5. Expand the card (click "See less" → wait for "See more").
+6. Verify the label span with text `companies.meetingDescription` is visible.
+7. Verify the sibling value element contains the entered description text.
+
+**Expected results:**
+- Label `companies.meetingDescription` is visible in the expanded card.
+- The value element contains the description text entered during meeting creation.
+
+---
+
+### TC-PROP-135 | Verify that meeting guests are displayed as tags in the activity card
+
+**Preconditions:**
+- User is logged in as HO.
+- A property has at least one contact (the form pre-populates guests from property contacts).
+
+**Steps:**
+1. Navigate to any property detail page.
+2. Go to the Meetings tab and create a new meeting (guests are pre-populated by the form from property contacts).
+3. Confirm the "Are you sure?" dialog (guests will receive an email invitation).
+4. Reload the page and open the Activities tab.
+5. Locate the meeting activity card by its title.
+6. Expand the card (click "See less" → wait for "See more").
+7. Verify the label span with text `companies.guests` is visible.
+8. Verify at least one `MuiChip-colorSuccess` chip is visible under the guests label.
+
+**Expected results:**
+- Label `companies.guests` is visible in the expanded card.
+- At least one guest chip (`.MuiChip-root.MuiChip-colorSuccess`) is rendered with an email address label.
+
+---
+
+### TC-PROP-136 | Verify that missing meeting fields show N/A individually in the activity card
+
+**Preconditions:**
+- User is logged in as HO.
+- A property detail page is accessible.
+
+**Steps:**
+1. Navigate to any property detail page.
+2. Go to the Meetings tab and create a new meeting **without** filling in the link or description fields.
+3. Reload the page and open the Activities tab.
+4. Locate the meeting activity card by its title.
+5. Expand the card (click "See less" → wait for "See more").
+6. Verify the label `companies.meetingLink` is visible and its sibling value contains `commonText.nA`.
+7. Verify the label `companies.meetingDescription` is visible and its sibling value contains `commonText.nA`.
+8. Count all elements with text `commonText.nA` — there should be at least 2 (one per absent field).
+
+**Expected results:**
+- Each absent field is rendered as its own labelled row with value `commonText.nA`.
+- The link and description fields each independently show `commonText.nA` (not one combined placeholder).
+- Total count of `commonText.nA` elements is ≥ 2.
+
+---

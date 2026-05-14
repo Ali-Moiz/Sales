@@ -487,3 +487,23 @@ const noteBodyHtml = await page
   .locator('div > div').innerHTML();
 expect(/<ul|<ol|<li/i.test(noteBodyHtml)).toBe(true);
 ```
+
+---
+
+## 28. Google Autocomplete — Assert Non-Empty, Not Exact Value After `fill()`
+
+**Symptom:** `expect(addressInput).toHaveValue(typedText)` fails immediately after `addressInput.fill(typedText)` — received value is the first autocomplete suggestion, not the typed text.
+
+**Root cause:** Google's Maps autocomplete widget overwrites the input value with the first suggestion text synchronously after `fill()`, before a `toHaveValue(typedText)` assertion can resolve. This is a race condition between Playwright's assertion and the autocomplete widget's mutation.
+
+**Rule:** After `fill()` on an autocomplete-controlled input, guard only that the input is non-empty — never assert the exact typed value, because the widget may have already replaced it.
+
+```javascript
+// WRONG — fails when autocomplete immediately replaces typed text
+await addressInput.fill(variant);
+await expect(addressInput).toHaveValue(variant, { timeout: TIMEOUTS.BASE * 4 });
+
+// CORRECT — confirms fill() had an effect without racing the autocomplete widget
+await addressInput.fill(variant);
+await expect(addressInput).not.toHaveValue("", { timeout: TIMEOUTS.BASE * 4 });
+```

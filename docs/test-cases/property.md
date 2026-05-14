@@ -145,54 +145,49 @@
 136. Verify that meeting missing fields show N/A individually
 137. Verify that meeting expand/collapse reveals full details
 138. Verify that meeting update reflects changes + timestamp
-139. Verify that call log title uses logger username
-140. Verify that call long description truncation + toggle
-141. Verify that call timestamp correctness
-142. Verify that task log title uses creator username
-143. Verify that task fields render: title/type/priority/description/status
-144. Verify that task missing type shows N/A
-145. Verify that task missing priority shows N/A
-146. Verify that task long description truncation + toggle
-147. Verify that task update reflects new content + updater + timestamp
-148. Verify that real-time update without manual refresh
-149. Verify that permissions: unauthorized user cannot see logs
-150. Verify that Activities tab loads and shows at least one dated entry.
+139. Verify that task log title uses creator username
+140. Verify that task fields render: title/type/priority/description/status
+141. Verify that task long description truncation + toggle
+142. Verify that task update reflects new content + updater + timestamp
+143. Verify that real-time update without manual refresh
+144. Verify that permissions: unauthorized user cannot see logs
+145. Verify that Activities tab loads and shows at least one dated entry.
 
 ## Describe: Notes Management
-151. Verify that user is able to add/edit/delete notes.
-152. Verify that Subject field is mandatory while creating a note
-153. Verify that Description field is mandatory while creating a note
-154. Verify that system shows validation error when Subject is empty
-155. Verify that system shows validation error when Description is empty
-156. Verify that note count updates after adding a note
-157. Verify that edited note shows updated content in listing
-158. Verify that delete confirmation modal appears before deleting note
-159. Verify that note is not deleted when cancel is clicked on confirmation modal
-160. Verify that empty state is shown again after deleting last note
-161. Verify that user cannot save note when required fields are missing
-162. Verify that Notes tab is visible and Create New Note drawer opens with correct fields.
+146. Verify that user is able to add/edit/delete notes.
+147. Verify that Subject field is mandatory while creating a note
+148. Verify that Description field is mandatory while creating a note
+149. Verify that system shows validation error when Subject is empty
+150. Verify that system shows validation error when Description is empty
+151. Verify that note count updates after adding a note
+152. Verify that edited note shows updated content in listing
+153. Verify that delete confirmation modal appears before deleting note
+154. Verify that note is not deleted when cancel is clicked on confirmation modal
+155. Verify that empty state is shown again after deleting last note
+156. Verify that user cannot save note when required fields are missing
+157. Verify that Notes tab is visible and Create New Note drawer opens with correct fields.
 
 ## Describe: Task Management
-163. Verify that user is able to add tasks.
-164. Verify that user is able to mark the task as complete.
-165. Verify that Task Title field is mandatory while creating a task
-166. Verify that Task Description field is mandatory while creating a task
-167. Verify that Type field is mandatory while creating a task
-168. Verify that Priority field is mandatory while creating a task
-169. Verify that Due Date field is mandatory while creating a task
-170. Verify that system shows validation error when required fields are missing
-171. Verify that user can filter tasks by Type
-172. Verify that user can filter tasks by Priority
-173. Verify that user can filter tasks by Status
-174. Verify that user can filter tasks by Due Date range
-175. Verify that user can search tasks using Search by Title
-176. Verify that user can edit an existing task
-177. Verify that edited task details are updated in listing
-178. Verify that user can delete a task after confirmation
-179. Verify that task is not deleted when delete action is cancelled
-180. Verify that completed task is shown under Completed status filter
-181. Verify that unchecking completed checkbox marks task as To-Do
-182. Verify that pagination works correctly in task listing
-183. Verify that tasks are sorted correctly by Due Date
-184. Verify that Tasks tab shows expected columns, New Task button, and empty state.
-185. Verify that Create New Task drawer opens with all required fields.
+158. Verify that user is able to add tasks.
+159. Verify that user is able to mark the task as complete.
+160. Verify that Task Title field is mandatory while creating a task
+161. Verify that Task Description field is mandatory while creating a task
+162. Verify that Type field is mandatory while creating a task
+163. Verify that Priority field is mandatory while creating a task
+164. Verify that Due Date field is mandatory while creating a task
+165. Verify that system shows validation error when required fields are missing
+166. Verify that user can filter tasks by Type
+167. Verify that user can filter tasks by Priority
+168. Verify that user can filter tasks by Status
+169. Verify that user can filter tasks by Due Date range
+170. Verify that user can search tasks using Search by Title
+171. Verify that user can edit an existing task
+172. Verify that edited task details are updated in listing
+173. Verify that user can delete a task after confirmation
+174. Verify that task is not deleted when delete action is cancelled
+175. Verify that completed task is shown under Completed status filter
+176. Verify that unchecking completed checkbox marks task as To-Do
+177. Verify that pagination works correctly in task listing
+178. Verify that tasks are sorted correctly by Due Date
+179. Verify that Tasks tab shows expected columns, New Task button, and empty state.
+180. Verify that Create New Task drawer opens with all required fields.

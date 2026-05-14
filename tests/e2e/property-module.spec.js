@@ -230,7 +230,7 @@ test.describe("Property Module", () => {
       await propertyModule.assertCreatePropertyDrawerClosed();
     });
 
-    test("TC-PROP-003 | Verify that the Create Property modal displays all expected fields, labels, and mandatory (*) indicators. Verify that Property / Property Name text field is visible and marked mandatory.", async () => {
+    test("TC-PROP-003 | Verify that the Create Property modal displays all expected fields, labels, and mandatory (*) indicators.", async () => {
       await openCreatePropertyDrawerFromList();
       await propertyModule.assertCreatePropertyDrawerExtendedFieldInventory();
 
@@ -361,7 +361,7 @@ test.describe("Property Module", () => {
       },
     );
 
-    test("TC-PROP-011 | Verify that Property Affiliation options become visible/enabled after the user selects a company. Verify that Property Affiliation options display all expected chips/options (e.g., Managed, Owned, Regional Office, Shared, Tenant, Headquarters) after company selection.", async () => {
+    test("TC-PROP-011 | Verify that Property Affiliation options become visible/enabled after the user selects a company.", async () => {
       await openCreatePropertyDrawerFromList();
       await propertyModule.assertAffiliationChipsHiddenBeforeCompany();
       await propertyModule.selectCompanyInCreateForm(targetCompanyName);
@@ -466,7 +466,7 @@ test.describe("Property Module", () => {
       console.log("[TC-PROP-014] Complete: drawer closed");
     });
 
-    test("TC-PROP-015 | Verify that clicking '+ Create New' in Company section opens the Create New Company flow. Verify that returning from Create New Company flow preserves Create Property modal state (if supported).", async () => {
+    test("TC-PROP-015 | Verify that clicking '+ Create New' in Company section opens the Create New Company flow.", async () => {
       console.log(
         "[TC-PROP-015] Start: Create New Company flow from Property drawer",
       );
@@ -1069,7 +1069,7 @@ test.describe("Property Module", () => {
       console.log("[TC-PROP-026] Complete");
     });
 
-    test("TC-PROP-027 | Verify that Select Assignee dropdown opens and lists assignees/users correctly. Verify that Select Assignee dropdown supports search and returns matching assignees. Verify that selecting an assignee populates the field correctly.", async () => {
+    test("TC-PROP-027 | Verify that Select Assignee dropdown opens and lists assignees/users correctly.", async () => {
       const exactQuery = "Brandon Nyffeler";
       const noMatchQuery = "zzzz-no-user-123";
       const partialQuery = "Bran";
@@ -1846,7 +1846,7 @@ test.describe("Property Module", () => {
     );
 
     test(
-      "TC-PROP-036 | Verify that Contact Details section is visible with correct contact roles (Decision Maker, End User, Billing, etc.). Verify that each Contact role dropdown opens and lists contacts correctly. Verify that each Contact role dropdown supports search and returns matching contacts. Verify that user can select contacts for multiple roles and selections are displayed correctly. Verify that selecting the same contact in multiple roles is allowed only if permitted by business rules (handled correctly).",
+      "TC-PROP-036 | Verify that Contact Details section is visible with correct contact roles (Decision Maker, End User, Billing, etc.).",
       async () => {
         const DECISION_MAKER = 0;
         const END_USER = 1;
@@ -1961,7 +1961,7 @@ test.describe("Property Module", () => {
     );
 
     test(
-      "TC-PROP-041 | Verify that Address field is visible, marked mandatory, and accepts typing to search addresses. Verify that address search shows suggestions and user can select an address. Verify that selected address is populated in the Address field correctly. Verify that the map renders correctly on the Create Property modal. Verify that the map updates/centers to the selected address location.",
+      "TC-PROP-041 | Verify that Address field is visible, marked mandatory, and accepts typing to search addresses.",
       async () => {
         await openCreatePropertyDrawerFromList();
 
@@ -2126,7 +2126,7 @@ test.describe("Property Module", () => {
     );
 
     test(
-      "TC-PROP-050 | Keyboard navigation through autocomplete suggestions works and Enter selects the highlighted option",
+      "TC-PROP-050 | Verify that the user can successfully create a property by filling all mandatory fields and clicking 'Create Property'.",
       async () => {
         await openCreatePropertyDrawerFromList();
 
@@ -2181,7 +2181,7 @@ test.describe("Property Module", () => {
     );
 
     test(
-      "TC-PROP-053 | Verify that the Referred By section is visible when the user selects Property Source as 'Referral'. Verify that the Referred By Property dropdown becomes visible/active when Property Source is 'Referral'.",
+      "TC-PROP-053 | Verify that the Referred By section is visible when the user selects Property Source as 'Referral'.",
       async () => {
         await openCreatePropertyDrawerFromList();
 
@@ -2248,7 +2248,7 @@ test.describe("Property Module", () => {
     );
 
     test(
-      "TC-PROP-056 | Verify that the Referred By Property dropdown lists only existing properties (no free-text/non-existing values). Verify that selecting a Referred By Property populates the field correctly.",
+      "TC-PROP-056 | Verify that the Referred By Property dropdown lists only existing properties (no free-text/non-existing values).",
       async () => {
         await openCreatePropertyDrawerFromList();
         await propertyModule.openPropertySourceDropdown();
@@ -2291,7 +2291,7 @@ test.describe("Property Module", () => {
     );
 
     test(
-      "TC-PROP-058 | Verify that the Referred By Contact dropdown becomes visible/active after selecting a Referred By Property (if dependent). Verify that the Referred By Contact dropdown shows only contacts associated with the selected Referred By Property.",
+      "TC-PROP-058 | Verify that the Referred By Contact dropdown becomes visible/active after selecting a Referred By Property (if dependent).",
       async () => {
         await openCreatePropertyDrawerFromList();
         await propertyModule.openPropertySourceDropdown();
@@ -2653,7 +2653,7 @@ test.describe("Property Module", () => {
   // ═══════════════════════════════════════════════════════════════════════════════
   test.describe("Properties Dashboard & Listing", () => {
     test(
-      "TC-PROP-069 | Verify that Properties dashboard loads successfully with correct total counts. Verify that Properties by Stage chart displays correct stage-wise distribution. Verify that Qualified Properties graph renders correctly.",
+      "TC-PROP-069 | Verify that Properties dashboard loads successfully with correct total counts",
       async () => {
         await test.step(
           "TC-PROP-069 step 1: navigate to /app/sales/locations and wait for page",
@@ -2715,7 +2715,7 @@ test.describe("Property Module", () => {
     );
 
     test(
-      "TC-PROP-072 | Property list loads with All Affiliation default, search works, stage filter and assignment dropdown function, sorting works, affiliation tags visible, checkbox selection enables Bulk Assignment, Review Leads opens modal, table columns show correct values",
+      "TC-PROP-072 | Verify that property list loads with default All Affiliation filter applied",
       async () => {
         await test.step(
           "Verify that property list loads with default All Affiliation filter applied",
@@ -3008,7 +3008,7 @@ test.describe("Property Module", () => {
     );
 
     test(
-      "TC-PROP-088 | Verify that More Filters panel opens successfully with all filter controls; each filter control is interactive; Clear All resets filters; Apply Filters updates listing",
+      "TC-PROP-088 | Verify that More Filters panel opens successfully",
       async () => {
         let totalBeforeFilter = 0;
 
@@ -3207,7 +3207,7 @@ test.describe("Property Module", () => {
       await openPropertyDetailFromList(propertyName);
     });
 
-    test("TC-PROP-107 | Verify that user is able to edit property. Verify that the user is able to update the property, and that the Update modal displays all the information that the user entered when creating the property.", async () => {
+    test("TC-PROP-107 | Verify that user is able to edit property.", async () => {
       updatedPropertyName = propertyModule.generateUniqueEditedName();
 
       await ensureCreatedPropertyExists();
@@ -3563,7 +3563,7 @@ test.describe("Property Module", () => {
     );
 
     test(
-      "TC-PROP-120 | Verify that email HTML formatting: headings",
+      "TC-PROP-120 | Verify that email HTML formatting: links",
       async () => {
         // The email editor toolbar has H1 and H2 buttons (no title attribute —
         // locate by text content). No link/URL button exists (MCP-verified 2026-05-14).
@@ -3821,7 +3821,7 @@ test.describe("Property Module", () => {
     );
 
     test(
-      "TC-PROP-127 | Verify that note HTML formatting: bullets",
+      "TC-PROP-127 | Verify that note HTML formatting: bullets/links",
       async () => {
         // Notes editor toolbar: Bold, Italic, Unordered, Ordered, H1, H2.
         // No Link button available (MCP-verified 2026-05-14).
@@ -4067,11 +4067,34 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-133 | Verify that meeting link displayed and clickable",
       async () => {
-        // MCP-verified 2026-05-14: the Activities log card for a meeting does NOT
-        // surface the meeting link field.  The card body (p.jss839) shows the
-        // description text only.  The link is stored in the meeting record but
-        // is not rendered in the activity card view.
-        test.skip(true, "Meeting link is not surfaced in the Activities log card.");
+        const meetingTitle = `PAT-Meeting-Link-${Date.now()}`;
+        const meetingLink = "https://meet.google.com/abc-defg-hij";
+        const today = new Date();
+        const date = `${String(today.getMonth() + 1).padStart(2, "0")}/${String(today.getDate()).padStart(2, "0")}/${today.getFullYear()}`;
+
+        await test.step("Navigate to property and create a meeting with a link", async () => {
+          await resolveActivityPropertyPath();
+          await page.goto(`${baseUrl}${activityPropertyPath}`, {
+            waitUntil: "domcontentloaded",
+          });
+          await propertyModule.createMeeting({ title: meetingTitle, date, link: meetingLink });
+        });
+
+        await test.step("Open Activities tab, expand the card, and verify the link is displayed", async () => {
+          await page.reload({ waitUntil: "domcontentloaded" });
+          await propertyModule.openActivitiesTab();
+          await propertyModule.expandActivityCardByTitle(meetingTitle);
+          const linkValue = propertyModule.meetingActivityFieldValue(
+            meetingTitle,
+            "companies.meetingLink",
+          );
+          await expect(linkValue).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+          const linkText = await linkValue.innerText();
+          expect(
+            linkText,
+            "Meeting link value should contain the meeting URL",
+          ).toContain("meet.google.com");
+        });
       },
     );
 
@@ -4117,20 +4140,74 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-135 | Verify that meeting guests displayed as tags",
       async () => {
-        // MCP-verified 2026-05-14: the Activities log card for a meeting does NOT
-        // surface guests.  The card body shows description text only; no guest
-        // chips or tags are rendered in the activity card view.
-        test.skip(true, "Guest tags are not surfaced in the Activities log card.");
+        const meetingTitle = `PAT-Meeting-Guests-${Date.now()}`;
+        const today = new Date();
+        const date = `${String(today.getMonth() + 1).padStart(2, "0")}/${String(today.getDate()).padStart(2, "0")}/${today.getFullYear()}`;
+
+        await test.step("Navigate to property and create a meeting (guests pre-populated from contacts)", async () => {
+          await resolveActivityPropertyPath();
+          await page.goto(`${baseUrl}${activityPropertyPath}`, {
+            waitUntil: "domcontentloaded",
+          });
+          await propertyModule.createMeeting({ title: meetingTitle, date });
+        });
+
+        await test.step("Open Activities tab, expand the card, and verify guest chips are displayed", async () => {
+          await page.reload({ waitUntil: "domcontentloaded" });
+          await propertyModule.openActivitiesTab();
+          await propertyModule.expandActivityCardByTitle(meetingTitle);
+          // Verify the companies.guests label row is present
+          const card = propertyModule.activityCardContentByTitle(meetingTitle);
+          const guestsLabel = card.locator("span").filter({ hasText: /^companies\.guests$/ });
+          await expect(guestsLabel).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+          // Verify at least one guest chip (MuiChip-colorSuccess) is rendered
+          const chips = propertyModule.meetingActivityGuestChips(meetingTitle);
+          await expect(chips.first()).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+          const chipCount = await chips.count();
+          expect(chipCount, "At least one guest chip should be visible").toBeGreaterThan(0);
+        });
       },
     );
 
     test(
       "TC-PROP-136 | Verify that meeting missing fields show N/A individually",
       async () => {
-        // MCP-verified 2026-05-14: the Activities log card does NOT show labeled
-        // fields (link, description, guests) with "N/A" placeholders.  When those
-        // fields are absent the card body is simply empty — no N/A text is rendered.
-        test.skip(true, "Activity card does not display N/A for absent meeting fields.");
+        const meetingTitle = `PAT-Meeting-NA-${Date.now()}`;
+        const today = new Date();
+        const date = `${String(today.getMonth() + 1).padStart(2, "0")}/${String(today.getDate()).padStart(2, "0")}/${today.getFullYear()}`;
+
+        await test.step("Navigate to property and create a meeting without link or description", async () => {
+          await resolveActivityPropertyPath();
+          await page.goto(`${baseUrl}${activityPropertyPath}`, {
+            waitUntil: "domcontentloaded",
+          });
+          // link: null overrides the default to skip filling the link input
+          await propertyModule.createMeeting({ title: meetingTitle, date, link: null });
+        });
+
+        await test.step("Open Activities tab, expand the card, and verify absent fields show commonText.nA", async () => {
+          await page.reload({ waitUntil: "domcontentloaded" });
+          await propertyModule.openActivitiesTab();
+          await propertyModule.expandActivityCardByTitle(meetingTitle);
+
+          const linkValue = propertyModule.meetingActivityFieldValue(
+            meetingTitle,
+            "companies.meetingLink",
+          );
+          await expect(linkValue).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+          const linkText = await linkValue.innerText();
+          expect(linkText.trim(), "Absent link should display commonText.nA").toBe("commonText.nA");
+
+          const descValue = propertyModule.meetingActivityFieldValue(
+            meetingTitle,
+            "companies.meetingDescription",
+          );
+          await expect(descValue).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+          const descText = await descValue.innerText();
+          expect(descText.trim(), "Absent description should display commonText.nA").toBe(
+            "commonText.nA",
+          );
+        });
       },
     );
 
@@ -4216,7 +4293,7 @@ test.describe("Property Module", () => {
     );
 
     test(
-      "TC-PROP-142 | Verify that task log title uses creator username",
+      "TC-PROP-139 | Verify that task log title uses creator username",
       async () => {
         const taskTitle = `PAT-${Date.now()}`;
 
@@ -4244,7 +4321,7 @@ test.describe("Property Module", () => {
     );
 
     test(
-      "TC-PROP-143 | Verify that task fields render: title/type/priority/description/status",
+      "TC-PROP-140 | Verify that task fields render: title/type/priority/description/status",
       async () => {
         const taskTitle = `PAT-${Date.now()}`;
         const taskDesc = "Test description for activity log";
@@ -4275,7 +4352,7 @@ test.describe("Property Module", () => {
     );
 
     test(
-      "TC-PROP-146 | Verify that task long description truncation + toggle",
+      "TC-PROP-141 | Verify that task long description truncation + toggle",
       async () => {
         const longDesc = "This is a very long task description. ".repeat(15);
         const taskTitle = `PAT-${Date.now()}`;
@@ -4306,7 +4383,7 @@ test.describe("Property Module", () => {
     );
 
     test(
-      "TC-PROP-147 | Verify that task update reflects new content + updater + timestamp",
+      "TC-PROP-142 | Verify that task update reflects new content + updater + timestamp",
       async () => {
         // MCP-verified 2026-05-14: three-dots → Edit opens "Update This Task" (h3);
         // after save the Activities tab card shows "{updatedTitle} by {username}".
@@ -4341,7 +4418,7 @@ test.describe("Property Module", () => {
     );
 
     test(
-      "TC-PROP-148 | Verify that real-time update without manual refresh",
+      "TC-PROP-143 | Verify that real-time update without manual refresh",
       async () => {
         const rtNoteSubject = `PAT-${Date.now()}`;
 
@@ -4371,7 +4448,7 @@ test.describe("Property Module", () => {
     );
 
     test(
-      "TC-PROP-149 | Verify that permissions: unauthorized user cannot see logs",
+      "TC-PROP-144 | Verify that permissions: unauthorized user cannot see logs",
       async ({ browser }) => {
         let smContext;
         let smPage;
@@ -4417,7 +4494,7 @@ test.describe("Property Module", () => {
       },
     );
 
-    test("TC-PROP-150 | Verify that Activities tab loads and shows at least one dated entry.", async () => {
+    test("TC-PROP-145 | Verify that Activities tab loads and shows at least one dated entry.", async () => {
       await resolveActivityPropertyPath();
       await page.goto(`${baseUrl}${activityPropertyPath}`, {
         waitUntil: "domcontentloaded",
@@ -4439,7 +4516,7 @@ test.describe("Property Module", () => {
   // ═══════════════════════════════════════════════════════════════════════════════
   test.describe.serial("Notes Management", () => {
 
-    // ── TC-PROP-151 (registerNotesTasksSuite) ──
+    // ── TC-PROP-146 (registerNotesTasksSuite) ──
     registerNotesTasksSuite({
       test,
       moduleName: "Property",
@@ -4448,7 +4525,7 @@ test.describe("Property Module", () => {
     });
 
     test(
-      "TC-PROP-152 | Verify that Subject field is mandatory while creating a note. Verify that Description field is mandatory while creating a note. Verify that system shows validation error when Subject is empty. Verify that system shows validation error when Description is empty.",
+      "TC-PROP-147 | Verify that Subject field is mandatory while creating a note",
       async () => {
         await test.step("Navigate to property detail and open Notes tab", async () => {
           await openEntityDetail();
@@ -4504,7 +4581,7 @@ test.describe("Property Module", () => {
     );
 
     test(
-      "TC-PROP-160 | Verify that delete confirmation modal appears before deleting note. Verify that empty state is shown again after deleting last note.",
+      "TC-PROP-155 | Verify that empty state is shown again after deleting last note",
       async () => {
         const noteSubject = `PAT ${Date.now()}`;
         let propertyStartedEmpty = false;
@@ -4599,7 +4676,7 @@ test.describe("Property Module", () => {
       },
     );
 
-    test("TC-PROP-162 | Verify that Notes tab is visible and Create New Note drawer opens with correct fields.", async () => {
+    test("TC-PROP-157 | Verify that Notes tab is visible and Create New Note drawer opens with correct fields.", async () => {
       await openEntityDetail();
       // Verify we landed on a property detail page (the cached propertyPath may
       // point to a different property than readCreatedPropertyName() returns, so
@@ -4622,7 +4699,7 @@ test.describe("Property Module", () => {
   test.describe("Task Management", () => {
 
     test(
-      "TC-PROP-165 | Verify that Task Title field is mandatory while creating a task. Verify that Task Description field is mandatory while creating a task. Verify that Type field is mandatory while creating a task. Verify that Priority field is mandatory while creating a task. Verify that Due Date field is mandatory while creating a task. Verify that system shows validation error when required fields are missing.",
+      "TC-PROP-160 | Verify that Task Title field is mandatory while creating a task",
       async () => {
         await test.step("Navigate to global Tasks page", async () => {
           await page.goto(`${baseUrl}/app/sales/tasks`, {
@@ -4655,7 +4732,7 @@ test.describe("Property Module", () => {
     );
 
     test(
-      "TC-PROP-171 | Verify that user can filter tasks by Type. Verify that user can filter tasks by Priority. Verify that user can filter tasks by Status. Verify that user can filter tasks by Due Date range.",
+      "TC-PROP-166 | Verify that user can filter tasks by Type",
       async () => {
         await test.step("Navigate to global Tasks page", async () => {
           await page.goto(`${baseUrl}/app/sales/tasks`, {
@@ -4690,7 +4767,7 @@ test.describe("Property Module", () => {
       },
     );
 
-    test("TC-PROP-182 | Verify that pagination works correctly in task listing",
+    test("TC-PROP-177 | Verify that pagination works correctly in task listing",
       async () => {
         await test.step("Seed 11 tasks on the activity property", async () => {
           await resolveActivityPropertyPath();
@@ -4763,7 +4840,7 @@ test.describe("Property Module", () => {
     );
 
     test(
-      "TC-PROP-183 | Verify that tasks are sorted correctly by Due Date",
+      "TC-PROP-178 | Verify that tasks are sorted correctly by Due Date",
       async () => {
         await page.goto(`${baseUrl}/app/sales/tasks`, {
           waitUntil: "domcontentloaded",
@@ -4825,7 +4902,7 @@ test.describe("Property Module", () => {
       },
     );
 
-    test("TC-PROP-184 | Verify that Tasks tab shows expected columns, New Task button, and empty state.", async () => {
+    test("TC-PROP-179 | Verify that Tasks tab shows expected columns, New Task button, and empty state.", async () => {
       // Navigate to property detail — use openEntityDetail() which handles
       // both the cached-path and search-by-name flows.
       await openEntityDetail();
@@ -4850,7 +4927,7 @@ test.describe("Property Module", () => {
       }
     });
 
-    test("TC-PROP-185 | Verify that Create New Task drawer opens with all required fields.", async () => {
+    test("TC-PROP-180 | Verify that Create New Task drawer opens with all required fields.", async () => {
       // Navigate to property detail
       await openEntityDetail();
       await propertyModule.gotoTasksTab();
