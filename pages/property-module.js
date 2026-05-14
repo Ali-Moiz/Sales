@@ -7,6 +7,7 @@ const { expect } = require("@playwright/test");
 
 const envData = require("../utils/env-data");
 const {
+  clearAddressInput,
   generateUniqueUsAddressCandidates,
   selectAddressFromAutocomplete,
   selectDynamicAddressWithRetry,
@@ -2278,11 +2279,7 @@ class PropertyModule {
   }
 
   async clearAddressField() {
-    await this.addressInput.click().catch(() => {});
-    await this.addressInput.fill("").catch(() => {});
-    await this.addressInput.press("ControlOrMeta+a").catch(() => {});
-    await this.addressInput.press("Backspace").catch(() => {});
-    await expect(this.addressInput).toHaveValue("", { timeout: TIMEOUTS.BASE * 4 });
+    await clearAddressInput(this.addressInput);
   }
 
   async selectContactAffiliation() {
@@ -4303,6 +4300,62 @@ class PropertyModule {
     await expect(seeLess).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
     await seeLess.click();
     await expect(this.activitySeeMoreToggle()).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+  }
+
+  /**
+   * Returns the activity card content container for a specific created record.
+   * Live failure snapshots show the title paragraph two levels below the card content container.
+   */
+  activityCardContentByTitle(title) {
+    return this.page
+      .getByRole("tabpanel", { name: /Activities/i })
+      .locator("p")
+      .filter({ hasText: title })
+      .first()
+      .locator("..")
+      .locator("..");
+  }
+
+  /**
+   * Returns the See more/See less toggle scoped to a specific activity card.
+   */
+  activityCardToggleByTitle(title, label = /^See (more|less)$/i) {
+    return this.activityCardContentByTitle(title)
+      .locator("p")
+      .filter({ hasText: label })
+      .first();
+  }
+
+  async expectActivityCardToggle(title, label = /^See (more|less)$/i) {
+    const toggle = this.activityCardToggleByTitle(title, label);
+    await expect(toggle).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+    return toggle;
+  }
+
+  async collapseActivityCardByTitle(title) {
+    const toggle = await this.expectActivityCardToggle(title);
+    const toggleText = (await toggle.innerText()).trim();
+
+    if (/^See less$/i.test(toggleText)) {
+      await toggle.click();
+    }
+
+    await expect(this.activityCardToggleByTitle(title, /^See more$/i)).toBeVisible({
+      timeout: TIMEOUTS.BASE * 10,
+    });
+  }
+
+  async expandActivityCardByTitle(title) {
+    const toggle = await this.expectActivityCardToggle(title);
+    const toggleText = (await toggle.innerText()).trim();
+
+    if (/^See more$/i.test(toggleText)) {
+      await toggle.click();
+    }
+
+    await expect(this.activityCardToggleByTitle(title, /^See less$/i)).toBeVisible({
+      timeout: TIMEOUTS.BASE * 10,
+    });
   }
 
   /**

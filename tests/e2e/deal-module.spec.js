@@ -1,4 +1,4 @@
-/* eslint-disable playwright/no-skipped-test */
+
 // tests/deal-module.spec.js
 //
 // Smoke Test Suite — Deals Module — Signal CRM
@@ -1255,33 +1255,6 @@ test.describe('Deal Module', () => {
     });
 
     /**
-     * TC-DEAL-044 | Verify that task missing type shows N/A
-     *
-     * Priority: P3 — Low
-     */
-    test('TC-DEAL-044 | Verify that task missing type shows N/A', async () => {
-      test.skip();
-      // TODO: Unresolved — requires creating a task without a type and verifying
-      // the Activities tab shows "N/A" for the type field. The current task creation
-      // flow (NT-Deal-T007) always selects a type. Creating a task without a type
-      // requires skipping the mandatory field, which the UI validation prevents.
-      // Recommendation: Verify via API or use a pre-existing task without type.
-    });
-
-    /**
-     * TC-DEAL-045 | Verify that task missing priority shows N/A
-     *
-     * Priority: P3 — Low
-     */
-    test('TC-DEAL-045 | Verify that task missing priority shows N/A', async () => {
-      test.skip();
-      // TODO: Unresolved — requires creating a task without a priority and verifying
-      // the Activities tab shows "N/A" for the priority field. Same constraint as
-      // TC-DEAL-044: UI validation prevents creating tasks without priority.
-      // Recommendation: Verify via API or use a pre-existing task without priority.
-    });
-
-    /**
      * TC-DEAL-046 | Verify that task long description truncation + toggle
      *
      * Preconditions: Deal has a task with a long description
@@ -2402,26 +2375,6 @@ test.describe('Deal Module', () => {
       } finally {
         if (smContext) await smContext.close();
       }
-    });
-
-    /**
-     * TC-DEAL-036 | Verify that UI remains responsive under load
-     *
-     * Priority: P3 — Low (not suitable for Playwright — keep permanently skipped)
-     */
-    test('TC-DEAL-036 | Verify that UI remains responsive under load', async () => {
-      test.skip();
-      // TODO: Performance testing — use Lighthouse CI or k6 instead.
-    });
-
-    /**
-     * TC-DEAL-049 | Verify that performance: large number of logs
-     *
-     * Priority: P3 — Low (not suitable for Playwright — keep permanently skipped)
-     */
-    test('TC-DEAL-049 | Verify that performance: large number of logs', async () => {
-      test.skip();
-      // TODO: Performance testing — use Lighthouse CI or k6 instead.
     });
 
   });

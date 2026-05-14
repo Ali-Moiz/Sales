@@ -320,6 +320,11 @@ class ContractModule {
     // Draft card action order (no Signature): Edit(btn), Clone, Preview PDF, Delete.
     // Use aria-label selectors (SKILL.md §2 priority 2) — these are generic elements with aria-label.
     this.contractPublishedBadge = page.getByText('Published without sign', { exact: true });
+    // "Published and signed" badge — appears after ALL signees have signed (replaces Signature btn).
+    // Live-verified via page snapshot 2026-05-13: generic element with text "Published and signed".
+    this.contractFullySignedBadge = page.getByText('Published and signed', { exact: true });
+    // "Terminated" badge — appears on a proposal card after the contract has been terminated.
+    this.contractTerminatedBadge = page.getByText('Terminated', { exact: true });
     this.terminateContractGeneric = this.contractTermsTabpanel.locator('[aria-label="Terminate"]').first();
     this.viewContractGeneric = this.contractTermsTabpanel.locator('[aria-label="View"]').first();
     this.addendumContractGeneric = this.contractTermsTabpanel.locator('[aria-label="Addendum"]').first();
@@ -345,6 +350,15 @@ class ContractModule {
     this.requestedTag = page.getByText('Requested', { exact: true });
     this.pendingSignTag = page.getByText('Pending Sign', { exact: true });
     this.signedTag = page.getByText('Signed', { exact: true });
+
+    // In-App Canvas Signing (codegen-verified 2026-05-13)
+    // Flow: Signature btn → Add Sign menuitem → signee row → canvas → Sign Contract btn
+    this.signContractBtn = page.getByRole('button', { name: 'Sign Contract' });
+    // nth(1): the first canvas (nth(0)) is a background/thumbnail; nth(1) is the drawing surface.
+    // Confirmed by codegen: all signature strokes go to canvas.nth(1).
+    this.signatureCanvas = page.locator('canvas').nth(1);
+    // The clear/undo button inside the canvas signing modal — rendered as an <img> role element.
+    this.signatureClearBtn = page.getByRole('img').nth(1);
 
     // Deal stage buttons (live-verified 2026-05-08)
     this.proposalCreationStageBtn = page.locator('button').filter({ hasText: /Proposal Creation/ });
@@ -392,6 +406,23 @@ class ContractModule {
     // Note: draft state has no separate pill — it is indicated by the Publish Contract button.
     // Publish confirmation modal — change-history section (live-verified 2026-05-09)
     this.publishChangeHistorySection = page.locator('[class*="change"], [class*="history"], [class*="diff"]').first();
+
+    // ── Notification bell & panel (MCP-verified 2026-05-13) ──────────────────
+    // The bell icon is a MuiButton-tertiaryGrey button in the SET portal header.
+    // It shows the unread count as text. No aria-label or data-testid.
+    this.notificationBellBtn = page.locator('button.MuiButton-tertiaryGrey').first();
+    // Clicking the bell opens a MuiMenu (role="menu") with an h3 heading "Notifications"
+    // and notification items as div[role="button"] (title in h6) + sibling span (description).
+    this.notificationPanel        = page.getByRole('menu');
+    this.notificationPanelHeading = page.getByRole('menu').locator('h3').filter({ hasText: 'Notifications' });
+    this.notificationTitles       = page.getByRole('menu').locator('[role="button"] h6');
+
+    // ── Deal detail sidebar — Renewal Date display (MCP-verified 2026-05-13) ──
+    // "About this Deal" sidebar shows "Renewal Date" label + value as two <p> siblings
+    // inside the same wrapper div. NOT inside the Contract & Terms tabpanel.
+    this.dealRenewalDateValue = page.locator('div').filter({
+      has: page.locator('p', { hasText: /^Renewal Date$/ }),
+    }).locator('p').nth(1);
 
     // Deal detail action buttons (MCP-verified 2026-05-08)
     // The "Close" button in the action group (Edit, Close, Follow-up) — only visible when deal is not yet closed
@@ -1006,11 +1037,123 @@ class ContractModule {
     ]);
   }
 
+  _stepContentLocator(stepNumber) {
+    const contentByStep = {
+      1: this.serviceNameInput,
+      2: this.devicesPageHeading,
+      3: this.onDemandPageHeading,
+      4: this.billingOccurrenceHeading,
+      5: this.descriptionPageHeading,
+      6: this.signeesPageHeading,
+    };
+    const content = contentByStep[stepNumber];
+    if (!content) throw new Error(`Unknown step number: ${stepNumber}`);
+    return content;
+  }
+
+  _stepperTabLocator(stepNumber) {
+    const tabByStep = {
+      1: this.page.locator('[aria-label="Add services of this proposal"]').first(),
+      2: this.page.locator('[aria-label="Add devices for checkpoints"]').first(),
+      3: this.page.locator('[aria-label="Add additional services"]').first(),
+      4: this.page.locator('[aria-label="Set payment preferences"]').first(),
+      5: this.page.locator('[aria-label="Add description of services"]').first(),
+      6: this.page.locator('[aria-label="Add signees for contract"]').first(),
+    };
+    const tab = tabByStep[stepNumber];
+    if (!tab) throw new Error(`Unknown step number: ${stepNumber}`);
+    return tab;
+  }
+
+  async clickStepperTab(stepNumber, timeout = TIMEOUTS.BASE * 40) {
+    const tab = this._stepperTabLocator(stepNumber);
+    await expect(tab).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await tab.scrollIntoViewIfNeeded().catch(() => {});
+    await tab.click();
+    await expect(this._stepContentLocator(stepNumber)).toBeVisible({ timeout });
+  }
+
+  async advanceServicesStepToDevices(serviceData, serviceIndex = 0) {
+    await this.assertStep1Visible();
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await this.fillStep1Services(serviceData, serviceIndex);
+      await expect(this.saveAndNextBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 20 });
+      await this.clickSaveAndNext().catch(() => {});
+      const reachedStep2 = await expect(this.devicesPageHeading)
+        .toBeVisible({ timeout: TIMEOUTS.BASE * 40 })
+        .then(() => true)
+        .catch(() => false);
+      if (reachedStep2) return;
+      const stillOnStep1 = await expect(this.serviceNameInput)
+        .toBeVisible({ timeout: TIMEOUTS.BASE * 10 })
+        .then(() => true)
+        .catch(() => false);
+      if (!stillOnStep1) break;
+    }
+    throw new Error(`Step 1 to Step 2 navigation failed. Current URL: ${this.page.url()}`);
+  }
+
+  async advanceDevicesStepToOnDemand() {
+    await this.assertStep2Visible();
+    await this.page.keyboard.press('Escape').catch(() => {});
+    await expect(this.page.locator('[role="menu"]'))
+      .not.toBeVisible({ timeout: TIMEOUTS.BASE * 6 })
+      .catch(() => {});
+
+    await this.addDeviceQuantity('NFC Tags', 1);
+    const saveEnabled = await expect(this.saveAndNextBtn)
+      .toBeEnabled({ timeout: TIMEOUTS.BASE * 20 })
+      .then(() => true)
+      .catch(() => false);
+
+    if (saveEnabled) {
+      await this.clickSaveAndNext();
+      const reachedStep3 = await expect(this.onDemandPageHeading)
+        .toBeVisible({ timeout: TIMEOUTS.BASE * 40 })
+        .then(() => true)
+        .catch(() => false);
+      if (reachedStep3) return;
+    }
+
+    await this.clickStepperTab(3);
+  }
+
+  async advanceOnDemandStepToPaymentTerms() {
+    await this.assertStep3Visible();
+    const saveEnabled = await expect(this.saveAndNextBtn)
+      .toBeEnabled({ timeout: TIMEOUTS.BASE * 10 })
+      .then(() => true)
+      .catch(() => false);
+    if (saveEnabled) {
+      await this.clickSaveAndNext();
+      await expect(this.billingOccurrenceHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 40 });
+      return;
+    }
+    await this.clickStepperTab(4);
+  }
+
   async goToStep3FromDevices() {
     await this.stepperStep3.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 });
 
+    // Early-exit: if we're already on Step 3 (e.g., navigation already happened but
+    // detectActualStep() returned a stale value while React was still rendering),
+    // just wait for the heading to confirm and return.
+    const alreadyOnStep3 = await this.onDemandPageHeading
+      .isVisible()
+      .catch(() => false);
+    if (alreadyOnStep3) return;
+
     let saveEnabled = await this.saveAndNextBtn.isEnabled().catch(() => false);
     if (!saveEnabled) {
+      // Check we're still on Step 2 before interacting with device controls.
+      // If detectActualStep() was stale and we're actually on Step 3, the
+      // devicesPageHeading wait would time out — so we re-check heading first.
+      const stillOnStep2 = await this.devicesPageHeading.isVisible().catch(() => false);
+      if (!stillOnStep2) {
+        // We must be on Step 3 already (slow render). Wait for heading to confirm.
+        await expect(this.onDemandPageHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 40 });
+        return;
+      }
       await this.devicesPageHeading.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
       const firstPlusBtn = this.page.getByRole('button', { name: '+' }).first();
       await firstPlusBtn.click();
@@ -1031,23 +1174,13 @@ class ContractModule {
         ).catch(() => {}),
         this.saveAndNextBtn.click(),
       ]);
-      await expect(this.onDemandPageHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+      await expect(this.onDemandPageHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 40 });
       return;
     }
 
-    // Last resort for proposals that already have Step 3 unlocked: click the
-    // cursor:pointer ancestor so React's stepper handler receives the event.
-    await this.stepperStep3.scrollIntoViewIfNeeded().catch(() => {});
-    await this.stepperStep3.evaluate((el) => {
-      let target = el;
-      while (target && target !== document.body) {
-        const style = globalThis.getComputedStyle(target);
-        if (style.cursor === 'pointer') { target.click(); return; }
-        target = target.parentElement;
-      }
-      el.click();
-    });
-    await expect(this.onDemandPageHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+    // Last resort for proposals that already have Step 3 unlocked: use the
+    // verified step-tab wrapper locator so React receives a normal Playwright click.
+    await this.clickStepperTab(3);
   }
 
   // ── Step 1 — Services ──────────────────────────────────────────────────
@@ -1150,9 +1283,9 @@ class ContractModule {
     await officerCountInput.click({ clickCount: 3 }).catch(async () => {
       await officerCountInput.focus();
     });
-    await officerCountInput.press('ControlOrMeta+A').catch(() => {});
-    await officerCountInput.press('Backspace').catch(() => {});
-    await officerCountInput.pressSequentially(String(count));
+    await officerCountInput.fill('');
+    await expect(officerCountInput).toHaveValue('', { timeout: TIMEOUTS.BASE * 6 });
+    await officerCountInput.fill(String(count));
     await expect(officerCountInput).toHaveValue(String(count), {
       timeout: TIMEOUTS.BASE * 6,
     });
@@ -1176,9 +1309,9 @@ class ContractModule {
     await hourlyRateInput.click({ clickCount: 3 }).catch(async () => {
       await hourlyRateInput.focus();
     });
-    await hourlyRateInput.press('ControlOrMeta+A').catch(() => {});
-    await hourlyRateInput.press('Backspace').catch(() => {});
-    await hourlyRateInput.pressSequentially(String(rate));
+    await hourlyRateInput.fill('');
+    await expect(hourlyRateInput).toHaveValue('', { timeout: TIMEOUTS.BASE * 6 });
+    await hourlyRateInput.fill(String(rate));
     await expect(hourlyRateInput).toHaveValue(String(rate), {
       timeout: TIMEOUTS.BASE * 6,
     });
@@ -1279,12 +1412,12 @@ class ContractModule {
         const alternateTrigger = this.page
           .getByRole('heading', { name: /Select Line Item|Dedicated Security/i, level: 6 })
           .last();
-        await alternateTrigger.click({ force: true }).catch(() => {});
+        await alternateTrigger.click().catch(() => {});
       } else if (fieldLabel === 'Resource Type') {
         const alternateTrigger = this.page
           .getByRole('heading', { name: /Select Resource Type|Armed Officer|Officer/i, level: 6 })
           .last();
-        await alternateTrigger.click({ force: true }).catch(() => {});
+        await alternateTrigger.click().catch(() => {});
       }
 
       const fallbackPopperVisible = await popper
@@ -1297,41 +1430,79 @@ class ContractModule {
       }
     }
 
-    const options = popper.locator('[role="option"], li, h6, p');
-    const optionCount = await options.count().catch(() => 0);
-    console.log(`[_selectCustomDropdownIfEmpty] ${fieldLabel} found ${optionCount} options`);
+    const ensurePopperOpen = async () => {
+      const visibleNow = await popper
+        .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 4 })
+        .then(() => true)
+        .catch(() => false);
+      if (visibleNow) return true;
+      await triggerDiv.scrollIntoViewIfNeeded().catch(() => {});
+      await triggerDiv.click().catch(() => {});
+      return await popper
+        .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 })
+        .then(() => true)
+        .catch(() => false);
+    };
 
-    for (let i = 0; i < optionCount; i += 1) {
-      const option = options.nth(i);
-      const optionText = (await option.textContent().catch(() => '')).trim();
-      const isVisible = await option.isVisible().catch(() => false);
+    const selectVisibleOption = async (parentDepth = 0) => {
+      if (!(await ensurePopperOpen())) return false;
 
-      if (!isVisible || !optionText) {
-        continue;
+      const options = popper.locator('[role="option"], [role="button"], li, h6, p');
+      const optionCount = await options.count().catch(() => 0);
+      console.log(`[_selectCustomDropdownIfEmpty] ${fieldLabel} found ${optionCount} options`);
+
+      for (let i = 0; i < optionCount; i += 1) {
+        const option = options.nth(i);
+        const optionText = (await option.textContent().catch(() => '')).trim();
+        const isVisible = await option.isVisible().catch(() => false);
+
+        if (!isVisible || !optionText) {
+          continue;
+        }
+
+        if (/^select\s|^search$|resource type|line item/i.test(optionText)) {
+          continue;
+        }
+
+        console.log(`[_selectCustomDropdownIfEmpty] ${fieldLabel} selecting option: "${optionText}"`);
+        let clickTarget = option;
+        for (let depth = 0; depth < parentDepth; depth += 1) {
+          clickTarget = clickTarget.locator('..');
+        }
+        await clickTarget.scrollIntoViewIfNeeded().catch(() => {});
+        await clickTarget.click().catch(async () => {
+          await option.click();
+        });
+        const displayValue = triggerDiv.locator('h6').first();
+        await expect(displayValue)
+          .not.toHaveText(/^Select\s/i, { timeout: TIMEOUTS.BASE * 20 })
+          .catch(() => {});
+
+        const updatedValue = await displayValue.textContent().catch(() => '');
+        console.log(`[_selectCustomDropdownIfEmpty] ${fieldLabel} updated value: "${updatedValue?.trim()}"`);
+        if (updatedValue?.trim() && !/^select\s/i.test(updatedValue.trim())) {
+          console.log(`[_selectCustomDropdownIfEmpty] ${fieldLabel} selection successful`);
+          return true;
+        }
       }
 
-      if (/^select\s|^search$|resource type|line item/i.test(optionText)) {
-        continue;
-      }
+      return false;
+    };
 
-      console.log(`[_selectCustomDropdownIfEmpty] ${fieldLabel} selecting option: "${optionText}"`);
-      await option.click({ force: true }).catch(async () => {
-        await option.evaluate((el) => el.click());
-      });
-      // Wait for the popper to dismiss (signals React state update) instead of fixed delay
-      await this.page.locator('#simple-popper').last()
-        .waitFor({ state: 'hidden', timeout: TIMEOUTS.BASE * 6 })
-        .catch(() => {});
-
-      const updatedValue = await triggerDiv.locator('h6').first().textContent().catch(() => '');
-      console.log(`[_selectCustomDropdownIfEmpty] ${fieldLabel} updated value: "${updatedValue?.trim()}"`);
-      if (updatedValue?.trim() && !/^select\s/i.test(updatedValue.trim())) {
-        console.log(`[_selectCustomDropdownIfEmpty] ${fieldLabel} selection successful`);
+    const parentDepths = fieldLabel === 'Line Item' ? [1, 2, 0] : [0];
+    for (const parentDepth of parentDepths) {
+      if (await selectVisibleOption(parentDepth)) {
         return;
       }
     }
 
-    throw new Error(`[_selectCustomDropdownIfEmpty] Popper did not open for field "${fieldLabel}"`);
+    const finalValue = await triggerDiv.locator('h6').first().textContent().catch(() => '');
+    if (finalValue?.trim() && !/^select\s/i.test(finalValue.trim())) {
+      console.log(`[_selectCustomDropdownIfEmpty] ${fieldLabel} selection settled after rerender: "${finalValue.trim()}"`);
+      return;
+    }
+
+    throw new Error(`[_selectCustomDropdownIfEmpty] No selectable option updated field "${fieldLabel}"`);
   }
 
   /**
@@ -2459,81 +2630,148 @@ class ContractModule {
    */
   async confirmPublishContract() {
     await this.assertPublishConfirmModalOpen();
-    const publishDialog = this.page.getByRole('dialog').filter({
-      has: this.publishConfirmModalHeading,
-    }).first();
 
-    // If the publish modal has Contract Duration fields (dates to be decided),
-    // fill them before clicking Publish. The "Contract Duration" heading gates
-    // this block because the Start Date textbox accessible name varies (MUI
-    // DatePicker renders dynamic names like "15 July" instead of placeholder).
+    // Fill any date fields in the publish modal before clicking Publish.
+    //
+    // Root cause of TC-CONTRACT-101 failure (2026-05-13):
+    //   (1) The original gate used getByRole('dialog').filter({has: heading}) — the
+    //       modal renders as a <div> (generic), not <dialog>, so publishDialog was empty
+    //       and all dialog-scoped locators silently found nothing.
+    //   (2) A subsequent fix used XPath //h6[contains(text(),"Contract Duration")] to
+    //       locate the Start Date input, but MUI renders Typography variant="h6" as
+    //       <div role="heading" aria-level="6"> inside the modal — not a native <h6>
+    //       element. XPath //h6 matches only native tags, so it found nothing despite
+    //       getByRole('heading') succeeding (Playwright role-locators use ARIA).
+    //
+    // Fix: use page.evaluate() to walk from the heading to its sibling input, then
+    //   stamp a data attribute so Playwright can locate it by CSS selector. This is
+    //   completely tag-agnostic and works whether MUI uses <h6> or <div role="heading">.
+    //
+    // MCP-verified DOM (2026-05-13, error-context.md snapshot):
+    //   - "Contract Duration" heading [level=6] is present when modal has date fields.
+    //   - Start Date textbox name is dynamic ("15 July") — NOT stable for getByRole.
+    //   - Renewal Date textbox keeps the name "Select Renewal Date" (stable).
+    //   - Renewal Date "Choose date" button is disabled until Start Date is committed.
+    //
+    // §4: waitFor({ state:'visible' }) for presence detection — never snapshot checks.
+    // §6: compute dates from new Date() — never hardcode.
+
+    // Wait for "Contract Duration" heading to appear — present when the modal includes
+    // date fields that must be filled before submission.
+    // Page-level locator because the modal renders as generic <div>, not <dialog>.
+    // MCP-verified 2026-05-13: this heading is unique on the page when the modal is open.
     const contractDurationHeading = this.page.getByRole('heading', { name: 'Contract Duration' });
-    const hasDurationSection = await contractDurationHeading.isVisible().catch(() => false);
+    const hasDurationSection = await contractDurationHeading
+      .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 })
+      .then(() => true)
+      .catch(() => false);
+
     if (hasDurationSection) {
-      // Locate the Start Date input — try the known name first, fall back to
-      // the first textbox inside the "Start Date" labelled container.
-      let startDateField = this.startDateInput;
-      let hasStartDate = await startDateField.isVisible().catch(() => false);
-      if (!hasStartDate) {
-        // Fallback: MUI DatePicker uses dynamic accessible names (e.g. "15 July"
-        // instead of placeholder). Find the textbox sibling of the first
-        // "Choose date" button inside the Contract Duration section.
-        startDateField = this.page.getByRole('button', { name: 'Choose date' }).first().locator('..').getByRole('textbox').first();
-        hasStartDate = await startDateField.isVisible().catch(() => false);
-      }
+      const now = new Date();
+      // Start Date: today + 7 days (ensures start date is in the future).
+      const start = new Date(now.getTime() + 7 * 86400000);
+      const startMM = String(start.getMonth() + 1).padStart(2, '0');
+      const startDD = String(start.getDate()).padStart(2, '0');
+      const startYYYY = String(start.getFullYear());
 
-      if (hasStartDate) {
-        const startVal = await startDateField.inputValue().catch(() => '');
-        if (!startVal || /MM\/DD/.test(startVal)) {
-          const now = new Date();
-          const start = new Date(now.getTime() + 7 * 86400000);
-          const startStr = `${String(start.getMonth() + 1).padStart(2, '0')}/${String(start.getDate()).padStart(2, '0')}/${start.getFullYear()}`;
-          await startDateField.fill(startStr);
+      // Locate the Start Date input using page.evaluate() — tag-agnostic DOM walk.
+      //
+      // Root cause of XPath failure (2026-05-13):
+      //   MUI renders Typography variant="h6" as <div role="heading" aria-level="6">
+      //   inside MUI Dialog/Paper context, NOT a native <h6> element. XPath //h6[...]
+      //   matches only native <h6> tags, so it silently found nothing even though
+      //   getByRole('heading', { name: 'Contract Duration' }) resolved correctly
+      //   (Playwright role-locators work on both native tags and ARIA role attributes).
+      //
+      // Fix: use page.evaluate() to find the heading by text content regardless of
+      //   the underlying HTML tag. Walk: heading → nextElementSibling → first visible
+      //   input[type="text"]. Stamp a data attribute so Playwright can locate it by
+      //   CSS selector (CSS selector is tag-agnostic and avoids xpath=.. chain issues).
+      //
+      // §4: waitFor({ state:'visible' }) is the web-first wait — used below after
+      //   the evaluate() marks the element.
+      const startInputSelector = await this.page.evaluate(() => {
+        // Find any element acting as the "Contract Duration" heading (native h6 OR
+        // any element with role="heading" that contains the text).
+        const headings = Array.from(
+          document.querySelectorAll('h1,h2,h3,h4,h5,h6,[role="heading"]'),
+        );
+        const heading = headings.find(
+          (el) => el.textContent && el.textContent.trim() === 'Contract Duration',
+        );
+        if (!heading) return null;
+
+        // The heading's next sibling contains the date fields.
+        const section = heading.nextElementSibling;
+        if (!section) return null;
+
+        // The first visible input[type="text"] inside the section is the Start Date.
+        const input = section.querySelector('input[type="text"]');
+        if (!input) return null;
+
+        // Stamp a unique marker so Playwright can locate it via CSS selector.
+        // Use a constant attribute name — safe to overwrite on re-runs.
+        input.setAttribute('data-pw-publish-start-date', 'true');
+        return '[data-pw-publish-start-date="true"]';
+      });
+
+      if (startInputSelector) {
+        const startDateField = this.page.locator(startInputSelector);
+        const startDateVisible = await startDateField
+          .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 6 })
+          .then(() => true)
+          .catch(() => false);
+
+        if (startDateVisible) {
+          const startVal = await startDateField.inputValue().catch(() => '');
+          if (!startVal || /MM\/DD/i.test(startVal)) {
+            // MUI DatePicker v5: pressSequentially fires real key events that trigger
+            // React's onChange handler. fill() alone does not update React state.
+            await startDateField.click();
+            await startDateField.pressSequentially(`${startMM}${startDD}${startYYYY}`);
+            // Tab triggers React onBlur, which enables the Renewal Date field.
+            await this.page.keyboard.press('Tab');
+            // Verify acceptance; fall back to fill() + Tab if pressSequentially was swallowed.
+            const verifiedVal = await startDateField.inputValue().catch(() => '');
+            if (!verifiedVal || /MM\/DD/i.test(verifiedVal)) {
+              await startDateField.fill(`${startMM}/${startDD}/${startYYYY}`);
+              await this.page.keyboard.press('Tab');
+            }
+          }
         }
       }
 
-      // Fill Renewal Date if visible and enabled — it starts disabled until
-      // Start Date is filled, so wait briefly for it to become enabled.
-      let renewalField = this.renewalDateInput;
-      await expect(renewalField).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
-      const hasRenewal = await renewalField.isEnabled().catch(() => false);
-      if (hasRenewal) {
-        const renewalVal = await renewalField.inputValue().catch(() => '');
-        if (!renewalVal || /MM\/DD/.test(renewalVal)) {
-          const now = new Date();
-          const renewal = new Date(now.getTime() + 372 * 86400000);
+      // Fill Renewal Date once it becomes enabled after Start Date is filled.
+      // Use getByRole('textbox', { name: 'Select Renewal Date' }) — MCP-verified this
+      // accessible name is stable for the Renewal Date field (unlike the Start Date
+      // field whose name changes dynamically to reflect any previously entered value).
+      // §4: toBeEnabled is a web-first assertion; isEnabled() snapshot is safe here
+      //   because it runs AFTER toBeEnabled has already settled state.
+      const renewalDateField = this.page.getByRole('textbox', { name: 'Select Renewal Date' });
+      await expect(renewalDateField).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
+      const renewalEnabled = await renewalDateField.isEnabled().catch(() => false);
+      if (renewalEnabled) {
+        const renewalVal = await renewalDateField.inputValue().catch(() => '');
+        if (!renewalVal || /MM\/DD/i.test(renewalVal)) {
+          const renewal = new Date(now.getTime() + 372 * 86400000); // ~1 year later
           const renewalStr = `${String(renewal.getMonth() + 1).padStart(2, '0')}/${String(renewal.getDate()).padStart(2, '0')}/${renewal.getFullYear()}`;
-          await renewalField.fill(renewalStr);
-        }
-      }
-
-      // Fill End Date if visible and empty (alternative to Renewal Date)
-      const endDateField = this.page.getByRole('textbox', { name: 'Select End Date' });
-      const hasEndDate = await endDateField.isVisible().catch(() => false);
-      if (hasEndDate) {
-        const endVal = await endDateField.inputValue().catch(() => '');
-        if (!endVal || /MM\/DD/.test(endVal)) {
-          const now = new Date();
-          const end = new Date(now.getTime() + 372 * 86400000);
-          const endStr = `${String(end.getMonth() + 1).padStart(2, '0')}/${String(end.getDate()).padStart(2, '0')}/${end.getFullYear()}`;
-          await endDateField.fill(endStr);
+          await renewalDateField.fill(renewalStr);
+          await this.page.keyboard.press('Tab');
         }
       }
     }
 
-    const publishConfirmInDialog = publishDialog.getByRole('button', {
-      name: 'Publish Contract',
-      exact: true,
-    });
-
-    const dialogButtonVisible = await publishConfirmInDialog.isVisible().catch(() => false);
-    if (dialogButtonVisible) {
-      await publishConfirmInDialog.click();
-    } else {
-      await this.publishConfirmBtn.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 });
-      await this.publishConfirmBtn.click();
-    }
-    // waitForLoadState covers the publish navigation; no extra timeout needed
+    // §4: use waitFor instead of isVisible() snapshot so we give React time to
+    // settle after date fills before clicking the confirm button.
+    await this.publishConfirmBtn.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 });
+    await this.publishConfirmBtn.click();
+    // Wait for the modal to close (heading disappears) before returning so callers
+    // can immediately assert on post-publish state (e.g. "Published without sign" badge).
+    // §4: waitFor({ state: 'hidden' }) is event-based, not a fixed timeout.
+    await this.publishConfirmModalHeading
+      .waitFor({ state: 'hidden', timeout: TIMEOUTS.BASE * 30 })
+      .catch(() => {});
+    // Also cover SPA navigation triggered by the publish action.
     await this.page.waitForLoadState('domcontentloaded', { timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
   }
 
@@ -2850,7 +3088,7 @@ class ContractModule {
     await radio.scrollIntoViewIfNeeded().catch(() => {});
     await radio.evaluate((el) => {
       let target = el;
-      while (target && target !== document.body) { 
+      while (target && target !== document.body) {
         const style = globalThis.getComputedStyle(target);
         if (style.cursor === 'pointer') { target.click(); return; }
         target = target.parentElement;
@@ -2957,21 +3195,30 @@ class ContractModule {
   /**
    * Click "Publish Contract" and detect which modal opens.
    * Returns: 'closeDeal' | 'publishConfirm' | 'contractRenewal' | 'unknown'
+   * §4: all checks use .waitFor({ state: 'visible' }) so React has time to render;
+   * .isVisible() snapshot checks fire before the DOM settles and return false.
    */
   async clickPublishAndDetectModal() {
     await this.publishContractBtn.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.publishContractBtn.click();
-    // Wait for any modal to appear
+    // Wait for any modal to appear — race between all three modal types.
+    // The first waitFor that resolves wins; the others will .catch(() => false).
     const closeDeal = await this.closeDealModalHeading
       .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 })
       .then(() => 'closeDeal')
       .catch(() => null);
     if (closeDeal) return closeDeal;
+    // After closeDeal timed out, the other modals should now be loading.
+    // Use waitFor (not isVisible snapshot) so we wait for React to render them.
     const publishConfirm = await this.publishConfirmModalHeading
-      .isVisible().catch(() => false);
+      .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 })
+      .then(() => true)
+      .catch(() => false);
     if (publishConfirm) return 'publishConfirm';
     const renewal = await this.contractRenewalModalHeading
-      .isVisible().catch(() => false);
+      .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 })
+      .then(() => true)
+      .catch(() => false);
     if (renewal) return 'contractRenewal';
     return 'unknown';
   }
@@ -3012,8 +3259,23 @@ class ContractModule {
 
   // ── Publish & Request Signatures Helpers (live-verified 2026-05-08) ─────
 
-  /** Open the Signature dropdown menu by clicking the Signature button */
+  /** Open the Signature dropdown menu by clicking the Signature button.
+   * Throws ContractFullySignedError if the contract is already in "Published and signed" state
+   * (all signees have signed — the Signature button is no longer rendered).
+   * Callers that need to handle this gracefully should catch the error by checking
+   * `err.message.includes('ALREADY_FULLY_SIGNED')` and skip/return early.
+   */
   async openSignatureDropdown() {
+    // Guard: if the contract is already fully signed the Signature button is gone.
+    // Detect "Published and signed" badge before waiting — avoids a 10s timeout.
+    // §4: use waitFor with short timeout, not isVisible() snapshot check.
+    const alreadyFullySigned = await this.contractFullySignedBadge
+      .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 2 })
+      .then(() => true)
+      .catch(() => false);
+    if (alreadyFullySigned) {
+      throw new Error('ALREADY_FULLY_SIGNED: Contract is in "Published and signed" state — Signature button is not present.');
+    }
     await this.signatureBtnOnCard.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
     await this.signatureBtnOnCard.click();
     await expect(this.addSignMenuitem).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
@@ -3165,6 +3427,19 @@ class ContractModule {
     await expect(this.terminateDialogHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   }
 
+  /**
+   * Fill the Terminate dialog and confirm.
+   * @param {string} dateString - Termination date in MM/DD/YYYY format
+   * @param {string} reason - Reason text for termination
+   */
+  async confirmTerminateContract(dateString, reason) {
+    await this.terminationDateInput.fill(dateString);
+    await this.page.keyboard.press('Tab');
+    await this.terminationReasonInput.fill(reason);
+    await this.terminateContractConfirmBtn.click();
+    await expect(this.terminateDialogHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+  }
+
   // ── Addendum Contract Dialog (MCP-verified 2026-05-08) ─────────────────
 
   /** Click the Addendum action icon on the proposal card and wait for dialog */
@@ -3311,6 +3586,142 @@ class ContractModule {
    */
   async assertPublishContractBtnVisible() {
     await expect(this.publishContractBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
+  }
+
+  // ── In-App Canvas Signing (codegen-verified 2026-05-13) ─────────────────
+
+  /**
+   * Get the signee row inside the "Add Sign" modal that matches the given name.
+   * The app renders signee rows as text that concatenates the name with "Add Sign"
+   * (e.g. "Jacob OliverAdd Sign"). Scoped to the Sign Contract modal.
+   *
+   * @param {string} signeeName — the signee's display name
+   * @returns {import('@playwright/test').Locator} the row locator
+   */
+  getSigneeRowInAddSignModal(signeeName) {
+    // The signee modal lists each signee as a container whose text content
+    // includes the signee name followed by "Add Sign".
+    // Filter by text that contains the signee name.
+    return this.page.locator('div').filter({ hasText: new RegExp(`${signeeName}`, 'i') }).filter({
+      has: this.page.getByText('Add Sign', { exact: true }),
+    }).last();
+  }
+
+  /**
+   * Perform in-app canvas signing for a given signee.
+   *
+   * Flow (codegen-verified 2026-05-13):
+   * 1. Open Signature dropdown
+   * 2. Click "Add Sign" menuitem
+   * 3. Click the signee's row (name + "Add Sign" button)
+   * 4. Click exact "Add Sign" button inside the modal
+   * 5. Draw three strokes on the canvas
+   * 6. Click "Sign Contract"
+   * 7. Wait for modal to close
+   *
+   * @param {string} signeeName — display name of the signee to sign for
+   */
+  async performInAppSign(signeeName) {
+    // Step 1: open dropdown
+    await this.signatureBtnOnCard.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
+    await this.signatureBtnOnCard.click();
+    await expect(this.addSignMenuitem).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+
+    // Step 2: click "Add Sign" menuitem
+    await this.addSignMenuitem.click();
+
+    // Step 3 & 4: locate the signee row then click its "Add Sign" button.
+    // If no signeeName provided, click the first available "Add Sign" button.
+    const addSignBtn = signeeName
+      ? this.getSigneeRowInAddSignModal(signeeName).getByText('Add Sign', { exact: true })
+      : this.page.getByText('Add Sign', { exact: true }).first();
+    await expect(addSignBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await addSignBtn.click();
+
+    // Step 5: canvas appears — a single click anywhere is accepted as a valid signature.
+    await expect(this.signatureCanvas).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await this.signatureCanvas.click();
+
+    // Step 6: submit the signature
+    await expect(this.signContractBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await this.signContractBtn.click();
+
+    // Step 7: wait for the modal / signing overlay to close
+    await expect(this.signContractBtn).not.toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+  }
+
+  /**
+   * Get count of signees in the Request Signatures modal that show a given status tag text.
+   * @param {'Signed'|'Requested'|'Not Requested'|'Pending Sign'} status
+   * @returns {Promise<number>}
+   */
+  async getSigneeCountByStatus(status) {
+    const modalContainer = this.requestSignaturesModalHeading.locator('..');
+    const rows = modalContainer.locator('> div').filter({
+      has: this.page.locator('img'),
+    }).filter({
+      hasNot: this.page.getByText('Select All', { exact: true }),
+    }).filter({
+      hasNot: this.requestSignaturesBtn,
+    });
+    const count = await rows.count();
+    let matching = 0;
+    for (let i = 0; i < count; i++) {
+      const row = rows.nth(i);
+      const hasStatus = await row.getByText(status, { exact: true }).isVisible().catch(() => false);
+      if (hasStatus) matching++;
+    }
+    return matching;
+  }
+
+  /**
+   * Get all status tags visible in the Request Signatures modal signee rows.
+   * Returns an array of status strings (e.g. ['Signed', 'Requested', 'Not Requested']).
+   * @returns {Promise<string[]>}
+   */
+  async getSigneeStatuses() {
+    const statuses = ['Signed', 'Requested', 'Not Requested', 'Pending Sign'];
+    const modalContainer = this.requestSignaturesModalHeading.locator('..');
+    const rows = modalContainer.locator('> div').filter({
+      has: this.page.locator('img'),
+    }).filter({
+      hasNot: this.page.getByText('Select All', { exact: true }),
+    }).filter({
+      hasNot: this.requestSignaturesBtn,
+    });
+    const count = await rows.count();
+    const result = [];
+    for (let i = 0; i < count; i++) {
+      const row = rows.nth(i);
+      for (const status of statuses) {
+        const hasStatus = await row.getByText(status, { exact: true }).isVisible().catch(() => false);
+        if (hasStatus) {
+          result.push(status);
+          break;
+        }
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Get the first signee name from the "Add Sign" modal.
+   * Used by TC-106 to determine which signee to sign for.
+   * @returns {Promise<string>} the first signee's display name, or empty string if not found
+   */
+  async getFirstAddSignModalSigneeName() {
+    // After opening "Add Sign" modal, each signee row contains: avatar + name + "Add Sign" button.
+    // Use the modal heading text as an anchor — it is not present in this flow.
+    // Instead, look for the "Add Sign" text buttons and get the preceding text.
+    const addSignBtns = this.page.getByText('Add Sign', { exact: true });
+    await addSignBtns.first().waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
+    const count = await addSignBtns.count();
+    if (count === 0) return '';
+    // Each btn's parent container has the signee name as a text node before the btn.
+    const firstBtnParent = addSignBtns.first().locator('..');
+    const parentText = await firstBtnParent.textContent().catch(() => '');
+    // Remove "Add Sign" from the text to get just the name.
+    return (parentText || '').replace('Add Sign', '').trim();
   }
 
 }
