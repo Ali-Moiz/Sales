@@ -1231,7 +1231,8 @@ class PropertyModule {
     const trigger = this.associatedFranchiseTriggerInCreateDrawer();
     await trigger.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
     for (let attempt = 0; attempt < 2; attempt++) {
-      await trigger.click({ force: true });
+      await trigger.scrollIntoViewIfNeeded();
+      await trigger.click();
       const visible = await tooltip
         .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 8 })
         .then(() => true)
@@ -4348,6 +4349,65 @@ class PropertyModule {
   }
 
   /**
+   * Returns the locator for the first activity card title paragraph whose
+   * text matches the given regex pattern.
+   * Useful for finding existing PAT-Meeting-* or PAT-Subject-* entries from
+   * prior test runs without creating new records.
+   * @param {RegExp} pattern
+   */
+  firstActivityCardTitleByPattern(pattern) {
+    return this.page
+      .getByRole("tabpanel", { name: /Activities/i })
+      .locator("p")
+      .filter({ hasText: pattern })
+      .first();
+  }
+
+  /**
+   * Returns the activity card content container (two levels up from the title
+   * paragraph) for the first card whose title matches the given regex pattern.
+   * @param {RegExp} pattern
+   */
+  firstActivityCardContentByPattern(pattern) {
+    return this.firstActivityCardTitleByPattern(pattern)
+      .locator("..")
+      .locator("..");
+  }
+
+  /**
+   * Returns the first email listitem in the Emails panel that matches the given pattern.
+   * Used to locate existing PAT-Subject-* emails from prior runs.
+   * @param {RegExp} pattern
+   */
+  firstEmailListitemByPattern(pattern) {
+    return this.emailsPanel()
+      .getByRole("listitem")
+      .filter({ hasText: pattern })
+      .first();
+  }
+
+  async waitForActivityCardByTitle(title) {
+    const titleLocator = this.page
+      .getByRole("tabpanel", { name: /Activities/i })
+      .locator("p")
+      .filter({ hasText: title })
+      .first();
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const visible = await titleLocator
+        .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 })
+        .then(() => true)
+        .catch(() => false);
+      if (visible) return;
+
+      await this.page.reload({ waitUntil: "domcontentloaded" });
+      await this.openActivitiesTab();
+    }
+
+    await expect(titleLocator).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+  }
+
+  /**
    * Returns the See more/See less toggle scoped to a specific activity card.
    */
   activityCardToggleByTitle(title, label = /^See (more|less)$/i) {
@@ -4389,6 +4449,20 @@ class PropertyModule {
     });
   }
 
+  async expandMeetingActivityDetailsByTitle(title) {
+    await this.waitForActivityCardByTitle(title);
+    const toggle = await this.expectActivityCardToggle(title);
+    const toggleText = (await toggle.innerText()).trim();
+
+    if (/^See less$/i.test(toggleText)) {
+      await toggle.click();
+    }
+
+    await expect(this.activityCardToggleByTitle(title, /^See more$/i)).toBeVisible({
+      timeout: TIMEOUTS.BASE * 10,
+    });
+  }
+
   /**
    * Returns the guest chip container inside an expanded meeting activity card
    * identified by the meeting title.
@@ -4400,6 +4474,16 @@ class PropertyModule {
     return this.activityCardContentByTitle(title).locator(
       ".MuiChip-root.MuiChip-filled.MuiChip-colorSuccess .MuiChip-label",
     );
+  }
+
+  meetingActivityLabel(title, fieldKey) {
+    return this.activityCardContentByTitle(title)
+      .locator("span")
+      .filter({ hasText: new RegExp(`^${fieldKey}$`) });
+  }
+
+  meetingActivityFieldValueV2(title, fieldKey) {
+    return this.meetingActivityLabel(title, fieldKey).locator("..").locator("span, a, p").nth(1);
   }
 
   /**
@@ -4463,6 +4547,15 @@ class PropertyModule {
   /**
    * Compose and send a new email from the Emails tab.
    * Assumes the Emails tab is already active.
+   *
+   * @returns {Promise<number>} HTTP status code of the POST /emails response.
+   *   Callers MUST check for non-2xx status and skip any assertions that depend
+   *   on the email being persisted (e.g., list appearance, detail view).
+   *   A 5xx here means the Nylas backend rejected the send (e.g., "request
+   *   forbidden" on UAT properties without a connected Nylas account) — the
+   *   compose form still closes but the email is never stored.
+   *   SKILL.md §25 — toast text must not be asserted; API response status is the
+   *   only reliable signal for whether the email was actually persisted.
    */
   async composeAndSendEmail({ to, subject, body }) {
     await this.emailsPanel()
@@ -4483,10 +4576,24 @@ class PropertyModule {
     const editor = this.page.getByRole("textbox", { name: "rdw-editor" });
     await editor.click();
     await editor.fill(body);
-    await this.page.getByRole("button", { name: "Send Email" }).click();
+    const sendEmailBtn = this.page.getByRole("button", { name: "Send Email" });
+    await expect(sendEmailBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
+    // Capture the response so callers can branch on 2xx vs 5xx.
+    // Use Promise.all so the response listener is in place before the click fires
+    // (SKILL.md §4 — API wait pattern). The compose form closing (heading hidden)
+    // is the reliable DOM signal that the request was submitted; the Toastify
+    // message text varies by environment Nylas config and must not be asserted on.
+    const [emailResponse] = await Promise.all([
+      this.page.waitForResponse(
+        (r) => r.url().includes("/emails") && r.request().method() === "POST",
+        { timeout: TIMEOUTS.BASE * 40 },
+      ),
+      sendEmailBtn.click(),
+    ]);
     await expect(
-      this.page.getByText("Email has been sent successfully!"),
-    ).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+      this.page.getByRole("heading", { name: "New Message", level: 3 }),
+    ).toBeHidden({ timeout: TIMEOUTS.BASE * 20 });
+    return emailResponse.status();
   }
 
   /**
@@ -4513,6 +4620,45 @@ class PropertyModule {
     return this.emailsPanel()
       .getByRole("listitem")
       .first();
+  }
+
+  /**
+   * Navigate the email list to the last page so the most-recently-sent email
+   * (oldest-first sort, page 1 = oldest) is visible.
+   *
+   * MCP-verified 2026-05-15: the emails API returns results sorted oldest-first,
+   * so a just-sent email lands on the LAST page, not page 1. This method reads
+   * the "X–Y of Z" pagination counter to calculate the last page and clicks
+   * "Go to next page" until it is reached.
+   *
+   * @param {number} [rowsPerPage=10] - Rows per page currently set in the list.
+   */
+  async navigateEmailListToLastPage(rowsPerPage = 10) {
+    const panel = this.emailsPanel();
+    // Wait for the pagination counter to appear (proves at least one API response)
+    const paginationText = panel.locator("p").filter({ hasText: /\d+–\d+ of \d+/ });
+    await expect(paginationText).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+
+    const rawText = await paginationText.textContent();
+    const match = rawText.match(/of (\d+)/);
+    if (!match) return; // no items — nothing to navigate
+    const total = parseInt(match[1], 10);
+    const lastPage = Math.ceil(total / rowsPerPage);
+    if (lastPage <= 1) return; // already on the only page
+
+    const nextBtn = panel.getByRole("button", { name: "Go to next page" });
+    for (let page = 1; page < lastPage; page++) {
+      await expect(nextBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
+      await Promise.all([
+        this.page.waitForResponse(
+          (r) => r.url().includes("/emails") && r.status() < 400,
+          { timeout: TIMEOUTS.BASE * 20 },
+        ),
+        nextBtn.click(),
+      ]);
+    }
+    // Confirm the "next" button is now disabled (last page reached)
+    await expect(nextBtn).toBeDisabled({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**
@@ -4585,21 +4731,79 @@ class PropertyModule {
       await descEditor.click();
       await this.page.keyboard.type(description);
     }
-    // Save — triggers "Are you sure?" confirmation dialog
-    await this.page.getByRole("button", { name: "Save" }).click();
-    await this.meetingConfirmYesBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 10 });
-    await Promise.all([
-      this.page
-        .waitForResponse(
-          (r) => r.url().includes("/meeting") && r.status() < 300,
-          { timeout: TIMEOUTS.BASE * 30 },
-        )
-        .catch(() => {}),
-      this.meetingConfirmYesBtn.click(),
-    ]);
-    await this.createNewMeetingHeading
-      .waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 30 })
-      .catch(() => {});
+    const saveMeetingBtn = this.page.getByRole("button", { name: "Save" });
+    await expect(saveMeetingBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
+    await saveMeetingBtn.click();
+
+    const confirmAppeared = await this.meetingConfirmYesBtn
+      .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 10 })
+      .then(() => true)
+      .catch(() => false);
+
+    if (confirmAppeared) {
+      await Promise.all([
+        this.page
+          .waitForResponse(
+            (r) => r.url().includes("/meeting") && r.status() < 300,
+            { timeout: TIMEOUTS.BASE * 30 },
+          )
+          .catch(() => {}),
+        this.meetingConfirmYesBtn.click(),
+      ]);
+    }
+
+    await this.createNewMeetingHeading.waitFor({
+      state: "hidden",
+      timeout: TIMEOUTS.BASE * 30,
+    });
+  }
+
+  async assertMeetingLinkRequiredOnCreate({
+    title,
+    date,
+    startTime = "10:00 AM",
+    endTime = "11:00 AM",
+    provider = "Google Meet",
+  } = {}) {
+    await this.openMeetingsTab();
+    await this.newMeetingBtn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
+    await this.newMeetingBtn.click();
+    await this.createNewMeetingHeading.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
+
+    await this.page.locator("#title").fill(title);
+    await this.meetingDateInput.fill(date);
+    await this.page.keyboard.press("Tab");
+    await this.meetingStartTimeInput.click();
+    await this.meetingStartTimeInput.pressSequentially(timeToMaskKeys(startTime));
+    await this.meetingEndTimeInput.click();
+    await this.meetingEndTimeInput.pressSequentially(timeToMaskKeys(endTime));
+    await this.page
+      .locator('[aria-describedby="simple-popper"]')
+      .filter({ hasText: /Select Provider/ })
+      .click();
+    await this.page
+      .locator("p")
+      .filter({ hasText: new RegExp(`^${provider}$`) })
+      .last()
+      .click();
+
+    const meetingLinkInput = this.page.locator('input[name="meetingLink"]');
+    await expect(meetingLinkInput).toHaveValue("", { timeout: TIMEOUTS.BASE * 10 });
+    const saveMeetingBtn = this.page.getByRole("button", { name: "Save" });
+    await expect(saveMeetingBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
+    await saveMeetingBtn.click();
+
+    await expect(this.page.getByText("Meeting Link is required.", { exact: true })).toBeVisible({
+      timeout: TIMEOUTS.BASE * 10,
+    });
+    await expect(this.createNewMeetingHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+  }
+
+  async cancelOpenMeetingForm() {
+    const cancelBtn = this.page.getByRole("button", { name: "Cancel" });
+    await expect(cancelBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 10 });
+    await cancelBtn.click();
+    await expect(this.createNewMeetingHeading).toBeHidden({ timeout: TIMEOUTS.BASE * 10 });
   }
 
   /**

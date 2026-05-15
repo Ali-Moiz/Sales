@@ -1053,20 +1053,40 @@ class ContractModule {
 
   _stepperTabLocator(stepNumber) {
     const tabByStep = {
-      1: this.page.locator('[aria-label="Add services of this proposal"]').first(),
-      2: this.page.locator('[aria-label="Add devices for checkpoints"]').first(),
-      3: this.page.locator('[aria-label="Add additional services"]').first(),
-      4: this.page.locator('[aria-label="Set payment preferences"]').first(),
-      5: this.page.locator('[aria-label="Add description of services"]').first(),
-      6: this.page.locator('[aria-label="Add signees for contract"]').first(),
+      1: this.stepperStep1.locator('..'),
+      2: this.stepperStep2.locator('..'),
+      3: this.stepperStep3.locator('..'),
+      4: this.stepperStep4.locator('..'),
+      5: this.stepperStep5.locator('..'),
+      6: this.stepperStep6.locator('..'),
     };
     const tab = tabByStep[stepNumber];
     if (!tab) throw new Error(`Unknown step number: ${stepNumber}`);
     return tab;
   }
 
+  async dismissTransientMuiMenus() {
+    const openMenu = this.page.getByRole('menu').first();
+    const menuVisible = await expect(openMenu)
+      .toBeVisible({ timeout: TIMEOUTS.BASE * 4 })
+      .then(() => true)
+      .catch(() => false);
+    if (!menuVisible) return;
+
+    await this.page.keyboard.press('Escape');
+    await expect(openMenu).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+  }
+
+  async ensureDeviceQuantityForStepNavigation(deviceName = 'NFC Tags') {
+    await this.addDeviceQuantity(deviceName, 1);
+    const quantityBtn = this._deviceQuantityGroup(deviceName).getByRole('button').nth(1);
+    await expect(quantityBtn).toHaveText(/[1-9]/, { timeout: TIMEOUTS.BASE * 10 });
+    await this.page.keyboard.press('Tab').catch(() => {});
+  }
+
   async clickStepperTab(stepNumber, timeout = TIMEOUTS.BASE * 40) {
     const tab = this._stepperTabLocator(stepNumber);
+    await this.dismissTransientMuiMenus();
     await expect(tab).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
     await tab.scrollIntoViewIfNeeded().catch(() => {});
     await tab.click();
@@ -1100,7 +1120,7 @@ class ContractModule {
       .not.toBeVisible({ timeout: TIMEOUTS.BASE * 6 })
       .catch(() => {});
 
-    await this.addDeviceQuantity('NFC Tags', 1);
+    await this.ensureDeviceQuantityForStepNavigation('NFC Tags');
     const saveEnabled = await expect(this.saveAndNextBtn)
       .toBeEnabled({ timeout: TIMEOUTS.BASE * 20 })
       .then(() => true)
@@ -1155,8 +1175,7 @@ class ContractModule {
         return;
       }
       await this.devicesPageHeading.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 20 });
-      const firstPlusBtn = this.page.getByRole('button', { name: '+' }).first();
-      await firstPlusBtn.click();
+      await this.ensureDeviceQuantityForStepNavigation('NFC Tags');
       saveEnabled = await expect(this.saveAndNextBtn)
         .toBeEnabled({ timeout: TIMEOUTS.BASE * 20 })
         .then(() => true)
@@ -1174,6 +1193,48 @@ class ContractModule {
         ).catch(() => {}),
         this.saveAndNextBtn.click(),
       ]);
+      await expect(this.onDemandPageHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 40 });
+      return;
+    }
+
+    await this.page.reload({ waitUntil: 'domcontentloaded' });
+    await this.assertOnStepperPage();
+    const reachedStep3AfterReload = await expect(this.onDemandPageHeading)
+      .toBeVisible({ timeout: TIMEOUTS.BASE * 20 })
+      .then(() => true)
+      .catch(() => false);
+    if (reachedStep3AfterReload) return;
+
+    const reachedStep3ByTab = await this.clickStepperTab(3, TIMEOUTS.BASE * 20)
+      .then(() => true)
+      .catch(() => false);
+    if (reachedStep3ByTab) return;
+
+    const onStep1AfterReload = await expect(this.serviceNameInput)
+      .toBeVisible({ timeout: TIMEOUTS.BASE * 10 })
+      .then(() => true)
+      .catch(() => false);
+    if (onStep1AfterReload) {
+      const step1SaveEnabled = await expect(this.saveAndNextBtn)
+        .toBeEnabled({ timeout: TIMEOUTS.BASE * 20 })
+        .then(() => true)
+        .catch(() => false);
+      if (step1SaveEnabled) {
+        await this.clickSaveAndNext().catch(() => {});
+      }
+    }
+
+    await this.assertStep2Visible();
+    const deviceQuantity = await this.getDeviceQuantity('NFC Tags');
+    if (deviceQuantity < 1) {
+      await this.ensureDeviceQuantityForStepNavigation('NFC Tags');
+    }
+    const saveEnabledAfterReload = await expect(this.saveAndNextBtn)
+      .toBeEnabled({ timeout: TIMEOUTS.BASE * 20 })
+      .then(() => true)
+      .catch(() => false);
+    if (saveEnabledAfterReload) {
+      await this.clickSaveAndNext();
       await expect(this.onDemandPageHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 40 });
       return;
     }

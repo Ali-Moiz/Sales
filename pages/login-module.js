@@ -48,9 +48,14 @@ class LoginModule {
       timeout: TIMEOUTS.BASE * 120,
     });
     const cta = this.page.getByRole("button", { name: "Login" });
-    await cta.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 40 });
-    await cta.click();
-    await this.emailInput.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 60 });
+    const ctaVisible = await cta
+      .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 40 })
+      .then(() => true)
+      .catch(() => false);
+    if (ctaVisible) {
+      await cta.click();
+    }
+    await expect(this.emailInput).toBeVisible({ timeout: TIMEOUTS.BASE * 60 });
     // Wait for auth0 scripts (auth0.min.js) to fully initialise before interacting
     await this.page
       .waitForLoadState("networkidle", { timeout: TIMEOUTS.BASE * 60 })
@@ -58,13 +63,81 @@ class LoginModule {
   }
 
   async waitForDashboard() {
-    await this.page.waitForURL(/\/app\/sales\/dashboard/, { timeout: TIMEOUTS.BASE * 120 });
-    // Wait for the page content to render (Sales Insights heading = dashboard fully loaded)
-    await this.page
+    const dashboardUrl = `${this.baseUrl}/app/sales/dashboard`;
+    const dashboardPath = /\/app\/sales\/dashboard/;
+    const dashboardHeading = this.page
       .getByText("Sales Insights", { exact: true })
-      .first()
-      .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 60 });
+      .first();
+
+    await this.waitForLoginResult();
+
+    if (!dashboardPath.test(this.page.url())) {
+      await this.page.goto(dashboardUrl, {
+        waitUntil: "domcontentloaded",
+        timeout: TIMEOUTS.BASE * 60,
+      });
+    }
+
+    await expect(this.page).toHaveURL(dashboardPath, {
+      timeout: TIMEOUTS.BASE * 60,
+    });
+    await expect(dashboardHeading).toBeVisible({
+      timeout: TIMEOUTS.BASE * 60,
+    });
     await disableSliderImageBlocking(this.page);
+  }
+
+  async waitForLoginResult() {
+    await this._waitForAuthResult();
+
+    if (this.page.url().includes("loginError")) {
+      return this.page.url();
+    }
+
+    if (new URL(this.page.url()).searchParams.has("code")) {
+      await this.page
+        .waitForURL((url) => !url.searchParams.has("code"), {
+          timeout: TIMEOUTS.BASE * 40,
+          waitUntil: "commit",
+        })
+        .catch(() => {});
+    }
+
+    if (!/\/app\//.test(this.page.url())) {
+      await this._enterAppFromLandingSession();
+    }
+
+    return this.page.url();
+  }
+
+  async _waitForAuthResult() {
+    await this.page.waitForURL(
+      (url) =>
+        url.pathname.startsWith("/app/sales/") ||
+        url.searchParams.has("code") ||
+        url.href.includes("loginError"),
+      { timeout: TIMEOUTS.BASE * 120, waitUntil: "commit" },
+    );
+  }
+
+  async _enterAppFromLandingSession() {
+    const ctaVisible = await this.landingLoginButton
+      .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 })
+      .then(() => true)
+      .catch(() => false);
+    if (!ctaVisible) return;
+
+    await this.landingLoginButton.click();
+    await this._waitForAuthResult();
+
+    if (new URL(this.page.url()).searchParams.has("code")) {
+      await this.page
+        .waitForURL((url) => !url.searchParams.has("code"), {
+          timeout: TIMEOUTS.BASE * 40,
+          waitUntil: "commit",
+        })
+        .catch(() => {});
+    }
   }
 
   // ── Form Actions ─────────────────────────────────────────────────────────

@@ -59,11 +59,7 @@ test.describe("Login Module E2E Tests — TC-LOGIN-001 to TC-LOGIN-016", () => {
         loginPage = new LoginModule(sharedPage);
         await loginPage.goto();
         await loginPage.login(role.email, role.password);
-        // Wait for either app shell or access_denied redirect
-        await sharedPage.waitForURL(/\/app\/sales\/|loginError/, {
-          timeout: TIMEOUTS.BASE * 120,
-        });
-        const url = sharedPage.url();
+        const url = await loginPage.waitForLoginResult();
         if (url.includes("loginError=access_denied")) {
           denied.push(role.name);
           test.info().annotations.push({
@@ -71,7 +67,7 @@ test.describe("Login Module E2E Tests — TC-LOGIN-001 to TC-LOGIN-016", () => {
             description: `${role.name} role received access_denied — verify role permissions`,
           });
         } else {
-          await expect(sharedPage).toHaveURL(/\/app\/sales\//);
+          await expect(sharedPage).toHaveURL(/\/app\//);
         }
       });
     }

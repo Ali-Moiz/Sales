@@ -522,6 +522,7 @@ test.describe('Deal Module', () => {
       let initialTotal;
 
       await test.step('Record pagination and open More Filters', async () => {
+        await dealModule.waitForTableData();
         initialTotal = await dealModule.getPaginationTotal();
         await dealModule.openMoreFilters();
         await expect(dealModule.allFiltersHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
@@ -534,8 +535,9 @@ test.describe('Deal Module', () => {
 
       await test.step('Apply filters and verify reduced count', async () => {
         await dealModule.applyFilters();
-        const filteredTotal = await dealModule.getPaginationTotal();
-        expect(filteredTotal).toBeLessThan(initialTotal);
+        await expect
+          .poll(async () => dealModule.getPaginationTotal(), { timeout: TIMEOUTS.BASE * 30 })
+          .toBeLessThan(initialTotal);
       });
 
       await test.step('Reopen filters to verify persistence', async () => {
@@ -552,6 +554,7 @@ test.describe('Deal Module', () => {
         // Navigate fresh to clear any leftover filters from previous tests
         await dealModule.gotoDealsFromMenu();
         await dealModule.assertPaginationVisible();
+        await dealModule.waitForTableData();
         initialTotal = await dealModule.getPaginationTotal();
         await dealModule.openMoreFilters();
         await dealModule.selectFilterOption(dealModule.selectDealTypeHeading, 'New');
@@ -583,8 +586,9 @@ test.describe('Deal Module', () => {
 
       await test.step('Verify pagination returns to full count', async () => {
         await dealModule.assertPaginationVisible();
-        const restoredTotal = await dealModule.getPaginationTotal();
-        expect(restoredTotal).toBeGreaterThanOrEqual(initialTotal);
+        await expect
+          .poll(async () => dealModule.getPaginationTotal(), { timeout: TIMEOUTS.BASE * 30 })
+          .toBeGreaterThanOrEqual(initialTotal);
       });
     });
 

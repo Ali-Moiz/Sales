@@ -106,6 +106,8 @@ await Promise.all([page.waitForURL(/\/deals\/\d+/), createBtn.click()]);
 
 **Table cell click below viewport fold:** When clicking a deal/row cell in a long table, the target cell may be below the viewport even though `expect(dealRow).toBeVisible()` passes (the row's top edge is in view). Symptom: `locator.click: Element is not visible` with `force: true` on `td.nth(1)`. Root cause: `toBeVisible()` confirms the element is attached and has non-zero size, not that it is within the scrollable viewport — and `force: true` does not scroll the element into view if it is outside the clip rect. The prior `isVisible()` snapshot check (banned per §4) also returns `true` immediately without waiting, masking the real state. Rule: after `expect(dealRow).toBeVisible()`, call `await dealNameCell.scrollIntoViewIfNeeded()` then `await dealNameCell.click()` (no `force`). Never combine `isVisible().catch(() => false)` with `click({ force: true })` as a click strategy — use `scrollIntoViewIfNeeded()` instead.
 
+**Transient MUI menus before stepper navigation:** Symptom: `locator.click` on a stepper tab times out because a `#fade-menu`/MuiMenu backdrop intercepts pointer events, while the snapshot shows an open Notifications menu. Root cause: a previous menu-triggering interaction left a MUI Menu mounted; its invisible modal backdrop still blocks real pointer clicks. Rule: shared wizard/stepper navigation helpers must dismiss visible `role="menu"` overlays with a real keyboard `Escape` action and assert the menu is hidden before clicking stepper tabs. Do not use `force`, timeout bumps, or `evaluate()` clicks to bypass the backdrop.
+
 **Animation-aware:** for MUI drawers/modals, wait for settled state (`toBeVisible()` + `toHaveAttribute('aria-hidden', 'false')` if needed).
 
 **Table data readiness:** Before reading cell text from a data grid, wait for pagination to show a non-zero total (e.g., `waitForTableData()`). Symptom: `getFirstRowCellText()` returns empty string. Root cause: table DOM skeleton renders before the API response arrives, so rows are "attached" but contain no text. Rule: always call `await module.waitForTableData()` before `getFirstRowCellText()` or similar cell-reading methods.
@@ -578,4 +580,88 @@ if (isPublished && !hasAddendum && !hasParentNoAddendum) {
   parentNoAddendumUrl = page.url(); // may capture an "Addendum - …" child deal
   hasParentNoAddendum = true;
 }
+```
+
+---
+
+## 25. Toastify Toast Text Must Be Live-Verified — Never Fabricated
+
+- **Symptom:** `expect(page.getByText("Email has been sent successfully!")).toBeVisible()` times out with `element(s) not found`, even though the compose form closes and the send request completes.
+- **Root cause:** The toast text was fabricated from memory and never verified via MCP or codegen. On this app, a Nylas `"request forbidden"` (HTTP 500) error causes the Toastify container to show `"request forbidden"` instead — the string `"Email has been sent successfully!"` never appears in the DOM at all. Toast text also varies by environment configuration (Nylas connected vs. not connected), making it an unreliable assertion target.
+- **Rule:** Never assert on a Toastify (or any notification) toast text that has not been captured via MCP `MutationObserver` or `browser_snapshot` on the live application. When an action triggers a backend API call (e.g., sending an email), use `Promise.all([page.waitForResponse(...), locator.click()])` to gate on the API response, then assert on the **DOM state change** that always follows — not on the toast text. For email send, the reliable signal is the compose form heading becoming hidden:
+
+```javascript
+// CORRECT — gates on API response + compose form closing (MCP-verified 2026-05-15)
+await Promise.all([
+  page.waitForResponse(
+    (r) => r.url().includes('/emails') && r.request().method() === 'POST',
+    { timeout: TIMEOUTS.BASE * 40 },
+  ),
+  sendEmailBtn.click(),
+]);
+await expect(
+  page.getByRole('heading', { name: 'New Message', level: 3 }),
+).toBeHidden({ timeout: TIMEOUTS.BASE * 20 });
+
+// WRONG — toast text fabricated; never rendered on properties without Nylas account
+await sendEmailBtn.click();
+await expect(page.getByText('Email has been sent successfully!')).toBeVisible({ timeout: 10000 });
+```
+
+---
+
+## 26. Backend-Dependent Email / Notification Features — Capture API Status and Skip on 5xx
+
+- **Symptom:** A test that sends an email (or any action backed by an optional third-party service) passes the send step, but times out on a subsequent list/detail assertion that looks for the newly created record.
+- **Root cause:** The POM helper gates on the API response and the compose-form closing (§25) — so it returns successfully even when the backend returns 5xx. The caller then waits for a record that was never persisted (e.g., email not stored because Nylas returned `"request forbidden"` on UAT).
+- **Rule:** Any POM method that wraps a `Promise.all([waitForResponse, locator.click()])` for a backend action that may fail non-fatally (third-party service unavailable) **must return the HTTP response status** to its caller. The caller must check that status and call `test.skip(true, "…")` (followed by `return`) before any assertion that depends on the record being persisted. Never use `test.fail()` for an infrastructure gap — `test.skip()` is correct when the test cannot run due to missing backend connectivity.
+
+```javascript
+// CORRECT — POM returns status; caller skips persistence steps on 5xx
+// In pages/property-module.js:
+const [emailResponse] = await Promise.all([
+  this.page.waitForResponse(
+    (r) => r.url().includes('/emails') && r.request().method() === 'POST',
+    { timeout: TIMEOUTS.BASE * 40 },
+  ),
+  sendEmailBtn.click(),
+]);
+await expect(heading).toBeHidden({ timeout: TIMEOUTS.BASE * 20 });
+return emailResponse.status(); // ← expose status to caller
+
+// In the test spec:
+const sendStatus = await propertyModule.composeAndSendEmail({ to, subject, body });
+if (sendStatus >= 400) {
+  test.skip(true, `Email send returned HTTP ${sendStatus} — Nylas unavailable.`);
+  return;
+}
+// Only reaches here on 2xx — safe to assert on list / detail
+await expect(emailRow).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+
+// WRONG — ignores response status; list assertion times out when email not stored
+await propertyModule.composeAndSendEmail({ to, subject, body });
+await expect(emailRow).toBeVisible({ timeout: TIMEOUTS.BASE * 30 }); // times out on Nylas 5xx
+```
+
+---
+
+## 27. Paginated Email List — Newly Sent Emails Land on the Last Page, Not Page 1
+
+- **Symptom:** `getByRole('listitem').filter({ hasText: /PAT-Subject-\d+/ }).first()` times out with `element(s) not found` after switching the email direction filter to "All" or "Sent", even though the email POST returned 200 and the compose form closed.
+- **Root cause:** The emails API (`/emails?pageNo=1&rowsPerPage=10`) returns results sorted **oldest-first**. With a large email history (e.g., 164 emails), a just-sent email lands on the **last page** (page 17 at 10 per page), not page 1. Searching via the search box is also unreliable — Nylas full-text indexing is asynchronous and newly sent emails return "No Emails" immediately after send.
+- **Rule:** To assert that a just-sent email appears in the list, switch to the "Sent" direction filter, then call `navigateEmailListToLastPage()` to advance to the final page before asserting the row. Do NOT scan page 1 of "All" or "Sent" for a newly created email. Do NOT use the search box as a substitute — it is Nylas-indexed and will miss newly sent items. Example:
+
+```javascript
+// CORRECT — navigate to last page where the newest sent email appears (MCP-verified 2026-05-15)
+await propertyModule.switchEmailDirectionFilter("Sent");
+await propertyModule.navigateEmailListToLastPage();
+await expect(
+  page.getByRole("listitem").filter({ hasText: new RegExp(emailSubject) }).first()
+).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+
+// WRONG — page 1 only; newly sent email is on the last page
+await propertyModule.switchEmailDirectionFilter("All");
+await expect(
+  page.getByRole("listitem").filter({ hasText: new RegExp(emailSubject) }).first()
+).toBeVisible({ timeout: TIMEOUTS.BASE * 30 }); // times out — email is on page 17
 ```
