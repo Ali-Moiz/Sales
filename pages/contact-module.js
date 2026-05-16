@@ -119,7 +119,9 @@ class ContactNamePage {
 
   /** Click a contact row by its name to open detail page */
   async openContactByName(name) {
-    await this.page.getByRole('cell', { name }).click();
+    // Use .first() to handle strict mode violation when duplicate rows appear
+    // in search results (e.g., the same contact listed twice during loading).
+    await this.page.getByRole('cell', { name }).first().click();
     await this.page.waitForURL(/\/contacts\/detail\//);
   }
 

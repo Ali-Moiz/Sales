@@ -188,6 +188,18 @@ class CompanyModule {
       .not.toBe('loading');
   }
 
+  async assertCompaniesPageOpenedForReadOnlyRole() {
+    await expect(this.page).toHaveURL(/\/app\/sales\/companies/, { timeout: TIMEOUTS.BASE * 40 });
+    await expect(this.companySearchInput).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+    await expect(this.companiesTable).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+    await expect
+      .poll(async () => {
+        const footer = await this.getPaginationText().catch(() => '');
+        return /^0\s*-\s*0\s+of\s+0$/i.test(footer) ? 'loading' : footer;
+      }, { timeout: TIMEOUTS.BASE * 40 })
+      .not.toBe('loading');
+  }
+
   async assertCompaniesTableHasColumns() {
     const expectedColumns = [
       'Company Name', 'Parent Company', 'Company Owner', 'Market Vertical',
@@ -438,6 +450,25 @@ class CompanyModule {
     await this.clickCompanyNameCellByText(name);
     await this.page.waitForLoadState('networkidle', { timeout: TIMEOUTS.BASE * 30 }).catch(() => {});
     return name;
+  }
+
+  async openFirstCompanyFromListForAccessCheck() {
+    const name = await this.getFirstRowTextByColumnIndex(0);
+    await this.clickCompanyNameCellByText(name);
+    const detailOpened = await this.page
+      .waitForURL(/\/app\/sales\/companies\/company\//, { timeout: TIMEOUTS.BASE * 20 })
+      .then(() => true)
+      .catch(() => false);
+
+    if (detailOpened) {
+      await this.assertCompanyDetailOpened(name);
+    }
+
+    return {
+      currentUrl: this.page.url(),
+      detailOpened,
+      name
+    };
   }
 
   async waitForFirstRowNonEmpty(colIndex = 0, timeout = TIMEOUTS.BASE * 30) {
@@ -1611,9 +1642,25 @@ class CompanyModule {
    * Selects an option from a More Filters dropdown tooltip.
    */
   async selectMoreFiltersDropdownOption(tooltipLocator, optionText) {
-    const option = tooltipLocator.getByText(optionText, { exact: true }).first();
-    await option.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 });
-    await option.click({ force: true });
+    let lastError = null;
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const option = tooltipLocator.getByText(optionText, { exact: true }).first();
+      await expect(option).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+      await option.scrollIntoViewIfNeeded().catch(() => {});
+
+      try {
+        await tooltipLocator.getByText(optionText, { exact: true }).first().click();
+        return;
+      } catch (error) {
+        lastError = error;
+        if (!/detached|not visible|outside of the viewport/i.test(error.message || '')) {
+          throw error;
+        }
+      }
+    }
+
+    throw lastError;
   }
 
   /**

@@ -1040,51 +1040,25 @@ test.describe('Questions Listing & Interaction — TC-MV-030 through TC-MV-048',
 
   test('TC-MV-031 | Verify that questions list supports vertical scrolling without header/row misalignment @regression', async () => {
     await test.step('Verify multiple question rows are visible', async () => {
-      // Wait for at least one data row to load before counting (SKILL.md §4 — table data readiness)
-      await expect(mvPage.questionsTable.getByRole('row').nth(1)).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
-      const rows = await mvPage.questionsTable.getByRole('row').all();
-      // At least header + some data rows
-      expect(rows.length).toBeGreaterThan(2);
+      await mvPage.waitForQuestionsTableData();
+      const questions = await mvPage.getQuestionStatements();
+      expect(questions.length).toBeGreaterThan(1);
     });
 
     await test.step('Scroll table to bottom and verify last row is visible', async () => {
-      // The table may use virtualized rendering, so scrollIntoViewIfNeeded on the
-      // last row can fail with "Element is not attached to the DOM". Instead, scroll
-      // the table's scrollable container to the bottom via JS.
-      const tableContainer = mvPage.questionsTable.locator('..');
-      await tableContainer.evaluate((el) => {
-        // Find the nearest scrollable ancestor
-        let scrollable = el;
-        while (scrollable && scrollable.scrollHeight <= scrollable.clientHeight) {
-          scrollable = scrollable.parentElement;
-        }
-        if (scrollable) scrollable.scrollTop = scrollable.scrollHeight;
-      });
-      // Wait for last row to be visible after scroll.
-      const lastRow = mvPage.questionsTable.getByRole('row').last();
-      await expect(lastRow).toBeVisible();
+      const alignment = await mvPage.getQuestionsTableLastRowAlignmentDelta();
+      expect(alignment.rowCount).toBeGreaterThan(0);
+      expect(alignment.cellX).not.toBeNull();
     });
 
     await test.step('Verify last row cells align with header columns', async () => {
-      const headerRow = mvPage.questionsTable.getByRole('row').first();
-      const headerCells = await headerRow.getByRole('columnheader').all();
-      const lastRow = mvPage.questionsTable.getByRole('row').last();
-      const lastRowCells = await lastRow.getByRole('cell').all();
-
-      // Scroll header into view so its bounding box is in the viewport clip rect
-      await headerCells[1].scrollIntoViewIfNeeded();
-      const headerBox = await headerCells[1].boundingBox();
-
-      // Scroll the last data cell into view before reading its bounding box.
-      // boundingBox() returns null for elements outside the viewport clip rect
-      // even when they are visible inside a scrollable container (SKILL.md §4).
-      await lastRowCells[1].scrollIntoViewIfNeeded();
-      const cellBox = await lastRowCells[1].boundingBox();
-
-      expect(headerBox).toBeTruthy();
-      expect(cellBox).toBeTruthy();
+      const alignment = await mvPage.getQuestionsTableLastRowAlignmentDelta();
+      expect(alignment.rowCount).toBeGreaterThan(0);
+      expect(alignment.headerX).not.toBeNull();
+      expect(alignment.cellX).not.toBeNull();
+      expect(alignment.delta).not.toBeNull();
       // Horizontal positions should overlap (within reasonable tolerance)
-      expect(Math.abs(headerBox.x - cellBox.x)).toBeLessThan(10);
+      expect(alignment.delta).toBeLessThan(10);
     });
   });
 
@@ -1450,8 +1424,9 @@ test.describe('Questions Listing & Interaction — TC-MV-030 through TC-MV-048',
     let countAfterCreate;
 
     await test.step('Note the current No. of Questions count', async () => {
+      await mvPage.waitForQuestionsTableData();
       countBefore = await mvPage.getNoOfQuestionsCount();
-      expect(countBefore).toBeGreaterThanOrEqual(0);
+      expect(countBefore).toBeGreaterThan(0);
     });
 
     await test.step('Create a test question', async () => {
@@ -1467,9 +1442,11 @@ test.describe('Questions Listing & Interaction — TC-MV-030 through TC-MV-048',
       });
       await mvPage.assertQuestionsPageOpened();
       await mvPage.waitForSkeletonsToClear();
+      await mvPage.assertQuestionExists(testQuestionName);
     });
 
     await test.step('Note the updated count after creation', async () => {
+      await mvPage.waitForNoOfQuestionsCount(countBefore + 1);
       countAfterCreate = await mvPage.getNoOfQuestionsCount();
       expect(countAfterCreate).toBe(countBefore + 1);
     });
@@ -1485,6 +1462,7 @@ test.describe('Questions Listing & Interaction — TC-MV-030 through TC-MV-048',
     });
 
     await test.step('Verify No. of Questions count decreased by 1', async () => {
+      await mvPage.waitForNoOfQuestionsCount(countAfterCreate - 1);
       const countAfterDelete = await mvPage.getNoOfQuestionsCount();
       expect(countAfterDelete).toBe(countAfterCreate - 1);
     });

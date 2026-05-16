@@ -96,14 +96,18 @@ await Promise.all([page.waitForURL(/\/deals\/\d+/), createBtn.click()]);
 - **Table cell click below fold:** after `expect(row).toBeVisible()`, call `scrollIntoViewIfNeeded()` then click (no `force`).
 - **Animation-aware:** for MUI drawers/modals, wait for settled state via `toBeVisible()`.
 - **Confirmation modals may have required fields:** fill all required inputs inside the modal before clicking Submit.
-- **Table data readiness:** call `waitForTableData()` before reading cell text — skeleton rows are attached but empty.
+- **Table data readiness:** call `waitForTableData()` before reading cell text — skeleton rows are attached but empty. When no `waitForTableData()` helper exists, guard the click target directly: `await expect(titleCell).not.toBeEmpty()` before `titleCell.click()`. A row being `toBeVisible()` does not mean its cells have content; clicking an empty skeleton cell can trigger navigation to an unintended linked entity (e.g., clicking td.nth(2) instead of td.nth(1) if React shifts the DOM).
+- **Filter API calls cause skeleton rows — guard before `rows.count()`:** after applying a filter (Type, Priority, Status, etc.) the table briefly shows skeleton rows with empty cells. Never call `rows.count()` immediately and then iterate/assert cell content — `.count()` resolves instantly and returns the skeleton row count. Guard on the relevant column cell with `not.toBeEmpty()` before `count()`, using `{ timeout: TIMEOUTS.BASE * 60 }` since filter API calls can take >10s: `await expect(rows.first().locator('td:nth-child(N)')).not.toBeEmpty({ timeout: TIMEOUTS.BASE * 60 }); const rowCount = await rows.count();`.
 - **Pagination skeleton reads `0`:** wait for `/\d+–\d+ of [1-9]/` (regex rejecting `0`) before reading the pagination total. `waitForTableData()` alone is insufficient.
 - **SPA navigation — `waitForLoadState('domcontentloaded')` is a no-op:** use `Promise.all([page.waitForURL(/pattern/), locator.click()])` for React Router navigation.
+- **New tab SPA — React not hydrated at `domcontentloaded`:** when a helper (e.g. `openFromSetPage`) opens a new tab and returns after `waitForLoadState('domcontentloaded')`, the first method called on the new tab MUST start with `await expect(firstLocator).toBeVisible({ timeout: TIMEOUTS.BASE * 60 })` — `domcontentloaded` fires before React has rendered the component tree, so any immediate `.click()` will timeout even though the element exists when tested manually.
 - **Intercepting modals after action clicks:** use `.or()` to race between expected heading and blocking modal, then branch on `isVisible()`.
 - **`.isVisible()` as classification gate — forbidden for shared state:** wait for one anchor to settle (`locator.or(other).waitFor()`) before reading both states.
 - **Search-then-find race condition:** require pagination text to have changed before accepting a text-match as search completion.
 - **Drawer survival after blocked submit:** use `waitForURL` with short timeout to detect silent server acceptance before checking if drawer remained open.
 - **MUI Accordion expand detection:** wait for `aria-expanded="true"` on `.MuiAccordionSummary-root` (scoped to the tabpanel) — `[role="region"]` is always in the DOM even when collapsed.
+- **`.isVisible()` as render-gate before critical interaction — forbidden:** never use `const visible = await locator.isVisible().catch(() => false); if (visible) { /* interact */ }` to guard a POM interaction whose absence would silently leave the page in a broken state (e.g., `Save & Next` permanently disabled). Use `await expect(locator).toBeVisible({ timeout: ... }).then(() => true).catch(() => false)` so slow renders don't silently skip the interaction. The immediate `.isVisible()` returns `false` the instant it's called if the element hasn't rendered yet — it does not wait.
+- **MUI Popper option click — skip `waitFor` + `scrollIntoViewIfNeeded`:** never use `await option.waitFor({ state: 'visible' }); await option.scrollIntoViewIfNeeded(); await option.click()` for Popper/tooltip option nodes. The Popper can re-render between `waitFor()` resolving and `scrollIntoViewIfNeeded()` executing, detaching the original DOM node. Use `await option.click()` directly — it auto-waits for visibility and retries with a fresh DOM lookup on each attempt.
 
 ---
 
@@ -425,6 +429,12 @@ await trigger.click();
 await expect(page.locator('#simple-popper').last()).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
 ```
 
+**Also applies to `click({ force: true })` on jss container divs.** `force: true` bypasses the browser's pointer-events dispatch, so React never receives the synthetic click event. `#simple-popper` never renders as a result — `waitFor({ state: "visible" })` times out. Always use a plain `.click()` (or a POM method that wraps real clicks with ArrowDown retry) to open MUI Popper dropdowns.
+
+- **Symptom:** `locator.waitFor: Timeout Nms exceeded` waiting for `#simple-popper` after `click({ force: true })` on the trigger div.
+- **Root cause:** `force: true` skips pointer-event checks and React synthetic event dispatch; the Popper is never triggered.
+- **Rule:** Never call the low-level `click({ force: true })` method alone to open a Popper. Use the POM's dedicated opener method (e.g. `openSelectSupervisorDropdownInCreateDrawer()`) which combines a real `.click()` with an `ArrowDown` key press and up to 5 retry attempts.
+
 ---
 
 ## 23. `.isVisible()` as Classification Gate — Forbidden for Shared State
@@ -506,4 +516,109 @@ await expect(addressInput).toHaveValue(variant, { timeout: TIMEOUTS.BASE * 4 });
 // CORRECT — confirms fill() had an effect without racing the autocomplete widget
 await addressInput.fill(variant);
 await expect(addressInput).not.toHaveValue("", { timeout: TIMEOUTS.BASE * 4 });
+```
+
+---
+
+## 29. `filter({ hasText: regex })` — Never Use Anchors (`^`/`$`) Against React-Rendered Buttons
+
+**Symptom:** `locator('button').filter({ hasText: /^Negotiation$/ })` returns "element(s) not found" even though the button is visibly present in the DOM snapshot with inner text "Negotiation".
+
+**Root cause:** When `hasText` receives a `RegExp`, Playwright tests it against the element's raw `textContent` (not normalised). React-rendered buttons that contain an `<img>` child alongside a text node produce `textContent` with surrounding whitespace or newlines (e.g., `"\nNegotiation\n"`). The anchored `^Negotiation$` regex does not match against this whitespace-padded string.
+
+**Rule:** Never use anchored regexes (`^...$`) in `filter({ hasText })` for stage buttons or any React-rendered button that contains child elements (icons, images). Use a non-anchored pattern — or use `getByRole('button', { name: /pattern/ })` which matches against the accessible name.
+
+```javascript
+// WRONG — fails when React surrounds the text node with whitespace
+page.locator('button').filter({ hasText: /^Negotiation$/ });
+page.locator('button').filter({ hasText: new RegExp(`^${stage}$`) });
+
+// CORRECT — non-anchored partial match is whitespace-safe
+page.locator('button').filter({ hasText: /Negotiation/ });
+page.locator('button').filter({ hasText: new RegExp(stage) });
+```
+
+---
+
+## 30. MUI Stepper Tab Headings — Tooltips Only, No Navigation
+
+**Symptom:** `clickStepperTab(N)` times out waiting for step N's content after successfully clicking the heading element. The step stays unchanged.
+
+**Root cause (DOM-verified 2026-05-16):** Each stepper tab renders as a MUI Tooltip wrapper (`generic[aria-label="Add additional services"]`) containing an `<h6>` heading. Clicking the heading (or its parent wrapper) **only shows a tooltip** — it does NOT navigate the stepper. Navigation from step N to step N+1 is only possible by clicking `Save & Next` (which fires a PATCH `/contracts` API call). Backward navigation to a previously completed step via tab heading may work but is not guaranteed.
+
+**Rule:** Never rely on `clickStepperTab()` as the primary path to advance the stepper forward. The only reliable forward path from any step is `clickSaveAndNext()`. Only use `clickStepperTab()` as a fallback for already-completed steps (backward navigation or re-visit).
+
+```javascript
+// WRONG — clicking the heading shows tooltip, does NOT navigate
+await this.stepperTab3.click();
+await expect(this.onDemandPageHeading).toBeVisible(); // times out
+
+// CORRECT — advance with Save & Next (fires API PATCH, then navigates)
+await this.clickSaveAndNext();
+await expect(this.onDemandPageHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 40 });
+```
+
+**Rule:** When defining stepper tab locators, target the `<h6>` heading directly (cursor:pointer lives on the heading). Do NOT use `.locator('..')` to target the MUI Tooltip parent container — the parent has no click handler and only shows the tooltip.
+
+```javascript
+// WRONG — targets MUI Tooltip container (no React onClick, just tooltip)
+this.stepperTab2 = page.getByRole('heading', { name: '2. Devices', level: 6 }).locator('..');
+
+// CORRECT — targets the h6 heading which has cursor:pointer
+this.stepperTab2 = page.getByRole('heading', { name: '2. Devices', level: 6 });
+```
+
+**Rule:** On a fresh (first-ever) visit to Step 2 (Devices), React's form is in pristine/disabled state — `Save & Next` is `disabled=true` until the form hydrates. Wait for a quantity control to be enabled as the hydration indicator before interacting:
+
+```javascript
+// Wait for form hydration on Step 2 before calling ensureDeviceQuantity
+const nfcPlusBtn = this.page
+  .getByRole('group')
+  .filter({ has: this.page.getByRole('button', { name: '-' }) })
+  .filter({ has: this.page.getByRole('button', { name: '+' }) })
+  .first()
+  .getByRole('button', { name: '+' });
+await expect(nfcPlusBtn).toBeEnabled({ timeout: TIMEOUTS.BASE * 40 });
+```
+
+---
+
+## 31. Strict Mode Violation on Table Cell Click — Use `.first()`
+
+**Symptom:** `locator.click: Error: strict mode violation: getByRole('cell', { name: '...' }) resolved to 2 elements` when clicking a search result row by contact/entity name.
+
+**Root cause:** Search results may return duplicate rows (e.g., same contact appears twice during loading or due to a backend pagination overlap). `getByRole('cell', { name })` without a scope guard matches all cells with that name in the entire table, triggering Playwright's strict mode error.
+
+**Rule:** When clicking a table cell by entity name to navigate to a detail page, always scope with `.first()` to pick the top result. Do not rely on the search producing exactly one match.
+
+```javascript
+// WRONG — strict mode error when duplicate rows exist
+await this.page.getByRole('cell', { name }).click();
+
+// CORRECT — always take the first matching cell
+await this.page.getByRole('cell', { name }).first().click();
+```
+
+---
+
+## 32. Shared Deal Name May Capture UI Navigation Labels — Validate Before Use
+
+**Symptom:** `openContractDealDetail("Overview")` searches for a deal named "Overview", finds nothing, and throws or times out. `resolvedContractDealName` was `"Overview"` instead of the actual deal name.
+
+**Root cause:** When a `beforeAll` or helper navigates the page (e.g., `assertOnDealDetailPage` triggers a tab click), the `resolvedContractDealName` shared variable may have been populated from a UI element's text content (tab label, heading) rather than the actual deal name. The check `!dealName` passes because the string is non-empty, but the value is a UI navigation label, not a valid deal name.
+
+**Rule:** Any function that consumes `resolvedContractDealName` must validate it with `isUsableContractDealName()` (or equivalent) before using it. Each child `beforeAll` that could inherit a stale/invalid shared value must re-validate and reset it before searching.
+
+```javascript
+// WRONG — empty string check passes for "Overview"
+if (!dealName) { throw new Error("..."); }
+
+// CORRECT — reject known-invalid UI labels too
+if (!dealName || !isUsableContractDealName(dealName)) { throw new Error("..."); }
+
+// CORRECT — child beforeAll resets invalid inherited value before searching
+if (!isUsableContractDealName(resolvedContractDealName)) {
+  const freshName = readCreatedDealName();
+  resolvedContractDealName = isUsableContractDealName(freshName) ? freshName : "";
+}
 ```

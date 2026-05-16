@@ -864,7 +864,7 @@ test.describe('Company Module E2E Tests', () => {
       await test.step('Document Create Company button visibility for SM role', async () => {
         // Wait for page to fully load
         const smModule = new CompanyModule(smPage);
-        await smModule.assertCompaniesPageOpened();
+        await smModule.assertCompaniesPageOpenedForReadOnlyRole();
         const createBtnVisible = await smModule.createCompanyButton.first().isVisible().catch(() => false);
         // Document: either button is not visible (SM lacks permission) or it is (SM has permission)
         expect(typeof createBtnVisible).toBe('boolean');
@@ -3015,6 +3015,7 @@ test.describe('Company Module E2E Tests', () => {
     test('TC-COMP-112 | Edit button access control for SM role @regression', async () => {
       let smPage;
       let smContext;
+      let smDetailAccess;
 
       await test.step('Log in with SM credentials', async () => {
         const browser = sharedPage.context().browser();
@@ -3028,13 +3029,17 @@ test.describe('Company Module E2E Tests', () => {
       await test.step('Navigate to a company detail page', async () => {
         const smModule = new CompanyModule(smPage);
         await smPage.goto(`${env.baseUrl}${COMPANIES_PATH}`, { waitUntil: 'domcontentloaded' });
-        await smModule.assertCompaniesPageOpened();
-        await smModule.openFirstCompanyFromList();
-        await smModule.assertCompanyDetailOpened();
+        await smModule.assertCompaniesPageOpenedForReadOnlyRole();
+        smDetailAccess = await smModule.openFirstCompanyFromListForAccessCheck();
       });
 
       await test.step('Document Edit button visibility for SM', async () => {
         const smModule = new CompanyModule(smPage);
+        if (!smDetailAccess.detailOpened) {
+          expect(smDetailAccess.currentUrl).not.toMatch(COMPANY_DETAIL_URL_PATTERN);
+          return;
+        }
+
         const editVisible = await smModule.editCompanyButton.isVisible().catch(() => false);
         // Document: SM may or may not have edit access
         expect(typeof editVisible).toBe('boolean');

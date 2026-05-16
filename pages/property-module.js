@@ -1310,17 +1310,23 @@ class PropertyModule {
   }
 
   async openStageDropdown() {
-    const existingTooltipVisible = await this.stageTooltip()
-      .isVisible()
+    const tooltip = this.stageTooltip();
+    const existingStageOption = tooltip
+      .locator("p")
+      .filter({ hasText: /^(New Location|Approved)$/ })
+      .first();
+    const existingStageOpen = await existingStageOption
+      .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 2 })
+      .then(() => true)
       .catch(() => false);
-    if (existingTooltipVisible) {
-      return this.stageTooltip();
+    if (existingStageOpen) {
+      return tooltip;
     }
     const trigger = this.stageTriggerInCreateDrawer();
     await trigger.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
-    const tooltip = this.stageTooltip();
+    await trigger.scrollIntoViewIfNeeded();
     for (let attempt = 0; attempt < 2; attempt++) {
-      await trigger.click({ force: true });
+      await trigger.click();
       const visible = await tooltip
         .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 8 })
         .then(() => true)
@@ -1359,7 +1365,17 @@ class PropertyModule {
 
   async selectStageByText(stageText) {
     const tooltip = await this.openStageDropdown();
-    await this.clickVisibleDropdownOption(tooltip, stageText, TIMEOUTS.BASE * 16);
+    const option = tooltip
+      .locator('p, h6, [role="option"]')
+      .filter({
+        hasText: new RegExp(`^\\s*${this.escapeRegex(stageText)}\\s*$`, "i"),
+      })
+      .first();
+    // SKILL.md §4: removing waitFor() + scrollIntoViewIfNeeded() before click() —
+    // the two-step sequence creates a detach race: the tooltip re-renders between
+    // waitFor() resolving and scrollIntoViewIfNeeded() executing, detaching the node.
+    // locator.click() auto-waits for visibility and retries with a fresh DOM lookup.
+    await option.click();
     await this.assertStageTriggerValue(stageText);
   }
 
@@ -2027,15 +2043,16 @@ class PropertyModule {
   }
 
   async selectFirstSupervisorInCreateDrawer() {
-    await this.clickSelectSupervisorControlInCreateDrawer();
-    const tooltip = this.page
-      .locator('#simple-popper')
-      .last()
-      .or(this.page.getByRole("tooltip").last());
-    await tooltip.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 16 });
+    // Use openSelectSupervisorDropdownInCreateDrawer() — real click + ArrowDown retry loop —
+    // instead of clickSelectSupervisorControlInCreateDrawer() which uses force:true and
+    // bypasses React synthetic events, leaving #simple-popper unrendered (SKILL.md §22).
+    const tooltip = await this.openSelectSupervisorDropdownInCreateDrawer();
+    // tooltip is already visible when openSelectSupervisorDropdownInCreateDrawer() returns;
+    // no redundant waitFor() needed (SKILL.md §4 — double-wait banned).
     const firstOption = tooltip.getByRole("heading", { level: 4 }).first();
     const selectedText = ((await firstOption.innerText().catch(() => "")) || "").trim();
-    await firstOption.click({ force: true });
+    // Direct click — auto-waits for visibility and retries on DOM detach (SKILL.md §4).
+    await firstOption.click();
     await tooltip.waitFor({ state: "hidden", timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
     return selectedText;
   }
@@ -4668,6 +4685,14 @@ class PropertyModule {
     const tab = this.page.getByRole("tab", { name: "Meetings" });
     await tab.click();
     await expect(tab).toHaveAttribute("aria-selected", "true", { timeout: TIMEOUTS.BASE * 16 });
+  }
+
+  meetingCalendarEntry(title) {
+    return this.page
+      .getByRole("tabpanel", { name: /Meetings/i })
+      .locator("p")
+      .filter({ hasText: title })
+      .first();
   }
 
   /**

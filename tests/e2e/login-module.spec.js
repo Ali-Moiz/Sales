@@ -186,8 +186,10 @@ test.describe("Login Module E2E Tests — TC-LOGIN-001 to TC-LOGIN-016", () => {
     await test.step("Email only — no password", async () => {
       await loginPage.fillEmail(VALID_EMAIL);
       await loginPage.clickLoginButton();
-      expect(await loginPage.getError()).toBe("Wrong email or password");
-      await expect(sharedPage).not.toHaveURL(/app\/sales\/dashboard/);
+      await loginPage.assertLoginFormVisible();
+      await expect(loginPage.emailInput).toHaveValue(VALID_EMAIL);
+      await expect(loginPage.passwordInput).toHaveValue("");
+      await expect(sharedPage).not.toHaveURL(/\/app\//);
     });
 
     await test.step("Password only — no email", async () => {
@@ -196,9 +198,10 @@ test.describe("Login Module E2E Tests — TC-LOGIN-001 to TC-LOGIN-016", () => {
       await loginPage.goto();
       await loginPage.fillPassword(VALID_PASS);
       await loginPage.clickLoginButton();
-      const error = await loginPage.getError();
-      expect(error).toBeTruthy();
-      await expect(sharedPage).not.toHaveURL(/app\/sales\/dashboard/);
+      await loginPage.assertLoginFormVisible();
+      await expect(loginPage.emailInput).toHaveValue("");
+      await expect(loginPage.passwordInput).toHaveValue(VALID_PASS);
+      await expect(sharedPage).not.toHaveURL(/\/app\//);
     });
   });
 

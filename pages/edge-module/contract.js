@@ -148,13 +148,61 @@ class EdgeContractModule {
       .getByRole('link', { name: /switch to edge 2\.0/i });
     await expect(switchLink).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
 
-    // Link opens a new tab — capture it
-    const [edgePage] = await Promise.all([
-      setPage.context().waitForEvent('page'),
-      switchLink.click(),
-    ]);
+    // Depending on Auth0/session state the portal switch can either open a new
+    // page or reuse the current tab. Only return once the target page is truly
+    // the EDGE app; otherwise downstream selectors bind to the SET profile menu.
+    const context = setPage.context();
+    const popupPromise = context
+      .waitForEvent('page', { timeout: TIMEOUTS.BASE * 40 })
+      .catch(() => null);
+    const samePagePromise = setPage
+      .waitForURL(/portal\.teamsignal\.com|\/app\/obx\//, {
+        timeout: TIMEOUTS.BASE * 40,
+      })
+      .then(() => setPage)
+      .catch(() => null);
+
+    await switchLink.click();
+
+    const edgePage = await new Promise((resolve) => {
+      let popupPage = null;
+      let samePage = null;
+      let settled = 0;
+      const finish = () => {
+        settled += 1;
+        if (popupPage || samePage || settled === 2) {
+          resolve(popupPage || samePage);
+        }
+      };
+      popupPromise.then((page) => {
+        popupPage = page;
+        finish();
+      });
+      samePagePromise.then((page) => {
+        samePage = page;
+        finish();
+      });
+    });
+    if (!edgePage) {
+      throw new Error('Switch to Edge 2.0 did not open or navigate to the EDGE portal.');
+    }
+
     await edgePage.waitForLoadState('domcontentloaded');
-    return new EdgeContractModule(edgePage);
+    await edgePage.bringToFront().catch(() => {});
+
+    const edgeModule = new EdgeContractModule(edgePage);
+    const dropdownReady = await edgeModule.franchiseDropdownBtn
+      .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 60 })
+      .then(() => true)
+      .catch(() => false);
+    if (!dropdownReady) {
+      const title = await edgePage.title().catch(() => 'unknown');
+      throw new Error(
+        `EDGE portal did not render franchise dropdown after switch. ` +
+        `url=${edgePage.url()} title=${title}`,
+      );
+    }
+    return edgeModule;
   }
 
   /**
@@ -164,6 +212,10 @@ class EdgeContractModule {
    * @param {string} franchiseName - e.g. "UAT SET 2", "Tkxel Test Franchise"
    */
   async selectFranchise(franchiseName) {
+    // Wait for the franchise dropdown to be rendered by React before clicking.
+    // The EDGE portal is a SPA; 'domcontentloaded' (fired in openFromSetPage)
+    // does not guarantee the component tree has hydrated. §4 web-first assertion.
+    await expect(this.franchiseDropdownBtn).toBeVisible({ timeout: TIMEOUTS.BASE * 60 });
     await this.franchiseDropdownBtn.click();
 
     // Dropdown renders as a tooltip popover

@@ -367,10 +367,15 @@ test.describe('Tasks Module E2E Tests', () => {
 
     test('TC-TASK-014 | Verify that task detail panel opens when a task row is clicked. @smoke', async () => {
       await test.step('Click on first task row title cell', async () => {
-        // Click the task title cell (2nd td) to open the detail slide-in panel
+        // Wait for the first data row and its Task Title cell (td.nth(1)) to have
+        // non-empty text before clicking — guards against skeleton rows that are
+        // visible but have no content (SKILL.md §4 table data readiness rule).
         const firstRow = tasksModule.getTableRows().first();
         await expect(firstRow).toBeVisible();
-        await firstRow.locator('td').nth(1).click();
+        const titleCell = firstRow.locator('td').nth(1);
+        await expect(titleCell).not.toBeEmpty();
+        await titleCell.scrollIntoViewIfNeeded();
+        await titleCell.click();
       });
 
       await test.step('Verify detail panel is visible', async () => {
@@ -393,9 +398,13 @@ test.describe('Tasks Module E2E Tests', () => {
 
     test('TC-TASK-015 | Verify that task detail panel closes successfully. @regression', async () => {
       await test.step('Open detail panel', async () => {
+        // Same data-readiness guard as TC-TASK-014 (SKILL.md §4)
         const firstRow = tasksModule.getTableRows().first();
         await expect(firstRow).toBeVisible();
-        await firstRow.locator('td').nth(1).click();
+        const titleCell = firstRow.locator('td').nth(1);
+        await expect(titleCell).not.toBeEmpty();
+        await titleCell.scrollIntoViewIfNeeded();
+        await titleCell.click();
         await expect(tasksModule.detailPanel).toBeVisible();
       });
 
@@ -662,6 +671,8 @@ test.describe('Tasks Module E2E Tests', () => {
 
       await test.step('Verify all visible rows show To-do in Type column', async () => {
         const rows = tasksModule.getTableRows();
+        // Wait for table data to be ready — filter API call can be slow, causing skeleton rows (SKILL §4).
+        await expect(rows.first().locator('td:nth-child(8)')).not.toBeEmpty({ timeout: TIMEOUTS.BASE * 60 });
         const rowCount = await rows.count();
         expect(rowCount).toBeGreaterThan(0);
 
@@ -730,6 +741,8 @@ test.describe('Tasks Module E2E Tests', () => {
 
       await test.step('Verify all visible rows show High in Priority column', async () => {
         const rows = tasksModule.getTableRows();
+        // Wait for table data to be ready — filter API call can be slow, causing skeleton rows (SKILL §4).
+        await expect(rows.first().locator('td:nth-child(7)')).not.toBeEmpty({ timeout: TIMEOUTS.BASE * 60 });
         const rowCount = await rows.count();
         expect(rowCount).toBeGreaterThan(0);
 
@@ -782,6 +795,8 @@ test.describe('Tasks Module E2E Tests', () => {
 
       await test.step('Verify visible rows show To-do status', async () => {
         const rows = tasksModule.getTableRows();
+        // Wait for table data to be ready — filter API call can be slow, causing skeleton rows (SKILL §4).
+        await expect(rows.first().locator('td:nth-child(8)')).not.toBeEmpty({ timeout: TIMEOUTS.BASE * 60 });
         const rowCount = await rows.count();
         expect(rowCount).toBeGreaterThan(0);
 
@@ -866,6 +881,9 @@ test.describe('Tasks Module E2E Tests', () => {
 
       await test.step('Verify rows show To-do type AND High priority', async () => {
         const rows = tasksModule.getTableRows();
+        // Wait for table data to be ready before reading cells (SKILL §4 table data readiness).
+        // After applying two filters the filter API call can be slow, causing skeleton rows with empty cells.
+        await expect(rows.first().locator('td:nth-child(7)')).not.toBeEmpty({ timeout: TIMEOUTS.BASE * 60 });
         const rowCount = await rows.count();
         expect(rowCount).toBeGreaterThan(0);
 

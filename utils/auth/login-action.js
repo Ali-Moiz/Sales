@@ -63,14 +63,14 @@ async function performLoginAttempt(page, creds = env) {
     const appError = page.locator("p.invalid-feedback").first();
 
     const waitForAppShell = async (timeout) => {
-      await Promise.any([
+      return Promise.any([
         page.waitForURL(/\/app\/sales\//, { timeout, waitUntil: "commit" }),
         page.waitForFunction(
           () => window.location.pathname.includes("/app/sales/"),
           null,
           { timeout },
         ),
-      ]).catch(() => {});
+      ]).then(() => true).catch(() => false);
     };
 
     if (
@@ -86,6 +86,7 @@ async function performLoginAttempt(page, creds = env) {
     if (await appEmail.isVisible().catch(() => false)) {
       await appEmail.fill(creds.email);
       await appPassword.fill(creds.password);
+      await appLogIn.waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 20 });
 
       const submitAttempts = [
         async () => appLogIn.click(),
@@ -94,11 +95,27 @@ async function performLoginAttempt(page, creds = env) {
       ];
 
       for (const submit of submitAttempts) {
-        await Promise.allSettled([waitForAppShell(TIMEOUTS.BASE * 30), submit()]);
+        await submit().catch(() => {});
 
-        if (/auth0\.com|\/app\/sales\//.test(page.url())) break;
-        if (await appError.isVisible({ timeout: TIMEOUTS.BASE * 3 }).catch(() => false))
+        const reachedAppShell = await waitForAppShell(TIMEOUTS.BASE * 30);
+        if (reachedAppShell || /auth0\.com|\/app\/sales\//.test(page.url())) break;
+        if (
+          await appError
+            .waitFor({ state: "visible", timeout: TIMEOUTS.BASE * 3 })
+            .then(() => true)
+            .catch(() => false)
+        )
           break;
+      }
+
+      if (
+        !/auth0\.com|\/app\/sales\//.test(page.url()) &&
+        await appEmail.isVisible().catch(() => false)
+      ) {
+        const appErrorText = await appError.textContent().catch(() => "");
+        throw new Error(
+          `Login form did not reach app shell after submit attempts. Current URL: ${page.url()}${appErrorText ? ` | App error: ${appErrorText.trim()}` : ""}`,
+        );
       }
     }
 
@@ -126,8 +143,8 @@ async function performLoginAttempt(page, creds = env) {
 
         for (const submit of authSubmitAttempts) {
           await submit().catch(() => {});
-          await waitForAppShell(TIMEOUTS.BASE * 40);
-          if (/\/app\/sales\//.test(page.url())) break;
+          const reachedAppShell = await waitForAppShell(TIMEOUTS.BASE * 40);
+          if (reachedAppShell || /\/app\/sales\//.test(page.url())) break;
         }
       }
     }

@@ -423,7 +423,7 @@ Latest verified result:
 1. Open the More Filters panel.
 2. Attempt to locate a "Country" dropdown.
 **Expected results / Assertion points:**
-- NOTE: The "Country" dropdown does not exist in the current More Filters panel UI. This test documents that Country filtering is not available in the current implementation. Mark as test.fail() with TODO.
+- NOTE: The "Country" dropdown does not exist in the current More Filters panel UI. This test documents that Country filtering is not available in the current implementation. 
 
 ### TC-COMP-032 | Verify that the States dropdown allows selecting a state and filters the grid accordingly after Apply Filters
 **Preconditions:** User is on the Companies listing page.

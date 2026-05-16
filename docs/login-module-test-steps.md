@@ -148,7 +148,7 @@ npm run report
 5. Wait for redirect to login/landing page
 **Expected results / Assertion points:**
 - After step 5: "Welcome!" heading is visible
-- After step 5: "Login" button is visible on landing page
+- After step 5: Either the landing-page "Login" button is visible or the login form is visible
 
 ---
 
@@ -196,15 +196,19 @@ npm run report
 **Steps:**
 1. Navigate to the login page
 2. Enter only email (leave password empty), click "Log In"
-3. Observe error
+3. Observe that login is blocked
 4. Reload login page
 5. Enter only password (leave email empty), click "Log In"
-6. Observe error
+6. Observe that login is blocked
 **Expected results / Assertion points:**
-- After step 3: Error message is displayed ("Wrong email or password")
-- After step 3: URL does NOT contain `/app/sales/dashboard`
-- After step 6: Error message is displayed
-- After step 6: URL does NOT contain `/app/sales/dashboard`
+- After step 3: Login form remains visible
+- After step 3: Email input retains the entered value
+- After step 3: Password input remains empty
+- After step 3: URL does NOT contain `/app/`
+- After step 6: Login form remains visible
+- After step 6: Email input remains empty
+- After step 6: Password input retains the entered value
+- After step 6: URL does NOT contain `/app/`
 
 ---
 

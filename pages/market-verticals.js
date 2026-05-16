@@ -333,20 +333,29 @@ class MarketVerticalsPage {
     // stale element handles when the table re-renders during iteration.
     await this.questionsTable.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 });
     return this.questionsTable.evaluate((table) => {
-      const rows = Array.from(table.querySelectorAll('tbody tr'));
+      const rows = Array.from(table.querySelectorAll('tbody tr, [role="row"]'));
       return rows
         .filter((row) => {
           const style = window.getComputedStyle(row);
           return style.display !== 'none' &&
             style.visibility !== 'hidden' &&
-            row.getBoundingClientRect().height > 0;
+            row.getBoundingClientRect().height > 0 &&
+            row.querySelector('td, [role="cell"]');
         })
         .map((row) => {
-          const cells = row.querySelectorAll('td');
+          const cells = row.querySelectorAll('td, [role="cell"]');
           return cells.length > 1 ? (cells[1].textContent ?? '').trim() : '';
         })
         .filter(Boolean);
     });
+  }
+
+  async waitForQuestionsTableData() {
+    await expect
+      .poll(async () => (await this.getQuestionStatements()).length, {
+        timeout: TIMEOUTS.BASE * 40,
+      })
+      .toBeGreaterThan(0);
   }
 
   /**
@@ -910,6 +919,42 @@ class MarketVerticalsPage {
     return texts;
   }
 
+  /**
+   * Scroll the questions table to the bottom and measure whether the first
+   * data column remains horizontally aligned with its header.
+   */
+  async getQuestionsTableLastRowAlignmentDelta() {
+    await this.waitForQuestionsTableData();
+
+    return this.questionsTable.evaluate((table) => {
+      let scrollable = table.parentElement;
+      while (scrollable && scrollable.scrollHeight <= scrollable.clientHeight) {
+        scrollable = scrollable.parentElement;
+      }
+
+      if (scrollable) {
+        scrollable.scrollTop = scrollable.scrollHeight;
+      }
+
+      const headerCells = Array.from(table.querySelectorAll('thead th, [role="columnheader"]'));
+      const rows = Array.from(table.querySelectorAll('tbody tr, [role="row"]'))
+        .filter((row) => row.querySelector('td, [role="cell"]'));
+      const lastRow = rows.at(-1);
+      const lastCells = lastRow ? Array.from(lastRow.querySelectorAll('td, [role="cell"]')) : [];
+      const headerCell = headerCells[1];
+      const lastCell = lastCells[1];
+      const headerBox = headerCell?.getBoundingClientRect();
+      const cellBox = lastCell?.getBoundingClientRect();
+
+      return {
+        cellX: cellBox ? cellBox.x : null,
+        delta: headerBox && cellBox ? Math.abs(headerBox.x - cellBox.x) : null,
+        headerX: headerBox ? headerBox.x : null,
+        rowCount: rows.length,
+      };
+    });
+  }
+
   // ══════════════════════════════════════════════════════════════════════════
   // QUESTION DETAIL PANEL HELPERS (added for TC-MV-038 through TC-MV-041)
   // ══════════════════════════════════════════════════════════════════════════
@@ -1004,6 +1049,14 @@ class MarketVerticalsPage {
     const fullText = (await headingContainer.textContent()) ?? '';
     const match = fullText.match(/No\.\s*of\s*Questions:\s*(\d+)/i);
     return match ? parseInt(match[1], 10) : -1;
+  }
+
+  async waitForNoOfQuestionsCount(expectedCount) {
+    await expect
+      .poll(async () => this.getNoOfQuestionsCount(), {
+        timeout: TIMEOUTS.BASE * 40,
+      })
+      .toBe(expectedCount);
   }
 }
 

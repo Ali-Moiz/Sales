@@ -112,11 +112,15 @@ await Promise.all([page.waitForURL(/\/deals\/\d+/), createBtn.click()]);
 
 **Table data readiness:** Before reading cell text from a data grid, wait for pagination to show a non-zero total (e.g., `waitForTableData()`). Symptom: `getFirstRowCellText()` returns empty string. Root cause: table DOM skeleton renders before the API response arrives, so rows are "attached" but contain no text. Rule: always call `await module.waitForTableData()` before `getFirstRowCellText()` or similar cell-reading methods.
 
+**Filter API calls cause skeleton rows — guard before `rows.count()`:** After applying a filter (Type, Priority, Status, etc.) the table briefly shows skeleton rows with empty cells before the filtered API response arrives. Symptom: `toContainText("High")` fails with received `""` even though the locator resolves to a `<td>` element. Root cause: `rows.count()` resolves immediately (before data loads), so iterating over the count yields skeleton rows with empty cells. Rule: before calling `rows.count()` for iteration, guard on the specific column cell with `not.toBeEmpty()` using `{ timeout: TIMEOUTS.BASE * 60 }` (filter API calls can take >10s): `await expect(rows.first().locator('td:nth-child(N)')).not.toBeEmpty({ timeout: TIMEOUTS.BASE * 60 }); const rowCount = await rows.count();`.
+
 **Drawer survival after blocked submit:** Never assume a form drawer survives a submit click just because `expect(heading).toBeVisible()` passes immediately after the click — the drawer may still be visible while the server processes the request and then closes. Symptom: `TimeoutError: page.waitForURL` in the step after "re-fill and resubmit", because the drawer closed mid-flow (server accepted the invalid data silently, or rejected server-side and dismissed the drawer). Root cause: `expect(heading).toBeVisible()` confirms the drawer was visible at that instant but does not confirm submission was blocked. Rule: after clicking submit with potentially-invalid data, first use `page.waitForURL(/target/, { timeout: 6_000 }).then(() => true).catch(() => false)` to detect whether the app navigated to the success URL; if it did, the app has no client-side validation — handle that branch separately. Only then use `waitFor({ state: 'visible' })` (not `.isVisible()` snapshot) to check whether the drawer remained open. Example: `const navigated = await page.waitForURL(/\/contract\/\d+/, { timeout: 6_000 }).then(() => true).catch(() => false); if (navigated) { /* silently accepted */ return; } const drawerOpen = await drawer.waitFor({ state: 'visible', timeout: 4_000 }).then(() => true).catch(() => false);`
 
 **Search-then-find race condition:** When polling for a search term in a table, do not accept "term is visible" as proof the search completed — the term may already be visible in the unfiltered table. Symptom: `waitFor` on filtered row times out even though the row was visible moments earlier. Root cause: poll returns early on pre-search content, then the search API response re-renders the table and the row disappears during reload. Rule: require pagination text to have changed (confirming API response) before accepting a text-match as search completion.
 
 **`waitForLoadState('domcontentloaded')` is a no-op on SPA navigation:** After a React Router client-side navigation (pushState), `waitForLoadState('domcontentloaded')` resolves in ~2ms because the page is already loaded — it does NOT wait for the URL to change. Symptom: `expect(page).toHaveURL(/\/deals\/deal\/\d+/)` fails with the old deals-list URL, even though the click completed without error. Root cause: `waitForLoadState` is event-based on page lifecycle events; SPA navigation emits no `domcontentloaded` event. Rule: for any click that triggers a React Router URL change, use `Promise.all([page.waitForURL(/pattern/), locator.click()])` instead. Never follow a navigation-triggering click with `waitForLoadState('domcontentloaded')` alone when the app is a SPA. Example: `await Promise.all([page.waitForURL(/\/deals\/deal\/\d+/, { timeout: 20_000 }), dealNameCell.click()]);`
+
+**Cross-portal handoffs must validate the destination app before returning:** Symptom: EDGE assertions fail on `getByTestId('dropdown-trigger')` while the screenshot still shows the SET profile menu or the new page is `https://uat.portal.teamsignal.com/` with title `Login - Signal`. Root cause: clicking "Switch to Edge 2.0" can open a new tab or same-tab navigation, and the shared Auth0 session may not hydrate into the EDGE app. Rule: portal opener helpers must race popup and same-page navigation, then assert an EDGE-only readiness signal before returning; if the page lands on login or lacks EDGE chrome, throw a descriptive setup error for the calling test to skip or branch.
 
 **Intercepting modals after action clicks (e.g., "Associate Franchise!"):** When a button click (e.g., "Create Proposal") may open either the expected UI (drawer/dialog) or a blocking modal depending on data state, use `.or()` to race between both outcomes, then branch on which one appeared. Symptom: `waitFor` on the expected heading times out because a prerequisite modal appeared instead. Root cause: the deal's property has no franchise associated, so the app shows an "Associate Franchise!" modal instead of the Create Proposal drawer. Rule: in the POM method, use `expectedHeading.or(blockingModalHeading).waitFor()` then check `blockingModalHeading.isVisible()` to branch. Handle the modal (select option, submit), then wait for or re-trigger the original action. See `openCreateProposalDrawer()` and `_handleAssociateFranchiseModal()` in `pages/contract-module.js`.
 
@@ -129,7 +133,14 @@ await Promise.all([page.waitForURL(/\/deals\/\d+/), createBtn.click()]);
 - Prefer API cleanup (`request.delete()`) over UI cleanup.
 - **Created records use `PAT {timestamp}` pattern:** `` `PAT ${Date.now()}` ``
 - **Shared-deal state guard (Contract & Terms):** Any test that opens the shared deal and either calls `openCreateProposalDrawer()` OR asserts empty state (e.g., `assertEmptyStateVisible()`) MUST first call `detectContractState()` and delete any existing proposal before proceeding. Symptom: `expect(locator).toBeVisible()` on `getByRole('heading', { name: 'Create a Proposal', level: 2 })` times out — the empty-state heading never renders because a prior run left a proposal card on the shared deal. Root cause: `ensureContractTargetDeal()` only guarantees an empty deal at suite startup; a previous run that created (but did not fully clean up) a proposal on the shared deal puts it in a non-empty state for the next run. Fix: `const state = await contractModule.detectContractState(MED_TIMEOUT); if (state === "proposal") { await contractModule.deleteExistingProposal(); }` before any empty-state assertion or `openCreateProposalDrawer()`. Tests that use `withIsolatedDeal()` or `openIsolatedCreateProposalDrawer()` are already safe — the guard is only needed for tests that open the shared deal directly.
+- **Persist shared record names from stable sources:** Symptom: a contract setup search looks for a generic section label such as `"Overview"` instead of a deal name. Root cause: setup opened a row, then persisted the first detail-page heading as the shared deal name; that heading can be a section title rather than the record identifier. Rule: when writing `shared-run-state.js` deal/company/property names, use the generated input value, API response, or the table row's record-name cell that was just opened. Never replace it with a generic detail-page heading unless the heading is scoped and asserted to match the expected record name.
 - **Proposal card actions use `aria-label`, not text nodes:** The Edit, Clone, Preview PDF, and Delete action icons on a proposal card are `<div aria-label="...">` elements with SVG children and empty text content. Symptom: `detectContractState()` always returns `"unknown"` even when a card is present; `deleteExistingProposal()` times out waiting for a `getByText('Delete')` locator that never matches. Root cause: `getByText('Delete', { exact: true })` matches DOM text nodes only — it does not match `aria-label` attributes. Fix: use CSS attribute selectors (`locator('[aria-label="Delete"]')`, `locator('[aria-label="Edit"]')` etc.) scoped to `contractTermsTabpanel`. These are the `*ByAriaLabel` locators added to `ContractModule` on 2026-05-07. Never use `getByText` on icon-only action buttons — always inspect DOM to confirm whether the accessible name comes from a text node or an attribute.
+
+- **Published contract badge does not imply every card action is available:** Symptom: an Addendum assertion times out on a published contract card that shows View/Clone/PDF/Terminate but no Addendum action. Root cause: UAT can have published contracts that are expired, too close to renewal, or otherwise not addendum-eligible, so the published badge alone is not enough setup for Addendum tests. Rule: setup for card-action tests must explicitly detect the required action icon (for example `[aria-label="Addendum"]`) and store/use that eligible deal; if no eligible deal exists, skip or create suitable data instead of asserting against an ineligible published contract.
+
+- **Fully signed contracts are still published contracts:** Symptom: a card-state assertion times out after a successful or blocked Addendum/Publish path even though the proposal card is visible with the "Published and signed" badge. Root cause: fully signed contracts replace "Published without sign" with "Published and signed", so assertions that only accept `contractPublishedBadge` miss a valid published state. Rule: when asserting that a published/unchanged proposal card exists, accept `contractFullySignedBadge` alongside `contractPublishedBadge`; keep action-specific assertions separate.
+
+- **Pre-existing Addendum deals do not prove parent linkage:** Symptom: a "second Addendum cannot be created" test times out on `assertNoAddendumAction()` while the parent card still shows the Addendum icon. Root cause: setup found an unrelated pre-existing addendum deal and a separate eligible parent, then treated the eligible parent as if it already had a pending addendum. Rule: tests that assert a second addendum is blocked must use a parent explicitly detected without an Addendum action or the parent URL from a successful addendum creation in the same run; otherwise skip instead of asserting against a generic eligible parent.
 
 ---
 
@@ -169,6 +180,8 @@ Every test MUST have meaningful assertions. `toBeDefined()` alone is insufficien
 | Enabled/disabled changes  | `toBeEnabled`/`toBeDisabled`                   |
 
 **Targets:** 3-6 assertions per test, 2-4 per `test.step()` group. If a step matches none of the above, don't assert it.
+
+**Environment-dependent server enforcement:** Symptom: a test hard-fails because a documented negative path, such as a <7-day addendum block, is accepted in UAT and navigates to the success/editor page. Root cause: the environment does not enforce the server-side rule consistently even though the UI flow is observable. Rule: detect navigation or the expected blocked state with event-based waits, assert/log the branch that actually occurred, and reserve hard failures for broken UI controls or invariant states that the target environment truly enforces.
 
 **Grid filter assertions — sibling-row tolerance:** When asserting that a grid filter (e.g., city) returns only matching rows, the backend may include sibling rows (same parent entity, different field value in the same state/category). Use a majority-match assertion (`matchCount / total >= 0.8`) plus `toContain(expected)` instead of strict `toBe` on every row. Symptom: `expect(val).toBe("Omaha")` fails with `"Kearney"` — both Nebraska cities from the same company. Root cause: backend returns all rows for a matching company, not just the matching city row.
 
@@ -551,6 +564,12 @@ const opened = await page.evaluate(() => {
 });
 ```
 
+**Extension — `click({ force: true })` has the same problem.** `force: true` skips Playwright's pointer-event actionability checks, but more critically it bypasses the browser's native event dispatch path that React relies on to fire its synthetic event system. `#simple-popper` never renders, and `waitFor({ state: 'visible' })` times out. Always use a plain `.click()` (or the POM's dedicated opener method that combines real click + ArrowDown retry) to open MUI Popper dropdowns. Never call the low-level `click({ force: true })` wrapper alone as the sole open trigger.
+
+- **Symptom:** `locator.waitFor: Timeout Nms exceeded` on `#simple-popper` after a `click({ force: true })` on the jss container trigger div.
+- **Root cause:** `force: true` skips pointer-event checks; React never receives the synthetic click and does not open the Popper.
+- **Rule:** Use the POM's opener method (e.g. `openSelectSupervisorDropdownInCreateDrawer()`) which performs a real `.click()` plus `ArrowDown` with up to 5 retry attempts. Never bypass with `force: true` alone.
+
 ---
 
 ## 21. Extra Browser Tabs and Unreachable Wizard Steps
@@ -664,4 +683,46 @@ await propertyModule.switchEmailDirectionFilter("All");
 await expect(
   page.getByRole("listitem").filter({ hasText: new RegExp(emailSubject) }).first()
 ).toBeVisible({ timeout: TIMEOUTS.BASE * 30 }); // times out — email is on page 17
+```
+
+---
+
+## 31. Strict Mode Violation on Table Cell Click — Use `.first()`
+
+**Symptom:** `locator.click: Error: strict mode violation: getByRole('cell', { name: '...' }) resolved to 2 elements` when clicking a search result row by contact/entity name.
+
+**Root cause:** Search results may return duplicate rows (e.g., same contact appears twice during loading or due to a backend pagination overlap). `getByRole('cell', { name })` without a scope guard matches all cells with that name in the entire table, triggering Playwright's strict mode error.
+
+**Rule:** When clicking a table cell by entity name to navigate to a detail page, always scope with `.first()` to pick the top result. Do not rely on the search producing exactly one match.
+
+```javascript
+// WRONG — strict mode error when duplicate rows exist
+await this.page.getByRole('cell', { name }).click();
+
+// CORRECT — always take the first matching cell
+await this.page.getByRole('cell', { name }).first().click();
+```
+
+---
+
+## 32. Shared Deal Name May Capture UI Navigation Labels — Validate Before Use
+
+**Symptom:** `openContractDealDetail("Overview")` searches for a deal named "Overview", finds nothing, and throws or times out. `resolvedContractDealName` was `"Overview"` instead of the actual deal name.
+
+**Root cause:** When a `beforeAll` or helper navigates the page (e.g., `assertOnDealDetailPage` triggers a tab click), the `resolvedContractDealName` shared variable may have been populated from a UI element's text content (tab label, heading) rather than the actual deal name. The check `!dealName` passes because the string is non-empty, but the value is a UI navigation label, not a valid deal name.
+
+**Rule:** Any function that consumes `resolvedContractDealName` must validate it with `isUsableContractDealName()` (or equivalent) before using it. Each child `beforeAll` that could inherit a stale/invalid shared value must re-validate and reset it before searching.
+
+```javascript
+// WRONG — empty string check passes for "Overview"
+if (!dealName) { throw new Error("..."); }
+
+// CORRECT — reject known-invalid UI labels too
+if (!dealName || !isUsableContractDealName(dealName)) { throw new Error("..."); }
+
+// CORRECT — child beforeAll resets invalid inherited value before searching
+if (!isUsableContractDealName(resolvedContractDealName)) {
+  const freshName = readCreatedDealName();
+  resolvedContractDealName = isUsableContractDealName(freshName) ? freshName : "";
+}
 ```

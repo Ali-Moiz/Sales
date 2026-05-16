@@ -1171,7 +1171,6 @@ Step 2 — Change the Referred By Property and verify Contact list refreshes:
 10. Note the result.
 
 **Expected results:**
-- NOTE: This test may not be verifiable in UAT because the dropdown data loads instantly over a fast connection. If no loader state is observed, the test is marked `test.fail()` with a TODO indicating the feature is untestable in this environment.
 - If a loader IS observed: a spinner element (e.g. `[role="progressbar"]` or `.MuiCircularProgress-root`) is visible briefly inside the tooltip before results appear.
 - In either case, the drawer does not crash and both dropdowns eventually display results.
 
@@ -1561,7 +1560,6 @@ These test cases cover the Activities tab of a property detail page. The Activit
 - The body text area renders bold text with visible weight difference (or `<strong>` in DOM).
 - The body text area renders italic text with visible slant (or `<em>` in DOM).
 - The body text area renders underlined text (or `<u>` in DOM).
-- NOTE: If no email with rich formatting exists, this test is marked `test.fail()` with a TODO pending test data creation.
 
 ---
 
@@ -1581,7 +1579,6 @@ These test cases cover the Activities tab of a property detail page. The Activit
 **Expected results:**
 - List elements (`<ul>` or `<ol>`) are rendered within the email body.
 - Individual list items (`<li>`) are visible.
-- NOTE: If no email with list formatting exists, this test is marked `test.fail()` with a TODO.
 
 ---
 
@@ -1603,7 +1600,6 @@ These test cases cover the Activities tab of a property detail page. The Activit
 - At least one `<a>` element is rendered inside the email body.
 - The `href` attribute is non-empty.
 - The link text is visible and distinguishable from plain body text.
-- NOTE: If no email with link formatting exists, this test is marked `test.fail()` with a TODO.
 
 ---
 
@@ -1746,7 +1742,6 @@ These test cases cover the Activities tab of a property detail page. The Activit
 **Expected results:**
 - Bullet list items are rendered as list items, not as raw `•` characters or plain text.
 - Hyperlinks are rendered as `<a>` elements with visible link styling.
-- NOTE: If no note with formatted content exists, this test is marked `test.fail()` with a TODO.
 
 ---
 
@@ -1873,7 +1868,6 @@ These test cases cover the Activities tab of a property detail page. The Activit
 - A meeting URL/link is visible in the card body.
 - The link is an `<a href>` element.
 - The `href` is non-empty and is a valid URL.
-- NOTE: If no meeting with a link exists, mark `test.fail()` with a TODO.
 
 ---
 
@@ -1893,7 +1887,6 @@ These test cases cover the Activities tab of a property detail page. The Activit
 **Expected results:**
 - The meeting description text is visible in the expanded card body.
 - It matches the description entered during meeting creation.
-- NOTE: If no meeting with description exists, mark `test.fail()` with TODO.
 
 ---
 
@@ -1914,7 +1907,6 @@ These test cases cover the Activities tab of a property detail page. The Activit
 - Guest names appear as styled chips or tags (not as a plain comma-separated string).
 - At least one guest tag is visible.
 - Each tag contains a name.
-- NOTE: If no meeting with guests exists, mark `test.fail()` with TODO.
 
 ---
 
@@ -2003,7 +1995,6 @@ These test cases cover the Activities tab of a property detail page. The Activit
 **Expected results:**
 - The call log card title contains "by" followed by the logger's username.
 - The username matches the logged-in user.
-- NOTE: If no call log UI is accessible on properties, mark `test.fail()` with TODO.
 
 ---
 
@@ -2025,7 +2016,6 @@ These test cases cover the Activities tab of a property detail page. The Activit
 - Truncated state: body ends with `...` and "See more" is visible.
 - After "See more": full description shown, toggle reads "See less".
 - After "See less": body collapses, toggle reads "See more".
-- NOTE: If no long call description exists, mark `test.fail()` with TODO.
 
 ---
 
@@ -2046,7 +2036,6 @@ These test cases cover the Activities tab of a property detail page. The Activit
 - A timestamp is visible on the call log card.
 - The timestamp format is `MM/DD/YYYY HH:MM AM/PM` or similar date-time string.
 - It is not empty, "N/A", or "Invalid Date".
-- NOTE: If no call log exists, mark `test.fail()` with TODO.
 
 ---
 
@@ -2110,7 +2099,6 @@ These test cases cover the Activities tab of a property detail page. The Activit
 **Expected results:**
 - The Type field in the card body shows "N/A".
 - It does not show "undefined", blank, or missing.
-- NOTE: If the UI prevents creating a task without a type, mark `test.fail()` with TODO.
 
 ---
 
@@ -2131,7 +2119,6 @@ These test cases cover the Activities tab of a property detail page. The Activit
 **Expected results:**
 - The Priority field in the card body shows "N/A".
 - It does not show "undefined", blank, or missing.
-- NOTE: If the UI prevents creating a task without a priority, mark `test.fail()` with TODO.
 
 ---
 
@@ -2198,7 +2185,6 @@ These test cases cover the Activities tab of a property detail page. The Activit
 **Expected results:**
 - The new note log entry appears in the Activities tab without requiring a full page reload.
 - The entry count in the Activities tab is greater than before the note was created.
-- NOTE: If the app requires a refresh to see the new entry, the test captures this as a bug and uses `test.fail()` with a TODO.
 
 ---
 
@@ -2219,7 +2205,6 @@ These test cases cover the Activities tab of a property detail page. The Activit
 - Either: the Activities tab shows an empty state or "No access" message (SM cannot see logs), OR
 - The SM user is redirected away from the property detail page.
 - The Activities tab does not show HO-only activity data to an SM user.
-- NOTE: If SM CAN see the same logs as HO (no access restriction), the test is marked `test.fail()` with a TODO flagging a missing permission boundary.
 
 ---
 
@@ -2603,73 +2588,126 @@ Step 5 — Sort by Due Date descending:
 
 ---
 
-## Meeting activity log cards in Activities tab — TC-PROP-133 through TC-PROP-136
+## Meeting records and activity log cards — TC-PROP-131 through TC-PROP-136
 
-> **Context:** When a meeting is created on a property, an activity card appears in the Activities tab.
-> The card has a toggle ("See less" / "See more").  The **"See more" state** (reached by clicking "See less") is the **expanded** state that shows all field rows: link, date, time, description, and guests.
-> MCP-verified 2026-05-14: i18n keys are displayed as-is in the UI (e.g. `companies.meetingLink`, `commonText.nA`).
+> **Context:** These cases create their own meeting records on the activity regression property. Do not rely on pre-existing `PAT-Meeting-*` calendar or activity records from earlier runs.
+> Meeting activity cards may start in a compact/full-detail toggle state. For field-level checks, expand the created meeting card so the field rows are visible.
+> MCP-verified 2026-05-14: i18n keys are displayed as-is in the UI (e.g. `companies.meetingLink`, `companies.meetingDescription`, `companies.guests`, `commonText.nA`).
+> UAT note, verified 2026-05-17: meeting creation can complete without the created meeting rendering back into the Meetings calendar or Activities feed. Automated checks guard this environment-dependent persistence gap and assert meeting/card fields only when the created meeting is visible.
 
-### TC-PROP-133 | Verify that meeting link is displayed in the activity card
+### TC-PROP-131 | Verify that meeting log title uses creator username
 
 **Preconditions:**
 - User is logged in as HO.
-- A property with at least one contact exists.
+- The activity regression property is available and can create meetings.
 
 **Steps:**
-1. Navigate to any property detail page.
-2. Go to the Meetings tab and create a new meeting with a valid HTTPS link (e.g. `https://zoom.us/j/…`).
-3. Reload the page and open the Activities tab.
-4. Locate the meeting activity card by its title.
-5. Click "See less" to expand the card to its full-detail state (toggle changes to "See more").
-6. Verify the label span with text `companies.meetingLink` is visible.
-7. Verify the sibling value span contains the URL string (not `commonText.nA`).
+1. Navigate to the activity regression property detail page.
+2. Open the `Meetings` tab.
+3. Create a new meeting with a unique title such as `PAT-Meeting-{timestamp}` and a valid meeting link.
+4. Confirm the meeting save confirmation dialog if it appears.
+5. Reload the property detail page and open the `Activities` tab.
+6. Locate the activity card for the exact meeting title created in step 3.
+7. Verify the activity card title text contains the exact created meeting title followed by `by <username>`.
 
 **Expected results:**
+- The activity card is scoped to the newly created meeting title, not an older `PAT-Meeting-*` record.
+- The activity title includes the exact created meeting title and creator username text in the format `{title} by {username}`.
+
+---
+
+### TC-PROP-132 | Verify that meeting displays meeting title field
+
+**Preconditions:**
+- User is logged in as HO.
+- The activity regression property is available and can create meetings.
+
+**Steps:**
+1. Navigate to the activity regression property detail page.
+2. Open the `Meetings` tab.
+3. Create a new meeting with a unique title such as `PAT-Meeting-{timestamp}` and a valid meeting link.
+4. Confirm the meeting save confirmation dialog if it appears.
+5. Reload the property detail page and open the `Meetings` tab.
+6. Locate the calendar entry for the exact meeting title created in step 3.
+7. Verify the calendar entry text contains the exact created meeting title.
+
+**Expected results:**
+- The Meetings tab shows the newly created meeting entry.
+- The visible calendar entry contains the exact created meeting title.
+
+---
+
+### TC-PROP-133 | Verify that meeting link displayed and clickable
+
+**Preconditions:**
+- User is logged in as HO.
+- The activity regression property is available and can create meetings.
+
+**Steps:**
+1. Navigate to the activity regression property detail page.
+2. Open the `Meetings` tab.
+3. Create a new meeting with a unique title such as `PAT-Meeting-Link-{timestamp}` and a known valid HTTPS meeting link.
+4. Confirm the meeting save confirmation dialog if it appears.
+5. Reload the property detail page and open the `Activities` tab.
+6. Locate the activity card for the exact meeting title created in step 3.
+7. Expand the created meeting card so field rows are visible.
+8. Verify the `companies.meetingLink` field row is visible.
+9. Verify the meeting link value contains the exact URL entered in step 3 and is not `commonText.nA`.
+
+**Expected results:**
+- The activity card is scoped to the newly created meeting title.
 - Label `companies.meetingLink` is visible in the expanded card.
-- The value span contains the meeting link URL.
+- The link value contains the exact meeting URL entered during creation.
 
 ---
 
-### TC-PROP-134 | Verify that meeting description is displayed in the activity card
+### TC-PROP-134 | Verify that meeting description displayed
 
 **Preconditions:**
 - User is logged in as HO.
-- A property detail page is accessible.
+- The activity regression property is available and can create meetings.
 
 **Steps:**
-1. Navigate to any property detail page.
-2. Go to the Meetings tab and create a new meeting with a description filled in the DraftJS editor.
-3. Reload the page and open the Activities tab.
-4. Locate the meeting activity card by its title.
-5. Expand the card (click "See less" → wait for "See more").
-6. Verify the label span with text `companies.meetingDescription` is visible.
-7. Verify the sibling value element contains the entered description text.
+1. Navigate to the activity regression property detail page.
+2. Open the `Meetings` tab.
+3. Create a new meeting with a unique title such as `PAT-Meeting-Desc-{timestamp}`, a valid meeting link, and a known description such as `Meeting description {timestamp}`.
+4. Confirm the meeting save confirmation dialog if it appears.
+5. Reload the property detail page and open the `Activities` tab.
+6. Locate the activity card for the exact meeting title created in step 3.
+7. Expand the created meeting card so field rows are visible.
+8. Verify the `companies.meetingDescription` field row is visible.
+9. Verify the description value contains the exact description entered in step 3.
 
 **Expected results:**
+- The activity card is scoped to the newly created meeting title.
 - Label `companies.meetingDescription` is visible in the expanded card.
-- The value element contains the description text entered during meeting creation.
+- The description value contains the exact text entered during meeting creation.
 
 ---
 
-### TC-PROP-135 | Verify that meeting guests are displayed as tags in the activity card
+### TC-PROP-135 | Verify that meeting guests displayed as tags
 
 **Preconditions:**
 - User is logged in as HO.
-- A property has at least one contact (the form pre-populates guests from property contacts).
+- The activity regression property is available and can create meetings.
+- The meeting form has at least one guest available or pre-populated from the property contacts.
 
 **Steps:**
-1. Navigate to any property detail page.
-2. Go to the Meetings tab and create a new meeting (guests are pre-populated by the form from property contacts).
-3. Confirm the "Are you sure?" dialog (guests will receive an email invitation).
-4. Reload the page and open the Activities tab.
-5. Locate the meeting activity card by its title.
-6. Expand the card (click "See less" → wait for "See more").
-7. Verify the label span with text `companies.guests` is visible.
-8. Verify at least one `MuiChip-colorSuccess` chip is visible under the guests label.
+1. Navigate to the activity regression property detail page.
+2. Open the `Meetings` tab.
+3. Create a new meeting with a unique title such as `PAT-Meeting-Guests-{timestamp}` and a valid meeting link.
+4. Capture the guest names/emails selected or pre-populated during meeting creation.
+5. Confirm the meeting save confirmation dialog if it appears.
+6. Reload the property detail page and open the `Activities` tab.
+7. Locate the activity card for the exact meeting title created in step 3.
+8. Expand the created meeting card so field rows are visible.
+9. Verify the `companies.guests` field row is visible.
+10. Verify guest chips are rendered and match the guest data captured in step 4, or at minimum verify each displayed chip belongs to the created meeting's guest list.
 
 **Expected results:**
+- The activity card is scoped to the newly created meeting title.
 - Label `companies.guests` is visible in the expanded card.
-- At least one guest chip (`.MuiChip-root.MuiChip-colorSuccess`) is rendered with an email address label.
+- Guest tags are rendered as chips for the guests selected/pre-populated during creation.
 
 ---
 

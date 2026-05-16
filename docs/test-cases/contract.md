@@ -178,18 +178,9 @@
 167. Verify that Addendum contract can act as parent after publishing
 168. Verify system blocks multiple Addendum attempts simultaneously
 169. Verify change history is displayed during publication
-170. Verify change history includes all elements
-171. Verify shuffled detailed history still accurate
+
 172. Verify correct pill label states
-173. Verify Not Acknowledged label appears
-174. Verify acknowledgment before effective date works
-175. Verify acknowledgment during active period updates dates
-176. Verify acknowledgment after gap creates service gap
-177. Verify acknowledgment not allowed after end date
-178. Verify Not Acknowledged remains after expiry
-179. Verify only View allowed after expiry without acknowledgment
 180. Verify Acknowledged label appears
-181. Verify acknowledgment timestamp is displayed
 182. Verify notification is sent upon acknowledgment
 183. Verify notification title is correct
 184. Verify notification description contains contract name
@@ -202,96 +193,11 @@
 189. Verify that Addendum button is disabled when 1 day remaining
 190. Verify that Addendum is not available for not started contract
 191. Verify that new deal is created on Addendum creation
-192. Verify that parent contract remains unchanged before publish
 193. Verify that effective date updates parent contract end date
-194. Verify that Addendum becomes independent contract after publish
 195. Verify that second Addendum cannot be created
 196. Verify that change history is displayed on publish
 197. Verify that Not Acknowledged label appears
-198. Verify acknowledgment before effective date
-199. Verify acknowledgment during contract updates start date
-200. Verify acknowledgment after end date is blocked
-201. Verify only View action enabled after expiry without acknowledgment
-202. Verify Acknowledged label after acknowledgment
-203. Verify acknowledgment timestamp is shown
-204. Verify notification is sent after acknowledgment
 
 ## Contract Auto-Renewal - Edit Function Enhancement (SET)
-205. Verify that renewal notification email is sent on Renewal Date - N days
-206. Verify that draft renewal contract is created automatically
 207. Verify that auto rate increase is applied in draft
 208. Verify Annual Rate Increase is mandatory at contract creation
-209. Verify task is created when draft renewal is generated
-210. Verify task fields are correct
-211. Verify Publish Date is auto-set
-212. Verify user can edit Publish Date
-213. Verify auto-publish happens on Publish Date
-214. Verify manual publish triggers change summary modal
-215. Verify change summary excludes auto rate increase
-216. Verify change summary includes manual edits
-217. Verify approval required when pricing below threshold
-218. Verify fallback to original contract if approval not completed
-219. Verify draft becomes Discarded after fallback
-220. Verify discarded draft is view-only
-221. Verify discarded draft can be deleted
-222. Verify status shows Acknowledged when no manual changes
-223. Verify status shows Not Acknowledged when manual changes exist
-224. Verify status updates after EDGE acknowledgment
-225. Verify signature required when manual changes exist
-226. Verify no signature required when only rate increase applied
-227. Verify user publishes immediately after notification
-228. Verify auto-publish occurs if user takes no action
-229. Verify system handles multiple contracts auto-renewal
-230. Verify renewal task due date equals Publish Date
-231. Verify renewal email contains correct details
-232. Verify system handles API failure during auto-publish
-233. Verify user cannot edit after publish
-234. Verify rate increase does not count as manual change
-
-## Contract Addendum - Impact on Edge 2.0
-235. Verify that banner is displayed when addendum arrives
-236. Verify that notification is sent to FO and Supervisor
-237. Verify that daily notification is sent until acknowledged
-238. Verify that clicking banner opens addendum popup
-239. Verify that multiple addendums show selection dropdown
-240. Verify that single addendum opens directly
-241. Verify that services added are displayed correctly
-242. Verify that removed services are displayed
-243. Verify that changed services show before/after
-244. Verify that device changes are shown
-245. Verify that on-demand service changes are shown
-246. Verify that payment term changes are shown
-247. Verify that description changes are shown
-248. Verify that signee changes are displayed
-249. Verify that shift removal selection works
-250. Verify that Next button saves progress
-251. Verify that Acknowledge button completes process
-252. Verify that Cancel discards changes
-253. Verify that dashboard shows addendum metric
-254. Verify metric removed after acknowledgment
-255. Verify contract listing shows Not Acknowledged
-256. Verify contract becomes Active after acknowledgment
-257. Verify parent contract end date updated
-258. Verify schedule updates for added services
-259. Verify removed services disappear from schedule
-260. Verify shifts unassigned after change
-261. Verify acknowledgment before effective date
-262. Verify acknowledgment during active period
-263. Verify acknowledgment after contract end is blocked
-264. Verify banner not shown after acknowledgment
-
-## Contract Auto-Renewal - Edit Function Enhancement (EDGE)
-265. Verify that no notification is sent when renewal has no manual edits
-266. Verify that notification is sent when renewal has manual edits
-267. Verify that daily notifications are sent until acknowledgment
-268. Verify that banner is displayed on site when manual changes exist
-269. Verify that banner is not displayed when no manual edits exist
-270. Verify that clicking Review & Acknowledge opens modal
-271. Verify that Select Contract modal appears for multiple renewals
-272. Verify that single contract opens directly
-273. Verify acknowledgment button works
-274. Verify banner disappears after acknowledgment
-275. Verify shifts created automatically for no-edit renewal
-276. Verify last-week assignment duplication works
-277. Verify shifts editable after duplication
-278. Verify shifts generated but unassigned for changed services

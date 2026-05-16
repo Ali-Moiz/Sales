@@ -443,6 +443,15 @@ test.describe('Contact Module', () => {
     test(`NT-Contact-T003: Tasks empty state or existing task rows are visible`, async () => {
       await ntPage.clickTasksTab();
 
+      // Wait for the tasks section to settle into either empty or populated state
+      // §4: .isVisible() resolves immediately and may return false while loading;
+      // poll until one of the two states is confirmed before branching.
+      await expect.poll(async () => {
+        const empty = await ntPage.isTasksEmptyStateVisible();
+        const rows = await ntPage.getTaskRowCount();
+        return empty || rows > 0;
+      }, { timeout: TIMEOUTS.BASE * 40 }).toBeTruthy();
+
       const isEmpty = await ntPage.isTasksEmptyStateVisible();
       if (isEmpty) {
         await expect(ntPage.taskEmptyHeading).toBeVisible();
