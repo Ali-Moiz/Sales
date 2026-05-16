@@ -720,24 +720,6 @@ Expected result:
 - The Notes drawer opens with all expected fields.
 - The drawer can be closed successfully.
 
-### Reusable Notes CRUD Coverage (via registerNotesTasksSuite)
-
-- `NT-Deal-N001`: Notes tab is visible and clickable.
-- `NT-Deal-N002`: Notes empty state or existing notes list is visible.
-- `NT-Deal-N003`: `Add Notes` drawer shows all required fields.
-- `NT-Deal-N004`: User can create a note successfully and the note appears in the list.
-- `NT-Deal-N005`: Validation holds when Subject is empty.
-- `NT-Deal-N006`: Cancel Create Note closes the drawer without saving.
-- `NT-Deal-N007`: Character counter updates while typing description.
-- `NT-Deal-N008`: Edit Note drawer opens with existing values pre-filled.
-- `NT-Deal-N009`: User can edit note subject and save successfully.
-- `NT-Deal-N010`: Cancel Edit Note keeps the original note unchanged.
-- `NT-Deal-N011`: Delete Note confirmation dialog opens correctly.
-- `NT-Deal-N012`: Cancel Delete Note keeps the note in the list.
-- `NT-Deal-N013`: Confirm Delete Note removes the note from the list.
-
----
-
 ## Describe: Tasks Management
 
 > Tests in this group cover Tasks tab functionality on deal detail pages.
@@ -855,28 +837,6 @@ Expected result:
 
 - The Create Task drawer opens correctly.
 - All required task fields are visible.
-
-### Reusable Tasks CRUD Coverage (via registerNotesTasksSuite)
-
-- `NT-Deal-T001`: Tasks tab is visible and clickable.
-- `NT-Deal-T002`: Tasks tab shows all expected table columns.
-- `NT-Deal-T003`: Tasks empty state or existing task rows are visible.
-- `NT-Deal-T004`: `Create New Task` drawer shows all required fields.
-- `NT-Deal-T005`: Task Type dropdown shows `To-do`, `Email`, `Call`, and `LinkedIn`.
-- `NT-Deal-T006`: Task Priority dropdown shows `High`, `Medium`, and `Low`.
-- `NT-Deal-T007`: User can create a task successfully and it appears in the table.
-- `NT-Deal-T008`: Cancel Create Task closes the drawer without saving.
-- `NT-Deal-T009`: Validation holds when Task Title is empty.
-- `NT-Deal-T010`: Task search filters the table by title.
-- `NT-Deal-T011`: Non-matching task search shows empty state.
-- `NT-Deal-T012`: Edit Task drawer opens with pre-filled data.
-- `NT-Deal-T013`: User can edit task title and save successfully.
-- `NT-Deal-T014`: Cancel Edit Task keeps the original task unchanged.
-- `NT-Deal-T015`: Task can be marked complete via checkbox.
-- `NT-Deal-T016`: Completed task can be unchecked and returned to pending state.
-- `NT-Deal-T017`: Delete Task confirmation dialog opens correctly.
-- `NT-Deal-T018`: Cancel Delete Task keeps the task in the table.
-- `NT-Deal-T019`: Confirm Delete Task removes the task from the table.
 
 ### Cross-tab coverage
 

@@ -30,9 +30,6 @@ const {
   DEFAULT_COMPANY_NAME,
   resolveActivityRegressionProperty,
 } = require("../../utils/property-company-selector");
-const {
-  registerNotesTasksSuite,
-} = require("../helpers/register-notes-tasks-suite");
 const { NotesTaskPage } = require("../../pages/notesTask.page");
 
 // ── Test data constants ──────────────────────────────────────────────────────
@@ -4027,23 +4024,33 @@ test.describe("Property Module", () => {
     test(
       "TC-PROP-132 | Verify that meeting displays meeting title field",
       async () => {
-        // Use an existing PAT-Meeting-* activity card from prior runs — the title
-        // field is the same regardless of which specific meeting is inspected.
-        await test.step("Navigate to property and open Activities tab", async () => {
+        // MCP-verified 2026-05-15: meeting title field is visible in the Meetings
+        // tab FullCalendar view as a <paragraph> inside a gridcell. The Activities
+        // tab does NOT show meeting entries. Pre-existing PAT-Meeting-* calendar
+        // entries from prior runs are visible in the Meetings tab's all-day/overflow
+        // row — this test verifies their title text is accessible and non-empty.
+        await test.step("Navigate to property and open Meetings tab", async () => {
           await resolveActivityPropertyPath();
           await page.goto(`${baseUrl}${activityPropertyPath}`, {
             waitUntil: "domcontentloaded",
           });
-          await propertyModule.openActivitiesTab();
+          await propertyModule.openMeetingsTab();
         });
 
-        await test.step("Find an existing PAT-Meeting-* activity card and verify the title text is visible", async () => {
-          const titleCard = propertyModule.firstActivityCardTitleByPattern(/PAT-Meeting-\d+/);
-          await expect(titleCard).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
-          const text = await titleCard.innerText();
-          expect(text, "Meeting activity card title should contain the PAT-Meeting title").toMatch(
-            /PAT-Meeting-\d+/,
-          );
+        await test.step("Find a PAT-Meeting-* calendar entry and verify the title text is visible", async () => {
+          // Meetings tab renders entries as <p> elements inside FullCalendar gridcells.
+          // Many PAT-Meeting-* entries from prior runs are always present in the calendar.
+          const meetingsPanel = page.getByRole("tabpanel", { name: /Meetings/i });
+          const calendarEntry = meetingsPanel
+            .locator("p")
+            .filter({ hasText: /PAT-Meeting-\d+/ })
+            .first();
+          await expect(calendarEntry).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+          const text = await calendarEntry.innerText();
+          expect(
+            text,
+            "Meeting calendar entry should display the PAT-Meeting title",
+          ).toMatch(/PAT-Meeting-\d+/);
         });
       },
     );
@@ -4468,12 +4475,506 @@ test.describe("Property Module", () => {
   // ═══════════════════════════════════════════════════════════════════════════════
   test.describe.serial("Notes Management", () => {
 
-    // ── TC-PROP-146 (registerNotesTasksSuite) ──
-    registerNotesTasksSuite({
-      test,
-      moduleName: "Property",
-      getPage: () => page,
-      openEntityDetail,
+    // ── TC-PROP-146 (Notes & Tasks CRUD — inlined) ──
+    test.describe('Property Notes & Tasks CRUD', () => {
+      const ts = () => Date.now();
+      /** @type {import('../../pages/notesTask.page').NotesTaskPage} */
+      let ntPage;
+
+      test.beforeEach(async () => {
+        ntPage = new NotesTaskPage(page);
+        await openEntityDetail();
+
+        // Guard: if the app redirected to login (session expired / invalidated),
+        // re-authenticate and retry openEntityDetail once before failing the test.
+        if (!/\/app\/sales\//.test(page.url())) {
+          await performLogin(page);
+          await openEntityDetail();
+        }
+      });
+
+      test(`NT-Property-N001: Notes tab is visible and clickable`, async () => {
+        await ntPage.clickNotesTab();
+        await expect(page.getByRole('tab', { name: /^Notes/ })).toHaveAttribute('aria-selected', 'true');
+        await expect(ntPage.createNoteBtn).toBeVisible();
+      });
+
+      test(`NT-Property-N002: Notes empty state or existing notes list is visible`, async () => {
+        await ntPage.clickNotesTab();
+
+        await expect
+          .poll(async () => {
+            const isEmpty = await ntPage.isNotesEmptyStateVisible().catch(() => false);
+            if (isEmpty) return 'empty';
+
+            const noteCount = await ntPage.getNoteCount().catch(() => 0);
+            if (noteCount > 0) return 'list';
+
+            return 'pending';
+          }, { timeout: TIMEOUTS.BASE * 30 })
+          .not.toBe('pending');
+
+        const isEmpty = await ntPage.isNotesEmptyStateVisible();
+        if (isEmpty) {
+          await expect(ntPage.noteEmptyHeading).toBeVisible();
+          await expect(ntPage.noteEmptySubtext).toBeVisible();
+        } else {
+          await expect
+            .poll(() => ntPage.getNoteCount(), { timeout: TIMEOUTS.BASE * 20 })
+            .toBeGreaterThan(0);
+        }
+      });
+
+      test(`NT-Property-N003: "Add Notes" drawer has all required fields`, async () => {
+        await ntPage.clickNotesTab();
+        await ntPage.openCreateNoteDrawer();
+
+        await ntPage.assertAddNoteDrawerOpen();
+        await expect(ntPage.noteSubjectInput).toBeVisible();
+        await expect(ntPage.noteDescEditor).toBeVisible();
+        await expect(ntPage.noteSaveBtn).toBeVisible();
+        await expect(ntPage.noteCancelBtn).toBeVisible();
+      });
+
+      test(`TC-PROP-151 | Verify that note count updates after adding a note`, async () => {
+        const subject = `PAT Auto Note Property ${ts()}`;
+
+        await ntPage.clickNotesTab();
+        await ntPage.createNote({
+          subject,
+          description: `Smoke test note for Property – created by Playwright automation.`,
+        });
+
+        await expect(ntPage.addNoteDrawerHeading).toBeHidden();
+        await ntPage.assertNoteVisible(subject);
+      });
+
+      test(`TC-PROP-149 | Verify that system shows validation error when Subject is empty`, async () => {
+        await ntPage.clickNotesTab();
+        await ntPage.openCreateNoteDrawer();
+        await ntPage.noteDescEditor.click();
+        await ntPage.noteDescEditor.fill('Only description, no subject.');
+        await ntPage.noteSaveBtn.click();
+
+        await expect(ntPage.addNoteDrawerHeading).toBeVisible();
+        await expect(ntPage.noteSubjectInput).toHaveValue('');
+      });
+
+      test(`NT-Property-N006: Create note – Cancel discards the note`, async () => {
+        await ntPage.clickNotesTab();
+        await ntPage.openCreateNoteDrawer();
+        await ntPage.fillNoteForm({
+          subject: `PAT CANCEL ME Property`,
+          description: 'This note should never be saved.',
+        });
+        await ntPage.cancelNote();
+
+        await expect(ntPage.addNoteDrawerHeading).toBeHidden();
+      });
+
+      test(`NT-Property-N007: Character counter updates as description is typed`, async () => {
+        const sampleText = 'Playwright automation – character counter check';
+
+        await ntPage.clickNotesTab();
+        await ntPage.openCreateNoteDrawer();
+        await ntPage.noteDescEditor.click();
+        await ntPage.noteDescEditor.fill(sampleText);
+
+        await expect(ntPage.noteCharCounter).toContainText(String(sampleText.length));
+      });
+
+      test(`NT-Property-N008: Edit note – drawer opens pre-populated`, async () => {
+        const subject = `PAT Edit Note Property ${ts()}`;
+
+        await ntPage.clickNotesTab();
+        await ntPage.createNote({ subject, description: 'Original description.' });
+        await ntPage.clickEditNote(subject);
+
+        await ntPage.assertEditNoteDrawerOpen();
+        await expect(ntPage.noteSubjectInput).toHaveValue(subject);
+      });
+
+      test(`TC-PROP-152 | Verify that edited note shows updated content in listing`, async () => {
+        const subject = `PAT Edit Note Property ${ts()}`;
+        const updatedSubject = `${subject} UPDATED`;
+
+        await ntPage.clickNotesTab();
+        await ntPage.createNote({ subject, description: 'To be updated.' });
+        await ntPage.clickEditNote(subject);
+        await ntPage.fillEditNoteForm({ subject: updatedSubject });
+        await ntPage.saveEditedNote();
+
+        await ntPage.assertNoteVisible(updatedSubject);
+      });
+
+      test(`NT-Property-N010: Edit note – Cancel keeps original note unchanged`, async () => {
+        const subject = `PAT Keep Note Property ${ts()}`;
+
+        await ntPage.clickNotesTab();
+        await ntPage.createNote({ subject, description: 'Should remain unchanged.' });
+        await ntPage.clickEditNote(subject);
+        await ntPage.fillEditNoteForm({ subject: 'PAT SHOULD NOT SAVE THIS' });
+        await ntPage.cancelNote();
+
+        await expect(ntPage.editNoteDrawerHeading).toBeHidden();
+        await ntPage.assertNoteVisible(subject);
+      });
+
+      test(`TC-PROP-153 | Verify that delete confirmation modal appears before deleting note`, async () => {
+        const subject = `PAT Delete Note Property ${ts()}`;
+
+        await ntPage.clickNotesTab();
+        await ntPage.createNote({ subject, description: 'About to be deleted.' });
+        await ntPage.clickDeleteNote(subject);
+
+        await ntPage.assertDeleteNoteDialogVisible();
+        await expect(page.getByRole('heading', { name: 'Delete Note!', level: 2 })).toBeVisible();
+      });
+
+      test(`TC-PROP-154 | Verify that note is not deleted when cancel is clicked on confirmation modal`, async () => {
+        const subject = `PAT Stay Note Property ${ts()}`;
+
+        await ntPage.clickNotesTab();
+        await ntPage.createNote({ subject, description: 'Should not be deleted.' });
+        await ntPage.clickDeleteNote(subject);
+        await ntPage.cancelDeleteNote();
+
+        await ntPage.assertNoteVisible(subject);
+      });
+
+      test(`NT-Property-N013: Delete note – Confirm removes note from list`, async () => {
+        const subject = `PAT Deletable Note Property ${ts()}`;
+
+        await ntPage.clickNotesTab();
+        await ntPage.createNote({ subject, description: 'Will be deleted in N013.' });
+        await ntPage.assertNoteVisible(subject);
+        await ntPage.clickDeleteNote(subject);
+        await ntPage.confirmDeleteNote();
+
+        await ntPage.assertNoteNotVisible(subject);
+      });
+
+      test(`NT-Property-T001: Tasks tab is visible and clickable`, async () => {
+        await ntPage.clickTasksTab();
+        await expect(page.getByRole('tab', { name: /^Tasks/ })).toHaveAttribute('aria-selected', 'true');
+        await expect(ntPage.newTaskBtn).toBeVisible();
+      });
+
+      test(`NT-Property-T002: Tasks tab has correct table columns`, async () => {
+        await ntPage.clickTasksTab();
+        await expect(page.getByRole('button', { name: 'Task Title' })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Task Description' })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Created By' })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Due Date' })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Priority' })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Type' })).toBeVisible();
+      });
+
+      test(`NT-Property-T003: Tasks empty state or existing task rows are visible`, async () => {
+        await ntPage.clickTasksTab();
+
+        const isEmpty = await ntPage.isTasksEmptyStateVisible();
+        if (isEmpty) {
+          await expect(ntPage.taskEmptyHeading).toBeVisible();
+        } else {
+          await expect
+            .poll(() => ntPage.getTaskRowCount(), { timeout: TIMEOUTS.BASE * 20 })
+            .toBeGreaterThan(0);
+        }
+      });
+
+      test(`NT-Property-T004: "Create New Task" drawer has all required fields`, async () => {
+        await ntPage.clickTasksTab();
+        await ntPage.openCreateTaskDrawer();
+
+        await ntPage.assertCreateTaskDrawerOpen();
+        await expect(page.getByRole('radio', { name: 'Company' })).toBeHidden();
+        await expect(page.getByRole('radio', { name: 'Deal' })).toBeHidden();
+        await expect(page.getByRole('radio', { name: 'Contacts' })).toBeHidden();
+        await expect(ntPage.taskTitleInput).toBeVisible();
+        await expect(ntPage.taskDescEditor).toBeVisible();
+        await expect(ntPage.taskTypeDropdown).toBeVisible();
+        await expect(ntPage.taskPriorityDropdown).toBeVisible();
+        await expect(ntPage.taskSaveBtn).toBeVisible();
+        await expect(ntPage.taskCancelBtn).toBeVisible();
+      });
+
+      test(`NT-Property-T005: Type dropdown shows all options`, async () => {
+        await ntPage.clickTasksTab();
+        await ntPage.openCreateTaskDrawer();
+        await ntPage.taskTypeDropdown.click();
+
+        const tooltip = page.getByRole('tooltip');
+        await expect(tooltip.getByText('To-do')).toBeVisible();
+        await expect(tooltip.getByText('Email')).toBeVisible();
+        await expect(tooltip.getByText('Call')).toBeVisible();
+        await expect(tooltip.getByText('LinkedIn')).toBeVisible();
+      });
+
+      test(`NT-Property-T006: Priority dropdown shows all options`, async () => {
+        await ntPage.clickTasksTab();
+        await ntPage.openCreateTaskDrawer();
+        await ntPage.taskPriorityDropdown.click();
+
+        const tooltip = page.getByRole('tooltip');
+        await expect(tooltip.getByText('High')).toBeVisible();
+        await expect(tooltip.getByText('Medium')).toBeVisible();
+        await expect(tooltip.getByText('Low')).toBeVisible();
+      });
+
+      test(`TC-PROP-158 | Verify that user is able to add tasks.`, async () => {
+        const title = `PAT ${ts()} Task Property`;
+
+        await ntPage.clickTasksTab();
+        await ntPage.createTask({
+          title,
+          description: `Smoke test task for Property – Playwright automation.`,
+          type: 'To-do',
+          priority: 'High',
+        });
+
+        await expect(ntPage.createTaskDrawerHeading).toBeHidden();
+        await ntPage.assertTaskVisible(title);
+      });
+
+      test(`NT-Property-T008: Create task – Cancel discards the task`, async () => {
+        await ntPage.clickTasksTab();
+        await ntPage.openCreateTaskDrawer();
+        await ntPage.fillTaskForm({
+          title: `PAT CANCEL TASK Property`,
+          description: 'This task should not be saved.',
+          type: 'Call',
+          priority: 'Low',
+        });
+        await ntPage.cancelTask();
+
+        await expect(ntPage.createTaskDrawerHeading).toBeHidden();
+      });
+
+      test(`TC-PROP-165 | Verify that system shows validation error when required fields are missing`, async () => {
+        await ntPage.clickTasksTab();
+        await ntPage.openCreateTaskDrawer();
+        await ntPage.taskDescEditor.click();
+        await ntPage.taskDescEditor.fill('Description without title.');
+        await ntPage.selectTaskType('Email');
+        await ntPage.selectTaskPriority('Medium');
+        await ntPage.taskSaveBtn.click();
+
+        await expect(ntPage.createTaskDrawerHeading).toBeVisible();
+        await expect(ntPage.taskTitleInput).toHaveValue('');
+      });
+
+      test(`TC-PROP-170 | Verify that user can search tasks using Search by Title`, async () => {
+        const title = `PAT Searchable ${ts()} Task Property`;
+
+        await ntPage.clickTasksTab();
+        await ntPage.createTask({
+          title,
+          description: 'Created to verify search.',
+          type: 'To-do',
+          priority: 'Medium',
+        });
+        await ntPage.searchTask(title);
+        await ntPage.assertTaskVisible(title);
+      });
+
+      test(`NT-Property-T011: Search with non-matching term shows empty state`, async () => {
+        await ntPage.clickTasksTab();
+        await ntPage.searchTask('ZZZNOMATCH_XYZ_99999');
+        await expect(ntPage.taskEmptyHeading).toBeVisible();
+      });
+
+      test(`TC-PROP-171 | Verify that user can edit an existing task`, async () => {
+        const title = `PAT Edit ${ts()} Task Property`;
+
+        await ntPage.clickTasksTab();
+        await ntPage.createTask({
+          title,
+          description: 'To be edited.',
+          type: 'To-do',
+          priority: 'Low',
+        });
+        await ntPage.openTaskDetail(title);
+        await ntPage.clickEditTaskFromMenu();
+
+        await expect(ntPage.editTaskDrawerHeading).toBeVisible();
+        await expect(ntPage.taskTitleInput).toHaveValue(title);
+      });
+
+      test(`TC-PROP-172 | Verify that edited task details are updated in listing`, async () => {
+        const title = `PAT Update ${ts()} Task Property`;
+        const updatedTitle = `${title} UPDATED`;
+
+        await ntPage.clickTasksTab();
+        await ntPage.createTask({
+          title,
+          description: 'Original description.',
+          type: 'Email',
+          priority: 'Medium',
+        });
+        await ntPage.openTaskDetail(title);
+        await ntPage.clickEditTaskFromMenu();
+        await ntPage.taskTitleInput.fill(updatedTitle);
+        await ntPage.saveTask();
+
+        await ntPage.assertTaskVisible(updatedTitle);
+      });
+
+      test(`NT-Property-T014: Edit task – Cancel keeps original task unchanged`, async () => {
+        const title = `PAT Keep ${ts()} Task Property`;
+
+        await ntPage.clickTasksTab();
+        await ntPage.createTask({
+          title,
+          description: 'Should remain as-is.',
+          type: 'LinkedIn',
+          priority: 'High',
+        });
+        await ntPage.openTaskDetail(title);
+        await ntPage.clickEditTaskFromMenu();
+        await ntPage.taskTitleInput.fill('PAT SHOULD NOT SAVE');
+        await ntPage.cancelTask();
+
+        await expect(ntPage.editTaskDrawerHeading).toBeHidden();
+        await ntPage.assertTaskVisible(title);
+      });
+
+      test(`TC-PROP-159 | Verify that user is able to mark the task as complete.`, async () => {
+        const title = `PAT Complete ${ts()} Task Property`;
+
+        await ntPage.clickTasksTab();
+        await ntPage.createTask({
+          title,
+          description: 'Will be marked complete.',
+          type: 'To-do',
+          priority: 'High',
+        });
+        await ntPage.searchTask(title);
+
+        await expect.poll(() => ntPage.isTaskChecked(title), {
+          timeout: TIMEOUTS.BASE * 20,
+        }).toBe(false);
+        await ntPage.setTaskComplete(title, true);
+        await expect.poll(() => ntPage.isTaskChecked(title), {
+          timeout: TIMEOUTS.BASE * 20,
+        }).toBe(true);
+      });
+
+      test(`TC-PROP-176 | Verify that unchecking completed checkbox marks task as To-Do`, async () => {
+        const title = `PAT Complete ${ts()} Toggle Property`;
+
+        await ntPage.clickTasksTab();
+        await ntPage.createTask({
+          title,
+          description: 'Will be marked complete.',
+          type: 'To-do',
+          priority: 'High',
+        });
+        await ntPage.searchTask(title);
+
+        await ntPage.setTaskComplete(title, true);
+        await expect.poll(() => ntPage.isTaskChecked(title), {
+          timeout: TIMEOUTS.BASE * 20,
+        }).toBe(true);
+        await ntPage.setTaskComplete(title, false);
+        await expect.poll(() => ntPage.isTaskChecked(title), {
+          timeout: TIMEOUTS.BASE * 20,
+        }).toBe(false);
+      });
+
+      test(`NT-Property-T017: Delete task – confirmation dialog shown correctly`, async () => {
+        const title = `PAT Delete ${ts()} Dialog Task Property`;
+
+        await ntPage.clickTasksTab();
+        await ntPage.createTask({
+          title,
+          description: 'For delete dialog verification.',
+          type: 'To-do',
+          priority: 'Low',
+        });
+        await ntPage.openTaskDetail(title);
+        await ntPage.clickDeleteTaskFromMenu();
+
+        await ntPage.assertDeleteTaskDialogVisible();
+        await expect(page.getByRole('heading', { name: 'Delete Task' })).toBeVisible();
+      });
+
+      test(`TC-PROP-174 | Verify that task is not deleted when delete action is cancelled`, async () => {
+        const title = `PAT Stay ${ts()} Task Property`;
+
+        await ntPage.clickTasksTab();
+        await ntPage.createTask({
+          title,
+          description: 'Should not be deleted.',
+          type: 'Email',
+          priority: 'High',
+        });
+        await ntPage.openTaskDetail(title);
+        await ntPage.clickDeleteTaskFromMenu();
+        await ntPage.cancelDeleteTask();
+
+        await expect
+          .poll(() => ntPage.getTaskRowCount(), { timeout: TIMEOUTS.BASE * 20 })
+          .toBeGreaterThan(0);
+        await expect(ntPage.deleteTaskDialog).toBeHidden();
+      });
+
+      test(`TC-PROP-173 | Verify that user can delete a task after confirmation`, async () => {
+        const title = `PAT Deletable ${ts()} Task Property`;
+
+        await ntPage.clickTasksTab();
+        await ntPage.createTask({
+          title,
+          description: 'Will be permanently deleted in T019.',
+          type: 'Call',
+          priority: 'Low',
+        });
+        await ntPage.openTaskDetail(title);
+        await ntPage.clickDeleteTaskFromMenu();
+        await ntPage.confirmDeleteTask();
+        await ntPage.searchTask(title);
+
+        await expect
+          .poll(() => ntPage.getTaskRowCount(), { timeout: TIMEOUTS.BASE * 20 })
+          .toBe(0);
+      });
+
+      test(`NT-Property-X001: Switching between Notes and Tasks tabs works correctly`, async () => {
+        await ntPage.clickNotesTab();
+        await expect(page.getByRole('tab', { name: /^Notes/ })).toHaveAttribute('aria-selected', 'true');
+        await expect(ntPage.createNoteBtn).toBeVisible();
+
+        await ntPage.clickTasksTab();
+        await expect(page.getByRole('tab', { name: /^Tasks/ })).toHaveAttribute('aria-selected', 'true');
+        await expect(ntPage.newTaskBtn).toBeVisible();
+
+        await ntPage.clickNotesTab();
+        await expect(page.getByRole('tab', { name: /^Notes/ })).toHaveAttribute('aria-selected', 'true');
+      });
+
+      test(`NT-Property-X002: Create a Note and a Task in same session – both persist`, async () => {
+        const noteSubject = `PAT Cross Note Property ${ts()}`;
+        const taskTitle = `PAT Cross Task Property ${ts()}`;
+
+        await ntPage.clickNotesTab();
+        await ntPage.createNote({
+          subject: noteSubject,
+          description: 'Cross-tab note for smoke validation.',
+        });
+        await ntPage.assertNoteVisible(noteSubject);
+
+        await ntPage.clickTasksTab();
+        await ntPage.createTask({
+          title: taskTitle,
+          description: 'Cross-tab task for smoke validation.',
+          type: 'To-do',
+          priority: 'Medium',
+        });
+        await ntPage.assertTaskVisible(taskTitle);
+
+        await ntPage.clickNotesTab();
+        await ntPage.assertNoteVisible(noteSubject);
+      });
     });
 
     test(
