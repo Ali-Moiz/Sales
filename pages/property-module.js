@@ -38,8 +38,8 @@ class PropertyModule {
     this.lastCreatePropertySucceeded = false;
     this.lastEditPropertyToastSeen = false;
     this.lastSearchTerm = "";
-    // Keep address generation generic (US-wide) to avoid location-specific
-    // exhaustion and reduce duplicate-lat/lng failures across long runs.
+    // Address generation uses Omaha, NE only (no zip) so Google Maps autocomplete
+    // returns real local addresses; duplicates are retried via candidateAddresses loop.
 
     // ── Sidebar navigation ──────────────────────────────────────────────────
     this.propertiesMenuLink = page

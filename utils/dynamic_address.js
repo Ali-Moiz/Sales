@@ -3,46 +3,55 @@
 const { TIMEOUTS } = require('./playwright-timeouts');
 const { expect } = require("@playwright/test");
 const MIN_RELEVANT_SUGGESTION_SCORE = 100;
-const CITY_STATE_POOL = [
-  { city: "Omaha", state: "NE", zip: "68131" },
-  { city: "Austin", state: "TX", zip: "78701" },
-  { city: "Phoenix", state: "AZ", zip: "85004" },
-  { city: "Nashville", state: "TN", zip: "37203" },
-  { city: "Tampa", state: "FL", zip: "33602" },
-  { city: "Charlotte", state: "NC", zip: "28202" },
-  { city: "Columbus", state: "OH", zip: "43215" },
-  { city: "Denver", state: "CO", zip: "80203" },
-  { city: "Atlanta", state: "GA", zip: "30303" },
-  { city: "Kansas City", state: "MO", zip: "64106" },
-];
 
-const STREET_NAME_POOL = [
-  "Main",
-  "Oak",
-  "Pine",
-  "Maple",
-  "Cedar",
-  "Lake",
-  "Hill",
-  "Washington",
-  "Lincoln",
-  "Market",
-  "Broadway",
-  "Sunset",
-  "Ridge",
-  "Park",
-  "Madison",
+// ── Omaha, NE street pool ────────────────────────────────────────────────────
+// Each entry carries its canonical suffix and the safe house-number range for
+// that street so every generated candidate resolves in Google Maps autocomplete.
+// Named E-W streets: house number ≈ 100 × nearest N-S cross street.
+// Numbered N-S streets: house number = distance in 100-block units from Dodge.
+const OMAHA_STREET_POOL = [
+  // ── Named east-west streets ──────────────────────────────────────────────
+  { name: "Farnam",      suffix: "St",  houseMin: 100,   houseMax: 6800  },
+  { name: "Harney",      suffix: "St",  houseMin: 100,   houseMax: 4800  },
+  { name: "Leavenworth", suffix: "St",  houseMin: 200,   houseMax: 6400  },
+  { name: "Douglas",     suffix: "St",  houseMin: 100,   houseMax: 3200  },
+  { name: "Dodge",       suffix: "St",  houseMin: 2000,  houseMax: 8400  },
+  { name: "Cass",        suffix: "St",  houseMin: 1200,  houseMax: 7600  },
+  { name: "California",  suffix: "St",  houseMin: 1200,  houseMax: 4800  },
+  { name: "Cuming",      suffix: "St",  houseMin: 1600,  houseMax: 5600  },
+  { name: "Pacific",     suffix: "St",  houseMin: 2000,  houseMax: 9600  },
+  { name: "Nicholas",    suffix: "St",  houseMin: 2000,  houseMax: 10200 },
+  { name: "Blondo",      suffix: "St",  houseMin: 2000,  houseMax: 13200 },
+  { name: "Ames",        suffix: "Ave", houseMin: 2000,  houseMax: 6400  },
+  { name: "Lake",        suffix: "St",  houseMin: 2000,  houseMax: 5600  },
+  { name: "Q",           suffix: "St",  houseMin: 1600,  houseMax: 5600  },
+  { name: "L",           suffix: "St",  houseMin: 1600,  houseMax: 5600  },
+  { name: "Vinton",      suffix: "St",  houseMin: 1600,  houseMax: 4800  },
+  { name: "Harrison",    suffix: "St",  houseMin: 4400,  houseMax: 8800  },
+  { name: "Center",      suffix: "Rd",  houseMin: 5200,  houseMax: 13600 },
+  { name: "Maple",       suffix: "Rd",  houseMin: 6400,  houseMax: 15200 },
+  { name: "West Dodge",  suffix: "Rd",  houseMin: 8000,  houseMax: 17000 },
+  { name: "Saddle Creek",suffix: "Rd",  houseMin: 200,   houseMax: 5600  },
+  { name: "Military",    suffix: "Ave", houseMin: 4000,  houseMax: 7200  },
+  { name: "Woolworth",   suffix: "Ave", houseMin: 2400,  houseMax: 6400  },
+  { name: "Underwood",   suffix: "Ave", houseMin: 4800,  houseMax: 6800  },
+  { name: "Fontenelle",  suffix: "Blvd",houseMin: 3200,  houseMax: 5600  },
+  { name: "Happy Hollow",suffix: "Blvd",houseMin: 600,   houseMax: 4800  },
+  // ── Numbered north-south streets ─────────────────────────────────────────
+  { name: "72nd",        suffix: "St",  houseMin: 100,   houseMax: 5200  },
+  { name: "84th",        suffix: "St",  houseMin: 100,   houseMax: 5600  },
+  { name: "90th",        suffix: "St",  houseMin: 100,   houseMax: 5200  },
+  { name: "108th",       suffix: "St",  houseMin: 100,   houseMax: 5200  },
+  { name: "120th",       suffix: "St",  houseMin: 100,   houseMax: 5200  },
+  { name: "144th",       suffix: "St",  houseMin: 100,   houseMax: 4400  },
 ];
-
-const STREET_SUFFIX_POOL = ["St", "Ave", "Blvd", "Rd", "Dr", "Ln", "Way"];
 
 function toUniqueAddress(seedOffset = 0) {
   const now = Date.now() + seedOffset;
-  const cityState = CITY_STATE_POOL[now % CITY_STATE_POOL.length];
-  const streetName = STREET_NAME_POOL[(now + 7) % STREET_NAME_POOL.length];
-  const suffix = STREET_SUFFIX_POOL[(now + 11) % STREET_SUFFIX_POOL.length];
-  const houseNumber = 1000 + (now % 8000);
-  return `${houseNumber} ${streetName} ${suffix}, ${cityState.city}, ${cityState.state} ${cityState.zip}`;
+  const street = OMAHA_STREET_POOL[now % OMAHA_STREET_POOL.length];
+  const houseRange = street.houseMax - street.houseMin;
+  const houseNumber = street.houseMin + (now % houseRange);
+  return `${houseNumber} ${street.name} ${street.suffix}, Omaha, NE`;
 }
 
 function generateUniqueUsAddressCandidates({ primaryCount = 8, fallbackCount = 0 } = {}) {
