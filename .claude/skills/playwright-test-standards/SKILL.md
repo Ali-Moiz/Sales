@@ -159,6 +159,13 @@ Every test MUST have meaningful assertions. `toBeDefined()` alone is insufficien
 
 **Grid filter assertions:** use majority-match (`matchCount / total >= 0.8`) + `toContain` — backend may include sibling rows from the same parent entity.
 
+**Trivially-true type assertions are banned:** `expect(typeof value).toBe('boolean')` always passes and masks real intent. Use the concrete assertion the test actually needs:
+- Button enabled/disabled: `await expect(locator).toBeEnabled()` / `await expect(locator).toBeDisabled()`
+- Access control (button hidden): `expect(isVisible).toBe(false)`; if the button IS visible, use `test.fail(true, '...')` to mark as known failure instead of silently passing
+- Duplicate/error detection: distinguish outcomes explicitly (`if (result === 'error-toast') { expect(result).toBe('error-toast') } else if (...) { test.fail(true, '...') }`) — `expect([...]).toContain(result)` always passes
+
+**Post-submit modal state — use `waitFor` not `waitForTimeout`:** after clicking Submit to trigger validation, wait for the real condition (`heading.waitFor({ state: 'hidden', timeout: TIMEOUTS.BASE * 10 }).catch(() => {})`) instead of `waitForTimeout(N)`. Modal staying open = validation fired; modal closing = domain accepted.
+
 ---
 
 ## 8. POM Rules

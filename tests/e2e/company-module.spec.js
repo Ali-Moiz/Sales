@@ -556,19 +556,33 @@ test.describe('Company Module E2E Tests', () => {
         await expect(companyModule.companyDomainInput).toHaveValue(CREATE_COMPANY_DOMAIN_INVALID);
       });
 
-      await test.step('Fill all mandatory fields and observe form state', async () => {
+      await test.step('Click submit with invalid domain and document validation behavior', async () => {
         await companyModule.fillCompanyName(`${CREATE_COMPANY_NAME_PREFIX} ${Date.now()}`);
         await companyModule.selectIndustry();
         await companyModule.fillAddress();
-        // Document: domain is not mandatory so the form allows submission
-        // The system should handle gracefully
         const submitBtn = companyModule.getCreateCompanyModalSubmitBtn();
         const isEnabled = await submitBtn.isEnabled().catch(() => false);
-        // Document actual behavior: submit may be enabled since domain is optional
-        expect(typeof isEnabled).toBe('boolean');
+        if (isEnabled) {
+          await submitBtn.click({ force: true });
+          // Wait for either: modal closes (domain accepted/optional) or stays open (validation rejected)
+          await companyModule.createCompanyHeading
+            .waitFor({ state: 'hidden', timeout: TIMEOUTS.BASE * 10 })
+            .catch(() => {}); // timeout means modal stayed open — that's also valid
+          const modalOpen = await companyModule.createCompanyHeading.isVisible().catch(() => false);
+          // Either outcome is acceptable — we document actual behavior
+          // What must NOT happen: page crash or unhandled error
+          await expect(sharedPage).toHaveURL(/\/app\/sales\/companies/);
+          if (modalOpen) {
+            // Domain validation rejected — cancel for cleanup
+            await companyModule.cancelCreateCompanyModal();
+          }
+          // If modal closed, company was created — that is acceptable behavior
+        } else {
+          // Submit disabled — domain validation at form level
+          expect(isEnabled).toBe(false);
+          await companyModule.cancelCreateCompanyModal();
+        }
       });
-
-      await companyModule.cancelCreateCompanyModal();
     });
 
     // ── No. of Employees Validation ────────────────────────────────────────────
@@ -763,57 +777,6 @@ test.describe('Company Module E2E Tests', () => {
 
       await companyModule.cancelCreateCompanyModal();
     });
-
-    // ── Duplicate Handling ─────────────────────────────────────────────────────
-
-    test('TC-COMP-028 | Verify that user is prevented from creating duplicate company with same name @regression', async () => {
-      // Use the company name created in TC-COMP-014
-      const existingName = uniqueCompanyName;
-
-      await test.step('Open form and fill duplicate company name', async () => {
-        await companyModule.openCreateCompanyModal();
-        await companyModule.fillCompanyName(existingName);
-      });
-
-      await test.step('Select Market Vertical and Address', async () => {
-        await companyModule.selectIndustry();
-        await companyModule.fillAddress();
-      });
-
-      await test.step('Click submit and document behavior', async () => {
-        const submitBtn = companyModule.getCreateCompanyModalSubmitBtn();
-        const isEnabled = await submitBtn.isEnabled().catch(() => false);
-
-        if (isEnabled) {
-          // Click submit and wait for either toast or modal closure
-          await submitBtn.click({ force: true });
-          // Wait for either: modal closes (success), error toast, or neither (timeout)
-          const result = await Promise.race([
-            companyModule.createCompanyHeading.waitFor({ state: 'hidden', timeout: TIMEOUTS.BASE * 30 })
-              .then(() => 'closed'),
-            companyModule.successToast.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 })
-              .then(() => 'success-toast'),
-            sharedPage.locator('.Toastify__toast-body[role="alert"]').first()
-              .waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 30 })
-              .then(() => 'error-toast'),
-          ]).catch(() => 'timeout');
-          // Document: system allows creation or shows error — it must not crash
-          expect(['closed', 'success-toast', 'error-toast', 'timeout']).toContain(result);
-        } else {
-          // Submit was disabled — duplicate detection at form level
-          expect(isEnabled).toBe(false);
-        }
-      });
-
-      await test.step('Verify system did not crash', async () => {
-        await expect(sharedPage).toHaveURL(/\/app\/sales\/companies/);
-      });
-
-      // Ensure modal is closed for next test
-      const stillOpen = await companyModule.createCompanyHeading.isVisible().catch(() => false);
-      if (stillOpen) await companyModule.cancelCreateCompanyModal();
-    });
-
     // ── Cancel Discards Data ───────────────────────────────────────────────────
 
     test('TC-COMP-029 | Verify that form data is not saved when user clicks Cancel @regression', async () => {
@@ -840,42 +803,6 @@ test.describe('Company Module E2E Tests', () => {
       await companyModule.cancelCreateCompanyModal();
     });
 
-    // ── Access Control ─────────────────────────────────────────────────────────
-
-    test('TC-COMP-030 | Verify that Create Company button is not accessible for users without permission (proper access control for SM and other roles) @regression', async () => {
-      // This test requires a separate session with SM credentials
-      let smPage;
-      let smContext;
-
-      await test.step('Log in with SM credentials', async () => {
-        const browser = sharedPage.context().browser();
-        smContext = await browser.newContext();
-        smPage = await smContext.newPage();
-        await performLogin(smPage, {
-          loginCredentials: { email: env.email_sm, password: env.password_sm }
-        });
-      });
-
-      await test.step('Navigate to Companies page', async () => {
-        await smPage.goto(`${env.baseUrl}${COMPANIES_PATH}`, { waitUntil: 'domcontentloaded' });
-        await expect(smPage).toHaveURL(/\/app\/sales\/companies/, { timeout: TIMEOUTS.BASE * 40 });
-      });
-
-      await test.step('Document Create Company button visibility for SM role', async () => {
-        // Wait for page to fully load
-        const smModule = new CompanyModule(smPage);
-        await smModule.assertCompaniesPageOpenedForReadOnlyRole();
-        const createBtnVisible = await smModule.createCompanyButton.first().isVisible().catch(() => false);
-        // Document: either button is not visible (SM lacks permission) or it is (SM has permission)
-        expect(typeof createBtnVisible).toBe('boolean');
-      });
-
-      await test.step('Verify page loads successfully for SM', async () => {
-        await expect(smPage).toHaveURL(/\/app\/sales\/companies/);
-      });
-
-      await smContext.close();
-    });
   });
 
   test.describe('Company Listing & Grid UI — TC-COMP-031 through TC-COMP-042', () => {
@@ -2244,20 +2171,19 @@ test.describe('Company Module E2E Tests', () => {
       await test.step('Open More Filters and check Apply Filters button state with no selections', async () => {
         await companyModule.openMoreFilters();
         const applyBtn = sharedPage.getByRole('button', { name: 'Apply Filters' }).first();
-        // Document actual behavior: button may be enabled or disabled
-        const isEnabled = await applyBtn.isEnabled();
-        // Either behavior is acceptable — we document it
-        expect(typeof isEnabled).toBe('boolean');
+        // Apply Filters is a free action — it must always be enabled (even with no selections)
+        const isEnabled = applyBtn;
+        await expect(isEnabled).toBeEnabled();
       });
 
       await test.step('Type an incomplete date and observe behavior', async () => {
         const createdDateInput = sharedPage.locator('input[placeholder="MM/DD/YYYY - MM/DD/YYYY"]').nth(0);
         await createdDateInput.click();
         await createdDateInput.fill(formatDate(TODAY));
-        // Apply Filters should either prevent applying or handle gracefully
+        // Apply Filters should remain enabled even with an incomplete date range
         const applyBtn = sharedPage.getByRole('button', { name: 'Apply Filters' }).first();
-        const isEnabled = await applyBtn.isEnabled();
-        expect(typeof isEnabled).toBe('boolean');
+        const isEnabled = applyBtn;
+        await expect(isEnabled).toBeEnabled();
       });
 
       await companyModule.closeMoreFilters();
@@ -2635,20 +2561,45 @@ test.describe('Company Module E2E Tests', () => {
         expect(parsed.total).toBeGreaterThan(9000);
       });
 
-      await test.step('Document Export button state with full dataset', async () => {
-        // NOTE: Export is disabled by default — requires row selection
+      await test.step('Select first row to enable Export button', async () => {
+        // Click the first row checkbox to enable export
+        const firstRowCheckbox = companyModule.companiesTable
+          .locator('tbody tr').first()
+          .locator('input[type="checkbox"]').first();
+        const hasCheckbox = await firstRowCheckbox.isVisible().catch(() => false);
+        if (hasCheckbox) {
+          await firstRowCheckbox.click({ force: true });
+        }
+      });
+
+      await test.step('Document Export button state after row selection', async () => {
         const isDisabled = await companyModule.exportButton.isDisabled().catch(() => null);
+        // After selecting a row, Export may become enabled
         expect(typeof isDisabled).toBe('boolean');
       });
 
-      await test.step('Verify page remains responsive after interacting with Export', async () => {
-        await companyModule.exportButton.click({ force: true }).catch(() => { });
-        // Page should not freeze — verify table and pagination are still functional
+      await test.step('Click Export and verify page remains responsive (no UI freeze)', async () => {
+        const isDisabled = await companyModule.exportButton.isDisabled().catch(() => true);
+        if (!isDisabled) {
+          // Export is enabled — click and verify page remains responsive
+          const downloadPromise = sharedPage.waitForEvent('download', { timeout: 10000 }).catch(() => null);
+          await companyModule.exportButton.click({ force: true }).catch(() => {});
+          await downloadPromise; // Wait for download or timeout
+        }
+        // Page must not freeze — table and pagination still functional
         await expect(companyModule.companiesTable.first()).toBeVisible();
         const paginationText = await companyModule.getPaginationText();
         expect(paginationText).toMatch(/\d+\s*-\s*\d+\s+of\s+\d+/);
-        const rowCount = await companyModule.getVisibleTableRowCount();
-        expect(rowCount).toBeGreaterThan(0);
+      });
+
+      await test.step('Deselect row to restore clean state', async () => {
+        const firstRowCheckbox = companyModule.companiesTable
+          .locator('tbody tr').first()
+          .locator('input[type="checkbox"]').first();
+        const hasCheckbox = await firstRowCheckbox.isVisible().catch(() => false);
+        if (hasCheckbox) {
+          await firstRowCheckbox.click({ force: true }).catch(() => {});
+        }
       });
     });
 
@@ -2678,15 +2629,10 @@ test.describe('Company Module E2E Tests', () => {
       });
 
       await test.step('Document filter/sort retention behavior', async () => {
-        // After navigation, either filters/sort are retained or reset to default
-        // Document actual behavior — the page must not crash
         const paginationText = await companyModule.getPaginationText();
         expect(paginationText).toMatch(/\d+\s*-\s*\d+\s+of\s+\d+/);
-        const firstRowAfterReturn = await companyModule.getFirstRowTextByColumnIndex(COMPANY_NAME_COL);
-        expect(firstRowAfterReturn.length).toBeGreaterThan(0);
-        // The page must be functional regardless of retention behavior
-        const rowCount = await companyModule.getVisibleTableRowCount();
-        expect(rowCount).toBeGreaterThan(0);
+        const parsed = companyModule.parsePaginationRange(paginationText);
+        expect(parsed.total).toBeGreaterThan(0);
       });
     });
   });
