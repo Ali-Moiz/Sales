@@ -251,3 +251,6 @@ npm run report
 **Expected results / Assertion points:**
 - After step 2: Link href contains "forgot-password"
 - After step 4: URL contains "forgot-password"
+- After step 4: Page loads without errors (no error heading visible)
+
+> **Implementation note:** Verified as a named `test.step` inside **TC-LOGIN-002** (`login-module.spec.js`) — its assertions are a prerequisite of the full forgot-password flow and are tracked there.

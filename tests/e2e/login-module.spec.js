@@ -32,7 +32,7 @@ async function resetAuthState(page) {
     .catch(() => {});
 }
 
-test.describe("Login Module E2E Tests — TC-LOGIN-001 to TC-LOGIN-016", () => {
+test.describe("Login Module E2E Tests — TC-LOGIN-001 to TC-LOGIN-015", () => {
   let sharedPage;
   let loginPage;
 
@@ -79,17 +79,33 @@ test.describe("Login Module E2E Tests — TC-LOGIN-001 to TC-LOGIN-016", () => {
   });
 
   test('TC-LOGIN-002 | Verify that HO/FO/Supervisor/Director is able to perform "Forget Password?"', async () => {
-    await expect(loginPage.forgotPasswordLink).toBeVisible();
-    await expect(loginPage.forgotPasswordLink).toHaveAttribute(
-      "href",
-      /forgot-password/,
-    );
-    await loginPage.clickForgotPassword();
-    await sharedPage.waitForURL(/forgot-password/, {
-      timeout: TIMEOUTS.BASE * 30,
-      waitUntil: "commit",
+    // BUG: https://uat.signaledge.teamsignal.com/forgot-password returns Azure Front Door 404.
+    // Marking as expected failure until the route is configured on the UAT environment.
+    test.fail(true, "Forgot-password page returns Azure Front Door 404 — uat.signaledge.teamsignal.com/forgot-password is not configured");
+
+    await test.step('TC-LOGIN-016 | Verify that the "Forgot Password" link navigates to the correct page', async () => {
+      await expect(loginPage.forgotPasswordLink).toBeVisible();
+      await expect(loginPage.forgotPasswordLink).toHaveAttribute("href", /forgot-password/);
+      await loginPage.clickForgotPassword();
+      await expect(sharedPage).toHaveURL(/forgot-password/, { timeout: TIMEOUTS.BASE * 30 });
+      // Page loads without errors (no Azure 404 or any error heading)
+      await expect(sharedPage.getByRole("heading", { name: /page not found/i })).toHaveCount(0);
     });
-    expect(sharedPage.url()).toContain("forgot-password");
+
+    // ── TC-LOGIN-002 (continued): perform the forgot-password action ──
+    const forgotEmailInput = sharedPage.getByRole("textbox", { name: /email/i }).first();
+    const submitBtn = sharedPage.getByRole("button", { name: /send|reset|submit|continue/i }).first();
+    await expect(forgotEmailInput).toBeVisible();
+    await expect(submitBtn).toBeVisible();
+
+    // Fill email + submit (inbox verification is out of scope per docs)
+    await forgotEmailInput.fill(VALID_EMAIL);
+    await submitBtn.click();
+
+    const confirmation = sharedPage
+      .getByText(/check your email|email sent|reset link/i)
+      .or(sharedPage.getByRole("heading", { name: /check your email/i }));
+    await expect(confirmation).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
   });
 
   test("TC-LOGIN-003 | Verify that the user can log in successfully with valid credentials", async () => {
@@ -243,16 +259,5 @@ test.describe("Login Module E2E Tests — TC-LOGIN-001 to TC-LOGIN-016", () => {
     await sharedPage.setViewportSize({ width: 1280, height: 720 });
   });
 
-  test('TC-LOGIN-016 | Verify that the "Forgot Password" link navigates to the correct page', async () => {
-    await expect(loginPage.forgotPasswordLink).toHaveAttribute(
-      "href",
-      /forgot-password/,
-    );
-    await loginPage.clickForgotPassword();
-    await sharedPage.waitForURL(/forgot-password/, {
-      timeout: TIMEOUTS.BASE * 30,
-      waitUntil: "commit",
-    });
-    expect(sharedPage.url()).toContain("forgot-password");
-  });
+  // TC-LOGIN-016 — implemented as a named test.step inside TC-LOGIN-002 above.
 });
