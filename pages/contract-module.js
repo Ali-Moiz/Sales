@@ -476,6 +476,82 @@ class ContractModule {
     });
     this.associateFranchiseBtn = page.getByRole('button', { name: 'Associate Franchise' });
     this.associateFranchiseCancelBtn = page.getByRole('button', { name: 'Cancel' });
+
+    // ── Profit Indicator (Step 1 — Services) ─────────────────────────────────
+    // Live-verified 2026-05-20: the profit indicator is a <span class="MuiTypography-info">
+    // with cursor:pointer containing text like "Suggested Rate $ 28.45, NPM 12.00%".
+    // Clicking it opens the pricing breakdown side panel.
+    // Scoped with .first() because multiple services can each have their own indicator.
+    // Works for both Dedicated (next to Hourly Rate) and Patrol (next to Price Per Visit).
+    this.profitIndicatorSpan = page.locator('span.MuiTypography-info').filter({ hasText: /Suggested Rate/ }).first();
+
+    // ── Patrol Service — Step 1 fields ───────────────────────────────────────
+    // Live-verified 2026-05-20: Patrol replaces Hourly Rate with Price Per Visit + visit config.
+    // Price Per Visit spinbutton (accessible name includes "Suggested Rate…" suffix after fill).
+    this.pricePerVisitInput = page.getByRole('spinbutton', { name: /Price Per Visit/ });
+    // Total time on Property (mins) spinbutton
+    this.totalTimeOnPropertyInput = page.getByRole('spinbutton', { name: /Total time on Property/ });
+    // Visits Per Day spinbutton
+    this.visitsPerDayInput = page.getByRole('spinbutton', { name: /Visits Per Day/ });
+
+    // ── Include Vehicle — Step 1 extra fields ────────────────────────────────
+    // Live-verified 2026-05-20: enabling the Include Vehicle toggle appends two fields.
+    // No. of Vehicles spinbutton (required)
+    this.numVehiclesInput = page.getByRole('spinbutton', { name: /No\. of Vehicles/ });
+    // Vehicle Rate ($) spinbutton (required); its profit indicator shows "Break Even" not "NPM"
+    this.vehicleRateInput = page.getByRole('spinbutton', { name: /Vehicle Rate/ });
+    // Vehicle Rate profit indicator — same MuiTypography-info span class, text includes "Break Even"
+    // Live-verified 2026-05-20: "Suggested Rate $ 14.72, Break Even 0.00%"
+    this.vehicleProfitIndicatorSpan = page.locator('span.MuiTypography-info').filter({ hasText: /Break Even/ }).first();
+
+    // ── Pricing Breakdown Panel (opened by clicking profit indicator) ─────────
+    // Live-verified 2026-05-20: heading is h3 "Suggested Rate".
+    // Close button: the MuiIconButton-root that is NOT a time-picker button (no aria-label
+    // "Choose time…"). Scoped by filtering out aria-labelled buttons.
+    this.breakdownPanelHeading = page.getByRole('heading', { name: 'Suggested Rate', level: 3 });
+    this.breakdownCloseBtn = page.locator('button.MuiIconButton-root:not([aria-label])');
+
+    // Net Profit h1 inside the breakdown panel — dynamic value at current Step 1 rate.
+    // Live-verified 2026-05-20: the "Net Profit" label is a span.MuiTypography-subtitle4
+    // (NOT a heading role). The sibling h1 contains the percentage, e.g. "-41.8%" or "11.03%".
+    // Scoped: find span containing ONLY "Net Profit" text, go to parent, find the h1 sibling.
+    this.breakdownNetProfitH1 = page
+      .locator('span.MuiTypography-subtitle4')
+      .filter({ hasText: /^Net Profit$/ })
+      .locator('..')
+      .getByRole('heading', { level: 1 });
+
+    // Breakdown table row cells — scoped to the breakdown table
+    // Live-verified 2026-05-20: table has columnheaders "Category", "Amount", "Percentage"
+    this.breakdownTable = page.locator('table').filter({ has: page.getByRole('columnheader', { name: 'Category' }) });
+    this.breakdownTotalRevenueRow = this.breakdownTable.getByRole('row', { name: /Total Revenue/ });
+    // "Payroll" row only — exclude "Payroll Taxes", "Total Officer Payroll", "Overhead Payroll" etc.
+    // Live-verified 2026-05-20: row names include all cell text so /^Payroll / matches both
+    // "Payroll" and "Payroll Taxes" rows. Scope by first td cell text instead.
+    this.breakdownPayrollRow = this.breakdownTable.locator('tbody tr').filter({
+      has: page.locator('td:first-child', { hasText: /^Payroll$/ }),
+    });
+    this.breakdownFasChargesRow   = this.breakdownTable.getByRole('row', { name: /FAS Charges/ });
+    this.breakdownAdminExpRow     = this.breakdownTable.getByRole('row', { name: /Administration Expenses/ });
+    this.breakdownPaymentTermsRow = this.breakdownTable.getByRole('row', { name: /Payment Terms Adjustments/ });
+    this.breakdownNetProfitRow    = this.breakdownTable.getByRole('row', { name: /Net Profit/ });
+    this.breakdownLaborEffRow     = this.breakdownTable.getByRole('row', { name: /Labor Efficiency/ });
+
+    // ── Patrol & Vehicle Breakdown — additional row locators ─────────────────
+    // Live-verified 2026-05-20: Patrol breakdown has Vehicle Expenses row (no Payment Terms row).
+    this.breakdownVehicleExpRow = this.breakdownTable.getByRole('row', { name: /Vehicle Expenses/ });
+    // Gross Profit row (present in both Patrol and Vehicle breakdowns)
+    this.breakdownGrossProfitRow = this.breakdownTable.getByRole('row', { name: /Gross Profit/ });
+    // Payroll row alias for vehicle tests — in vehicle mode shows "$-" (zeroed, not excluded from DOM)
+    this.breakdownPayrollZeroRow = this.breakdownTable.locator('tbody tr').filter({
+      has: page.locator('td:first-child', { hasText: /^Payroll$/ }),
+    });
+
+    // Billing cycle dropdown inside breakdown panel
+    // Live-verified 2026-05-20: h6 heading "Bi-Weekly" or "Weekly" / "Monthly" with img
+    this.breakdownBillingCycleTrigger = page.getByRole('heading', { name: 'Billable Cycle:', level: 3 })
+      .locator('..')
+      .getByRole('heading', { level: 6 });
   }
 
   // ── Navigation ──────────────────────────────────────────────────────────
@@ -4169,6 +4245,315 @@ class ContractModule {
     return (parentText || '').replace('Add Sign', '').trim();
   }
 
+  // ── Pricing Breakdown Panel methods (live-verified 2026-05-20) ─────────────
+
+  /**
+   * Assert the profit indicator span is visible on Step 1 and return its text.
+   * Indicator text: "Suggested Rate $ N.NN, NPM N.NN%"
+   * @returns {Promise<string>}
+   */
+  async getProfitIndicatorText() {
+    await expect(this.profitIndicatorSpan).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+    return this.profitIndicatorSpan.textContent();
+  }
+
+  /**
+   * Extract the NPM percentage from the profit indicator text.
+   * @returns {Promise<number>}
+   */
+  async getProfitNpm() {
+    const text = await this.getProfitIndicatorText();
+    const match = text?.match(/NPM\s*([-\d.]+)%/);
+    return match ? parseFloat(match[1]) : NaN;
+  }
+
+  /**
+   * Click the profit indicator span to open the pricing breakdown panel.
+   */
+  async openPricingBreakdown() {
+    await expect(this.profitIndicatorSpan).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+    await this.profitIndicatorSpan.click();
+    await expect(this.breakdownPanelHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+  }
+
+  /**
+   * Close the pricing breakdown panel via the MuiIconButton close button.
+   */
+  async closePricingBreakdown() {
+    await this.breakdownCloseBtn.click();
+    await expect(this.breakdownPanelHeading).not.toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+  }
+
+  /**
+   * Get the percentage text from a breakdown table row.
+   * @param {import('@playwright/test').Locator} rowLocator
+   * @returns {Promise<string>} e.g. "19.00%"
+   */
+  async getBreakdownRowPercentage(rowLocator) {
+    const cells = rowLocator.getByRole('cell');
+    // Cell index 2 = Percentage column (0=Category, 1=Amount, 2=Percentage)
+    return cells.nth(2).textContent();
+  }
+
+  /**
+   * Get the dollar amount from a breakdown table row (Amount column = index 1).
+   * Handles "$-" (zero), "$(1,234.56)" (negative), "$1,234.56" (positive).
+   * Used for formula cross-checks per pricing_calculator_deep_analysis.md.
+   * @param {import('@playwright/test').Locator} rowLocator
+   * @returns {Promise<number>} parsed numeric value; 0 for "$-"; negative for loss rows
+   */
+  async getBreakdownRowAmount(rowLocator) {
+    const cells = rowLocator.getByRole('cell');
+    const text = (await cells.nth(1).textContent()) ?? '';
+    const trimmed = text.trim();
+    if (trimmed === '$-' || trimmed === '-' || trimmed === '') return 0;
+    // Remove $, commas, spaces; detect negative via leading "(" or "-"
+    const cleaned = trimmed.replace(/[$,\s]/g, '');
+    const isNegative = cleaned.startsWith('(') || cleaned.startsWith('-');
+    const numeric = cleaned.replace(/[()]/g, '').replace(/^-/, '');
+    const value = parseFloat(numeric);
+    return Number.isNaN(value) ? NaN : (isNegative ? -Math.abs(value) : value);
+  }
+
+  /**
+   * Read the Net Profit percentage h1 from the breakdown panel.
+   * Live-verified 2026-05-20: "11.03%" at $28/hr, "-41.8%" at $15/hr.
+   * @returns {Promise<number>} parsed float, e.g. 11.03 or -41.8
+   */
+  async getBreakdownNetProfitPct() {
+    await expect(this.breakdownPanelHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    const text = await this.breakdownNetProfitH1.textContent({ timeout: TIMEOUTS.BASE * 10 });
+    const match = text?.match(/([-\d.]+)%/);
+    return match ? parseFloat(match[1]) : NaN;
+  }
+
+  /**
+   * Assert the pricing breakdown panel is open and contains expected rows.
+   */
+  async assertBreakdownPanelOpen() {
+    await expect(this.breakdownPanelHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+    await expect(this.breakdownTotalRevenueRow).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.breakdownFasChargesRow).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+    await expect(this.breakdownNetProfitRow).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+  }
+
+  /**
+   * Enable the "Include Vehicle" checkbox on a Dedicated service.
+   * Live-verified 2026-05-20: input[name="includeVehicle"] is a MuiCheckbox;
+   * the existing includeVehicleSwitch locator is correct.
+   */
+  async enableIncludeVehicle() {
+    const isChecked = await this.includeVehicleCheckbox.isChecked().catch(() => false);
+    if (!isChecked) {
+      await this.includeVehicleSwitch.click();
+      // Wait for React to update the checked state
+      await expect(this.includeVehicleCheckbox).toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
+    }
+  }
+
+  /**
+   * Disable the "Include Vehicle" checkbox on a Dedicated service.
+   */
+  async disableIncludeVehicle() {
+    const isChecked = await this.includeVehicleCheckbox.isChecked().catch(() => false);
+    if (isChecked) {
+      await this.includeVehicleSwitch.click();
+      await expect(this.includeVehicleCheckbox).not.toBeChecked({ timeout: TIMEOUTS.BASE * 10 });
+    }
+  }
+
+  /**
+   * Switch the service type to Patrol and fill in all required fields so
+   * the profit indicator (Suggested Rate span) becomes visible.
+   *
+   * Live-verified 2026-05-20:
+   *   - Patrol requires Line Item selection before the profit indicator renders.
+   *   - Required fields: Line Item, Price Per Visit, Total time on Property,
+   *     Visits Per Day, Visit Days (at least one), Start Time, End Time.
+   *   - The profit indicator is a span.MuiTypography-info with text
+   *     "Suggested Rate $ N.NN, NPM 12.00%" — same as Dedicated.
+   *
+   * @param {{ lineItemIndex?: number, pricePerVisit?: number, visits?: number, timeOnProperty?: number }} opts
+   */
+  async switchToPatrolAndFillRequiredFields({
+    lineItemIndex = 0,
+    pricePerVisit = 50,
+    visits = 3,
+    timeOnProperty = 30,
+  } = {}) {
+    // Switch to Patrol radio
+    await this.patrolServiceRadio.scrollIntoViewIfNeeded().catch(() => {});
+    await this.patrolServiceRadio.click();
+    await expect(this.patrolServiceRadio).toBeChecked({ timeout: TIMEOUTS.BASE * 20 });
+
+    // Select Line Item (required before profit indicator appears)
+    const lineItemTrigger = this.page.locator("label[for='lineItem'] + div").first();
+    await lineItemTrigger.scrollIntoViewIfNeeded().catch(() => {});
+    await lineItemTrigger.click();
+    const popper = this.page.locator('#simple-popper').last();
+    await expect(popper).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
+    await popper.locator('p').nth(lineItemIndex).click();
+    // Wait for popper to close
+    await expect(popper).not.toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
+
+    // Fill Price Per Visit
+    await this.pricePerVisitInput.scrollIntoViewIfNeeded().catch(() => {});
+    await this.pricePerVisitInput.fill(String(pricePerVisit));
+    await this.pricePerVisitInput.press('Tab');
+
+    // Fill Total time on Property
+    await this.totalTimeOnPropertyInput.fill(String(timeOnProperty));
+
+    // Fill Visits Per Day
+    await this.visitsPerDayInput.fill(String(visits));
+
+    // Select Monday as Visit Day (minimum 1 required).
+    // Live-verified 2026-05-20: visit day buttons are plain generic divs with text Mon/Tue/…
+    // Use .first() to pick Mon without ambiguity (instructions toolbar also has text nodes).
+    await this.page.getByText('Mon', { exact: true }).first().click().catch(async () => {
+      // Fallback: scope to the div containing the Visits Per Day spinbutton
+      await this.page.locator('div').filter({ has: this.visitsPerDayInput }).getByText('Mon').first().click();
+    });
+
+    // Fill Start Time
+    const startTimeInput = this.page
+      .getByRole('textbox', { name: /hh:mm AM\/PM/ })
+      .filter({ has: this.page.locator(':scope') })
+      .first();
+    await startTimeInput.fill('08:00 PM');
+
+    // Fill End Time (enabled after Start Time is set)
+    const endTimeInput = this.page
+      .getByRole('textbox', { name: /hh:mm AM\/PM/ })
+      .nth(1);
+    await endTimeInput.fill('11:00 PM');
+
+    // Blur to trigger React recalculation
+    await this.page.keyboard.press('Tab');
+
+    // Wait for profit indicator to appear
+    await expect(this.profitIndicatorSpan).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+  }
+
+  /**
+   * Switch to Dedicated service and enable Include Vehicle toggle, filling all
+   * required fields so the vehicle profit indicator (Break Even span) is visible.
+   *
+   * Live-verified 2026-05-20:
+   *   - Include Vehicle adds "No. of Vehicles" and "Vehicle Rate ($)" spinbuttons.
+   *   - Vehicle Rate has its own span.MuiTypography-info: "Suggested Rate $ N.NN, Break Even N.NN%"
+   *   - Dedicated service fields (Officer/Guard, Hourly Rate, Line Item, Days, Times) are still required.
+   *
+   * @param {{ vehicleRate?: number, hourlyRate?: number, numVehicles?: number }} opts
+   */
+  async switchToDedicatedVehicleAndFillRequiredFields({
+    vehicleRate = 50,
+    hourlyRate = 15,
+    numVehicles = 1,
+  } = {}) {
+    // Ensure Dedicated radio is selected
+    await this.dedicatedServiceRadio.scrollIntoViewIfNeeded().catch(() => {});
+    const isDedicated = await this.dedicatedServiceRadio.isChecked().catch(() => false);
+    if (!isDedicated) {
+      await this.dedicatedServiceRadio.click();
+      await expect(this.dedicatedServiceRadio).toBeChecked({ timeout: TIMEOUTS.BASE * 20 });
+    }
+
+    // Enable Include Vehicle if not already enabled
+    await this.enableIncludeVehicle();
+
+    // Wait for vehicle fields to appear
+    await expect(this.numVehiclesInput).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+
+    // Fill No. of Vehicles
+    await this.numVehiclesInput.fill(String(numVehicles));
+
+    // Fill Vehicle Rate
+    await this.vehicleRateInput.scrollIntoViewIfNeeded().catch(() => {});
+    await this.vehicleRateInput.fill(String(vehicleRate));
+    await this.vehicleRateInput.press('Tab');
+
+    // Select Line Item (required)
+    await this.selectFirstAvailableLineItem(0).catch(() => {});
+
+    // Fill Officer/Guard count
+    await this.officerCountInput.scrollIntoViewIfNeeded().catch(() => {});
+    await this.officerCountInput.fill('1');
+
+    // Fill Hourly Rate
+    await this.hourlyRateInput.scrollIntoViewIfNeeded().catch(() => {});
+    await this.hourlyRateInput.fill(String(hourlyRate));
+    await this.hourlyRateInput.press('Tab');
+
+    // Select at least one Job Day (Monday)
+    const monLocator = this.page.getByText('Mon', { exact: true }).first();
+    const monChecked = await monLocator.evaluate(
+      (el) => el.classList.contains('selected') || el.style.color !== '',
+    ).catch(() => false);
+    if (!monChecked) {
+      await monLocator.click().catch(() => {});
+    }
+
+    // Fill Start Time
+    const startTimeInputs = this.page.getByRole('textbox', { name: /hh:mm AM\/PM/ });
+    const startTime = startTimeInputs.first();
+    const startVal = await startTime.inputValue().catch(() => '');
+    if (!startVal) {
+      await startTime.fill('08:00 PM');
+    }
+
+    // Fill End Time (enabled after Start Time)
+    const endTime = startTimeInputs.nth(1);
+    const endVal = await endTime.inputValue().catch(() => '');
+    if (!endVal) {
+      await endTime.fill('11:00 PM');
+    }
+
+    // Blur to trigger React recalculation
+    await this.page.getByRole('heading', { name: /PAT/ }).click().catch(() => {});
+
+    // Wait for Vehicle Rate profit indicator (Break Even span)
+    await expect(this.vehicleProfitIndicatorSpan).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+  }
+
+  /**
+   * Open the pricing breakdown panel via the Vehicle Rate profit indicator.
+   * Use when the current service has Include Vehicle enabled and you need
+   * the Vehicle-specific breakdown (not the Hourly Rate breakdown).
+   */
+  async openVehiclePricingBreakdown() {
+    await expect(this.vehicleProfitIndicatorSpan).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+    await this.vehicleProfitIndicatorSpan.click();
+    await expect(this.breakdownPanelHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+  }
+
+  /**
+   * Navigate to Step 1 (Services) of the proposal wizard for a given deal.
+   * Opens the Edit action on the first visible proposal card.
+   * Requires the page to already be on the Deal detail page.
+   */
+  async openProposalStep1ForEditing() {
+    // Click the Contract & Terms tab if not already on it
+    const contractTabVisible = await this.contractTermsTab.isVisible().catch(() => false);
+    if (contractTabVisible) {
+      await this.contractTermsTab.click();
+    }
+
+    // Wait for either a proposal card (Edit action) or the stepper to be present
+    const editOrStepper = this.editOrViewContractGeneric.or(this.stepperStep1);
+    await editOrStepper.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 40 });
+
+    // If already on stepper, nothing to do
+    if (await this.stepperStep1.isVisible().catch(() => false)) {
+      return;
+    }
+
+    // Click the Edit action on the proposal card
+    await this.editProposalActionByAriaLabel.click();
+    await expect(this.stepperStep1).toBeVisible({ timeout: TIMEOUTS.BASE * 40 });
+  }
+
 }
+
 
 module.exports = { ContractModule };
