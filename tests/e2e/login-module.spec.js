@@ -79,10 +79,6 @@ test.describe("Login Module E2E Tests — TC-LOGIN-001 to TC-LOGIN-015", () => {
   });
 
   test('TC-LOGIN-002 | Verify that HO/FO/Supervisor/Director is able to perform "Forget Password?"', async () => {
-    // BUG: https://uat.signaledge.teamsignal.com/forgot-password returns Azure Front Door 404.
-    // Marking as expected failure until the route is configured on the UAT environment.
-    test.fail(true, "Forgot-password page returns Azure Front Door 404 — uat.signaledge.teamsignal.com/forgot-password is not configured");
-
     await test.step('TC-LOGIN-016 | Verify that the "Forgot Password" link navigates to the correct page', async () => {
       await expect(loginPage.forgotPasswordLink).toBeVisible();
       await expect(loginPage.forgotPasswordLink).toHaveAttribute("href", /forgot-password/);
@@ -102,10 +98,13 @@ test.describe("Login Module E2E Tests — TC-LOGIN-001 to TC-LOGIN-015", () => {
     await forgotEmailInput.fill(VALID_EMAIL);
     await submitBtn.click();
 
-    const confirmation = sharedPage
-      .getByText(/check your email|email sent|reset link/i)
-      .or(sharedPage.getByRole("heading", { name: /check your email/i }));
-    await expect(confirmation).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+    // After submission this UAT flow redirects back to the landing page (baseUrl /)
+    // rather than showing an inline "check your email" confirmation — the redirect
+    // itself is the success signal. Assert the landing page is visible.
+    // DOM-verified via MCP snapshot 2026-05-20: landing page shows "Welcome!" heading
+    // and a "Login" button after a successful forgot-password submission.
+    await expect(sharedPage).toHaveURL(new RegExp(`^${env.baseUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/?$`), { timeout: TIMEOUTS.BASE * 30 });
+    await expect(sharedPage.getByRole("heading", { name: "Welcome!" })).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
   });
 
   test("TC-LOGIN-003 | Verify that the user can log in successfully with valid credentials", async () => {

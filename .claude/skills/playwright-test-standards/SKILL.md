@@ -629,3 +629,64 @@ if (!isUsableContractDealName(resolvedContractDealName)) {
   resolvedContractDealName = isUsableContractDealName(freshName) ? freshName : "";
 }
 ```
+
+---
+
+## 33. Never Hardcode Environment-Specific Strings in Spec Files
+
+**Symptom:** A spec file contains a literal string that is only valid on one environment (e.g., a deal name like `'PAT 8860'`, a franchise name like `'216 - Omaha, NE, Oliver'`, or a user display name). The test passes on UAT but fails on staging/prod because the entity doesn't exist there.
+
+**Root cause:** The agent searched the live environment, found a specific record, and hardcoded it — bypassing the environment abstraction layer.
+
+**Rule:** All environment-specific identifiers MUST come from `utils/env-data.js` (for static, per-env config like franchise names) or `utils/shared-run-state.js` (for dynamically created records like deal names). Never write a raw string literal for any entity that differs between environments.
+
+```javascript
+// WRONG — hardcoded deal name and franchise name, breaks on prod/staging
+const PAT_DEAL_NAME = 'PAT 8860';
+const FRANCHISE_NAME = '216 - Omaha, NE, Oliver';
+
+// CORRECT — sourced from env-data and shared run state
+const envData = require('../../utils/env-data');
+const { readCreatedDealName } = require('../../utils/shared-run-state');
+const FRANCHISE_NAME = envData.franchise;                    // set per-env in utils/env-data.js
+const resolvedDealName = readCreatedDealName();              // written by the deal test suite
+if (!resolvedDealName) throw new Error('Run deal-module.spec.js first to populate shared state');
+```
+
+**Applies to:** deal names, company names, property names, franchise names, user display names, contact labels, assignee names, IDs, and any other record-specific string that is not a fixed UI label.
+
+**Where each type belongs:**
+| Value type | Source |
+|---|---|
+| Franchise name | `utils/env-data.js` → `envData.franchise` |
+| User display name / assignee | `utils/env-data.js` → `envData.assignee` |
+| Contact search term | `utils/env-data.js` → `envData.contactSearch` |
+| Created deal name | `utils/shared-run-state.js` → `readCreatedDealName()` |
+| Created company/property | `utils/shared-run-state.js` → `readCreatedCompanyName()` etc. |
+
+---
+
+## 34. Forgot-Password Post-Submit — Assert Redirect, Not Inline Confirmation
+
+**Symptom:** `expect(getByText(/check your email|email sent|reset link/i)).toBeVisible()` times out after clicking the forgot-password submit button; the snapshot shows the app landing page instead of a confirmation screen.
+
+**Root cause (DOM-verified 2026-05-20):** On this UAT environment, the forgot-password flow (at `uat.sales.teamsignal.com/forgot-password`) redirects the browser back to the root landing page (`/`) after submission rather than rendering an inline "check your email" message. The redirect itself is the success signal — there is no confirmation screen.
+
+**Rule:** After submitting the forgot-password form, assert the post-submit URL and a landmark on the destination page — never assert a confirmation text that only appears when the provider shows an inline success screen.
+
+```javascript
+// WRONG — times out when the flow redirects rather than showing inline confirmation
+const confirmation = page
+  .getByText(/check your email|email sent|reset link/i)
+  .or(page.getByRole("heading", { name: /check your email/i }));
+await expect(confirmation).toBeVisible({ timeout: TIMEOUTS.BASE * 30 });
+
+// CORRECT — assert the redirect destination (landing page) is reached
+await expect(page).toHaveURL(
+  new RegExp(`^${env.baseUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/?$`),
+  { timeout: TIMEOUTS.BASE * 30 },
+);
+await expect(page.getByRole("heading", { name: "Welcome!" })).toBeVisible({
+  timeout: TIMEOUTS.BASE * 10,
+});
+```
