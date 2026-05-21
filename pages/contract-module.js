@@ -319,6 +319,14 @@ class ContractModule {
       name: /Select Holiday Group/,
       level: 6,
     });
+    // The cursor:pointer parent container that wraps the heading + chevron img.
+    // DOM-verified 2026-05-21: generic[cursor=pointer] is the immediate parent of the h6;
+    // clicking the heading directly is blocked by a sibling jss MuiBox overlay that
+    // intercepts pointer events. The parent generic holds the React onClick handler.
+    // SKILL.md §22: click the container, not the inner heading.
+    this.holidayGroupContainer = page
+      .getByRole('heading', { name: /Select Holiday Group/, level: 6 })
+      .locator('..');
     this.holidaysInfoText = page.getByText(/\d+\s*Holidays/);
     // Services Profitable
     this.servicesProfitableText = page.getByText('Services Profitable', { exact: true });
@@ -3591,12 +3599,17 @@ class ContractModule {
   /**
    * Open the Holiday Group dropdown on Step 4.
    * Returns the popper locator.
+   *
+   * SKILL.md §22: click the MuiBox container div, NOT the inner heading.
+   * The `<div class="jss131 MuiBox-root css-0">` parent intercepts pointer events on the heading
+   * — clicking the heading itself causes a "pointer intercepted" timeout. The container holds the
+   * React onClick handler and must be the click target.
    */
   async openHolidayGroupDropdown() {
     await this.holidayGroupTrigger.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 16 });
-    await this.holidayGroupTrigger.click();
+    await this.holidayGroupContainer.click();
     const popper = this.page.locator('#simple-popper').last();
-    await popper.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 10 }).catch(() => {});
+    await expect(popper).toBeVisible({ timeout: TIMEOUTS.BASE * 10 });
     return popper;
   }
 
@@ -4529,7 +4542,11 @@ class ContractModule {
 
   /**
    * Navigate to Step 1 (Services) of the proposal wizard for a given deal.
-   * Opens the Edit action on the first visible proposal card.
+   * Handles three states:
+   *   1. Already on the stepper — returns immediately.
+   *   2. Proposal card exists — clicks Edit to open the stepper.
+   *   3. Empty state (no proposals) — creates a new proposal via the Create Proposal
+   *      drawer and submits it, landing on the stepper Step 1.
    * Requires the page to already be on the Deal detail page.
    */
   async openProposalStep1ForEditing() {
@@ -4539,16 +4556,28 @@ class ContractModule {
       await this.contractTermsTab.click();
     }
 
-    // Wait for either a proposal card (Edit action) or the stepper to be present
-    const editOrStepper = this.editOrViewContractGeneric.or(this.stepperStep1);
-    await editOrStepper.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 40 });
+    // Race between: stepper already open, proposal card present, or empty state.
+    // Including createProposalEmptyHeading handles deals that have no proposals yet.
+    const editOrStepperOrEmpty = this.editOrViewContractGeneric
+      .or(this.stepperStep1)
+      .or(this.createProposalEmptyHeading);
+    await editOrStepperOrEmpty.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 40 });
 
     // If already on stepper, nothing to do
     if (await this.stepperStep1.isVisible().catch(() => false)) {
       return;
     }
 
-    // Click the Edit action on the proposal card
+    // If empty state (no proposals yet) — create one via the drawer
+    if (await this.createProposalEmptyHeading.isVisible().catch(() => false)) {
+      await this.openCreateProposalDrawer();
+      await expect(this.createProposalDrawerHeading).toBeVisible({ timeout: TIMEOUTS.BASE * 20 });
+      await this.submitCreateProposal();
+      // submitCreateProposal() waits for stepperStep1 to be visible (SKILL.md §18)
+      return;
+    }
+
+    // Proposal card exists — click the Edit action to open the stepper
     await this.editProposalActionByAriaLabel.click();
     await expect(this.stepperStep1).toBeVisible({ timeout: TIMEOUTS.BASE * 40 });
   }

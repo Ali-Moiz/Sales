@@ -108,6 +108,7 @@ await Promise.all([page.waitForURL(/\/deals\/\d+/), createBtn.click()]);
 - **MUI Accordion expand detection:** wait for `aria-expanded="true"` on `.MuiAccordionSummary-root` (scoped to the tabpanel) — `[role="region"]` is always in the DOM even when collapsed.
 - **`.isVisible()` as render-gate before critical interaction — forbidden:** never use `const visible = await locator.isVisible().catch(() => false); if (visible) { /* interact */ }` to guard a POM interaction whose absence would silently leave the page in a broken state (e.g., `Save & Next` permanently disabled). Use `await expect(locator).toBeVisible({ timeout: ... }).then(() => true).catch(() => false)` so slow renders don't silently skip the interaction. The immediate `.isVisible()` returns `false` the instant it's called if the element hasn't rendered yet — it does not wait.
 - **MUI Popper option click — skip `waitFor` + `scrollIntoViewIfNeeded`:** never use `await option.waitFor({ state: 'visible' }); await option.scrollIntoViewIfNeeded(); await option.click()` for Popper/tooltip option nodes. The Popper can re-render between `waitFor()` resolving and `scrollIntoViewIfNeeded()` executing, detaching the original DOM node. Use `await option.click()` directly — it auto-waits for visibility and retries with a fresh DOM lookup on each attempt.
+- **Classify drawer mode BEFORE clicking Save — not after:** in save methods that must pick a `closeTarget` based on which drawer is open (edit vs. create), call `isVisible()` on the drawer heading BEFORE `saveBtn.click()`, not after. After the click, the close animation may already be running, causing `isVisible()` to return `false`, selecting the wrong `closeTarget` (e.g., `createTaskDrawerHeading` which was never shown), and `waitForMutationFeedback` resolves almost instantly — making `assertTaskVisible` run before the task list refreshes. Symptom: flaky "element(s) not found" on the task table row after `saveTask()` in full-suite runs.
 
 ---
 
@@ -442,6 +443,19 @@ await expect(page.locator('#simple-popper').last()).toBeVisible({ timeout: TIMEO
 - **Root cause:** `force: true` skips pointer-event checks and React synthetic event dispatch; the Popper is never triggered.
 - **Rule:** Never call the low-level `click({ force: true })` method alone to open a Popper. Use the POM's dedicated opener method (e.g. `openSelectSupervisorDropdownInCreateDrawer()`) which combines a real `.click()` with an `ArrowDown` key press and up to 5 retry attempts.
 
+- **Symptom:** `locator.click: Timeout Nms exceeded` — `<div class="jssNNN MuiBox-root css-0">` intercepts pointer events when clicking an `h6` heading trigger for a MUI Popper dropdown.
+- **Root cause (DOM-verified 2026-05-21):** In the Step 4 Payment Terms dropdown pattern, the `cursor:pointer` and React onClick handler live on the **immediate parent generic container** of the `h6` heading, not the heading itself. A sibling/ancestor jss overlay div captures pointer events directed at the heading.
+- **Rule:** When a MUI dropdown trigger renders as `generic[cursor=pointer] { h6 + img }`, use `headingLocator.locator('..')` to target the cursor:pointer parent as the click target. Keep the `h6` locator for visibility assertions. The `_selectFromCustomDropdown` helper already uses this pattern as a retry fallback — any standalone dropdown opener must do the same.
+
+```javascript
+// WRONG — clicks the heading directly; jss overlay intercepts
+await this.holidayGroupTrigger.click(); // "pointer intercepted" timeout
+
+// CORRECT — click the cursor:pointer parent; keep h6 for visibility checks
+this.holidayGroupContainer = this.holidayGroupTrigger.locator('..');
+await this.holidayGroupContainer.click(); // React onClick fires, Popper opens
+```
+
 ---
 
 ## 23. `.isVisible()` as Classification Gate — Forbidden for Shared State
@@ -689,4 +703,66 @@ await expect(page).toHaveURL(
 await expect(page.getByRole("heading", { name: "Welcome!" })).toBeVisible({
   timeout: TIMEOUTS.BASE * 10,
 });
+```
+
+---
+
+## 35. POM Navigation Methods — Handle All Reachable States
+
+**Symptom:** A POM method (e.g., `openProposalStep1ForEditing()`) times out when the page is in an "empty" state (no proposals) because it only races between "proposal card" and "stepper already open", never detecting the empty-state element.
+
+**Root cause:** The method's anchor locator does not include all valid UI states the page can be in at that point in the flow. When a freshly-created deal has no proposals, the Contract & Terms tab shows a "Create a Proposal" heading/button instead of any proposal card — the method waits forever for locators that will never appear.
+
+**Rule:** POM navigation methods that arrive at a page section with multiple possible states MUST include a locator for every reachable state in their `.or()` race. After the race resolves, branch on `isVisible()` to handle each case — including any "empty / first-run" state that requires creating the prerequisite entity before proceeding.
+
+```javascript
+// WRONG — omits the empty-state locator; times out when no proposals exist
+const editOrStepper = this.editOrViewContractGeneric.or(this.stepperStep1);
+await editOrStepper.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 40 });
+
+// CORRECT — includes the empty-state heading so the race always resolves
+const editOrStepperOrEmpty = this.editOrViewContractGeneric
+  .or(this.stepperStep1)
+  .or(this.createProposalEmptyHeading);
+await editOrStepperOrEmpty.waitFor({ state: 'visible', timeout: TIMEOUTS.BASE * 40 });
+
+if (await this.stepperStep1.isVisible().catch(() => false)) return;
+
+if (await this.createProposalEmptyHeading.isVisible().catch(() => false)) {
+  await this.openCreateProposalDrawer();
+  await this.submitCreateProposal(); // waits for stepperStep1 (§18)
+  return;
+}
+
+// proposal card exists — click Edit
+await this.editProposalActionByAriaLabel.click();
+await expect(this.stepperStep1).toBeVisible({ timeout: TIMEOUTS.BASE * 40 });
+```
+
+---
+
+## 36. MUI h6 Trigger — DOM-Level Text Truncation with `"..."`
+
+**Symptom:** `expect(locator).toHaveText(/216 - Omaha, NE, Oliver/i)` fails with received string `"216 - Omaha, NE, Oli..."` — the full franchise name is 23 chars but the h6 renders only 19 chars plus a literal `"..."` suffix in the actual DOM textContent.
+
+**Root cause (DOM-verified 2026-05-21):** The MUI React component truncates long display strings at the DOM level (not via CSS `text-overflow`). The actual `textContent` of the `<h6>` is `"216 - Omaha, NE, Oli..."` — the component writes the truncated string plus `"..."` directly into the DOM. `toHaveText()` with the full expected value fails because the received text never equals or contains it.
+
+**Rule:** When asserting the value of a MUI trigger `<h6>` that may display a long string, use `expect.toPass()` with a `textContent()` read — strip trailing `"..."` from the received text and verify that `expectedText.startsWith(visiblePrefix)`. Do NOT use `toHaveText()` with the full expected string, and do NOT use `toContainText()` (the truncated DOM text does not contain the clipped suffix, so it would also fail for the full expected value).
+
+```javascript
+// WRONG — toHaveText fails when MUI truncates the DOM text
+await expect(trigger).toHaveText(new RegExp(escapeRegex(expectedText), "i"));
+
+// WRONG — toContainText also fails: "216 - Omaha, NE, Oli..." does NOT contain "216 - Omaha, NE, Oliver"
+await expect(trigger).toContainText(expectedText);
+
+// CORRECT — strip "..." then verify expectedText starts with the visible prefix
+await expect(async () => {
+  const raw = ((await trigger.textContent()) ?? "").trim();
+  const visible = raw.endsWith("...") ? raw.slice(0, -3) : raw;
+  const matches =
+    expectedText.toLowerCase() === raw.toLowerCase() ||
+    expectedText.toLowerCase().startsWith(visible.toLowerCase());
+  expect(matches, `Trigger should contain "${expectedText}" but got "${raw}"`).toBe(true);
+}).toPass({ timeout: TIMEOUTS.BASE * 16 });
 ```

@@ -756,12 +756,16 @@ class NotesTaskPage {
 
   /** Click Save in the task drawer and wait for success toast */
   async saveTask() {
+    // Determine which drawer is open BEFORE clicking Save — evaluating isVisible() after the
+    // click violates SKILL.md §4 ("isVisible() as render-gate before critical interaction —
+    // forbidden"): the click may start the close animation immediately, causing isVisible() to
+    // return false and the wrong closeTarget to be passed to waitForMutationFeedback, which then
+    // resolves instantly (element was never visible) and returns before the task list refreshes.
+    const closeTarget = (await this.editTaskDrawerHeading.isVisible().catch(() => false))
+      ? this.editTaskDrawerHeading
+      : this.createTaskDrawerHeading;
     await this.taskSaveBtn.click();
-    await this.waitForMutationFeedback(
-      (await this.editTaskDrawerHeading.isVisible().catch(() => false))
-        ? this.editTaskDrawerHeading
-        : this.createTaskDrawerHeading,
-    );
+    await this.waitForMutationFeedback(closeTarget);
   }
 
   /** Click Cancel in the task drawer */

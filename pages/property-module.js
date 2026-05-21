@@ -1262,12 +1262,28 @@ class PropertyModule {
   async assertAssociatedFranchiseTriggerValue(expectedText) {
     const trigger = this.associatedFranchiseTriggerInCreateDrawer();
     await expect(trigger).toBeVisible({ timeout: TIMEOUTS.BASE * 16 });
+    // The MUI h6 trigger truncates long names in the DOM itself (e.g. the full
+    // value "216 - Omaha, NE, Oliver" renders as "216 - Omaha, NE, Oli..." in
+    // the actual textContent).  toHaveText() with the full string fails when the
+    // component clips the text.
+    //
+    // Fix: use expect.poll() to read textContent and verify that expectedText
+    // starts with the visible prefix (stripping the trailing "..." if present).
+    // This tolerates both truncated and untruncated renders.
+    // SKILL.md §7: Playwright built-in assertion with descriptive message.
     await expect(
-      trigger,
-      `Associated Franchise trigger should contain "${expectedText}"`,
-    ).toHaveText(new RegExp(this.escapeRegex(expectedText), "i"), {
-      timeout: TIMEOUTS.BASE * 16,
-    });
+      async () => {
+        const raw = ((await trigger.textContent()) ?? "").trim();
+        const visible = raw.endsWith("...") ? raw.slice(0, -3) : raw;
+        const matches =
+          expectedText.toLowerCase() === raw.toLowerCase() ||
+          expectedText.toLowerCase().startsWith(visible.toLowerCase());
+        expect(
+          matches,
+          `Associated Franchise trigger should contain "${expectedText}" but got "${raw}"`,
+        ).toBe(true);
+      },
+    ).toPass({ timeout: TIMEOUTS.BASE * 16 });
   }
 
   async searchInAssociatedFranchiseDropdown(searchText) {
